@@ -27,6 +27,7 @@ services:
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
       BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET}
       BETTER_AUTH_URL: ${BETTER_AUTH_URL}
+      API_AUDIENCE: ${API_AUDIENCE:-wattprint-api}
       EXPO_APP_SCHEMES: ${EXPO_APP_SCHEMES}
       CORS_ORIGINS: ${CORS_ORIGINS}
       PORT: 3000
@@ -44,7 +45,9 @@ services:
     container_name: wattprint-api
     environment:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
-      AUTH_SERVICE_URL: http://auth:3000
+      AUTH_JWKS_URL: http://auth:3000/api/auth/jwks
+      AUTH_ISSUER: ${BETTER_AUTH_URL}
+      AUTH_AUDIENCE: ${API_AUDIENCE:-wattprint-api}
       CORS_ORIGINS: ${CORS_ORIGINS}
     ports:
       - "${API_PORT:-8000}:8000"

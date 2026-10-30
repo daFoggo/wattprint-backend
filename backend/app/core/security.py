@@ -1,16 +1,23 @@
-"""Session validation against the Better Auth service.
+"""JWT verification for tokens issued by the Better Auth service (jwt plugin).
 
-The Expo client sends the Better Auth cookie (authClient.getCookie()) or a
-bearer token. Both headers are forwarded to the get-session endpoint.
+The Expo client sends `Authorization: Bearer <jwt>` (authClient.token()). The signature is
+checked against the service's public keys (JWKS), so no request goes to the auth service
+per call. Keys are cached by PyJWKClient and refetched on an unknown `kid`.
 """
 
+from functools import lru_cache
 from typing import Annotated
 
-import httpx
+import jwt
 from fastapi import Depends, HTTPException, Request, status
+from jwt import PyJWKClient
 from pydantic import BaseModel
+from starlette.concurrency import run_in_threadpool
 
 from app.core.config import settings
+
+_ALGORITHMS = ["EdDSA"]
+_LEEWAY_SECONDS = 10
 
 
 class AuthUser(BaseModel):
@@ -20,27 +27,45 @@ class AuthUser(BaseModel):
     email_verified: bool = False
 
 
-async def get_current_user(request: Request) -> AuthUser:
-    headers = {k: v for k in ("cookie", "authorization") if (v := request.headers.get(k))}
-    if not headers:
+@lru_cache
+def get_jwk_client() -> PyJWKClient:
+    return PyJWKClient(settings.auth_jwks_url, cache_keys=True)
+
+
+def _bearer_token(request: Request) -> str:
+    scheme, _, token = request.headers.get("authorization", "").partition(" ")
+    if scheme.lower() != "bearer" or not token.strip():
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Not authenticated")
-    url = f"{settings.auth_service_url}{settings.auth_base_path}/get-session"
+    return token.strip()
+
+
+async def get_current_user(
+    request: Request, jwk_client: Annotated[PyJWKClient, Depends(get_jwk_client)]
+) -> AuthUser:
+    token = _bearer_token(request)
     try:
-        async with httpx.AsyncClient(timeout=5) as client:
-            resp = await client.get(url, headers=headers)
-    except httpx.HTTPError as exc:
+        # PyJWKClient does blocking network IO on a cache miss.
+        signing_key = await run_in_threadpool(jwk_client.get_signing_key_from_jwt, token)
+        claims = jwt.decode(
+            token,
+            signing_key.key,
+            algorithms=_ALGORITHMS,
+            issuer=settings.auth_issuer,
+            audience=settings.auth_audience,
+            options={"require": ["exp", "sub", "iss", "aud"]},
+            leeway=_LEEWAY_SECONDS,
+        )
+    except jwt.PyJWKClientConnectionError as exc:
         raise HTTPException(
             status.HTTP_503_SERVICE_UNAVAILABLE, "Auth service unavailable"
         ) from exc
-    data = resp.json() if resp.status_code == 200 and resp.content else None
-    if not data or not data.get("user"):
-        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid or expired session")
-    u = data["user"]
+    except jwt.PyJWTError as exc:
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid or expired token") from exc
     return AuthUser(
-        id=u["id"],
-        email=u["email"],
-        name=u.get("name"),
-        email_verified=u.get("emailVerified", False),
+        id=claims["sub"],
+        email=claims.get("email", ""),
+        name=claims.get("name"),
+        email_verified=bool(claims.get("emailVerified", False)),
     )
 
 
