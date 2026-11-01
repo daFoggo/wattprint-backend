@@ -23,6 +23,29 @@ _UUID_DEFAULT = text("gen_random_uuid()")
 _NOW = text("now()")
 
 
+class ScopeToken(Base):
+    """Opaque short-lived token naming the one home a Copilot session may read.
+
+    Issued and pruned by wattprint_app; the Copilot role cannot read this table and resolves
+    a token only through copilot_ro.current_home().
+    """
+
+    __tablename__ = "scope_token"
+    __table_args__ = {"schema": "copilot"}
+
+    token: Mapped[uuid.UUID] = mapped_column(
+        primary_key=True, default=uuid.uuid4, server_default=_UUID_DEFAULT
+    )
+    home_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("core.home.id", ondelete="CASCADE"), index=True
+    )
+    expires_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), index=True,
+        server_default=text("now() + interval '5 minutes'"),
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=_NOW)
+
+
 class Conversation(Base):
     __tablename__ = "conversation"
     __table_args__ = {"schema": "copilot"}

@@ -4,6 +4,7 @@ Every test runs on the superuser scratch connection inside a rolled-back transac
 switches identity with SET LOCAL ROLE; no role password or login state is ever touched.
 """
 
+import re
 import uuid
 from datetime import UTC, datetime, timedelta
 
@@ -99,8 +100,11 @@ async def _seed_home(c, name: str) -> dict:
         ),
         {"h": home},
     )
+    token = await c.scalar(
+        text("INSERT INTO copilot.scope_token (home_id) VALUES (:h) RETURNING token"), {"h": home}
+    )
     return {
-        "home": home, "device": device, "series": {main, dev_series}, "bill": bill,
+        "token": token, "home": home, "device": device, "series": {main, dev_series}, "bill": bill,
         "alert": await mk_alert(c, home, device),
         "suggestion": await mk_suggestion(c, home, device),
     }
@@ -125,9 +129,13 @@ async def seed(c) -> tuple[dict, dict, dict]:
     return a, b, hostile
 
 
-async def as_role(c, role: str, home: uuid.UUID | str | None = None) -> None:
-    if home is not None:
-        await c.execute(text("SELECT set_config('app.home_id', :h, true)"), {"h": str(home)})
+async def set_token(c, token: uuid.UUID | str) -> None:
+    await c.execute(text("SELECT set_config('app.copilot_token', :t, true)"), {"t": str(token)})
+
+
+async def as_role(c, role: str, token: uuid.UUID | str | None = None) -> None:
+    if token is not None:
+        await set_token(c, token)
     await c.execute(text(f"SET LOCAL ROLE {role}"))
 
 
@@ -160,7 +168,7 @@ async def denied(c, sql: str, **params) -> None:
 async def test_copilot_sees_only_own_home(conn):
     a, b, _ = await seed(conn)
     for home, other in ((a, b), (b, a)):
-        await as_role(conn, COPILOT, home["home"])
+        await as_role(conn, COPILOT, home["token"])
         for view, n in EXPECTED_ROWS.items():
             assert await view_count(conn, view) == n, (view, "own home")
         assert await view_ids(conn, "home") == {home["home"]}
@@ -177,15 +185,17 @@ async def test_copilot_sees_only_own_home(conn):
         await reset(conn)
 
 
-async def test_copilot_switching_setting_flips_result(conn):
+async def test_copilot_switching_token_flips_result(conn):
     a, b, _ = await seed(conn)
-    await as_role(conn, COPILOT, a["home"])
+    await as_role(conn, COPILOT, a["token"])
     assert await view_ids(conn, "home") == {a["home"]}
-    await conn.execute(text("SELECT set_config('app.home_id', :h, true)"), {"h": str(b["home"])})
+    await set_token(conn, b["token"])
     assert await view_ids(conn, "home") == {b["home"]}
+    await set_token(conn, str(a["token"]).upper())  # case does not matter
+    assert await view_ids(conn, "home") == {a["home"]}
 
 
-async def test_copilot_unset_home_returns_nothing(scratch_dsn):
+async def test_copilot_unset_token_returns_nothing(scratch_dsn):
     # NullPool: a brand new connection, so the setting was never defined in this session.
     engine = create_async_engine(scratch_dsn, poolclass=NullPool)
     try:
@@ -193,16 +203,108 @@ async def test_copilot_unset_home_returns_nothing(scratch_dsn):
             trans = await c.begin()
             await seed(c)
             await c.execute(text(f"SET LOCAL ROLE {COPILOT}"))
-            assert await c.scalar(text("SELECT current_setting('app.home_id', true)")) is None
+            unset = await c.scalar(text("SELECT current_setting('app.copilot_token', true)"))
+            assert unset is None
             for view in COPILOT_VIEWS:
                 assert await view_count(c, view) == 0, (view, "unset")
-            await c.execute(text("SELECT set_config('app.home_id', '', true)"))
-            assert await c.scalar(text("SELECT current_setting('app.home_id', true)")) == ""
-            for view in COPILOT_VIEWS:
-                assert await view_count(c, view) == 0, (view, "empty")
             await trans.rollback()
     finally:
         await engine.dispose()
+
+
+async def test_copilot_bad_tokens_return_nothing_without_error(conn):
+    a, _, _ = await seed(conn)
+    expired = await conn.scalar(
+        text("INSERT INTO copilot.scope_token (home_id, expires_at) "
+             "VALUES (:h, now() - interval '1 second') RETURNING token"),
+        {"h": a["home"]},
+    )
+    await as_role(conn, COPILOT)
+    bad = (
+        "", " ", "not-a-uuid", "x" * 5000, "'; DROP TABLE core.home; --",
+        str(a["token"]) + "0", "{" + str(a["token"]) + "}", str(a["token"]).replace("-", ""),
+        str(uuid.uuid4()),  # well formed, unknown
+        str(expired),  # well formed, known, expired
+    )
+    for value in bad:
+        await set_token(conn, value)
+        for view in COPILOT_VIEWS:
+            assert await view_count(conn, view) == 0, (view, value[:40])
+        assert await conn.scalar(text("SELECT copilot_ro.current_home()")) is None
+    await set_token(conn, a["token"])  # control: the valid token still works
+    assert await view_ids(conn, "home") == {a["home"]}
+
+
+async def test_copilot_home_id_setting_has_no_effect(conn):
+    a, b, _ = await seed(conn)
+    await as_role(conn, COPILOT)
+    await conn.execute(text("SELECT set_config('app.home_id', :h, true)"), {"h": str(b["home"])})
+    for view in COPILOT_VIEWS:  # no token: still nothing
+        assert await view_count(conn, view) == 0, view
+    await set_token(conn, a["token"])
+    inline = text(
+        "SELECT h.id FROM (SELECT set_config('app.home_id', :b, true)) s, copilot_ro.home h"
+    )
+    assert set((await conn.execute(inline, {"b": str(b["home"])})).scalars()) == {a["home"]}
+    assert await view_ids(conn, "home") == {a["home"]}
+
+
+async def test_copilot_inline_token_switch_needs_a_known_token(conn):
+    """Characterisation: the role can set its own session settings, so it can switch to another
+    home inside one SELECT, but only by presenting that home's token. Tokens are 122-bit random
+    uuids, short-lived (5 minutes by default) and unreadable by the role (copilot.scope_token is
+    permission denied), so it cannot learn one. A guessed token sees nothing."""
+    a, b, _ = await seed(conn)
+    await as_role(conn, COPILOT, a["token"])
+    inline = text(
+        "SELECT h.id FROM (SELECT set_config('app.copilot_token', :t, true)) s, "
+        "copilot_ro.home h"
+    )
+    assert set((await conn.execute(inline, {"t": str(b["token"])})).scalars()) == {b["home"]}
+    assert (await conn.execute(inline, {"t": str(uuid.uuid4())})).all() == []
+    await denied(conn, "SELECT token FROM copilot.scope_token")
+
+
+async def test_scope_token_function_is_locked_down(conn):
+    row = (await conn.execute(text(
+        "SELECT p.prosecdef, p.provolatile, p.proconfig, pg_get_userbyid(p.proowner) "
+        "FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace "
+        "WHERE n.nspname = 'copilot_ro' AND p.proname = 'current_home'"
+    ))).one()
+    assert row[0] is True and row[1] in ("s", b"s")
+    assert "search_path=pg_catalog, public" in row[2]
+    assert row[3] not in ROLES
+    acl = (await conn.execute(text(
+        "SELECT a.grantee, a.is_grantable FROM pg_proc p, LATERAL aclexplode(p.proacl) a "
+        "WHERE p.oid = 'copilot_ro.current_home()'::regprocedure"
+    ))).all()
+    assert 0 not in {g for g, _ in acl}  # not PUBLIC
+    assert not any(grantable for _, grantable in acl)
+    for role, want in ((COPILOT, True), (APP, False), (INGEST, False)):
+        got = await conn.scalar(
+            text("SELECT has_function_privilege(:r, 'copilot_ro.current_home()', 'EXECUTE')"),
+            {"r": role},
+        )
+        assert got is want, role
+
+
+async def test_app_issues_and_prunes_tokens_others_cannot_read(conn):
+    a, _, _ = await seed(conn)
+    await as_role(conn, APP)
+    t = await conn.scalar(
+        text("INSERT INTO copilot.scope_token (home_id) VALUES (:h) RETURNING token"),
+        {"h": a["home"]},
+    )
+    assert await conn.scalar(text("SELECT count(*) FROM copilot.scope_token")) >= 2
+    await conn.execute(text("DELETE FROM copilot.scope_token WHERE token = :t"), {"t": t})
+    await denied(conn, "UPDATE copilot.scope_token SET home_id = home_id")
+    await reset(conn)
+    for role in (INGEST, COPILOT):
+        await as_role(conn, role)
+        await denied(conn, "SELECT * FROM copilot.scope_token")
+        await denied(conn, "INSERT INTO copilot.scope_token (home_id) VALUES (gen_random_uuid())")
+        await denied(conn, "DELETE FROM copilot.scope_token")
+        await reset(conn)
 
 
 async def test_copilot_hostile_denormalized_rows_hidden(conn):
@@ -213,7 +315,7 @@ async def test_copilot_hostile_denormalized_rows_hidden(conn):
     for table, n in total.items():  # the hostile rows really exist
         assert await conn.scalar(text(f"SELECT count(*) FROM {table}")) >= n
     for home in (a, b):
-        await as_role(conn, COPILOT, home["home"])
+        await as_role(conn, COPILOT, home["token"])
         assert hostile["alert"] not in await view_ids(conn, "alert")
         assert hostile["suggestion"] not in await view_ids(conn, "suggestion")
         assert await view_count(conn, "device_cycle") == 1
@@ -223,22 +325,12 @@ async def test_copilot_hostile_denormalized_rows_hidden(conn):
         await reset(conn)
 
 
-async def test_copilot_can_override_home_setting_known_limitation(conn):
-    """Characterisation, not an endorsement: app.home_id is a plain custom setting, so the role
-    can set it itself. Isolation holds for statements the backend constructs; a raw-SQL tool
-    must never hand the role free-form SQL. Revisit if the setting is ever protected."""
-    a, b, _ = await seed(conn)
-    await as_role(conn, COPILOT, a["home"])
-    await conn.execute(text("SELECT set_config('app.home_id', :h, true)"), {"h": str(b["home"])})
-    assert await view_ids(conn, "home") == {b["home"]}
-
-
 # --- copilot: privileges ---
 
 
 async def test_copilot_cannot_write(conn):
     a, _, _ = await seed(conn)
-    await as_role(conn, COPILOT, a["home"])
+    await as_role(conn, COPILOT, a["token"])
     for sql in (
         "INSERT INTO copilot_ro.home (id, name) VALUES (gen_random_uuid(), 'x')",
         "UPDATE copilot_ro.home SET name = 'x'",
@@ -261,7 +353,8 @@ async def test_copilot_cannot_write(conn):
 COPILOT_DENIED_READS = (
     "energy.reading", "energy.series", "energy.device_estimate", "energy.reading_1m",
     "core.home", "core.home_member", "core.device", "public.users", "public.refresh_tokens",
-    "billing.bill", "billing.bill_item", "copilot.message", "copilot.suggestion",
+    "billing.bill", "billing.bill_item", "copilot.message",
+    "copilot.scope_token", "copilot.suggestion",
     "insight.alert", "insight.cohort_stat", "ops.ingest_batch",
 )
 
@@ -269,13 +362,13 @@ COPILOT_DENIED_READS = (
 @pytest.mark.parametrize("table", COPILOT_DENIED_READS)
 async def test_copilot_cannot_read_base_tables(conn, table):
     a, _, _ = await seed(conn)
-    await as_role(conn, COPILOT, a["home"])
+    await as_role(conn, COPILOT, a["token"])
     await denied(conn, f"SELECT * FROM {table}")
 
 
 async def test_copilot_can_read_reference_data(conn):
     a, _, _ = await seed(conn)
-    await as_role(conn, COPILOT, a["home"])
+    await as_role(conn, COPILOT, a["token"])
     for table in (
         "knowledge.document", "knowledge.chunk", "catalog.metric", "catalog.device_type",
         "billing.tariff_plan", "billing.tariff_version", "billing.tariff_tier",
@@ -460,7 +553,10 @@ async def test_app_cannot_touch_raw_hypertables_or_ops_writes(conn):
         await denied(conn, sql)
 
 
-# --- exhaustive privilege matrix ---
+# --- privilege matrix ---
+# Covers table-like relations (tables, views, matviews), schema USAGE/CREATE, sequences and
+# grant options in the 8 domain schemas, copilot_ro and public. It does NOT cover functions
+# (EXECUTE: see test_scope_token_function_is_locked_down) or TimescaleDB internal schemas.
 
 TABLE_PRIVS = ("SELECT", "INSERT", "UPDATE", "DELETE", "TRUNCATE", "REFERENCES", "TRIGGER")
 DML = {"SELECT", "INSERT", "UPDATE", "DELETE"}
@@ -469,6 +565,8 @@ AGGS = {f"energy.{f}_{r}" for f in ("reading", "device_estimate") for r in ("1m"
 
 def expected_app(rel: str) -> set[str]:
     schema = rel.split(".")[0]
+    if rel == "copilot.scope_token":
+        return {"SELECT", "INSERT", "DELETE"}
     if schema in ("core", "billing", "insight", "copilot", "knowledge"):
         return DML
     if rel in ("energy.series", "energy.inference_run", "energy.weather_hourly",
@@ -610,7 +708,8 @@ async def test_matrix_covers_all_domain_tables(conn):
             "ops.stale_series", "energy.reading_1d"} <= set(rels)
     for rel in rels:  # a new table without a deliberate decision shows up here
         if rel.split(".")[0] in ("core", "billing", "insight", "copilot", "knowledge"):
-            assert expected_app(rel) == DML
+            want = {"SELECT", "INSERT", "DELETE"} if rel == "copilot.scope_token" else DML
+            assert expected_app(rel) == want
 
 
 # --- migration round trip ---
@@ -655,13 +754,18 @@ async def test_revision_downgrade_removes_grants_and_upgrade_restores_them(throw
         await engine.dispose()
 
 
-async def test_reading_view_pushes_series_filter_into_aggregate(conn):
+@pytest.mark.parametrize(
+    "view", ["reading_1m", "reading_1h", "reading_1d", "device_estimate_1m", "device_estimate_1h"]
+)
+async def test_aggregate_view_pushes_series_filter_into_index_scan(conn, view):
     a, _, _ = await seed(conn)
-    await as_role(conn, COPILOT, a["home"])
+    await conn.execute(text("SET LOCAL enable_seqscan = off"))
+    await as_role(conn, COPILOT, a["token"])
     plan = "\n".join((await conn.execute(
-        text("EXPLAIN SELECT count(*) FROM copilot_ro.reading_1m "
+        text(f"EXPLAIN SELECT count(*) FROM copilot_ro.{view} "
              "WHERE bucket >= :a AND bucket < :b"),
         {"a": T0, "b": T0 + timedelta(days=1)},
     )).scalars())
     # without the pushdown the aggregate is computed for every home and filtered afterwards
-    assert "series_id = ANY" in plan, plan
+    assert "InitPlan" in plan, plan
+    assert re.search(r"Index Cond: .*series_id = ANY \(\(InitPlan \d+\)\.col1\)", plan), plan

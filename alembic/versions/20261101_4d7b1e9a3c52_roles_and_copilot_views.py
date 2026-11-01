@@ -1,8 +1,10 @@
-"""copilot_ro read-only views and per-object role grants
+"""copilot_ro read-only views, scope tokens and per-object role grants
 
 Revision ID: 4d7b1e9a3c52
 Revises: 9e2c4a6b8d10
 """
+
+import sqlalchemy as sa
 
 from alembic import op
 
@@ -15,8 +17,25 @@ APP = "wattprint_app"
 INGEST = "wattprint_ingest"
 COPILOT = "wattprint_copilot_ro"
 
-# An unset or empty setting is NULL, and `col = NULL` matches no row: zero rows, never an error.
-HOME = "NULLIF(current_setting('app.home_id', true), '')::uuid"
+# The Copilot session names its home with an opaque token (setting app.copilot_token) that
+# copilot_ro.current_home() resolves; a missing, expired, unknown or malformed token yields
+# NULL, and `col = NULL` matches no row: zero rows, never an error.
+HOME = "copilot_ro.current_home()"
+
+TOKEN_REGEX = "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+CURRENT_HOME_FN = f"""
+CREATE FUNCTION copilot_ro.current_home() RETURNS uuid
+LANGUAGE sql STABLE SECURITY DEFINER
+SET search_path = pg_catalog, public AS $$
+    SELECT t.home_id
+    FROM copilot.scope_token t
+    WHERE t.expires_at > now()
+      AND t.token::text = (
+          SELECT lower(v) FROM (SELECT current_setting('app.copilot_token', true) AS v) x
+          WHERE v ~ '{TOKEN_REGEX}'
+      )
+$$
+"""
 
 AGG_COLS = "r.bucket, r.series_id, s.device_id, s.kind, r.avg_w, r.min_w, r.max_w, r.last_w, r.n"
 AGG_COLS_COVERED = AGG_COLS + ", r.energy_wh, r.covered_minutes"
@@ -96,7 +115,7 @@ DOMAIN_TABLES = {
     "billing": ("tariff_plan", "tariff_version", "tariff_tier", "bill", "bill_item"),
     "insight": ("device_cycle", "alert", "forecast_snapshot", "cohort_stat"),
     "copilot": ("conversation", "message", "tool_call", "suggestion", "suggestion_feedback",
-                "savings_measure"),
+                "savings_measure", "scope_token"),
     "knowledge": ("document", "chunk"),
 }
 AGGREGATES = tuple(
@@ -126,10 +145,12 @@ TABLE_GRANTS: list[tuple[str, str, tuple[str, ...]]] = [
     ),
     (
         DML, APP,
-        tuple(f"{s}.{t}" for s, ts in DOMAIN_TABLES.items() for t in ts)
+        tuple(f"{s}.{t}" for s, ts in DOMAIN_TABLES.items() if s != "copilot" for t in ts)
+        + tuple(f"copilot.{t}" for t in DOMAIN_TABLES["copilot"] if t != "scope_token")
         + ("energy.series", "energy.inference_run", "energy.weather_hourly",
            "public.users", "public.refresh_tokens"),
     ),
+    ("SELECT, INSERT, DELETE", APP, ("copilot.scope_token",)),
     (
         "SELECT", APP,
         ("catalog.metric", "catalog.device_type") + AGGREGATES
@@ -159,9 +180,31 @@ def _revoke_sequences(role: str) -> None:
         )
 
 
+def _scope_token() -> None:
+    op.create_table(
+        "scope_token",
+        sa.Column("token", sa.UUID, primary_key=True, server_default=sa.text("gen_random_uuid()")),
+        sa.Column("home_id", sa.UUID, nullable=False),
+        sa.Column("expires_at", sa.DateTime(timezone=True), nullable=False,
+                  server_default=sa.text("now() + interval '5 minutes'")),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False,
+                  server_default=sa.text("now()")),
+        sa.ForeignKeyConstraint(["home_id"], ["core.home.id"], ondelete="CASCADE"),
+        schema="copilot",
+    )
+    op.create_index("ix_copilot_scope_token_home_id", "scope_token", ["home_id"],
+                    schema="copilot")
+    op.create_index("ix_copilot_scope_token_expires_at", "scope_token", ["expires_at"],
+                    schema="copilot")
+
+
 def upgrade() -> None:
+    _scope_token()
     op.execute("CREATE SCHEMA copilot_ro")
     op.execute("REVOKE ALL ON SCHEMA copilot_ro FROM PUBLIC")
+    op.execute(CURRENT_HOME_FN)
+    op.execute("REVOKE ALL ON FUNCTION copilot_ro.current_home() FROM PUBLIC")
+    op.execute(f"GRANT EXECUTE ON FUNCTION copilot_ro.current_home() TO {COPILOT}")
     for name, body in VIEWS.items():
         op.execute(f"CREATE VIEW copilot_ro.{name} WITH (security_barrier = true) AS {body}")
         op.execute(f"REVOKE ALL ON copilot_ro.{name} FROM PUBLIC")
@@ -190,4 +233,7 @@ def downgrade() -> None:
             op.execute(f"REVOKE USAGE ON SCHEMA {schema} FROM {role}")
     for name in reversed(list(VIEWS)):
         op.execute(f"DROP VIEW copilot_ro.{name}")
+    op.execute(f"REVOKE ALL ON FUNCTION copilot_ro.current_home() FROM {COPILOT}")
+    op.execute("DROP FUNCTION copilot_ro.current_home()")
     op.execute("DROP SCHEMA copilot_ro")
+    op.drop_table("scope_token", schema="copilot")

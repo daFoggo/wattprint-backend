@@ -727,8 +727,8 @@ async def test_domain_tables_downgrade_upgrade(throwaway_dsn):
     )
     try:
         async with engine.connect() as c:
-            # ops.set_policies is a function, not a table: only the 14 new ones count here
-            assert await c.scalar(tables) == 14 and await c.scalar(views) == 2
+            # 14 tables of this revision plus copilot.scope_token (added by the roles revision)
+            assert await c.scalar(tables) == 15 and await c.scalar(views) == 2
             assert await c.scalar(func) == 1
         run_alembic(throwaway_dsn, "downgrade", "d7b3f9a2c6e4")
         async with engine.connect() as c:
@@ -736,7 +736,7 @@ async def test_domain_tables_downgrade_upgrade(throwaway_dsn):
             assert await c.scalar(func) == 0
         run_alembic(throwaway_dsn, "upgrade", "head")
         async with engine.connect() as c:
-            assert await c.scalar(tables) == 14 and await c.scalar(views) == 2
+            assert await c.scalar(tables) == 15 and await c.scalar(views) == 2
             assert await c.scalar(func) == 1
     finally:
         await engine.dispose()
