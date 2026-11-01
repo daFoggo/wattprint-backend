@@ -153,6 +153,11 @@ async def test_checkpoint_advances_to_max_ts_and_never_goes_back(session, rig):
     assert await checkpoint(session, sid) == at(12)
     # no checkpoint for a series that got no valid row, and none for another source
     assert await checkpoint(session, rig["sids"]["v"]) is None
+    other = await session.scalar(
+        text("SELECT count(*) FROM ops.ingest_checkpoint WHERE source <> :s AND series_id = :i"),
+        {"s": SOURCE, "i": sid},
+    )
+    assert other == 0
 
 
 async def test_batch_row_is_recorded_ok_with_counts(session, rig):
@@ -168,23 +173,65 @@ async def test_batch_row_is_recorded_ok_with_counts(session, rig):
     assert b.finished_at is not None and b.note is None
 
 
-async def test_failed_write_marks_batch_failed_and_reraises(session, rig):
-    # 1e300 is outside the REAL range: the cast to real fails inside the write.
-    rows = [ReadingRow(at(0), "p", 1.0), ReadingRow(at(1), "p", 1e300)]
-    with pytest.raises(Exception, match="out of range"):
-        await ingest_readings(session, rig["serial"], rows, SOURCE)
+async def test_failed_write_marks_batch_failed_and_reraises(session, rig, monkeypatch):
+    real = ingest_mod._write_readings
+
+    async def write_then_fail(sess, valid, source):
+        await real(sess, valid, source)  # data + checkpoint really written, then rolled back
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr(ingest_mod, "_write_readings", write_then_fail)
+    with pytest.raises(RuntimeError, match="boom"):
+        await ingest_readings(session, rig["serial"], [ReadingRow(at(0), "p", 1.0)], SOURCE)
     b = (
         await session.execute(
             text("SELECT status, note, finished_at FROM ops.ingest_batch WHERE source = :s"),
             {"s": SOURCE},
         )
     ).one()
-    assert b.status == "failed" and "out of range" in b.note and b.finished_at is not None
+    assert b.status == "failed" and b.note == "RuntimeError: boom" and b.finished_at is not None
     assert await stored(session, rig["sids"]["p"]) == []  # data write rolled back
     assert await checkpoint(session, rig["sids"]["p"]) is None
-    # the session is still usable afterwards
+    monkeypatch.undo()
     res = await ingest_readings(session, rig["serial"], [ReadingRow(at(0), "p", 1.0)], SOURCE)
-    assert res.rows_new == 1
+    assert res.rows_new == 1  # the session is still usable
+
+
+async def test_db_error_note_is_dbapi_text(session, rig, monkeypatch):
+    async def bad_write(sess, valid, source):
+        await sess.execute(text("SELECT 1/0"))
+
+    monkeypatch.setattr(ingest_mod, "_write_readings", bad_write)
+    with pytest.raises(Exception, match="division by zero"):
+        await ingest_readings(session, rig["serial"], [ReadingRow(at(0), "p", 1.0)], SOURCE)
+    note = await session.scalar(
+        text("SELECT note FROM ops.ingest_batch WHERE source = :s"), {"s": SOURCE}
+    )
+    assert "division by zero" in note and "SELECT" not in note
+
+
+async def test_out_of_range_value_counted_bad(session, rig):
+    rows = [
+        ReadingRow(at(0), "p", 1e300),
+        ReadingRow(at(1), "p", -1e39),
+        ReadingRow(at(2), "p", 3.4028234e38),  # largest REAL: valid
+        ReadingRow(at(3), "p", 1.0),
+    ]
+    res = await ingest_readings(session, rig["serial"], rows, SOURCE)
+    assert (res.rows_new, res.rows_bad) == (2, 2)
+    assert_adds_up(res)
+
+
+async def test_non_datetime_ts_and_bool_quality_counted_bad(session, rig):
+    rows = [
+        ReadingRow("2026-11-01T00:00:00+00:00", "p", 1.0),  # type: ignore[arg-type]
+        ReadingRow(at(1), "p", 1.0, quality=True),
+        ReadingRow(at(2), "p", "abc"),  # type: ignore[arg-type]
+        ReadingRow(at(3), "p", 1.0),
+    ]
+    res = await ingest_readings(session, rig["serial"], rows, SOURCE)
+    assert (res.rows_new, res.rows_bad) == (1, 3)
+    assert_adds_up(res)
 
 
 async def test_unknown_meter_raises_and_writes_no_batch(session, rig):
@@ -261,26 +308,63 @@ async def test_two_batches_in_one_transaction(session, rig):
     b = await ingest_readings(session, rig["serial"], [ReadingRow(at(1), "p", 2.0)], "other")
     assert a.batch_id != b.batch_id
     assert (a.rows_new, b.rows_new) == (1, 1)
+    t = {
+        r.id: r
+        for r in (await session.execute(text("SELECT * FROM ops.ingest_batch"))).all()
+    }
+    ba, bb = t[a.batch_id], t[b.batch_id]
+    assert ba.started_at < bb.started_at
+    assert ba.finished_at >= ba.started_at and bb.finished_at >= bb.started_at
+    assert ba.finished_at <= bb.started_at
     assert len(await stored(session, rig["sids"]["p"])) == 2
 
 
 async def test_ingest_runs_with_ingest_role_privileges(session, rig):
     sid = await _est_series(session, rig)
     await session.execute(text("SET LOCAL ROLE wattprint_ingest"))
-    res = await ingest_readings(
-        session, rig["serial"], [ReadingRow(at(0), "p", 1.0), ReadingRow(at(1), "v", 2.0)], SOURCE
-    )
+    rows = [ReadingRow(at(0), "p", 1.0), ReadingRow(at(1), "v", 2.0)]
+    res = await ingest_readings(session, rig["serial"], rows, SOURCE)
     assert (res.rows_new, res.rows_bad) == (2, 0)
+    # second batch: checkpoint DO UPDATE path (and a duplicate)
+    res = await ingest_readings(
+        session, rig["serial"], [ReadingRow(at(1), "v", 2.0), ReadingRow(at(5), "p", 3.0)], SOURCE
+    )
+    assert (res.rows_new, res.rows_dup) == (1, 1)
     assert await ingest_estimates(session, 1, [(at(0), sid, 5.0)]) == 1
+    assert await ingest_estimates(session, 2, [(at(0), sid, 6.0)]) == 1  # DO UPDATE path
     await session.execute(text("RESET ROLE"))
+    assert await checkpoint(session, rig["sids"]["p"]) == at(5)
+    run = await session.scalar(
+        text("SELECT run_id FROM energy.device_estimate WHERE series_id = :s"), {"s": sid}
+    )
+    assert run == 2
 
 
-async def test_throughput_100k_rows(session, rig):
+async def test_throughput_100k_rows(session, rig, monkeypatch):
     n = 100_000
     rows = [ReadingRow(at(i), "p" if i % 2 else "v", float(i % 5000)) for i in range(n)]
+    real, spent = ingest_mod._write_readings, []
+
+    async def timed(sess, valid, source):
+        t0 = time.perf_counter()
+        try:
+            return await real(sess, valid, source)
+        finally:
+            spent.append(time.perf_counter() - t0)
+
+    monkeypatch.setattr(ingest_mod, "_write_readings", timed)
     t = time.perf_counter()
     res = await ingest_readings(session, rig["serial"], rows, SOURCE)
     dt = time.perf_counter() - t
-    print(f"\nTHROUGHPUT ingest_readings: {n} rows in {dt:.2f}s = {n / dt:,.0f} rows/s")
+    print(
+        f"THROUGHPUT ingest_readings: {n} rows in {dt:.2f}s = {n / dt:,.0f} rows/s; "
+        f"COPY+INSERT {spent[0]:.2f}s, rest (classification, bookkeeping) {dt - spent[0]:.2f}s"
+    )
     assert (res.rows_in, res.rows_new, res.rows_dup, res.rows_bad) == (n, n, 0, 0)
-    assert ingest_mod.ReadingRow is ReadingRow
+    b = (
+        await session.execute(
+            text("SELECT finished_at - started_at AS d FROM ops.ingest_batch WHERE id = :i"),
+            {"i": res.batch_id},
+        )
+    ).one()
+    assert b.d > timedelta(0)
