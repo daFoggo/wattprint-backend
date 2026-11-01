@@ -289,10 +289,11 @@ def test_rebuild_from_empty():
             run_alembic(dsn, "upgrade", "head")  # the only schema step
             env = {**os.environ, "DATABASE_URL": make_url(scratch_url(name)).render_as_string(
                 hide_password=False)}
-            # shift the first rows to 5 days ago so a retention run (400 d) cannot drop them
+            # policies are ON after the migration: the loader refuses data the retention or the
+            # compression policy would touch, so move the first row into the last 2 days
             first = int(open(csv_path(1)).readlines()[1].split(",")[1])
-            first_day = datetime.fromtimestamp(first, UTC).date()
-            shift = (datetime.now(UTC).date() - timedelta(days=5) - first_day).days
+            first_ts = datetime.fromtimestamp(first, UTC)
+            shift = (datetime.now(UTC) - timedelta(hours=6) - first_ts).days
             proc = subprocess.run(
                 [sys.executable, "-m", "app.cli.load_refit", "--house", "1", "--limit-rows",
                  "10000", "--shift-days", str(shift)], cwd=ROOT, env=env, capture_output=True,

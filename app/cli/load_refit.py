@@ -1,7 +1,13 @@
 """Load a REFIT CLEAN_House<N>.csv into energy.reading.
 
     python -m app.cli.load_refit --house N [--csv PATH] [--shift-days D] [--limit-rows R]
-                                 [--batch-rows B] [--owner-email E]
+                                 [--batch-rows B] [--owner-email E] [--allow-active-policies]
+
+Loading history needs the retention and compression policies of energy.reading OFF
+(`SELECT ops.set_policies(false)`) or dates shifted into their windows (`--shift-days`): the
+migrated database has them ON, the retention job would delete REFIT data older than its window
+and the compression job would compress chunks while they are being loaded. The CLI refuses
+otherwise; `--allow-active-policies` overrides.
 """
 
 import argparse
@@ -15,6 +21,7 @@ from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..services.ingest import IngestResult, ReadingRow, ingest_readings
@@ -24,6 +31,62 @@ SOURCE = "refit"
 EXPECTED_COLUMNS = 13  # Time, Unix, Aggregate, Appliance1..9, Issues
 BAD_CHANNEL = "<malformed csv row>"  # maps to no series, so ingest counts the row as bad
 DEFAULT_CSV = "/data/CLEAN_REFIT_081116/CLEAN_House{house}.csv"
+
+
+def first_timestamp(csv_path: Path, shift: timedelta) -> datetime | None:
+    """Shifted timestamp of the first data row (None for an empty or malformed file)."""
+    with open(csv_path, newline="", encoding="utf-8") as f:
+        reader = csv.reader(f)
+        next(reader, None)
+        for row in reader:
+            if row:
+                try:
+                    return datetime.fromtimestamp(int(row[1]), UTC) + shift
+                except (IndexError, ValueError, OverflowError, OSError):
+                    return None
+    return None
+
+
+async def policy_conflict(session: AsyncSession, first_ts: datetime | None) -> str | None:
+    """Why loading data starting at first_ts would fight an active policy of energy.reading.
+
+    A scheduled retention job deletes data older than its drop_after window and a scheduled
+    compression job compresses chunks older than compress_after while the load is running.
+    Returns a message, or None when no active policy would touch the data.
+    """
+    if first_ts is None:
+        return None
+    jobs = (
+        await session.execute(
+            text("SELECT proc_name, config->>'drop_after' AS drop_after, "
+                 "config->>'compress_after' AS compress_after, "
+                 "now() - CAST(coalesce(config->>'drop_after', config->>'compress_after') "
+                 "AS interval) AS cutoff "
+                 "FROM timescaledb_information.jobs WHERE hypertable_schema = 'energy' "
+                 "AND hypertable_name = 'reading' AND scheduled "
+                 "AND proc_name IN ('policy_retention', 'policy_compression') ORDER BY proc_name")
+        )
+    ).all()
+    problems = []
+    for j in jobs:
+        if first_ts >= j.cutoff:
+            continue
+        if j.proc_name == "policy_retention":
+            problems.append(
+                f"the retention policy of energy.reading (drop_after {j.drop_after}) deletes data "
+                f"older than {j.cutoff:%Y-%m-%d}")
+        else:
+            problems.append(
+                f"the compression policy of energy.reading (compress_after {j.compress_after}) "
+                f"compresses chunks older than {j.cutoff:%Y-%m-%d} while they are loaded")
+    if not problems:
+        return None
+    return (
+        f"the data starts at {first_ts:%Y-%m-%d}, but " + " and ".join(problems)
+        + ". Move the dates into the window with --shift-days, or run "
+        "SELECT ops.set_policies(false) before loading history "
+        "(--allow-active-policies overrides this check)."
+    )
 
 
 def csv_row_to_readings(row: list[str], shift: timedelta) -> list[ReadingRow]:
@@ -123,6 +186,8 @@ def _parser() -> argparse.ArgumentParser:
     p.add_argument("--limit-rows", type=_positive)
     p.add_argument("--batch-rows", type=_positive, default=30_000)
     p.add_argument("--owner-email")
+    p.add_argument("--allow-active-policies", action="store_true",
+                   help="load even if an active retention/compression policy would touch the data")
     return p
 
 
@@ -152,6 +217,12 @@ async def main(
                 print(f"error: {exc}", file=sys.stderr)
                 return 2
             await session.commit()
+            if not args.allow_active_policies:
+                first_ts = first_timestamp(path, timedelta(days=args.shift_days))
+                conflict = await policy_conflict(session, first_ts)
+                if conflict:
+                    print(f"error: {conflict}", file=sys.stderr)
+                    return 2
             started = time.perf_counter()
             res = await load_house(
                 session, args.house, path, args.shift_days, args.batch_rows, args.limit_rows

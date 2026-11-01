@@ -7,7 +7,7 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
-from app.cli.load_refit import load_house, main
+from app.cli.load_refit import first_timestamp, load_house, main
 from app.cli.provision_refit import METADATA, device_type_for, provision_house
 from app.services import ingest as ingest_mod
 from app.services.aggregates import backfill_aggregates
@@ -339,6 +339,10 @@ async def committed(throwaway_dsn):
     engine = create_async_engine(throwaway_dsn)
     factory = async_sessionmaker(engine, expire_on_commit=False)
     try:
+        # history loads need the retention/compression policies off (see the guard tests below)
+        async with engine.connect() as c:
+            await c.execute(text("SELECT ops.set_policies(false)"))
+            await c.commit()
         yield factory
     finally:
         await engine.dispose()
@@ -449,3 +453,72 @@ async def test_cli_rejects_meaningless_numbers(bad):
     with pytest.raises(SystemExit) as exc:
         await main(["--house", "1", *bad])
     assert exc.value.code == 2
+
+
+# ---------- policy guard ----------
+
+
+async def policies_on(factory):
+    async with factory() as s:
+        await s.execute(text("SELECT ops.set_policies(true)"))
+        await s.commit()
+
+
+def args_for(*extra: str) -> list[str]:
+    return ["--house", "1", "--csv", str(SAMPLE), "--owner-email", email(), *extra]
+
+
+async def test_cli_refuses_old_data_while_retention_policy_is_active(committed, capsys):
+    await policies_on(committed)
+    assert await main(args_for(), session_factory=committed) == 2  # 2013 data, 400 d retention
+    err = capsys.readouterr().err
+    assert "retention policy" in err and "--shift-days" in err and "set_policies(false)" in err
+    assert "--allow-active-policies" in err
+    async with committed() as s:
+        assert await count(s, "SELECT count(*) FROM energy.reading") == 0
+
+
+async def test_cli_refuses_data_the_compression_policy_would_compress(committed, capsys):
+    await policies_on(committed)
+    first = first_timestamp(SAMPLE, timedelta(0))
+    shift = (datetime.now(UTC) - timedelta(days=100) - first).days  # inside retention, > 2 d old
+    assert await main(args_for("--shift-days", str(shift)), session_factory=committed) == 2
+    err = capsys.readouterr().err
+    assert "compression policy" in err and "retention policy" not in err
+
+
+async def test_cli_loads_recent_data_with_policies_on(committed):
+    await policies_on(committed)
+    first = first_timestamp(SAMPLE, timedelta(0))
+    shift = (datetime.now(UTC) - timedelta(hours=6) - first).days  # first row < 1 day old
+    assert await main(args_for("--shift-days", str(shift)), session_factory=committed) == 0
+    async with committed() as s:
+        assert await count(s, "SELECT count(*) FROM energy.reading") == SAMPLE_ROWS * 10
+
+
+async def test_cli_override_loads_despite_active_policies(committed):
+    await policies_on(committed)
+    assert await main(args_for("--allow-active-policies"), session_factory=committed) == 0
+    async with committed() as s:
+        assert await count(s, "SELECT count(*) FROM energy.reading") == SAMPLE_ROWS * 10
+
+
+async def test_cli_loads_old_data_when_policies_are_off(committed):
+    assert await main(args_for(), session_factory=committed) == 0  # the fixture switched them off
+
+
+async def test_paused_policy_jobs_do_not_block_the_load(committed):
+    await policies_on(committed)
+    async with committed() as s:
+        await s.execute(text("SELECT alter_job(job_id, scheduled => false) FROM "
+                             "timescaledb_information.jobs WHERE hypertable_name IS NOT NULL"))
+        await s.commit()
+    assert await main(args_for(), session_factory=committed) == 0
+
+
+def test_first_timestamp_applies_the_shift(tmp_path):
+    first = first_timestamp(SAMPLE, timedelta(0))
+    assert first_timestamp(SAMPLE, timedelta(days=3)) == first + timedelta(days=3)
+    empty = tmp_path / "e.csv"
+    empty.write_text("Time,Unix\n", encoding="utf-8")
+    assert first_timestamp(empty, timedelta(0)) is None

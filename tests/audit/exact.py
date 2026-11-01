@@ -1,7 +1,12 @@
 """Reference calculation for the energy audit (reads raw tables; product code must not).
 
 Exact value per local day (Asia/Ho_Chi_Minh): zero-order-hold integration of the raw samples,
-dt_i = least(lead(ts) - ts, 5 x median cadence), only samples with quality & 1 = 0 contribute.
+dt_i = least(lead(ts) - ts, cap), only samples with quality & 1 = 0 contribute.
+
+Two references are used. The ORIGINAL one (cap 5 x median cadence, flagged time missing) is the
+default of `exact_days` and is kept as a recorded diagnostic. The one the 1% gate measures is the
+RESTATED reference of spec section 9: `hold_across_flagged=True, cap_s=120` (flagged samples are
+dropped before integrating and a hold lasts at most 2 minutes, like the minute rule of energy_wh).
 """
 
 from datetime import datetime

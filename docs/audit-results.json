@@ -342,6 +342,29 @@
   },
   "energy_gate_baseline": {
     "house1": {
+      "days_over_gate": 19,
+      "err_pct_max": 3.7409704071753693,
+      "err_pct_p95": 0.7951118539373547,
+      "reference": "hold_across_flagged_cap_120s",
+      "source": "first measurement, pre-compression"
+    },
+    "house2": {
+      "days_over_gate": 16,
+      "err_pct_max": 2.355293941124697,
+      "err_pct_p95": 0.9205137999870517,
+      "reference": "hold_across_flagged_cap_120s",
+      "source": "first measurement, pre-compression"
+    },
+    "house3": {
+      "days_over_gate": 30,
+      "err_pct_max": 4.379069513196201,
+      "err_pct_p95": 1.2228340036752423,
+      "reference": "hold_across_flagged_cap_120s",
+      "source": "first measurement, pre-compression"
+    }
+  },
+  "energy_gate_baseline_original_reference": {
+    "house1": {
       "days_over_gate": 129,
       "err_pct_max": 53.80991201642898,
       "source": "first measurement, pre-compression"
@@ -3111,7 +3134,7 @@
   "rebuild": {
     "from_empty": {
       "device_types_seeded": 22,
-      "load_output": "house 1: rows_in=100000 rows_new=100000 rows_dup=0 rows_bad=0 in 2.0s (50,558 readings/s)",
+      "load_output": "house 1: rows_in=100000 rows_new=100000 rows_dup=0 rows_bad=0 in 1.9s (53,575 readings/s)",
       "manual_steps": 0,
       "policy_jobs_after_migration": 14,
       "readings": 100000,

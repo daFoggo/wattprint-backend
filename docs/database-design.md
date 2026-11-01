@@ -62,7 +62,7 @@ Mọi nguồn dữ liệu đi qua một hàm duy nhất, `app/services/ingest.py
 `(meter serial, channel, ts, value, quality)`, tra `series_id` qua `series(meter_id, source_channel)`,
 COPY các dòng hợp lệ vào một temp table staging, rồi `INSERT ... ON CONFLICT (series_id, ts) DO NOTHING`
 và cập nhật `ops.ingest_checkpoint` theo từng series. Mỗi lần gọi ghi một dòng `ops.ingest_batch` với
-`rows_in = rows_new + rows_dup + rows_bad`, nên nạp lại cùng một file là no-op (idempotent). Vì vòng phân
+`rows_in = rows_new + rows_dup + rows_bad`, nên nạp lại cùng một file không đổi dữ liệu (idempotent), nhưng mỗi lần gọi vẫn ghi một dòng `ops.ingest_batch`. Vì vòng phân
 loại giữ mọi dòng trong bộ nhớ, caller phải chia nhỏ input (50k-500k dòng mỗi lần gọi). Loader REFIT
 (`app.cli.load_refit`) chỉ là một CLI gọi đúng hàm này, mặc định 30.000 dòng CSV (mười reading mỗi dòng)
 mỗi batch, nên REFIT thật sự chạy qua đường production; endpoint cho meter sau này cũng sẽ gọi hàm đó.
@@ -125,7 +125,7 @@ chỉ cho phép một câu SELECT, chặn `set_config`, `current_setting` của 
 - **`ops.set_policies(true|false)`** bật/tắt toàn bộ policy một cách idempotent. Chú ý: `alembic upgrade
   head` **bật tất cả policy** (14 job). Trước khi nạp lịch sử cũ hơn 400 ngày phải gọi
   `ops.set_policies(false)`, nếu không retention sẽ xóa chính dữ liệu vừa nạp; nạp xong, backfill rồi mới
-  bật lại.
+  bật lại. CLI nạp REFIT từ chối chạy (mã thoát 2, thông báo nêu `--shift-days` hoặc `set_policies(false)`) khi job retention hoặc compression của `energy.reading` đang bật và dữ liệu sau khi dời cũ hơn cửa sổ của chúng; `--allow-active-policies` để ghi đè.
 - **Backfill:** dữ liệu trễ cũ hơn cửa sổ refresh được lấy bằng
   `app/services/aggregates.py::backfill_aggregates` (Python, async, connection AUTOCOMMIT, vì
   `refresh_continuous_aggregate` không chạy được trong transaction hay function). Hàm có **guard** mặc
@@ -156,8 +156,9 @@ trong lúc nạp. Máy audit: PostgreSQL 17.11, TimescaleDB 2.31.0, 16 CPU, `sha
 | Idempotency | nạp lại 1,000,000 reading: 0 mới, 1,000,000 trùng, count và checksum `reading_1d` không đổi, cả trên chunk đã compress | đo, PASS |
 | Compression raw | 17x trên cả hai hypertable (`reading` 18.8 GB → 1.1 GB, 5.6 byte/reading); kết quả theo ngày giống hệt trước và sau | đo |
 | Aggregate | chưa compress 6.5 GB (3x raw đã compress); compress 1m trên bản sao một tháng của house 1: 19.1x (`reading_1m`) và 23.1x (`device_estimate_1m`); áp lên toàn bộ dữ liệu audit dự kiến còn khoảng 0.3 GB | đo trên bản sao; con số 0.3 GB là ngoại suy |
-| Dung lượng mỗi home-year | 0.88 GB (raw + aggregate chưa compress) | đo |
+| Dung lượng mỗi home-year | 0.88 GB (`reading` + các aggregate của nó, chưa compress; **không** gồm `device_estimate` và aggregate của nó) | đo |
 | Latency p95 (warm / cửa sổ thay đổi, ms) | series 1d/90 ngày 4.0 / 3.7; 6h/90 ngày 6.3 / 5.3; 1h/45 ngày 5.7 / 5.7; 5m/1 ngày 4.4 / 10.8; Week (15m/7 ngày) 11.6 / 52.3; `latest_power` 2.5 / 4.3; device breakdown 1 ngày 3.1 / 2.8, 30 ngày 3.9 / 3.4; `compute_bill` 16.3 / 17.0 | đo, PASS (mục tiêu 100 ms, `latest_power` 20 ms) |
+| Điều kiện đo latency | đo **trước** 10c: aggregate 1m chưa compress, policy tắt; đọc trên 1m đã compress chỉ đo trên bản sao một tháng (1.4-2.0 ms p95), chưa đo trên toàn bộ dữ liệu | đo |
 | Latency khi watermark tụt | 772 dòng raw mới hơn cả ba watermark: điểm cuối của mọi tầng hiển thị giá trị mới; p95 1.9 (`latest_power`), 5.0 (1d), 5.7 (1h), 4.4 (5m), 11.3 (Week) | đo |
 | Plan | aggregate đọc 0-11 chunk relation, 0 shared read; sau khi restart server, lần gọi đầu 2.6-48 ms (page cache của OS vẫn ấm) | đo |
 | Failure drill | trùng batch, dữ liệu trễ và sai thứ tự, khoảng trống 90 phút, dòng gắn cờ `Issues`, refresh job dừng: 5/5 PASS | đo |
@@ -194,7 +195,7 @@ không có khẳng định nào rằng hệ thống giữ được các mức tr
 
 ## 6. Việc còn mở
 
-- **Gate năng lượng 1% theo từng home-day: FAIL như đã đo.** Với tham chiếu ban đầu (giữ mẫu tối đa 5 ×
+- **Gate năng lượng 1% theo từng home-day: FAIL như đã đo, với cả hai tham chiếu.** `test_energy_gate_one_percent` đo tham chiếu **đã sửa** của spec (giữ qua mẫu gắn cờ, cap 120 s): 19/512, 16/432, 30/415 ngày vượt 1% (max 3.7 / 2.4 / 4.4%, p95 0.80 / 0.92 / 1.22%). Tham chiếu ban đầu chỉ còn là chẩn đoán được ghi lại. Với tham chiếu ban đầu (giữ mẫu tối đa 5 ×
   cadence trung vị = 35 s, mẫu gắn cờ tính là thời gian thiếu), 507 trên 1,359 ngày có coverage ≥ 95%
   lệch hơn 1% (max 54%, p95 1.9-5.4%), view gần như luôn cao hơn. Nguyên nhân: meter REFIT thường log
   khoảng 62 s một lần, cap 35 s coi đó là thiếu trong khi `energy_wh` tính trọn phút; và mẫu gắn cờ
@@ -202,6 +203,9 @@ không có khẳng định nào rằng hệ thống giữ được các mức tr
   qua mẫu gắn cờ, cap 120 s): p95 0.8-1.2%, max 2.4-4.4%, vẫn còn 16-30 ngày mỗi house vượt 1% (chưa
   điều tra). **Cần chủ spec quyết định:** giữ gate 1% cho mọi ngày, hay chấp nhận cách phát biểu theo
   p95 ("p95 khoảng 1%, max 4.4%"). Đến lúc đó `test_energy_gate_one_percent` vẫn là xfail mang số đo.
+- **Read model của device và billing chỉ đọc series `kind = 'device'` (NILM).** Nhà chỉ có series `plug` (REFIT) sẽ có device breakdown rỗng và các kênh plug không xuất hiện trong bill item. Cần quyết định (đọc cả `plug`, hay dựng series `device` từ plug) trước khi làm API.
+- **Ingest dùng bảng TEMP staging nên phụ thuộc quyền `TEMP` của `PUBLIC`.** Nếu sau này chạy `REVOKE TEMPORARY ON DATABASE ... FROM PUBLIC` thì ingest hỏng, trừ khi `wattprint_ingest` được cấp `TEMP` riêng.
+- **Migration nền tảng đặt mật khẩu role dưới dạng literal trong `ALTER ROLE`,** nên nhìn thấy được trong log khi `log_statement = ddl|all`. Cần đổi cách đặt mật khẩu (hoặc tắt log DDL) ở môi trường thật.
 - **House 4-20 chưa nạp.** Tăng trưởng được ngoại suy từ house 1-3; nạp đủ 20 house là quyết định sau.
 - **Ingest đồng thời chưa test:** chưa đo ingest batch nhỏ từ nhiều meter cùng lúc, cùng với compression
   và refresh chạy song song.

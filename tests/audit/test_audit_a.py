@@ -140,30 +140,44 @@ async def test_energy_coverage_consistent(energy_numbers, phase):
         results.record("energy_sample", "days", sample)
 
 
+GATE_REFERENCE = "hold_across_flagged_cap_120s"  # the reference of spec section 9 (restated)
+
+
 async def test_energy_gate_one_percent(energy_numbers):
-    """The 1% gate on days with coverage >= 95%: fails today, measured (docs/database-audit.md,
-    section "Verdicts"). Passes if no day exceeds 1%; is an xfail carrying the measured numbers
-    while the result equals the recorded baseline; FAILS if it got worse than the baseline.
+    """The 1% gate on days with coverage >= 95%, measured against the RESTATED reference of spec
+    section 9 (flagged samples dropped before integrating, gap cap 120 s). The original reference
+    (cap 5 x median, flagged = missing) is only a recorded diagnostic (energy_vs_exact_*). The gate
+    fails today (docs/database-audit.md, "Verdicts"): passes if no day exceeds 1%, is an xfail
+    carrying the measured numbers while the result is no worse than the recorded baseline, and
+    FAILS if days over the gate, the maximum or the p95 got worse.
     """
     base = results.load().get("energy_gate_baseline", {})
-    measured = {}
-    for house, (_sid, _cad, exact, view, _v) in energy_numbers.items():
-        full = compare(exact, view)["full_coverage"]
+    measured, original = {}, {}
+    for house, (_sid, _cad, exact, view, variants) in energy_numbers.items():
+        full = compare(variants[GATE_REFERENCE], view)["full_coverage"]
         measured[f"house{house}"] = {
             "days": full["days"], "days_over_gate": full["days_over_gate"],
             "err_pct_max": full["err_pct_max"], "err_pct_p95": full["err_pct_p95"],
         }
+        orig = compare(exact, view)["full_coverage"]
+        original[f"house{house}"] = {"days_over_gate": orig["days_over_gate"],
+                                     "err_pct_max": orig["err_pct_max"]}
     if all(m["days_over_gate"] == 0 for m in measured.values()):
         return
     assert base, "gate failing and no energy_gate_baseline recorded"
+    assert all(b.get("reference") == GATE_REFERENCE for b in base.values()), (
+        "energy_gate_baseline was recorded for another reference")
     worse = {
         h: (m, base[h]) for h, m in measured.items()
         if m["days_over_gate"] > base[h]["days_over_gate"]
         or m["err_pct_max"] > base[h]["err_pct_max"] * (1 + 1e-6)
+        or m["err_pct_p95"] > base[h]["err_pct_p95"] * (1 + 1e-6)
     }
     assert not worse, f"gate result got WORSE than the recorded baseline: {worse}"
-    pytest.xfail(f"1% gate fails as recorded in the baseline (docs/database-audit.md, Verdicts): "
-                 f"{measured}")
+    pytest.xfail(
+        f"1% gate fails against the restated reference ({GATE_REFERENCE}), as recorded "
+        f"(docs/database-audit.md, Verdicts): {measured}; original reference (diagnostic): "
+        f"{original}")
 
 
 async def test_energy_after_compression(energy_numbers, phase):

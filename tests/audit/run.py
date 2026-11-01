@@ -521,11 +521,19 @@ async def stage_examples(args) -> None:
     results.record("energy_examples", "house1_days", out)
     data = results.load()
     if "energy_gate_baseline" not in data:
-        pre = data["energy_vs_exact_pre_compress"]
-        for house, v in pre.items():
+        # the gate measures the restated reference (spec section 9): hold across flagged samples,
+        # gap cap 120 s; the original reference is kept as a recorded diagnostic baseline
+        pre = data["energy_variants_pre_compress"]
+        orig = data["energy_vs_exact_pre_compress"]
+        for house in ("house1", "house2", "house3"):
+            v = pre[f"{house}.hold_across_flagged_cap_120s"]["full_coverage"]
             results.record("energy_gate_baseline", house, {
-                "days_over_gate": v["full_coverage"]["days_over_gate"],
-                "err_pct_max": v["full_coverage"]["err_pct_max"],
+                "days_over_gate": v["days_over_gate"], "err_pct_max": v["err_pct_max"],
+                "err_pct_p95": v["err_pct_p95"], "reference": "hold_across_flagged_cap_120s",
+                "source": "first measurement, pre-compression"})
+            o = orig[house]["full_coverage"]
+            results.record("energy_gate_baseline_original_reference", house, {
+                "days_over_gate": o["days_over_gate"], "err_pct_max": o["err_pct_max"],
                 "source": "first measurement, pre-compression"})
 
 
