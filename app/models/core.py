@@ -45,8 +45,9 @@ class Home(Base):
     timezone: Mapped[str] = mapped_column(
         String(64), default="Asia/Ho_Chi_Minh", server_default="Asia/Ho_Chi_Minh"
     )
-    # FK to billing.tariff_plan(code) is added with the billing tables.
-    tariff_plan_code: Mapped[str | None] = mapped_column(String(64))
+    tariff_plan_code: Mapped[str | None] = mapped_column(
+        String(64), ForeignKey("billing.tariff_plan.code", onupdate="CASCADE", ondelete="SET NULL")
+    )
     billing_cycle_day: Mapped[int] = mapped_column(SmallInteger, default=1, server_default="1")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=_NOW)
 
