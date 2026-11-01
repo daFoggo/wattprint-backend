@@ -43,7 +43,7 @@ app/
   schemas/         Pydantic schemas (token, user)
   routers/         auth, health, users
   services/        business logic (auth)
-alembic/           migrations (versions/): users/refresh tokens, TimescaleDB extension, legacy schema removal, server defaults
+alembic/           migrations (versions/): users/refresh tokens, TimescaleDB extension, legacy schema removal, server defaults, energy time series and continuous aggregates (the 1 m ones compressed), billing, roles
 tests/
 pyproject.toml     (uv)
 Dockerfile

@@ -279,7 +279,10 @@ async def stage_policy_drill(args) -> None:
             old_info["materialized_rows_after_1m_retention_job"] = await _mat_counts(c, *old)
             old_info["view_rows_after_1m_retention_job"] = await _view_counts(c, *old)
         # a manual backfill over the dropped range
-        await backfill_aggregates(c, *old)
+        guarded = await backfill_aggregates(c, *old)  # default: guarded since Task 10c
+        old_info["default_backfill_skipped_windows"] = len(guarded)
+        old_info["view_rows_after_default_guarded_backfill"] = await _view_counts(c, *old)
+        await backfill_aggregates(c, *old, allow_missing_raw=True)  # the destructive opt-in
         old_info["view_rows_after_backfill_over_dropped_range"] = await _view_counts(c, *old)
         old_info["materialized_rows_after_backfill_over_dropped_range"] = \
             await _mat_counts(c, *old)

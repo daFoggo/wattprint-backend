@@ -779,7 +779,7 @@ async def test_revision_downgrade_removes_grants_and_upgrade_restores_them(throw
     try:
         before, schema_before = await snapshot()
         assert schema_before == 1 and before[COPILOT]["usage"] - {"public"}
-        run_alembic(throwaway_dsn, "downgrade", "-1")
+        run_alembic(throwaway_dsn, "downgrade", "9e2c4a6b8d10")  # revision before the roles one
         after, schema_after = await snapshot()
         assert schema_after == 0
         for role in ROLES:
