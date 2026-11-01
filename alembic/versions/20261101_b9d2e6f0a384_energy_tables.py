@@ -16,7 +16,8 @@ depends_on = None
 # Task 4 extends this body with CREATE OR REPLACE FUNCTION.
 SET_POLICIES = """
 CREATE FUNCTION ops.set_policies(enabled boolean) RETURNS void
-LANGUAGE plpgsql AS $$
+LANGUAGE plpgsql
+SET search_path = public, pg_catalog AS $$
 BEGIN
     IF enabled THEN
         PERFORM add_compression_policy('energy.reading', INTERVAL '2 days', if_not_exists => true);
@@ -41,11 +42,11 @@ def upgrade() -> None:
         "series",
         sa.Column("series_id", sa.Integer, sa.Identity(always=False), primary_key=True),
         sa.Column("home_id", sa.UUID, nullable=False),
-        sa.Column("kind", sa.Text, nullable=False),
+        sa.Column("kind", sa.String(16), nullable=False),
         sa.Column("device_id", sa.UUID),
         sa.Column("meter_id", sa.UUID),
         sa.Column("source_channel", sa.Text),
-        sa.Column("metric", sa.Text, nullable=False),
+        sa.Column("metric", sa.String(64), nullable=False),
         sa.Column("unit", sa.Text, nullable=False),
         sa.ForeignKeyConstraint(["home_id"], ["core.home.id"], ondelete="CASCADE"),
         sa.ForeignKeyConstraint(["device_id"], ["core.device.id"], ondelete="CASCADE"),
@@ -69,6 +70,7 @@ def upgrade() -> None:
         schema="energy",
         postgresql_where=sa.text("meter_id IS NOT NULL AND source_channel IS NOT NULL"),
     )
+    op.create_index("ix_series_meter_id", "series", ["meter_id"], schema="energy")
     op.create_index("ix_series_device_id", "series", ["device_id"], schema="energy")
 
     op.create_table(
@@ -106,7 +108,7 @@ def upgrade() -> None:
             series_id integer NOT NULL,
             value real NOT NULL,
             quality smallint NOT NULL DEFAULT 0,
-            PRIMARY KEY (series_id, ts)
+            CONSTRAINT pk_reading PRIMARY KEY (series_id, ts)
         )
         """
     )
@@ -117,7 +119,7 @@ def upgrade() -> None:
             series_id integer NOT NULL,
             value real NOT NULL,
             run_id integer,
-            PRIMARY KEY (series_id, ts)
+            CONSTRAINT pk_device_estimate PRIMARY KEY (series_id, ts)
         )
         """
     )

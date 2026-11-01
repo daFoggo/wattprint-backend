@@ -54,10 +54,10 @@ class Series(Base):
         ForeignKey("core.device.id", ondelete="CASCADE"), index=True
     )
     meter_id: Mapped[uuid.UUID | None] = mapped_column(
-        ForeignKey("core.meter.id", ondelete="SET NULL")
+        ForeignKey("core.meter.id", ondelete="SET NULL"), index=True
     )
     source_channel: Mapped[str | None] = mapped_column(Text)
-    metric: Mapped[str] = mapped_column(ForeignKey("catalog.metric.event_type"))
+    metric: Mapped[str] = mapped_column(String(64), ForeignKey("catalog.metric.event_type"))
     unit: Mapped[str] = mapped_column(Text)
 
 

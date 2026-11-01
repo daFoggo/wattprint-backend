@@ -117,8 +117,19 @@ async def test_series_meter_channel_unique_when_both_set(conn):
 
 async def test_series_meter_channel_unique_ignores_nulls(conn):
     home = await _home(conn)
-    await _series(conn, home, metric="power_w")
-    await _series(conn, home, metric="voltage_v")
+    meter = uuid.uuid4()
+    await conn.execute(
+        text("INSERT INTO core.meter (id, serial) VALUES (:i, :s)"),
+        {"i": meter, "s": f"sn-{meter}"},
+    )
+    # same meter, channel NULL: allowed (partial index only covers non-null pairs)
+    await _series(conn, home, metric="power_w", meter_id=meter)
+    await _series(conn, home, metric="voltage_v", meter_id=meter)
+    # same non-null pair: rejected
+    await _series(conn, home, metric="current_a", meter_id=meter, source_channel="ch1")
+    with pytest.raises(IntegrityError):
+        await _series(conn, home, metric="reactive_power_var", meter_id=meter,
+                      source_channel="ch1")
 
 
 async def test_series_unknown_metric_rejected(conn):
@@ -329,3 +340,92 @@ async def test_energy_downgrade_upgrade(throwaway_dsn):
             assert len((await c.execute(JOBS_SQL, {"p": list(POLICY_PROCS)})).all()) == 4
     finally:
         await engine.dispose()
+
+
+async def test_device_estimate_upsert_on_compressed_chunk_latest_run_wins(conn):
+    home = await _home(conn)
+    device = await _device(conn, home)
+    sid = await _series(conn, home, kind="device", device_id=device)
+    ts = datetime(2020, 1, 1, 12, tzinfo=UTC)
+    now = datetime.now(UTC)
+    runs = []
+    for _ in range(2):
+        runs.append(
+            await conn.scalar(
+                text(
+                    "INSERT INTO energy.inference_run (home_id, model_name, model_version, "
+                    "window_start, window_end) VALUES (:h, 'm', '1', :a, :a) RETURNING run_id"
+                ),
+                {"h": home, "a": now},
+            )
+        )
+    await conn.execute(
+        insert(device_estimate_table).values(ts=ts, series_id=sid, value=1.0, run_id=runs[0])
+    )
+    await conn.execute(
+        text("SELECT compress_chunk(c, true) FROM show_chunks('energy.device_estimate') c")
+    )
+    stmt = pg_insert(device_estimate_table).values(ts=ts, series_id=sid, value=2.0, run_id=runs[1])
+    await conn.execute(
+        stmt.on_conflict_do_update(
+            index_elements=["series_id", "ts"],
+            set_={"value": stmt.excluded.value, "run_id": stmt.excluded.run_id},
+        )
+    )
+    row = (
+        await conn.execute(
+            text("SELECT value, run_id FROM energy.device_estimate WHERE series_id = :s"),
+            {"s": sid},
+        )
+    ).one()
+    assert row.value == 2.0 and row.run_id == runs[1]
+
+
+async def test_column_types_match_models(conn):
+    rows = (
+        await conn.execute(
+            text(
+                "SELECT table_name, column_name, data_type, character_maximum_length "
+                "FROM information_schema.columns WHERE table_schema = 'energy' "
+                "AND table_name IN ('series')"
+            )
+        )
+    ).all()
+    got = {(r.table_name, r.column_name): (r.data_type, r.character_maximum_length) for r in rows}
+    assert got[("series", "kind")] == ("character varying", 16)
+    assert got[("series", "metric")] == ("character varying", 64)
+
+
+async def test_hypertable_pk_names_and_meter_index(conn):
+    names = set(
+        (
+            await conn.execute(
+                text(
+                    "SELECT conname FROM pg_constraint WHERE contype = 'p' AND conrelid IN "
+                    "('energy.reading'::regclass, 'energy.device_estimate'::regclass)"
+                )
+            )
+        ).scalars()
+    )
+    assert names == {"pk_reading", "pk_device_estimate"}
+    cols = set(
+        (
+            await conn.execute(
+                text(
+                    "SELECT pg_get_indexdef(indexrelid) FROM pg_index "
+                    "WHERE indrelid = 'energy.series'::regclass AND NOT indisunique"
+                )
+            )
+        ).scalars()
+    )
+    assert any("(meter_id)" in d for d in cols)
+
+
+async def test_set_policies_pins_search_path(conn):
+    cfg = await conn.scalar(
+        text(
+            "SELECT proconfig::text FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace "
+            "WHERE n.nspname = 'ops' AND p.proname = 'set_policies'"
+        )
+    )
+    assert cfg is not None and "search_path=public, pg_catalog" in cfg
