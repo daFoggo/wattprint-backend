@@ -1,7 +1,7 @@
 import uuid
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import select, update
+from sqlalchemy import delete, or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.concurrency import run_in_threadpool
@@ -26,11 +26,13 @@ def _now() -> datetime:
 async def register_user(db: AsyncSession, data: UserCreate) -> User | None:
     """Create a user, or return None if the email is already taken."""
     email = data.email.lower()
+    # Hash before the lookup result is used so an existing email costs the same time.
+    hashed = await run_in_threadpool(hash_password, data.password)
     if await db.scalar(select(User.id).where(User.email == email)):
         return None
     user = User(
         email=email,
-        hashed_password=await run_in_threadpool(hash_password, data.password),
+        hashed_password=hashed,
         full_name=data.full_name,
     )
     db.add(user)
@@ -54,6 +56,14 @@ async def authenticate(db: AsyncSession, email: str, password: str) -> User | No
 
 
 async def issue_tokens(db: AsyncSession, user: User) -> TokenPair:
+    # Opportunistic cleanup: this user's tokens expired or revoked more than a day ago.
+    cutoff = _now() - timedelta(days=1)
+    await db.execute(
+        delete(RefreshToken).where(
+            RefreshToken.user_id == user.id,
+            or_(RefreshToken.expires_at < cutoff, RefreshToken.revoked_at < cutoff),
+        )
+    )
     raw, hashed = new_refresh_token()
     db.add(
         RefreshToken(

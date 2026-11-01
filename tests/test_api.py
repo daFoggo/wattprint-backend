@@ -2,10 +2,10 @@ import asyncio
 from datetime import UTC, datetime, timedelta
 
 from httpx import AsyncClient
-from sqlalchemy import update
+from sqlalchemy import select, text, update
 
 from app.database import SessionLocal
-from app.models import RefreshToken
+from app.models import RefreshToken, User
 from app.security import hash_token
 from tests._helpers import PASSWORD
 
@@ -127,3 +127,59 @@ async def test_expired_refresh_token_rejected(client, email):
         await session.commit()
     r = await client.post("/api/v1/auth/refresh", json={"refresh_token": tokens["refresh_token"]})
     assert r.status_code == 401
+
+
+async def test_issue_tokens_prunes_stale_refresh_tokens_of_same_user_only(client, email):
+    now = datetime.now(UTC)
+    tag = email.split("@")[0]
+    tokens = await _register_and_login(client, email)
+    other = await _register_and_login(client, f"other-{email}")
+    async with SessionLocal() as session:
+        user_id = await session.scalar(select(User.id).where(User.email == email))
+        other_id = await session.scalar(select(User.id).where(User.email == f"other-{email}"))
+
+        def row(uid, tag, expires, revoked=None):
+            return RefreshToken(user_id=uid, token_hash=tag, expires_at=expires, revoked_at=revoked)
+
+        old = now - timedelta(days=2)
+        session.add_all(
+            [
+                row(user_id, f"stale-expired-{tag}", old),
+                row(user_id, f"stale-revoked-{tag}", now + timedelta(days=5), old),
+                row(
+                    user_id,
+                    f"fresh-revoked-{tag}",
+                    now + timedelta(days=5),
+                    now - timedelta(hours=1),
+                ),
+                row(other_id, f"other-stale-{tag}", old),
+            ]
+        )
+        await session.commit()
+
+    r = await client.post("/api/v1/auth/token", data={"username": email, "password": PASSWORD})
+    assert r.status_code == 200
+
+    async with SessionLocal() as session:
+        hashes = set(await session.scalars(select(RefreshToken.token_hash)))
+    assert f"stale-expired-{tag}" not in hashes
+    assert f"stale-revoked-{tag}" not in hashes
+    assert f"fresh-revoked-{tag}" in hashes
+    assert f"other-stale-{tag}" in hashes
+    assert hash_token(tokens["refresh_token"]) in hashes
+    assert hash_token(other["refresh_token"]) in hashes
+
+
+async def test_raw_sql_insert_uses_server_defaults():
+    async with SessionLocal() as session:
+        await session.execute(
+            text("INSERT INTO users (id, email) VALUES (gen_random_uuid(), 'raw@example.com')")
+        )
+        row = (
+            await session.execute(
+                text("SELECT is_active, created_at FROM users WHERE email = 'raw@example.com'")
+            )
+        ).one()
+        await session.rollback()
+    assert row.is_active is True
+    assert row.created_at is not None
