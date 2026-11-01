@@ -1,6 +1,6 @@
 from httpx import AsyncClient
 
-from tests.conftest import PASSWORD
+from tests._helpers import PASSWORD
 
 
 async def _register_and_login(client: AsyncClient, email: str) -> dict:

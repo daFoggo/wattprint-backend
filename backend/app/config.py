@@ -1,3 +1,4 @@
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -10,7 +11,7 @@ class Settings(BaseSettings):
     cors_origins: str = ""
 
     # Required, no default: generate with "openssl rand -hex 32".
-    jwt_secret_key: str
+    jwt_secret_key: str = Field(min_length=32)
     jwt_algorithm: str = "HS256"
     access_token_expire_minutes: int = 15
     refresh_token_expire_days: int = 30

@@ -5,8 +5,6 @@ from httpx import ASGITransport, AsyncClient
 
 from app.main import app
 
-PASSWORD = "correct-horse-battery"
-
 
 @pytest.fixture
 async def client():
