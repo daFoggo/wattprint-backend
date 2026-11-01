@@ -1,3 +1,4 @@
+import asyncio
 import uuid
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime, timedelta
@@ -8,6 +9,12 @@ from sqlalchemy.ext.asyncio import create_async_engine
 
 from app.services.aggregates import backfill_aggregates as backfill
 from tests.db.conftest import _create_migrated_db, run_alembic
+
+RAW_JOBS = text(
+    "SELECT proc_name, hypertable_name FROM timescaledb_information.jobs "
+    "WHERE hypertable_schema = 'energy' AND hypertable_name IN ('reading', 'device_estimate') "
+    "AND proc_name IN ('policy_compression', 'policy_retention') ORDER BY 1, 2"
+)
 
 
 def utc(*args) -> datetime:
@@ -93,6 +100,11 @@ async def test_1h_avg_is_sample_weighted(agg_conn):
             await put(c, sid, t0 + timedelta(minutes=1, seconds=10 * i), v)
         await backfill(c, t0 - timedelta(days=1), t0 + timedelta(days=1))
         (r,) = await rows(c, "reading_1h", sid)
+        (d,) = await rows(c, "reading_1d", sid)
+    assert (d["avg_w"], d["min_w"], d["max_w"], d["last_w"]) == (
+        pytest.approx(250), 100, 400, 300,
+    )
+    assert (d["n"], d["covered_minutes"]) == (4, 2)
     assert r["avg_w"] == pytest.approx((100 * 1 + 300 * 3) / 4)  # not the mean of means (200)
     assert (r["min_w"], r["max_w"], r["last_w"], r["n"], r["covered_minutes"]) == (
         100, 400, 300, 4, 2,
@@ -135,6 +147,7 @@ async def test_quality_flagged_rows_excluded_from_reading_aggregates(agg_conn):
         await put(c, sid, t0, 100)
         await put(c, sid, t0 + timedelta(seconds=10), 9999, quality=1)
         await put(c, sid, t0 + timedelta(seconds=20), 300, quality=2)  # other bit: kept
+        await put(c, sid, t0 + timedelta(seconds=30), 8888, quality=3)  # bit 0 set: dropped
         await backfill(c, t0 - timedelta(days=1), t0 + timedelta(days=1))
         (m,) = await rows(c, "reading_1m", sid)
         (h,) = await rows(c, "reading_1h", sid)
@@ -148,11 +161,15 @@ async def test_device_estimate_not_filtered_by_quality(agg_conn):
     async with series(c) as sid:
         for i, v in enumerate((100, 200, 300)):
             await put_est(c, sid, t0 + timedelta(seconds=10 * i), v)
+        inserted = await c.scalar(
+            text("SELECT count(*) FROM energy.device_estimate WHERE series_id = :s"), {"s": sid}
+        )
         await backfill(c, t0 - timedelta(days=1), t0 + timedelta(days=1))
         (m,) = await rows(c, "device_estimate_1m", sid)
         (h,) = await rows(c, "device_estimate_1h", sid)
         (d,) = await rows(c, "device_estimate_1d", sid)
-    assert m["n"] == 3 and m["avg_w"] == pytest.approx(200)
+    assert inserted == 3
+    assert m["n"] == inserted and m["avg_w"] == pytest.approx(200)
     assert m["energy_wh"] == pytest.approx(200 * 60 / 3600)
     assert (h["n"], h["covered_minutes"]) == (3, 1)
     assert (d["n"], d["covered_minutes"]) == (3, 1)
@@ -193,6 +210,44 @@ async def test_late_row_needs_backfill(agg_conn):
         assert r["bucket"] == old and r["avg_w"] == pytest.approx(700)
         h = (await rows(c, "reading_1h", sid))[0]
         assert h["bucket"] == old.replace(minute=0) and h["covered_minutes"] == 1
+
+
+async def test_backfill_to_now_keeps_current_buckets_realtime(agg_conn):
+    c = agg_conn
+    # Stay clear of an hour (hence day) boundary so both rows fall in the same open buckets.
+    to_boundary = 3600 - (datetime.now(UTC).timestamp() % 3600)
+    if to_boundary < 30:
+        await asyncio.sleep(to_boundary + 1)
+    now = datetime.now(UTC)
+    async with series(c) as sid:
+        await put(c, sid, now, 100)
+        await backfill(c, now - timedelta(days=2), now)
+        await put(c, sid, now + timedelta(seconds=5), 300)
+        h = await rows(c, "reading_1h", sid)
+        d = await rows(c, "reading_1d", sid)
+        # Both rows are served live from the open current buckets...
+        hour = now.replace(minute=0, second=0, microsecond=0)
+        assert [(r["bucket"], r["n"]) for r in h] == [(hour, 2)]
+        assert [r["n"] for r in d] == [2]
+        # ...and no current bucket was materialized (nothing frozen, watermark not past now).
+        for view in ("reading_1h", "reading_1d"):
+            mat = await c.scalar(
+                text(
+                    "SELECT format('%I.%I', materialization_hypertable_schema, "
+                    "materialization_hypertable_name) FROM "
+                    "timescaledb_information.continuous_aggregates WHERE view_name = :v"
+                ),
+                {"v": view},
+            )
+            assert await c.scalar(text(f"SELECT count(*) FROM {mat} WHERE series_id = :s"),
+                                  {"s": sid}) == 0
+
+
+async def test_backfill_rejects_naive_datetimes_and_transactional_connection(agg_conn, conn):
+    with pytest.raises(ValueError):
+        await backfill(agg_conn, datetime(2020, 1, 1), datetime(2020, 1, 2))
+    with pytest.raises(RuntimeError):
+        await backfill(conn, utc(2020, 1, 1), utc(2020, 1, 2))
 
 
 async def test_set_policies_adds_aggregate_policies_and_removes_them(conn):
@@ -243,10 +298,26 @@ async def test_aggregates_downgrade_upgrade(throwaway_dsn):
         run_alembic(throwaway_dsn, "downgrade", "b9d2e6f0a384")
         async with engine.connect() as c:
             assert await c.scalar(views) == 0
-            cfg = await c.scalar(
-                text("SELECT proconfig::text FROM pg_proc WHERE proname = 'set_policies'")
-            )
+            cfg, body = (
+                await c.execute(
+                    text(
+                        "SELECT proconfig::text, prosrc FROM pg_proc p "
+                        "JOIN pg_namespace n ON n.oid = p.pronamespace "
+                        "WHERE n.nspname = 'ops' AND p.proname = 'set_policies'"
+                    )
+                )
+            ).one()
             assert "search_path" in cfg
+            assert "continuous_aggregate" not in body and "_1m" not in body
+            raw = (await c.execute(RAW_JOBS)).all()
+            assert [tuple(r) for r in raw] == [
+                ("policy_compression", "device_estimate"),
+                ("policy_compression", "reading"),
+                ("policy_retention", "device_estimate"),
+                ("policy_retention", "reading"),
+            ]
+            await c.execute(text("SELECT ops.set_policies(true)"))
+            assert len((await c.execute(RAW_JOBS)).all()) == 4
         run_alembic(throwaway_dsn, "upgrade", "head")
         async with engine.connect() as c:
             assert await c.scalar(views) == 6

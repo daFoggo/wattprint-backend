@@ -97,7 +97,7 @@ Existing: `public.users`, `public.refresh_tokens`, `alembic_version` stay where 
 
 Continuous aggregates (read model), each with `avg_w, min_w, max_w, last_w, n` and an `energy_wh` column:
 - `reading_1m` → `reading_1h` → `reading_1d` and `device_estimate_1m` → `_1h` → `_1d`.
-- Real-time aggregation on; policies: refresh every minute for 1 m, hourly for 1 h, daily for 1 d. `start_offset` for `_1m` must be at least the maximum expected ingest lag (anno-bot lesson).
+- Real-time aggregation on; policies: refresh every minute for 1 m, hourly for 1 h, hourly for 1 d. `start_offset` for `_1m` must be at least the maximum expected ingest lag (anno-bot lesson).
 - `energy_wh` rule [C]: in `_1m`, `avg_w × 60 / 3600` for a bucket that has at least one sample (zero-order hold inside the bucket). In `_1h` and `_1d`, the **sum of `energy_wh` of the child buckets that exist**, plus `covered_minutes`, so coverage = `covered_minutes / expected`. Missing time counts as 0 Wh and is never filled in; no mean of means. A bill whose coverage is below a threshold is flagged `partial` instead of silently under-billing. The audit reference and its tolerance are in section 9.
 - Zoom ladder for the API (Min/Hour/Day/Week/Month in the app): pick the finest step from `1m, 5m, 15m, 30m, 1h, 3h, 6h, 1d` that keeps the series under `max_points` (anno-bot's rule); `Min`-level detail can come from raw `reading` for short windows.
 
@@ -147,7 +147,7 @@ Foreign keys are real everywhere except into hypertables (no FK from `reading.se
 - **Chunks and compression**: starting point is a 1-day chunk, compress after 2 days, `segmentby series_id`, `orderby ts DESC` [C]. The final numbers come from the simulation (chunk index size should fit comfortably in RAM).
 - **Retention** [C]: raw `reading`/`device_estimate` and the 1 m aggregate ~13 months (year-over-year comparison and before/after M&V), 1 h and 1 d aggregates kept indefinitely. Retention is a policy (`drop_chunks`), never row `DELETE`.
 - **Ingest path** [C]: one service function in the backend takes `(meter serial, source_channel, ts, value, quality)` rows, resolves `series_id` through `series(meter_id, source_channel)`, and writes as `wattprint_ingest`. The REFIT loader is a CLI that calls this function; a future meter HTTP endpoint (out of scope now) calls the same function, so REFIT really does use the production path.
-- **Ingest writes**: batches with `ON CONFLICT DO NOTHING` (measured data) or `DO UPDATE` (estimates); per-series checkpoint; late data older than the aggregate refresh window triggers a targeted `refresh_continuous_aggregate` in an `autocommit_block`.
+- **Ingest writes**: batches with `ON CONFLICT DO NOTHING` (measured data) or `DO UPDATE` (estimates); per-series checkpoint; late data older than the aggregate refresh window is picked up by the Python helper `app/services/aggregates.py::backfill_aggregates` (async, AUTOCOMMIT connection only; `refresh_continuous_aggregate` cannot run in a transaction or a function, so never `CALL` an SQL procedure for it).
 - **Reading rule**: all dashboards and Copilot tools read the aggregates; raw tables only for short windows, ingest lag and audits.
 - **Roles** [C]: `wattprint_owner` (migrations), `wattprint_app` (API: DML on its tables), `wattprint_ingest` (INSERT on readings and `ops`), `copilot_ro` (SELECT on a whitelist, `statement_timeout`, scoped to one home through Row Level Security or mandatory-`home_id` views [TBV: RLS with continuous aggregates, fall back to views if it does not hold]).
 - **Migrations**: one revision per change, with a working `downgrade` where possible, verified on an empty volume (`docker compose down -v`) before merge.
@@ -161,7 +161,7 @@ Staged: one house first (~7 M rows, ~70 M points), then all 20 houses (~1.19 B p
 
 Order of steps, so policies do not corrupt the checks [C]:
 1. Load with retention, compression and refresh policies **off**; REFIT is ~21 months of history, longer than the 13-month raw retention, so shifting it to end today with retention on would delete the data being tested.
-2. Backfill the aggregates with `refresh_continuous_aggregate` in an `autocommit_block`; run correctness, latency and idempotency checks.
+2. Backfill the aggregates with the Python helper `app/services/aggregates.py::backfill_aggregates` (async, AUTOCOMMIT connection only, ends at the last closed bucket so `to_ts = now` is safe); run correctness, latency and idempotency checks.
 3. Turn compression on (compress chunk by chunk during the stage 2 load to bound disk), re-run the checks.
 4. Test retention and refresh policies separately in a drill on a scratch copy or a few chunks, not on the audit dataset.
 

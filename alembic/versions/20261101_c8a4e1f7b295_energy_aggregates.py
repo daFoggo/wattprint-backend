@@ -36,6 +36,8 @@ END
 $$
 """
 
+# Note: if_not_exists does not update the offsets of an existing policy; a later revision that
+# changes them must remove and re-add the policy.
 SET_POLICIES_V2 = """
 CREATE OR REPLACE FUNCTION ops.set_policies(enabled boolean) RETURNS void
 LANGUAGE plpgsql
@@ -149,7 +151,15 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.execute("SELECT ops.set_policies(false)")
+    # Remove only the aggregate policies: the raw-table compression/retention policies belong
+    # to the previous revision and must survive the downgrade.
+    for family in FAMILIES:
+        op.execute(f"SELECT remove_retention_policy('energy.{family}_1m', if_exists => true)")
+        for res in ("1d", "1h", "1m"):
+            op.execute(
+                f"SELECT remove_continuous_aggregate_policy('energy.{family}_{res}', "
+                "if_exists => true)"
+            )
     op.execute(SET_POLICIES_V1)
     for family in FAMILIES:
         for res in ("1d", "1h", "1m"):
