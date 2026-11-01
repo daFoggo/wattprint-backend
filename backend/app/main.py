@@ -9,7 +9,8 @@ app = FastAPI(
     version=settings.version,
     openapi_tags=[
         {"name": "system", "description": "Health and diagnostics"},
-        {"name": "auth", "description": "Identity (sessions issued by Better Auth)"},
+        {"name": "auth", "description": "Register, login, token refresh"},
+        {"name": "users", "description": "User profile"},
     ],
 )
 

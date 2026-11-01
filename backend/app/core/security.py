@@ -1,72 +1,53 @@
-"""JWT verification for tokens issued by the Better Auth service (jwt plugin).
+"""Password hashing and token primitives (FastAPI OAuth2 + JWT recipe)."""
 
-The Expo client sends `Authorization: Bearer <jwt>` (authClient.token()). The signature is
-checked against the service's public keys (JWKS), so no request goes to the auth service
-per call. Keys are cached by PyJWKClient and refetched on an unknown `kid`.
-"""
-
-from functools import lru_cache
-from typing import Annotated
+import hashlib
+import secrets
+from datetime import UTC, datetime, timedelta
 
 import jwt
-from fastapi import Depends, HTTPException, Request, status
-from jwt import PyJWKClient
-from pydantic import BaseModel
-from starlette.concurrency import run_in_threadpool
+from pwdlib import PasswordHash
 
 from app.core.config import settings
 
-_ALGORITHMS = ["EdDSA"]
-_LEEWAY_SECONDS = 10
+password_hash = PasswordHash.recommended()  # Argon2id
+# Verified against when the user does not exist, so timing does not leak valid emails.
+DUMMY_HASH = password_hash.hash("dummypassword")
 
 
-class AuthUser(BaseModel):
-    id: str
-    email: str
-    name: str | None = None
-    email_verified: bool = False
+def hash_password(password: str) -> str:
+    return password_hash.hash(password)
 
 
-@lru_cache
-def get_jwk_client() -> PyJWKClient:
-    return PyJWKClient(settings.auth_jwks_url, cache_keys=True)
+def verify_password(plain: str, hashed: str) -> bool:
+    return password_hash.verify(plain, hashed)
 
 
-def _bearer_token(request: Request) -> str:
-    scheme, _, token = request.headers.get("authorization", "").partition(" ")
-    if scheme.lower() != "bearer" or not token.strip():
-        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Not authenticated")
-    return token.strip()
+def create_access_token(subject: str) -> str:
+    now = datetime.now(UTC)
+    claims = {
+        "sub": subject,
+        "iat": now,
+        "exp": now + timedelta(minutes=settings.access_token_expire_minutes),
+    }
+    return jwt.encode(claims, settings.jwt_secret_key, algorithm=settings.jwt_algorithm)
 
 
-async def get_current_user(
-    request: Request, jwk_client: Annotated[PyJWKClient, Depends(get_jwk_client)]
-) -> AuthUser:
-    token = _bearer_token(request)
-    try:
-        # PyJWKClient does blocking network IO on a cache miss.
-        signing_key = await run_in_threadpool(jwk_client.get_signing_key_from_jwt, token)
-        claims = jwt.decode(
-            token,
-            signing_key.key,
-            algorithms=_ALGORITHMS,
-            issuer=settings.auth_issuer,
-            audience=settings.auth_audience,
-            options={"require": ["exp", "sub", "iss", "aud"]},
-            leeway=_LEEWAY_SECONDS,
-        )
-    except jwt.PyJWKClientConnectionError as exc:
-        raise HTTPException(
-            status.HTTP_503_SERVICE_UNAVAILABLE, "Auth service unavailable"
-        ) from exc
-    except jwt.PyJWTError as exc:
-        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid or expired token") from exc
-    return AuthUser(
-        id=claims["sub"],
-        email=claims.get("email", ""),
-        name=claims.get("name"),
-        email_verified=bool(claims.get("emailVerified", False)),
+def decode_access_token(token: str) -> str:
+    """Return the subject, or raise jwt.InvalidTokenError."""
+    payload = jwt.decode(
+        token,
+        settings.jwt_secret_key,
+        algorithms=[settings.jwt_algorithm],
+        options={"require": ["exp", "sub"]},
     )
+    return payload["sub"]
 
 
-CurrentUser = Annotated[AuthUser, Depends(get_current_user)]
+def hash_token(raw: str) -> str:
+    return hashlib.sha256(raw.encode()).hexdigest()
+
+
+def new_refresh_token() -> tuple[str, str]:
+    """Return (raw token for the client, hash to store)."""
+    raw = secrets.token_urlsafe(48)
+    return raw, hash_token(raw)

@@ -7,12 +7,13 @@ class Settings(BaseSettings):
     project_name: str = "Wattprint API"
     version: str = "0.1.0"
     database_url: str = "postgresql+asyncpg://postgres:change-me@localhost:5433/wattprint"
-    # Better Auth runs as a separate Node service; FastAPI verifies its JWTs with the public JWKS.
-    auth_jwks_url: str = "http://localhost:3000/api/auth/jwks"
-    # `iss` is the public Better Auth URL (what the phone uses), not the in-network JWKS host.
-    auth_issuer: str = "http://localhost:3000"
-    auth_audience: str = "wattprint-api"
     cors_origins: str = ""
+
+    # Required, no default: generate with "openssl rand -hex 32".
+    jwt_secret_key: str
+    jwt_algorithm: str = "HS256"
+    access_token_expire_minutes: int = 15
+    refresh_token_expire_days: int = 30
 
     @property
     def cors_origin_list(self) -> list[str]:
