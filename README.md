@@ -1,51 +1,80 @@
 # Wattprint backend
 
-FastAPI + PostgreSQL/TimescaleDB, with [Better Auth](https://better-auth.com/docs/integrations/expo) for Expo clients.
+FastAPI + PostgreSQL/TimescaleDB with FastAPI-native JWT auth (access token + rotating refresh token).
 
-## Architecture
+## Services
 
 | Service | Stack | Port | Role |
 |---|---|---|---|
 | `api` | FastAPI, SQLAlchemy 2 async, Alembic | 8000 | Business API (`/api/v1`, OpenAPI at `/docs`) |
-| `auth` | Node, Hono, Better Auth (+ `expo`, `bearer`, `jwt` plugins) | 3000 | Sign-up/in, sessions (`/api/auth/*`) |
-| `db` | TimescaleDB on PG17 | 5433 | `public` schema = FastAPI, `auth` schema = Better Auth |
-
-Better Auth is JS-only, so it runs as its own service. The `jwt` plugin issues short-lived JWTs
-(`authClient.token()`, 15 min, EdDSA) and publishes the public keys at `/api/auth/jwks`. FastAPI verifies
-`Authorization: Bearer <jwt>` locally against those keys, checking `iss` (`BETTER_AUTH_URL`), `aud`
-(`API_AUDIENCE`) and `exp`, with no call to the auth service per request (see `backend/app/core/security.py`).
-It is exposed as the `CurrentUser` dependency. FastAPI reads `AUTH_JWKS_URL`, `AUTH_ISSUER`, `AUTH_AUDIENCE`.
+| `db` | TimescaleDB on PG17 | 5433 | Application database |
 
 ## Run
 
 ```bash
-cp .env.example .env   # set POSTGRES_PASSWORD and BETTER_AUTH_SECRET
+cp .env.example .env
+# set POSTGRES_PASSWORD and JWT_SECRET_KEY (see below)
 docker compose up --build
 ```
 
-- API docs: http://localhost:8000/docs
-- `GET /api/v1/health`, `GET /api/v1/me` (needs a JWT)
+`JWT_SECRET_KEY` must be at least 32 characters (enforced at startup). The value in `.env.example` is only a
+placeholder and must be replaced. Generate one with:
 
-## Expo client
+```bash
+openssl rand -hex 32
+```
 
-Set `BETTER_AUTH_URL` to an address the device can reach (LAN IP, not `localhost`, on a physical device) and
-`EXPO_APP_SCHEMES` to your app scheme (`scheme` in `app.json`). Client setup: `createAuthClient` with
-`expoClient({ scheme, storage: SecureStore })`, `jwtClient()` and `baseURL` = the auth URL. Send the result of
-`authClient.token()` as `Authorization: Bearer` when calling FastAPI. `better-auth` and `@better-auth/expo` are
-pinned to the same version in `auth/package.json` and the app.
+API docs: http://localhost:8000/docs
 
 ## Layout
 
 ```
-backend/   app/{core,db,api,modules}, alembic/, tests/, pyproject.toml (uv)
-auth/      src/{auth,index,migrate}.ts
-database/  init/*.sql   (run on first DB start)
+backend/
+  app/
+    main.py          entrypoint, includes routers
+    config.py        settings (env)
+    database.py      async engine, session, Base
+    dependencies.py  shared dependencies (db session, current user)
+    security.py      password hashing, JWT helpers
+    models/          SQLAlchemy models (user, refresh_token)
+    schemas/         Pydantic schemas (token, user)
+    routers/         auth, health, users
+    services/        business logic (auth)
+  alembic/           migrations (versions/)
+  tests/
+  pyproject.toml     (uv)
+database/init/       SQL run on first DB start
 ```
 
-Migrations: `docker compose exec api alembic revision --autogenerate -m "msg"`. Tests: `docker compose exec api pytest`.
+## Auth flow
+
+1. `POST /api/v1/auth/register` creates a user.
+2. `POST /api/v1/auth/token` (form: username = email, password) returns an access token and a refresh token.
+3. Call protected endpoints with `Authorization: Bearer <access_token>`.
+4. `POST /api/v1/auth/refresh` exchanges a refresh token for a new pair.
+5. `POST /api/v1/auth/logout` revokes the refresh token.
+
+In Swagger (`/docs`) click Authorize and log in with email and password to try protected endpoints.
+
+## Adding a router
+
+1. Create `backend/app/routers/x.py` with an `APIRouter(prefix="/x", tags=["x"])`.
+2. Import it in `backend/app/main.py` and add it to the tuple in the `for module in (health, auth, users):` loop,
+   which mounts every router under `/api/v1`.
+
+## Migrations and tests
+
+```bash
+docker compose exec api alembic revision --autogenerate -m "msg"
+docker compose exec api alembic upgrade head
+docker compose exec api pytest
+```
+
+Tests run inside the `api` container because settings require `JWT_SECRET_KEY` at import time.
 
 ## TODO
 
-- Social providers, email verification, OpenAPI 3.2 spec tuning
+- Social login (Google/Apple) via server-side ID-token verification
+- Email verification
 - Hypertables/continuous aggregates for time-series data
-- CI, auth service production build (`tsc`)
+- CI
