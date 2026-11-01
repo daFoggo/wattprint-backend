@@ -129,7 +129,7 @@ async def test_expired_refresh_token_rejected(client, email):
     assert r.status_code == 401
 
 
-async def test_issue_tokens_prunes_stale_refresh_tokens_of_same_user_only(client, email):
+async def test_issue_tokens_prunes_only_expired_tokens_of_same_user(client, email):
     now = datetime.now(UTC)
     tag = email.split("@")[0]
     tokens = await _register_and_login(client, email)
@@ -145,7 +145,7 @@ async def test_issue_tokens_prunes_stale_refresh_tokens_of_same_user_only(client
         session.add_all(
             [
                 row(user_id, f"stale-expired-{tag}", old),
-                row(user_id, f"stale-revoked-{tag}", now + timedelta(days=5), old),
+                row(user_id, f"old-revoked-{tag}", now + timedelta(days=5), old),
                 row(
                     user_id,
                     f"fresh-revoked-{tag}",
@@ -162,12 +162,38 @@ async def test_issue_tokens_prunes_stale_refresh_tokens_of_same_user_only(client
 
     async with SessionLocal() as session:
         hashes = set(await session.scalars(select(RefreshToken.token_hash)))
-    assert f"stale-expired-{tag}" not in hashes
-    assert f"stale-revoked-{tag}" not in hashes
+    assert f"stale-expired-{tag}" not in hashes  # expired rows are pruned
+    assert f"old-revoked-{tag}" in hashes
     assert f"fresh-revoked-{tag}" in hashes
     assert f"other-stale-{tag}" in hashes
     assert hash_token(tokens["refresh_token"]) in hashes
     assert hash_token(other["refresh_token"]) in hashes
+
+
+async def test_old_revoked_unexpired_token_survives_prune_and_replay_revokes_chain(client, email):
+    first = await _register_and_login(client, email)
+    r = await client.post("/api/v1/auth/refresh", json={"refresh_token": first["refresh_token"]})
+    assert r.status_code == 200
+    second = r.json()
+
+    async with SessionLocal() as session:
+        await session.execute(
+            update(RefreshToken)
+            .where(RefreshToken.token_hash == hash_token(first["refresh_token"]))
+            .values(revoked_at=datetime.now(UTC) - timedelta(days=2))
+        )
+        await session.commit()
+
+    # A new login prunes, but must keep the old revoked (unexpired) row.
+    r = await client.post("/api/v1/auth/token", data={"username": email, "password": PASSWORD})
+    assert r.status_code == 200
+    live = r.json()
+
+    r = await client.post("/api/v1/auth/refresh", json={"refresh_token": first["refresh_token"]})
+    assert r.status_code == 401
+    for tok in (second, live):
+        r = await client.post("/api/v1/auth/refresh", json={"refresh_token": tok["refresh_token"]})
+        assert r.status_code == 401
 
 
 async def test_raw_sql_insert_uses_server_defaults():

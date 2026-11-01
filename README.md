@@ -61,7 +61,7 @@ which the compose `db` user is).
 4. `POST /api/v1/auth/refresh` exchanges a refresh token for a new pair.
 5. `POST /api/v1/auth/logout` revokes the refresh token.
 
-Refresh tokens are single-use. Each login/refresh also deletes that user's refresh tokens that expired or were revoked more than a day ago. Replaying a revoked token within `REFRESH_REUSE_GRACE_SECONDS` (default 10) just returns 401 (benign retry); replaying it later is treated as theft and revokes all of the user's refresh tokens.
+Refresh tokens are single-use. Each login/refresh also deletes that user's refresh tokens that have already expired (revoked but unexpired rows are kept so reuse detection keeps working). Replaying a revoked token within `REFRESH_REUSE_GRACE_SECONDS` (default 10) just returns 401 (benign retry); replaying it later is treated as theft and revokes all of the user's refresh tokens.
 
 In Swagger (`/docs`) click Authorize and log in with email and password to try protected endpoints.
 
@@ -87,4 +87,5 @@ Tests run inside the `api` container because settings require `JWT_SECRET_KEY` a
 - Social login (Google/Apple) via server-side ID-token verification
 - Email verification
 - Hypertables/continuous aggregates for time-series data
+- Rate limiting on auth endpoints
 - CI
