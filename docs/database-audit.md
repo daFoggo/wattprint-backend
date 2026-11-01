@@ -66,6 +66,88 @@ Numbers: the generated block at the end of this file and `docs/audit-results.jso
   400 days). Loading history requires `ops.set_policies(false)` first. The audit harness refuses
   to run unless the database name starts with `wattprint_audit` and `AUDIT_ADMIN_URL` is set.
 
+## Verdicts (Task 10b, written by hand)
+
+Per spec section 9 criterion. Houses 4-20 were NOT loaded (ruling: extrapolate from houses 1-3;
+a full 20-house load is the user's later decision). Numbers: stages `latency`, `drills`,
+`isolation`, `rebuild`, `refresh_cost`, `cagg_compression`, `policy_drill`, `extrapolation`,
+`harness_check` in the generated block.
+
+| # | Criterion | Verdict |
+|---|---|---|
+| 1 | Idempotency | PASS (10a) |
+| 2 | Correctness, 1% per home-day | FAIL (10a, decision open, see above) |
+| 3 | Read latency | PASS on 3 houses |
+| 4 | Ingest throughput and growth | MEASURED for 3 houses, extrapolated beyond |
+| 5 | Failure drills | PASS (5 of 5) |
+| 6 | Isolation | PASS |
+| 7 | Rebuild from empty | PASS |
+
+- **Latency: PASS.** Data compressed, policies off, 30 runs per case, each new session. p95 in ms
+  (warm / varied windows): series 1d over 90 d 4.5 / 3.7, 6h over 90 d 5.3 / 5.0, 1h over 45 d
+  6.0 / 5.0, 5m over 1 d 4.9 / 5.6, `latest_power` 2.4 / 3.5 (target 20), device breakdown 1 d
+  2.9 / 3.2 and 30 d 4.2 / 3.5, `compute_bill` 17.5 / 17.8 (target 100 for all but `latest_power`).
+  After a server restart the first calls were 2.6-48 ms (OS page cache stays warm, so this is
+  not a disk-cold figure). Lagging watermark (1.5 h of raw rows newer than every watermark, so the
+  real-time part runs): p95 1.9 `latest_power`, 4.4-5.1 series; the real-time branch scans 2 chunks
+  and costs under 2 ms. Plans: `EXPLAIN (ANALYZE, BUFFERS)` trimmed in `latency.*.plans`; every
+  read touches only aggregate chunks (1-12 chunk relations, 0 shared reads). Limit: only 3 homes and
+  22 M 1 m rows; the plans are index/bitmap scans on `(series_id, bucket)` so cost should stay flat
+  per series, but a 10,000-home table was not measured.
+- **Failure drills: PASS.** Duplicate batch (0 new, aggregates unchanged), out-of-order and late
+  batch inside a materialized range (picked up by `backfill_aggregates`, checkpoint never moves
+  back), a 90 minute gap (no row, no fill, `covered_minutes` 60 of 120), `Issues`-flagged rows
+  (kept in raw, excluded from the aggregates), refresh jobs paused (new data is served by
+  real-time aggregation with the exact expected energy while nothing is materialized).
+- **Isolation: PASS** on the loaded audit database (2 homes, 15 views, token variants, no direct
+  table access, no writes).
+- **Rebuild: PASS.** Empty database, `alembic upgrade head`, `app.cli.load_refit --house 1
+  --limit-rows 10000`: 100,000 readings, 10 series, tariff and catalog seeded, no manual step.
+  (Policies are ON after the migration, 12 jobs.)
+- **Growth and extrapolation (assumptions in `extrapolation.assumptions`):** the spec gives no
+  sampling rate, so three scenarios per 10,000 homes: REFIT-like 10 series at 7 s = 1.23 G rows/day
+  (14.3k rows/s average, 0.29 of one measured 49.6k rows/s stream) and 3.1 TB/year with the 1 m
+  aggregate compressed, 10.6 TB uncompressed; main meter only at 1 Hz = 864 M rows/day (10k rows/s)
+  and 1.8 TB/year compressed (2.6 uncompressed); 10 series at 30 s with 9 estimates = 288 M rows/day
+  and 1.7 TB/year compressed (9.2 uncompressed). Averages only: no peak factor, no raw retention
+  applied, compression 17x assumed for all cadences, every minute assumed covered (upper bound;
+  measured REFIT is 0.88 GB per home-year against 1.06 predicted). One writer stream sustains
+  the average rate of all three scenarios; concurrency under 10,000 live meters was not tested.
+- **1 m aggregate compression (evaluated on a scratch copy, not applied): recommended.**
+  `ALTER MATERIALIZED VIEW ... SET (timescaledb.compress, segmentby series_id, orderby bucket DESC)`
+  on one month of House 1: `reading_1m` 147.8 -> 7.7 bytes/row (19.1x), `device_estimate_1m`
+  147.2 -> 6.4 (23.1x), row counts unchanged, 1 m reads on compressed chunks 1.4-2.0 ms p95. It is a
+  small migration (plus a compression policy for the cagg); not made in this task. Applied to the
+  audit data it would take the 6.5 GB of aggregates to about 0.3 GB.
+- **Why the 1 d backfill was slow (10a open question): answered.** A forced refresh of 30 days
+  costs 0.09 s for 1 d and 1.1 s for 1 h on the audit data, and one invalidated day or a
+  policy-sized window refreshes in 7-16 ms. The cost appears only while newer raw data is not yet
+  materialized: on a scratch copy the 1 d refresh of a 30-day window took 0.07 s alone, 6.5 s with
+  four more months of unmaterialized raw data present, and 0.04 s again when `reading_1m` and
+  `reading_1h` were set `materialized_only` (the real-time branch of the source views is evaluated
+  during the refresh). So the 1 d refresh scales with the amount of raw data newer than the
+  window: a backfill of a long history should either run newest-first, or switch the 1 m/1 h views to
+  `materialized_only` for its duration. In steady state (policy windows) the cost is negligible.
+- **Retention and aggregates (scratch drill, jobs paused and run by hand):** the raw 400-day
+  retention drops the raw chunks of the old range and leaves 1 m, 1 h and 1 d buckets untouched; the
+  refresh policies (7 d / 30 d / 60 d) do not touch old buckets; the 1 m retention job (set by
+  `ops.set_policies`) deletes only the old 1 m buckets, so 1 h and 1 d survive indefinitely as the
+  spec intends and need no retention policy. **Risk found:** a manual `backfill_aggregates` over a range
+  whose raw chunks were already dropped DELETES the existing 1 m, 1 h and 1 d buckets of that range
+  (all three went to 0 rows). Never backfill a window older than the raw retention.
+  Compression policy and policy jobs fire immediately after `set_policies(true)` on the background
+  scheduler (new jobs start at once), which is why the drill pauses them first.
+- **Harness check:** a limited end-to-end run on a scratch database (load, backfill, compress)
+  confirmed both fixed bugs (compressed chunk count 15 = database, per-view timing keys are view
+  names) and exposed a third one, fixed: `compress` crashed when a hypertable had no compressed
+  chunk (no statistics row).
+- **Docker VM disk:** 1.08 TB total, 0.96 TB free at the end (`env.docker_vm_disk_bytes`).
+- **Side effect on the audit data:** the refresh-cost drill re-materialized two days of House 1
+  (restored; per-row diff against a snapshot taken before the drill: 0 rows changed). The row digest
+  of `reading_1d` recorded in 10a differs from today's digest although all sums are equal
+  (earlier unsnapshotted drill runs, probably last-digit float differences in the two recomputed
+  days); compare digests only within one run.
+
 <!-- audit:begin -->
 ## Measured results
 
@@ -91,6 +173,47 @@ Generated by `python -m tests.audit.run report` from `docs/audit-results.json`; 
 | `refresh_seconds_per_view.energy.reading_1m` | 697.3 |
 | `total_seconds` | 4,517 |
 
+### cagg_compression
+
+| key | value |
+|---|---|
+| `backfill_seconds` | 30.8 |
+| `backfill_seconds_per_view.energy.device_estimate_1d` | 0.05 |
+| `backfill_seconds_per_view.energy.device_estimate_1h` | 0.51 |
+| `backfill_seconds_per_view.energy.device_estimate_1m` | 14.49 |
+| `backfill_seconds_per_view.energy.reading_1d` | 0.05 |
+| `backfill_seconds_per_view.energy.reading_1h` | 0.51 |
+| `backfill_seconds_per_view.energy.reading_1m` | 15.15 |
+| `copied_rows.device_estimate` | 2,231,649 |
+| `copied_rows.reading` | 2,479,610 |
+| `device_estimate_1m.bytes_after` | 1,589,248 |
+| `device_estimate_1m.bytes_before` | 36,691,968 |
+| `device_estimate_1m.bytes_per_row_after` | 6.4 |
+| `device_estimate_1m.bytes_per_row_before` | 147.2 |
+| `device_estimate_1m.chunks_compressed` | 3 |
+| `device_estimate_1m.compress_seconds` | 0.2 |
+| `device_estimate_1m.ratio` | 23.09 |
+| `device_estimate_1m.row_count_unchanged` | True |
+| `device_estimate_1m.rows` | 249,255 |
+| `latency_on_compressed_1m_ms.5m_over_1d.max_ms` | 2.05 |
+| `latency_on_compressed_1m_ms.5m_over_1d.n` | 30 |
+| `latency_on_compressed_1m_ms.5m_over_1d.p50_ms` | 1.35 |
+| `latency_on_compressed_1m_ms.5m_over_1d.p95_ms` | 1.99 |
+| `latency_on_compressed_1m_ms.latest_minute.max_ms` | 1.64 |
+| `latency_on_compressed_1m_ms.latest_minute.n` | 30 |
+| `latency_on_compressed_1m_ms.latest_minute.p50_ms` | 0.49 |
+| `latency_on_compressed_1m_ms.latest_minute.p95_ms` | 1.43 |
+| `reading_1m.bytes_after` | 2,138,112 |
+| `reading_1m.bytes_before` | 40,927,232 |
+| `reading_1m.bytes_per_row_after` | 7.7 |
+| `reading_1m.bytes_per_row_before` | 147.8 |
+| `reading_1m.chunks_compressed` | 3 |
+| `reading_1m.compress_seconds` | 0.3 |
+| `reading_1m.ratio` | 19.14 |
+| `reading_1m.row_count_unchanged` | True |
+| `reading_1m.rows` | 276,940 |
+| `slice` | House 1, 2026-09 (all series incl. plugs) |
+
 ### compress
 
 | key | value |
@@ -115,6 +238,35 @@ Generated by `python -m tests.audit.run report` from `docs/audit-results.json`; 
 | `stats.reading.ratio_compressed_chunks` | 17.96 |
 | `stats.reading.total_chunks` | 638 |
 | `workers` | 4 |
+
+### drills
+
+| key | value |
+|---|---|
+| `duplicate_batch.covered_minutes` | 60 |
+| `duplicate_batch.first_new` | 360 |
+| `duplicate_batch.hour_n` | 360 |
+| `duplicate_batch.hour_wh` | 600 |
+| `duplicate_batch.second_dup` | 360 |
+| `duplicate_batch.second_new` | 0 |
+| `gap_over_1h.day_covered_minutes` | 60 |
+| `gap_over_1h.day_energy_wh` | 600 |
+| `gap_over_1h.hour_in_gap_has_row` | False |
+| `gap_over_1h.points` | 2026-03-12T03:00:00+00:00, 2026-03-12T05:00:00+00:00 |
+| `issues_flagged.covered_minutes` | 30 |
+| `issues_flagged.raw_flagged` | 180 |
+| `issues_flagged.raw_rows` | 360 |
+| `issues_flagged.view_n` | 180 |
+| `issues_flagged.view_wh` | 300 |
+| `out_of_order.checkpoint_not_moved_back` | True |
+| `out_of_order.first_hour_wh` | 600 |
+| `out_of_order.late_hour_wh` | 600 |
+| `out_of_order.late_rows_new` | 360 |
+| `stopped_refresh_job.day_wh` | 600 |
+| `stopped_refresh_job.hour_wh` | 600 |
+| `stopped_refresh_job.materialized_rows_for_new_hour` | 0 |
+| `stopped_refresh_job.points_5m` | 12 |
+| `stopped_refresh_job.refresh_jobs_paused` | 6 |
 
 ### energy_examples
 
@@ -587,6 +739,8 @@ Generated by `python -m tests.audit.run report` from `docs/audit-results.json`; 
 | key | value |
 |---|---|
 | `cpus` | 16 |
+| `docker_vm_disk_bytes.free` | 964,172,861,440 |
+| `docker_vm_disk_bytes.total` | 1,081,101,176,832 |
 | `memory_mb_visible` | 15,583 |
 | `postgres.checkpoint_timeout` | 15min |
 | `postgres.effective_cache_size` | 8GB |
@@ -600,27 +754,7 @@ Generated by `python -m tests.audit.run report` from `docs/audit-results.json`; 
 | `postgres.version` | 17.11 |
 | `postgres.wal_compression` | off |
 | `postgres.work_mem` | 7791kB |
-| `recorded_at` | 2026-11-01T15:13:55.519850+00:00 |
-| `refit_csv_bytes.house1` | 400,840,083 |
-| `refit_csv_bytes.house10` | 398,756,360 |
-| `refit_csv_bytes.house11` | 255,832,544 |
-| `refit_csv_bytes.house12` | 335,009,288 |
-| `refit_csv_bytes.house13` | 276,518,579 |
-| `refit_csv_bytes.house15` | 353,152,325 |
-| `refit_csv_bytes.house16` | 333,937,465 |
-| `refit_csv_bytes.house17` | 317,925,929 |
-| `refit_csv_bytes.house18` | 301,534,016 |
-| `refit_csv_bytes.house19` | 320,691,540 |
-| `refit_csv_bytes.house2` | 325,391,201 |
-| `refit_csv_bytes.house20` | 299,757,142 |
-| `refit_csv_bytes.house21` | 316,713,466 |
-| `refit_csv_bytes.house3` | 407,273,065 |
-| `refit_csv_bytes.house4` | 395,763,806 |
-| `refit_csv_bytes.house5` | 435,272,416 |
-| `refit_csv_bytes.house6` | 366,398,284 |
-| `refit_csv_bytes.house7` | 388,975,788 |
-| `refit_csv_bytes.house8` | 355,439,146 |
-| `refit_csv_bytes.house9` | 358,228,620 |
+| `recorded_at` | 2026-11-01T18:23:16.784454+00:00 |
 
 ### estimates
 
@@ -633,18 +767,84 @@ Generated by `python -m tests.audit.run report` from `docs/audit-results.json`; 
 | `rows_inserted` | 177,193,152 |
 | `series_created` | 27 |
 
+### extrapolation
+
+| key | value |
+|---|---|
+| `assumptions` | the spec states no sampling rate; three scenarios are shown, REFIT: 10 series at about 7 s median cadence (measured), the 1 m aggregate has one row per series per minute that holds a sample; the scenarios assume every minute is covered (upper bound), 1h/1d aggregate bytes are scaled from the measured 3-house size by series/10, compressed raw size uses the measured 17x for all cadences (not measured for others), raw retention 13 months is NOT applied; figures are per year of ingest |
+| `measured_inputs.agg_1m_bytes_per_row_uncompressed` | 151.3 |
+| `measured_inputs.agg_1m_compression_ratio_scratch_measurement` | 19.14 |
+| `measured_inputs.device_estimate_bytes_per_row` | 5.621 |
+| `measured_inputs.raw_bytes_per_reading_compressed` | 5.617 |
+| `scenario_main_meter_only_1hz.agg_1h_1d_gb_per_home_year` | 0.00127 |
+| `scenario_main_meter_only_1hz.agg_1m_compressed_gb_per_home_year` | 0.0042 |
+| `scenario_main_meter_only_1hz.agg_1m_uncompressed_gb_per_home_year` | 0.0795 |
+| `scenario_main_meter_only_1hz.assumption` | 1 series per home, one reading per 1 s each |
+| `scenario_main_meter_only_1hz.daily_ingest_rows_10k_homes` | 864,000,000 |
+| `scenario_main_meter_only_1hz.device_estimate_gb_per_home_year` | 0 |
+| `scenario_main_meter_only_1hz.measured_single_stream_rows_per_second` | 49,583 |
+| `scenario_main_meter_only_1hz.raw_gb_per_home_year` | 0.1771 |
+| `scenario_main_meter_only_1hz.readings_per_home_day` | 86,400 |
+| `scenario_main_meter_only_1hz.required_avg_rows_per_second` | 10,000 |
+| `scenario_main_meter_only_1hz.streams_needed_at_measured_rate` | 0.2 |
+| `scenario_main_meter_only_1hz.tb_per_year_10k_homes_1m_compressed` | 1.83 |
+| `scenario_main_meter_only_1hz.tb_per_year_10k_homes_1m_uncompressed` | 2.58 |
+| `scenario_main_plus_9_devices_30s_with_estimates.agg_1h_1d_gb_per_home_year` | 0.01267 |
+| `scenario_main_plus_9_devices_30s_with_estimates.agg_1m_compressed_gb_per_home_year` | 0.0416 |
+| `scenario_main_plus_9_devices_30s_with_estimates.agg_1m_uncompressed_gb_per_home_year` | 0.7954 |
+| `scenario_main_plus_9_devices_30s_with_estimates.assumption` | 10 series per home, one reading per 30 s each, 9 device_estimate series |
+| `scenario_main_plus_9_devices_30s_with_estimates.daily_ingest_rows_10k_homes` | 288,000,000 |
+| `scenario_main_plus_9_devices_30s_with_estimates.device_estimate_gb_per_home_year` | 0.0532 |
+| `scenario_main_plus_9_devices_30s_with_estimates.measured_single_stream_rows_per_second` | 49,583 |
+| `scenario_main_plus_9_devices_30s_with_estimates.raw_gb_per_home_year` | 0.059 |
+| `scenario_main_plus_9_devices_30s_with_estimates.readings_per_home_day` | 28,800 |
+| `scenario_main_plus_9_devices_30s_with_estimates.required_avg_rows_per_second` | 3,333 |
+| `scenario_main_plus_9_devices_30s_with_estimates.streams_needed_at_measured_rate` | 0.07 |
+| `scenario_main_plus_9_devices_30s_with_estimates.tb_per_year_10k_homes_1m_compressed` | 1.66 |
+| `scenario_main_plus_9_devices_30s_with_estimates.tb_per_year_10k_homes_1m_uncompressed` | 9.2 |
+| `scenario_refit_like_10_series_7s.agg_1h_1d_gb_per_home_year` | 0.01267 |
+| `scenario_refit_like_10_series_7s.agg_1m_compressed_gb_per_home_year` | 0.0416 |
+| `scenario_refit_like_10_series_7s.agg_1m_uncompressed_gb_per_home_year` | 0.7954 |
+| `scenario_refit_like_10_series_7s.assumption` | 10 series per home, one reading per 7 s each |
+| `scenario_refit_like_10_series_7s.daily_ingest_rows_10k_homes` | 1,234,285,714 |
+| `scenario_refit_like_10_series_7s.device_estimate_gb_per_home_year` | 0 |
+| `scenario_refit_like_10_series_7s.measured_single_stream_rows_per_second` | 49,583 |
+| `scenario_refit_like_10_series_7s.raw_gb_per_home_year` | 0.2531 |
+| `scenario_refit_like_10_series_7s.readings_per_home_day` | 123,429 |
+| `scenario_refit_like_10_series_7s.required_avg_rows_per_second` | 14,286 |
+| `scenario_refit_like_10_series_7s.streams_needed_at_measured_rate` | 0.29 |
+| `scenario_refit_like_10_series_7s.tb_per_year_10k_homes_1m_compressed` | 3.07 |
+| `scenario_refit_like_10_series_7s.tb_per_year_10k_homes_1m_uncompressed` | 10.61 |
+
+### harness_check
+
+| key | value |
+|---|---|
+| `backfill_keys_are_view_names` | True |
+| `backfill_timed_view_keys` | energy.device_estimate_1d, energy.device_estimate_1h, energy.device_estimate_1m, energy.reading_1d, energy.reading_1h, energy.reading_1m |
+| `compress_stats_reading.compressed_after_bytes` | 13,107,200 |
+| `compress_stats_reading.compressed_before_bytes` | 193,036,288 |
+| `compress_stats_reading.compressed_chunks` | 15 |
+| `compress_stats_reading.ratio_compressed_chunks` | 14.73 |
+| `compress_stats_reading.total_chunks` | 15 |
+| `compressed_chunks_matches_db` | True |
+| `csv_rows_loaded` | 200,000 |
+| `db_compressed_chunks` | 15 |
+| `ratio_is_number` | True |
+| `scratch_db` | wattprint_audit_h |
+
 ### idempotency
 
 | key | value |
 |---|---|
 | `post_compress.identical` | True |
 | `post_compress.reading_1d_after.cov` | 22185510 |
-| `post_compress.reading_1d_after.digest` | a68ceee71176c9a989f1f1679f34f948 |
+| `post_compress.reading_1d_after.digest` | 5bc25fd96eca74f91323a3e9d63eee97 |
 | `post_compress.reading_1d_after.n` | 16,340 |
 | `post_compress.reading_1d_after.samples` | 191928740 |
 | `post_compress.reading_1d_after.wh` | 27,346,573 |
 | `post_compress.reading_1d_before.cov` | 22185510 |
-| `post_compress.reading_1d_before.digest` | a68ceee71176c9a989f1f1679f34f948 |
+| `post_compress.reading_1d_before.digest` | 5bc25fd96eca74f91323a3e9d63eee97 |
 | `post_compress.reading_1d_before.n` | 16,340 |
 | `post_compress.reading_1d_before.samples` | 191928740 |
 | `post_compress.reading_1d_before.wh` | 27,346,573 |
@@ -671,6 +871,156 @@ Generated by `python -m tests.audit.run report` from `docs/audit-results.json`; 
 | `pre_compress.rows_dup` | 1,000,000 |
 | `pre_compress.rows_in` | 1,000,000 |
 | `pre_compress.rows_new` | 0 |
+
+### isolation
+
+| key | value |
+|---|---|
+| `audit_db.bad_tokens_checked` | 4 |
+| `audit_db.device_estimate_1d_series_visible` | 9 |
+| `audit_db.device_estimate_1h_series_visible` | 9 |
+| `audit_db.device_estimate_1m_series_visible` | 9 |
+| `audit_db.homes_checked` | 2 |
+| `audit_db.own_reading_1d_rows_visible` | 5,800 |
+| `audit_db.reading_1d_series_visible` | 10 |
+| `audit_db.reading_1h_series_visible` | 10 |
+| `audit_db.reading_1m_series_visible` | 10 |
+| `audit_db.views_checked` | 15 |
+
+### latency
+
+| key | value |
+|---|---|
+| `cold_after_restart.compute_bill_month.first_call_ms` | 47.8 |
+| `cold_after_restart.compute_bill_month.first_calls_ms` | 47.8, 21.3, 19, 18.6, 19.6 |
+| `cold_after_restart.device_breakdown_1d_hourly.first_call_ms` | 17.6 |
+| `cold_after_restart.device_breakdown_1d_hourly.first_calls_ms` | 17.6, 2.7, 2.1, 3, 2.7 |
+| `cold_after_restart.device_breakdown_30d_daily.first_call_ms` | 6.3 |
+| `cold_after_restart.device_breakdown_30d_daily.first_calls_ms` | 6.3, 2.9, 3.4, 3.1, 2.8 |
+| `cold_after_restart.latest_power.first_call_ms` | 2.6 |
+| `cold_after_restart.latest_power.first_calls_ms` | 2.6, 2.1, 1.8, 2, 2.2 |
+| `cold_after_restart.series_1d_over_90d.first_call_ms` | 21 |
+| `cold_after_restart.series_1d_over_90d.first_calls_ms` | 21, 3.7, 4.3, 3.7, 4 |
+| `cold_after_restart.series_1h_over_45d.first_call_ms` | 5.9 |
+| `cold_after_restart.series_1h_over_45d.first_calls_ms` | 5.9, 5.7, 5.4, 4.9, 5.3 |
+| `cold_after_restart.series_5m_over_1d.first_call_ms` | 9.5 |
+| `cold_after_restart.series_5m_over_1d.first_calls_ms` | 9.5, 7.7, 5.3, 5.9, 7.3 |
+| `cold_after_restart.series_6h_over_90d.first_call_ms` | 17.1 |
+| `cold_after_restart.series_6h_over_90d.first_calls_ms` | 17.1, 6.3, 6.2, 5.6, 6.6 |
+| `lagging_watermark.latest_power.last_point` | LatestPower(ts=datetime.datetime(2026, 10, 31, 13, 27, tzinfo=datetime.timezone.utc), watts=1234.0) |
+| `lagging_watermark.latest_power.target_p95_ms` | 20 |
+| `lagging_watermark.latest_power.warm.max_ms` | 1.95 |
+| `lagging_watermark.latest_power.warm.n` | 30 |
+| `lagging_watermark.latest_power.warm.p50_ms` | 1.59 |
+| `lagging_watermark.latest_power.warm.p95_ms` | 1.91 |
+| `lagging_watermark.latest_power_sees_tail` | True |
+| `lagging_watermark.raw_rows_restored` | True |
+| `lagging_watermark.series_1d_over_90d.last_point` | Point(ts=datetime.datetime(2026, 10, 30, 17, 0, tzinfo=datetime.timezone.utc), avg_w=281.833300336567, min_w=155.0, max_w=10765.0, energy_wh=5298.452764550266) |
+| `lagging_watermark.series_1d_over_90d.target_p95_ms` | 100 |
+| `lagging_watermark.series_1d_over_90d.warm.max_ms` | 4.44 |
+| `lagging_watermark.series_1d_over_90d.warm.n` | 30 |
+| `lagging_watermark.series_1d_over_90d.warm.p50_ms` | 3.67 |
+| `lagging_watermark.series_1d_over_90d.warm.p95_ms` | 4.41 |
+| `lagging_watermark.series_1h_over_45d.last_point` | Point(ts=datetime.datetime(2026, 10, 31, 13, 0, tzinfo=datetime.timezone.utc), avg_w=1234.0, min_w=1234.0, max_w=1234.0, energy_wh=575.8666666666668) |
+| `lagging_watermark.series_1h_over_45d.target_p95_ms` | 100 |
+| `lagging_watermark.series_1h_over_45d.warm.max_ms` | 5.09 |
+| `lagging_watermark.series_1h_over_45d.warm.n` | 30 |
+| `lagging_watermark.series_1h_over_45d.warm.p50_ms` | 4.6 |
+| `lagging_watermark.series_1h_over_45d.warm.p95_ms` | 5.08 |
+| `lagging_watermark.series_5m_over_1d.last_point` | Point(ts=datetime.datetime(2026, 10, 31, 13, 25, tzinfo=datetime.timezone.utc), avg_w=1234.0, min_w=1234.0, max_w=1234.0, energy_wh=61.7) |
+| `lagging_watermark.series_5m_over_1d.target_p95_ms` | 100 |
+| `lagging_watermark.series_5m_over_1d.warm.max_ms` | 4.95 |
+| `lagging_watermark.series_5m_over_1d.warm.n` | 30 |
+| `lagging_watermark.series_5m_over_1d.warm.p50_ms` | 4.04 |
+| `lagging_watermark.series_5m_over_1d.warm.p95_ms` | 4.79 |
+| `lagging_watermark.tail_rows` | 772 |
+| `lagging_watermark.tail_rows_end` | 2026-10-31T13:27:30+00:00 |
+| `lagging_watermark.tail_rows_start` | 2026-10-31T11:57:30+00:00 |
+| `lagging_watermark.watermarks.1d` | 2026-10-31T17:00:00+00:00 |
+| `lagging_watermark.watermarks.1h` | 2026-10-31T12:00:00+00:00 |
+| `lagging_watermark.watermarks.1m` | 2026-10-31T11:57:00+00:00 |
+| `settled_data.compressed_chunks_reading` | 636 |
+| `settled_data.compute_bill_month.pass` | True |
+| `settled_data.compute_bill_month.target_p95_ms` | 100 |
+| `settled_data.compute_bill_month.varied_windows.max_ms` | 18.39 |
+| `settled_data.compute_bill_month.varied_windows.n` | 30 |
+| `settled_data.compute_bill_month.varied_windows.p50_ms` | 15.81 |
+| `settled_data.compute_bill_month.varied_windows.p95_ms` | 17.78 |
+| `settled_data.compute_bill_month.warm.max_ms` | 31.24 |
+| `settled_data.compute_bill_month.warm.n` | 30 |
+| `settled_data.compute_bill_month.warm.p50_ms` | 15.65 |
+| `settled_data.compute_bill_month.warm.p95_ms` | 17.49 |
+| `settled_data.device_breakdown_1d_hourly.pass` | True |
+| `settled_data.device_breakdown_1d_hourly.target_p95_ms` | 100 |
+| `settled_data.device_breakdown_1d_hourly.varied_windows.max_ms` | 3.29 |
+| `settled_data.device_breakdown_1d_hourly.varied_windows.n` | 30 |
+| `settled_data.device_breakdown_1d_hourly.varied_windows.p50_ms` | 2.65 |
+| `settled_data.device_breakdown_1d_hourly.varied_windows.p95_ms` | 3.21 |
+| `settled_data.device_breakdown_1d_hourly.warm.max_ms` | 25.62 |
+| `settled_data.device_breakdown_1d_hourly.warm.n` | 30 |
+| `settled_data.device_breakdown_1d_hourly.warm.p50_ms` | 2.35 |
+| `settled_data.device_breakdown_1d_hourly.warm.p95_ms` | 2.88 |
+| `settled_data.device_breakdown_30d_daily.pass` | True |
+| `settled_data.device_breakdown_30d_daily.target_p95_ms` | 100 |
+| `settled_data.device_breakdown_30d_daily.varied_windows.max_ms` | 3.93 |
+| `settled_data.device_breakdown_30d_daily.varied_windows.n` | 30 |
+| `settled_data.device_breakdown_30d_daily.varied_windows.p50_ms` | 3.02 |
+| `settled_data.device_breakdown_30d_daily.varied_windows.p95_ms` | 3.54 |
+| `settled_data.device_breakdown_30d_daily.warm.max_ms` | 25.79 |
+| `settled_data.device_breakdown_30d_daily.warm.n` | 30 |
+| `settled_data.device_breakdown_30d_daily.warm.p50_ms` | 3.57 |
+| `settled_data.device_breakdown_30d_daily.warm.p95_ms` | 4.23 |
+| `settled_data.latest_power.pass` | True |
+| `settled_data.latest_power.target_p95_ms` | 20 |
+| `settled_data.latest_power.varied_windows.max_ms` | 5.83 |
+| `settled_data.latest_power.varied_windows.n` | 30 |
+| `settled_data.latest_power.varied_windows.p50_ms` | 1.5 |
+| `settled_data.latest_power.varied_windows.p95_ms` | 3.48 |
+| `settled_data.latest_power.warm.max_ms` | 6.33 |
+| `settled_data.latest_power.warm.n` | 30 |
+| `settled_data.latest_power.warm.p50_ms` | 1.55 |
+| `settled_data.latest_power.warm.p95_ms` | 2.35 |
+| `settled_data.runs_per_case` | 30 |
+| `settled_data.series_1d_over_90d.pass` | True |
+| `settled_data.series_1d_over_90d.target_p95_ms` | 100 |
+| `settled_data.series_1d_over_90d.varied_windows.max_ms` | 4.07 |
+| `settled_data.series_1d_over_90d.varied_windows.n` | 30 |
+| `settled_data.series_1d_over_90d.varied_windows.p50_ms` | 3.25 |
+| `settled_data.series_1d_over_90d.varied_windows.p95_ms` | 3.73 |
+| `settled_data.series_1d_over_90d.warm.max_ms` | 25.11 |
+| `settled_data.series_1d_over_90d.warm.n` | 30 |
+| `settled_data.series_1d_over_90d.warm.p50_ms` | 3.5 |
+| `settled_data.series_1d_over_90d.warm.p95_ms` | 4.54 |
+| `settled_data.series_1h_over_45d.pass` | True |
+| `settled_data.series_1h_over_45d.target_p95_ms` | 100 |
+| `settled_data.series_1h_over_45d.varied_windows.max_ms` | 5.56 |
+| `settled_data.series_1h_over_45d.varied_windows.n` | 30 |
+| `settled_data.series_1h_over_45d.varied_windows.p50_ms` | 4.72 |
+| `settled_data.series_1h_over_45d.varied_windows.p95_ms` | 5.04 |
+| `settled_data.series_1h_over_45d.warm.max_ms` | 8.12 |
+| `settled_data.series_1h_over_45d.warm.n` | 30 |
+| `settled_data.series_1h_over_45d.warm.p50_ms` | 4.61 |
+| `settled_data.series_1h_over_45d.warm.p95_ms` | 5.96 |
+| `settled_data.series_5m_over_1d.pass` | True |
+| `settled_data.series_5m_over_1d.target_p95_ms` | 100 |
+| `settled_data.series_5m_over_1d.varied_windows.max_ms` | 5.86 |
+| `settled_data.series_5m_over_1d.varied_windows.n` | 30 |
+| `settled_data.series_5m_over_1d.varied_windows.p50_ms` | 4.7 |
+| `settled_data.series_5m_over_1d.varied_windows.p95_ms` | 5.6 |
+| `settled_data.series_5m_over_1d.warm.max_ms` | 29.76 |
+| `settled_data.series_5m_over_1d.warm.n` | 30 |
+| `settled_data.series_5m_over_1d.warm.p50_ms` | 3.59 |
+| `settled_data.series_5m_over_1d.warm.p95_ms` | 4.91 |
+| `settled_data.series_6h_over_90d.pass` | True |
+| `settled_data.series_6h_over_90d.target_p95_ms` | 100 |
+| `settled_data.series_6h_over_90d.varied_windows.max_ms` | 5.05 |
+| `settled_data.series_6h_over_90d.varied_windows.n` | 30 |
+| `settled_data.series_6h_over_90d.varied_windows.p50_ms` | 4.19 |
+| `settled_data.series_6h_over_90d.varied_windows.p95_ms` | 4.95 |
+| `settled_data.series_6h_over_90d.warm.max_ms` | 27.04 |
+| `settled_data.series_6h_over_90d.warm.n` | 30 |
+| `settled_data.series_6h_over_90d.warm.p50_ms` | 4.16 |
+| `settled_data.series_6h_over_90d.warm.p95_ms` | 5.3 |
 
 ### load
 
@@ -722,6 +1072,126 @@ Generated by `python -m tests.audit.run report` from `docs/audit-results.json`; 
 |---|---|
 | `jobs_remaining` | 0 |
 | `state` | off |
+
+### policy_drill
+
+| key | value |
+|---|---|
+| `aggregate_rows_before_policies.1d` | 130 |
+| `aggregate_rows_before_policies.1h` | 2,760 |
+| `aggregate_rows_before_policies.1m` | 164,310 |
+| `copied_rows.reading` | 1,533,860 |
+| `jobs_paused_for_deterministic_drill` | True |
+| `mid_slice_raw_rows_intact` | True |
+| `old_slice.materialized_rows_after_1m_retention_job.1d` | 50 |
+| `old_slice.materialized_rows_after_1m_retention_job.1h` | 1,200 |
+| `old_slice.materialized_rows_after_1m_retention_job.1m` | 0 |
+| `old_slice.materialized_rows_after_backfill_over_dropped_range.1d` | 0 |
+| `old_slice.materialized_rows_after_backfill_over_dropped_range.1h` | 0 |
+| `old_slice.materialized_rows_after_backfill_over_dropped_range.1m` | 0 |
+| `old_slice.materialized_rows_after_raw_retention.1d` | 50 |
+| `old_slice.materialized_rows_after_raw_retention.1h` | 1,200 |
+| `old_slice.materialized_rows_after_raw_retention.1m` | 71,280 |
+| `old_slice.materialized_rows_after_refresh_policies.1d` | 50 |
+| `old_slice.materialized_rows_after_refresh_policies.1h` | 1,200 |
+| `old_slice.materialized_rows_after_refresh_policies.1m` | 71,280 |
+| `old_slice.materialized_rows_before.1d` | 50 |
+| `old_slice.materialized_rows_before.1h` | 1,200 |
+| `old_slice.materialized_rows_before.1m` | 71,280 |
+| `old_slice.raw_rows_after` | 0 |
+| `old_slice.raw_rows_before` | 700,920 |
+| `old_slice.view_rows_after_1m_retention_job.1d` | 50 |
+| `old_slice.view_rows_after_1m_retention_job.1h` | 1,200 |
+| `old_slice.view_rows_after_1m_retention_job.1m` | 0 |
+| `old_slice.view_rows_after_backfill_over_dropped_range.1d` | 0 |
+| `old_slice.view_rows_after_backfill_over_dropped_range.1h` | 0 |
+| `old_slice.view_rows_after_backfill_over_dropped_range.1m` | 0 |
+| `old_slice.view_rows_after_raw_retention.1d` | 50 |
+| `old_slice.view_rows_after_raw_retention.1h` | 1,200 |
+| `old_slice.view_rows_after_raw_retention.1m` | 71,280 |
+| `old_slice.view_rows_after_refresh_policies.1d` | 50 |
+| `old_slice.view_rows_after_refresh_policies.1h` | 1,200 |
+| `old_slice.view_rows_after_refresh_policies.1m` | 71,280 |
+| `old_slice.view_rows_before.1d` | 50 |
+| `old_slice.view_rows_before.1h` | 1,200 |
+| `old_slice.view_rows_before.1m` | 71,280 |
+| `raw_chunks_after_compression_policy.compressed` | 10 |
+| `raw_chunks_after_compression_policy.total` | 12 |
+| `raw_chunks_after_raw_retention.compressed` | 5 |
+| `raw_chunks_after_raw_retention.total` | 7 |
+| `raw_chunks_before.compressed` | 0 |
+| `raw_chunks_before.total` | 12 |
+| `recent_slice_raw_rows_intact` | True |
+| `refresh_policy_jobs_found.1d` | True |
+| `refresh_policy_jobs_found.1h` | True |
+| `refresh_policy_jobs_found.1m` | True |
+| `retention_policy_jobs` | device_estimate, device_estimate_1m, reading, reading_1m |
+| `run_at` | 2026-11-01T18:19:40.514269+00:00 |
+| `slices.mid` | 2026-09-01 00:00:00+00:00, 2026-09-04 00:00:00+00:00 |
+| `slices.old` | 2025-02-01 00:00:00+00:00, 2025-02-06 00:00:00+00:00 |
+| `slices.recent` | 2026-10-25 00:00:00+00:00, 2026-11-01 00:00:00+00:00 |
+
+### rebuild
+
+| key | value |
+|---|---|
+| `from_empty.device_types_seeded` | 22 |
+| `from_empty.load_output` | house 1: rows_in=100000 rows_new=100000 rows_dup=0 rows_bad=0 in 1.8s (55,486 readings/s) |
+| `from_empty.manual_steps` | 0 |
+| `from_empty.policy_jobs_after_migration` | 12 |
+| `from_empty.readings` | 100,000 |
+| `from_empty.series` | 10 |
+| `from_empty.tariff_tiers_seeded` | 11 |
+
+### refresh_cost
+
+| key | value |
+|---|---|
+| `forced_30_day_window_seconds.1d` | 0.089 |
+| `forced_30_day_window_seconds.1h` | 1.218 |
+| `forced_30_day_window_seconds.1m` | 31.16 |
+| `one_invalidated_day_refresh_seconds.1d` | 0.016 |
+| `one_invalidated_day_refresh_seconds.1h` | 0.013 |
+| `one_invalidated_day_refresh_seconds.1m` | 0.015 |
+| `policy_window_nothing_to_do_seconds.1d` | 0.004 |
+| `policy_window_nothing_to_do_seconds.1h` | 0.004 |
+| `policy_window_nothing_to_do_seconds.1m` | 0.004 |
+| `policy_window_with_one_invalidation_seconds.1d` | 0.014 |
+| `policy_window_with_one_invalidation_seconds.1h` | 0.009 |
+| `policy_window_with_one_invalidation_seconds.1m` | 0.009 |
+| `reading_1d_checksum_after_forced_recompute_equals_before` | True |
+| `reading_1d_checksum_restored_after_marker_cycle` | True |
+| `reading_1d_diff_vs_snapshot_after_forced_recompute.max_rel_diff` | 0 |
+| `reading_1d_diff_vs_snapshot_after_forced_recompute.new_rows` | 0 |
+| `reading_1d_diff_vs_snapshot_after_forced_recompute.rows_changed` | 0 |
+| `reading_1d_diff_vs_snapshot_after_forced_recompute.rows_lost` | 0 |
+| `reading_1d_diff_vs_snapshot_after_forced_recompute.rows_now` | 16,340 |
+| `reading_1d_diff_vs_snapshot_after_marker_cycle.max_rel_diff` | 0 |
+| `reading_1d_diff_vs_snapshot_after_marker_cycle.new_rows` | 0 |
+| `reading_1d_diff_vs_snapshot_after_marker_cycle.rows_changed` | 0 |
+| `reading_1d_diff_vs_snapshot_after_marker_cycle.rows_lost` | 0 |
+| `reading_1d_diff_vs_snapshot_after_marker_cycle.rows_now` | 16,340 |
+| `scratch_comparison.window_only.backfill_seconds_per_view.energy.device_estimate_1d` | 0.01 |
+| `scratch_comparison.window_only.backfill_seconds_per_view.energy.device_estimate_1h` | 0.01 |
+| `scratch_comparison.window_only.backfill_seconds_per_view.energy.device_estimate_1m` | 0.01 |
+| `scratch_comparison.window_only.backfill_seconds_per_view.energy.reading_1d` | 0.07 |
+| `scratch_comparison.window_only.backfill_seconds_per_view.energy.reading_1h` | 0.65 |
+| `scratch_comparison.window_only.backfill_seconds_per_view.energy.reading_1m` | 21.69 |
+| `scratch_comparison.window_only.copied_rows.reading` | 3,850,040 |
+| `scratch_comparison.window_plus_newer_raw_with_1m_and_1h_materialized_only.backfill_seconds_per_view.energy.device_estimate_1d` | 0.01 |
+| `scratch_comparison.window_plus_newer_raw_with_1m_and_1h_materialized_only.backfill_seconds_per_view.energy.device_estimate_1h` | 0.01 |
+| `scratch_comparison.window_plus_newer_raw_with_1m_and_1h_materialized_only.backfill_seconds_per_view.energy.device_estimate_1m` | 0.01 |
+| `scratch_comparison.window_plus_newer_raw_with_1m_and_1h_materialized_only.backfill_seconds_per_view.energy.reading_1d` | 0.04 |
+| `scratch_comparison.window_plus_newer_raw_with_1m_and_1h_materialized_only.backfill_seconds_per_view.energy.reading_1h` | 0.56 |
+| `scratch_comparison.window_plus_newer_raw_with_1m_and_1h_materialized_only.backfill_seconds_per_view.energy.reading_1m` | 22.29 |
+| `scratch_comparison.window_plus_newer_raw_with_1m_and_1h_materialized_only.copied_rows.reading` | 16,882,370 |
+| `scratch_comparison.window_plus_newer_unmaterialized_raw.backfill_seconds_per_view.energy.device_estimate_1d` | 0.01 |
+| `scratch_comparison.window_plus_newer_unmaterialized_raw.backfill_seconds_per_view.energy.device_estimate_1h` | 0.01 |
+| `scratch_comparison.window_plus_newer_unmaterialized_raw.backfill_seconds_per_view.energy.device_estimate_1m` | 0.01 |
+| `scratch_comparison.window_plus_newer_unmaterialized_raw.backfill_seconds_per_view.energy.reading_1d` | 6.48 |
+| `scratch_comparison.window_plus_newer_unmaterialized_raw.backfill_seconds_per_view.energy.reading_1h` | 0.67 |
+| `scratch_comparison.window_plus_newer_unmaterialized_raw.backfill_seconds_per_view.energy.reading_1m` | 22.14 |
+| `scratch_comparison.window_plus_newer_unmaterialized_raw.copied_rows.reading` | 16,882,370 |
 
 ### stats
 

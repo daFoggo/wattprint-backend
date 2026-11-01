@@ -76,3 +76,43 @@ async def ensure_database() -> str:
 def make_engine(**kw):
     guard()
     return create_async_engine(settings.database_url, **kw)
+
+
+def scratch_url(name: str) -> str:
+    """URL of a scratch database next to the audit database (never the audit database itself)."""
+    guard()
+    if not name.startswith(AUDIT_DB_PREFIX + "_") or name == database_name():
+        raise NotAuditTarget(f"scratch database name must be {AUDIT_DB_PREFIX}_<suffix>: {name!r}")
+    return make_url(settings.database_url).set(database=name).render_as_string(hide_password=False)
+
+
+async def create_scratch(name: str, migrate: bool = True, policies_off: bool = True) -> str:
+    """Drop and recreate a scratch database on the audit server; migrate it to head."""
+    dsn = scratch_url(name)
+    await drop_scratch(name)
+    admin = create_async_engine(os.environ[ADMIN_URL_ENV], isolation_level="AUTOCOMMIT")
+    try:
+        async with admin.connect() as c:
+            await c.execute(text(f'CREATE DATABASE "{name}"'))
+    finally:
+        await admin.dispose()
+    if migrate:
+        run_alembic(dsn, "upgrade", "head")
+        if policies_off:
+            eng = create_async_engine(dsn, isolation_level="AUTOCOMMIT")
+            try:
+                async with eng.connect() as c:
+                    await c.execute(text("SELECT ops.set_policies(false)"))
+            finally:
+                await eng.dispose()
+    return dsn
+
+
+async def drop_scratch(name: str) -> None:
+    scratch_url(name)  # validates the name
+    admin = create_async_engine(os.environ[ADMIN_URL_ENV], isolation_level="AUTOCOMMIT")
+    try:
+        async with admin.connect() as c:
+            await c.execute(text(f'DROP DATABASE IF EXISTS "{name}" WITH (FORCE)'))
+    finally:
+        await admin.dispose()

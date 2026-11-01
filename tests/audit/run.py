@@ -9,6 +9,7 @@ import asyncio
 import json
 import os
 import re
+import shutil
 import sys
 import time
 from datetime import UTC, date, datetime, timedelta
@@ -17,7 +18,7 @@ from pathlib import Path
 from sqlalchemy import event, text
 
 from app.services.aggregates import backfill_aggregates
-from tests.audit import results
+from tests.audit import part_b, part_b2, results
 from tests.audit.support import database_name, ensure_database, guard, make_engine
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -78,6 +79,8 @@ async def stage_env(args) -> None:
     results.record("env", "memory_mb_visible", mem_kb // 1024)
     results.record("env", "postgres", pg)
     results.record("env", "refit_csv_bytes", sizes)
+    disk = shutil.disk_usage("/")
+    results.record("env", "docker_vm_disk_bytes", {"total": disk.total, "free": disk.free})
     results.record("env", "recorded_at", datetime.now(UTC).isoformat())
     log(f"env recorded: cpus={os.cpu_count()} mem={mem_kb // 1024} MB pg={pg['version']}")
 
@@ -104,9 +107,11 @@ async def stage_policies_off(args) -> None:
 
 
 # ------------------------------------------------------------------ load
-async def _run_loader(house: int, shift: int, tag: str) -> dict:
+async def _run_loader(house: int, shift: int, tag: str, limit_rows: int | None = None) -> dict:
     cmd = [sys.executable, "-m", "app.cli.load_refit", "--house", str(house),
            "--shift-days", str(shift)]
+    if limit_rows:
+        cmd += ["--limit-rows", str(limit_rows)]
     started = time.perf_counter()
     proc = await asyncio.create_subprocess_exec(
         *cmd, cwd=ROOT, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.STDOUT
@@ -140,9 +145,11 @@ async def stage_load(args) -> None:
         log(f"house {h}: shift {s} days, last reading -> {last:%F %T} UTC")
     started = time.perf_counter()
     if args.parallel:
-        out = await asyncio.gather(*(_run_loader(h, shifts[h], "par") for h in todo))
+        out = await asyncio.gather(
+            *(_run_loader(h, shifts[h], "par", args.limit_rows) for h in todo)
+        )
     else:
-        out = [await _run_loader(h, shifts[h], "seq") for h in todo]
+        out = [await _run_loader(h, shifts[h], "seq", args.limit_rows) for h in todo]
     wall = time.perf_counter() - started
     for h, r in zip(todo, out, strict=True):
         results.record("load", f"house{h}", r)
@@ -273,9 +280,9 @@ async def stage_backfill(args) -> None:
 
     t0 = time.perf_counter()
     async with eng.connect() as c:
-        lo, hi = await _hypertable_range(c, "reading")
-        lo2, hi2 = await _hypertable_range(c, "device_estimate")
-        lo, hi = min(lo, lo2), max(hi, hi2)
+        ranges = [r for r in (await _hypertable_range(c, "reading"),
+                              await _hypertable_range(c, "device_estimate")) if r[0] is not None]
+        lo, hi = min(r[0] for r in ranges), max(r[1] for r in ranges)
         log(f"backfill range {lo:%F} .. {hi:%F}")
         start = lo
         while start < hi:
@@ -360,7 +367,12 @@ async def stage_compress(args) -> None:
                          "FROM hypertable_compression_stats(CAST(:t AS regclass))"),
                     {"t": f"energy.{t}"},
                 )
-            ).one()
+            ).first()  # no row at all when the hypertable has no compressed chunk
+            if r is None:
+                stats[t] = {"compressed_chunks": 0, "total_chunks": 0,
+                            "compressed_before_bytes": 0, "compressed_after_bytes": 0,
+                            "ratio_compressed_chunks": None}
+                continue
             stats[t] = {
                 "compressed_chunks": int(r.number_compressed_chunks),
                 "total_chunks": int(r.total_chunks),
@@ -534,8 +546,11 @@ def _flatten(prefix: str, v, out: list[tuple[str, str]]) -> None:
         out.append((prefix, _fmt(v)))
 
 
-# per-day samples, per-window timings and worst-day lists stay in the JSON only
-NOISY = re.compile(r"(^|\.)worst\[|^days\.|^windows\[")
+# per-day samples, per-window timings, worst-day lists and plan details stay in the JSON only
+NOISY = re.compile(
+    r"(^|\.)worst\[|^days\.|^windows\[|\.plans\[|plan_of_|query_plan|"
+    r"^jobs_after_set_policies_true|^refit_csv_bytes"
+)
 
 
 def render(data: dict) -> str:
@@ -572,6 +587,11 @@ STAGES = {
     "env": stage_env, "policies": stage_policies_off, "load": stage_load,
     "estimates": stage_estimates, "backfill": stage_backfill, "compress": stage_compress,
     "stats": stage_stats, "examples": stage_examples, "report": stage_report,
+    "latency": part_b.stage_latency, "refresh-cost": part_b.stage_refresh_cost,
+    "refresh-cost-scratch": part_b2.stage_refresh_cost_scratch,
+    "cagg-compression": part_b2.stage_cagg_compression,
+    "policy-drill": part_b2.stage_policy_drill, "extrapolate": part_b2.stage_extrapolate,
+    "harness-check": part_b2.stage_harness_check,
 }
 
 
@@ -583,6 +603,8 @@ def main(argv=None) -> int:
     p.add_argument("--parallel", action="store_true")
     p.add_argument("--force", action="store_true")
     p.add_argument("--workers", type=int, default=4)
+    p.add_argument("--limit-rows", type=int)
+    p.add_argument("--cold", action="store_true")
     args = p.parse_args(argv)
     if args.stage == "policies" and args.mode != "off":
         p.error("usage: policies off")

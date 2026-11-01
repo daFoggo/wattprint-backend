@@ -135,6 +135,58 @@
       }
     ]
   },
+  "cagg_compression": {
+    "backfill_seconds": 30.8,
+    "backfill_seconds_per_view": {
+      "energy.device_estimate_1d": 0.05,
+      "energy.device_estimate_1h": 0.51,
+      "energy.device_estimate_1m": 14.49,
+      "energy.reading_1d": 0.05,
+      "energy.reading_1h": 0.51,
+      "energy.reading_1m": 15.15
+    },
+    "copied_rows": {
+      "device_estimate": 2231649,
+      "reading": 2479610
+    },
+    "device_estimate_1m": {
+      "bytes_after": 1589248,
+      "bytes_before": 36691968,
+      "bytes_per_row_after": 6.4,
+      "bytes_per_row_before": 147.2,
+      "chunks_compressed": 3,
+      "compress_seconds": 0.2,
+      "ratio": 23.09,
+      "row_count_unchanged": true,
+      "rows": 249255
+    },
+    "latency_on_compressed_1m_ms": {
+      "5m_over_1d": {
+        "max_ms": 2.05,
+        "n": 30,
+        "p50_ms": 1.35,
+        "p95_ms": 1.99
+      },
+      "latest_minute": {
+        "max_ms": 1.64,
+        "n": 30,
+        "p50_ms": 0.49,
+        "p95_ms": 1.43
+      }
+    },
+    "reading_1m": {
+      "bytes_after": 2138112,
+      "bytes_before": 40927232,
+      "bytes_per_row_after": 7.7,
+      "bytes_per_row_before": 147.8,
+      "chunks_compressed": 3,
+      "compress_seconds": 0.3,
+      "ratio": 19.14,
+      "row_count_unchanged": true,
+      "rows": 276940
+    },
+    "slice": "House 1, 2026-09 (all series incl. plugs)"
+  },
   "compress": {
     "chunks_compressed_this_run": 1272,
     "duration_seconds": 47.7,
@@ -168,6 +220,45 @@
       }
     },
     "workers": 4
+  },
+  "drills": {
+    "duplicate_batch": {
+      "covered_minutes": 60,
+      "first_new": 360,
+      "hour_n": 360,
+      "hour_wh": 600.0,
+      "second_dup": 360,
+      "second_new": 0
+    },
+    "gap_over_1h": {
+      "day_covered_minutes": 60,
+      "day_energy_wh": 600.0,
+      "hour_in_gap_has_row": false,
+      "points": [
+        "2026-03-12T03:00:00+00:00",
+        "2026-03-12T05:00:00+00:00"
+      ]
+    },
+    "issues_flagged": {
+      "covered_minutes": 30,
+      "raw_flagged": 180,
+      "raw_rows": 360,
+      "view_n": 180,
+      "view_wh": 300.0
+    },
+    "out_of_order": {
+      "checkpoint_not_moved_back": true,
+      "first_hour_wh": 600.0,
+      "late_hour_wh": 600.0,
+      "late_rows_new": 360
+    },
+    "stopped_refresh_job": {
+      "day_wh": 600.0,
+      "hour_wh": 600.0,
+      "materialized_rows_for_new_hour": 0,
+      "points_5m": 12,
+      "refresh_jobs_paused": 6
+    }
   },
   "energy_examples": {
     "house1_days": [
@@ -644,7 +735,7 @@
         "err_pct_p50": 0.13490870933579435,
         "err_pct_p95": 0.8156289162827526,
         "err_pct_p99": 1.987476504781431,
-        "signed_err_pct_mean": 0.2870137696851054,
+        "signed_err_pct_mean": 0.2870137696851056,
         "signed_err_pct_p50": 0.09707437405812319
       },
       "low_coverage": {
@@ -656,7 +747,7 @@
         "err_pct_p50": 0.2633861098988243,
         "err_pct_p95": 3.515737551397455,
         "err_pct_p99": 21.377848283118237,
-        "signed_err_pct_mean": 1.2873002141635943,
+        "signed_err_pct_mean": 1.2873002141635945,
         "signed_err_pct_p50": 0.22109030702864035
       },
       "view_days_without_exact": []
@@ -674,7 +765,7 @@
         "err_pct_p50": 0.1472089010038244,
         "err_pct_p95": 0.7951118539373547,
         "err_pct_p99": 2.9419706990944694,
-        "signed_err_pct_mean": -0.12665588833048505,
+        "signed_err_pct_mean": -0.12665588833048483,
         "signed_err_pct_p50": -0.05422319375962981
       },
       "low_coverage": {
@@ -686,7 +777,7 @@
         "err_pct_p50": 0.42055205581976307,
         "err_pct_p95": 2.7837838413341798,
         "err_pct_p99": 8.755554816396138,
-        "signed_err_pct_mean": -0.7087294207328146,
+        "signed_err_pct_mean": -0.7087294207328144,
         "signed_err_pct_p50": -0.3759332622373587
       },
       "view_days_without_exact": []
@@ -704,7 +795,7 @@
         "err_pct_p50": 0.21834650459876054,
         "err_pct_p95": 1.0658455788129884,
         "err_pct_p99": 1.4508681566573352,
-        "signed_err_pct_mean": 0.39884253404540154,
+        "signed_err_pct_mean": 0.3988425340454015,
         "signed_err_pct_p50": 0.1525712359814535
       },
       "low_coverage": {
@@ -716,7 +807,7 @@
         "err_pct_p50": 0.4771309719720551,
         "err_pct_p95": 6.552796007915422,
         "err_pct_p99": 10.069348816550914,
-        "signed_err_pct_mean": 1.5502701990084304,
+        "signed_err_pct_mean": 1.5502701990084296,
         "signed_err_pct_p50": 0.438550469387126
       },
       "view_days_without_exact": []
@@ -734,7 +825,7 @@
         "err_pct_p50": 0.17869511160586726,
         "err_pct_p95": 0.9205137999870517,
         "err_pct_p99": 1.260767134107062,
-        "signed_err_pct_mean": 0.14800013844416546,
+        "signed_err_pct_mean": 0.14800013844416535,
         "signed_err_pct_p50": 0.04449997916061388
       },
       "low_coverage": {
@@ -746,7 +837,7 @@
         "err_pct_p50": 0.5956138136794904,
         "err_pct_p95": 24.28944197019081,
         "err_pct_p99": 26.28708091085352,
-        "signed_err_pct_mean": -3.439936699870105,
+        "signed_err_pct_mean": -3.4399366998701058,
         "signed_err_pct_p50": -0.3756230877393889
       },
       "view_days_without_exact": []
@@ -764,7 +855,7 @@
         "err_pct_p50": 0.3003127042369607,
         "err_pct_p95": 1.839857304181033,
         "err_pct_p99": 3.8310289098024137,
-        "signed_err_pct_mean": 0.667857905488718,
+        "signed_err_pct_mean": 0.6678579054887186,
         "signed_err_pct_p50": 0.296363086815111
       },
       "low_coverage": {
@@ -790,12 +881,12 @@
         "days_over_gate": 30,
         "days_view_higher": 254,
         "days_view_lower": 161,
-        "err_pct_max": 4.379069513196201,
+        "err_pct_max": 4.379069513196166,
         "err_pct_p50": 0.2053408933880013,
         "err_pct_p95": 1.2228340036752423,
         "err_pct_p99": 2.9973194755503734,
-        "signed_err_pct_mean": 0.05478834452458053,
-        "signed_err_pct_p50": 0.06028636614873203
+        "signed_err_pct_mean": 0.05478834452458108,
+        "signed_err_pct_p50": 0.06028636614876974
       },
       "low_coverage": {
         "days": 147,
@@ -950,7 +1041,7 @@
         "err_pct_p50": 0.4637282186980798,
         "err_pct_p95": 2.43535575232986,
         "err_pct_p99": 4.314503549410746,
-        "signed_err_pct_mean": 0.8398613875387656,
+        "signed_err_pct_mean": 0.8398613875387658,
         "signed_err_pct_p50": 0.4637282186980798,
         "worst": [
           {
@@ -1057,7 +1148,7 @@
         "err_pct_p50": 0.6858028708754891,
         "err_pct_p95": 1.946866215694443,
         "err_pct_p99": 2.3042946118256613,
-        "signed_err_pct_mean": 0.9203296367770492,
+        "signed_err_pct_mean": 0.920329636777049,
         "signed_err_pct_p50": 0.6858028708754891,
         "worst": [
           {
@@ -1106,7 +1197,7 @@
         "err_pct_p50": 0.9745816038301494,
         "err_pct_p95": 7.480288579506294,
         "err_pct_p99": 10.069348816550914,
-        "signed_err_pct_mean": 2.0777850092546744,
+        "signed_err_pct_mean": 2.0777850092546735,
         "signed_err_pct_p50": 0.9745816038301494,
         "worst": [
           {
@@ -1164,7 +1255,7 @@
         "err_pct_p50": 1.1695092166847414,
         "err_pct_p95": 5.351839988931065,
         "err_pct_p99": 10.234928985324949,
-        "signed_err_pct_mean": 1.8308707172885363,
+        "signed_err_pct_mean": 1.830870717288537,
         "signed_err_pct_p50": 1.1695092166847414,
         "worst": [
           {
@@ -1552,6 +1643,10 @@
   },
   "env": {
     "cpus": 16,
+    "docker_vm_disk_bytes": {
+      "free": 964172861440,
+      "total": 1081101176832
+    },
     "memory_mb_visible": 15583,
     "postgres": {
       "checkpoint_timeout": "15min",
@@ -1567,7 +1662,7 @@
       "wal_compression": "off",
       "work_mem": "7791kB"
     },
-    "recorded_at": "2026-11-01T15:13:55.519850+00:00",
+    "recorded_at": "2026-11-01T18:23:16.784454+00:00",
     "refit_csv_bytes": {
       "house1": 400840083,
       "house10": 398756360,
@@ -1601,19 +1696,103 @@
     "rows_inserted": 177193152,
     "series_created": 27
   },
+  "extrapolation": {
+    "assumptions": [
+      "the spec states no sampling rate; three scenarios are shown",
+      "REFIT: 10 series at about 7 s median cadence (measured)",
+      "the 1 m aggregate has one row per series per minute that holds a sample; the scenarios assume every minute is covered (upper bound)",
+      "1h/1d aggregate bytes are scaled from the measured 3-house size by series/10",
+      "compressed raw size uses the measured 17x for all cadences (not measured for others)",
+      "raw retention 13 months is NOT applied; figures are per year of ingest"
+    ],
+    "measured_inputs": {
+      "agg_1m_bytes_per_row_uncompressed": 151.3,
+      "agg_1m_compression_ratio_scratch_measurement": 19.14,
+      "device_estimate_bytes_per_row": 5.621,
+      "raw_bytes_per_reading_compressed": 5.617
+    },
+    "scenario_main_meter_only_1hz": {
+      "agg_1h_1d_gb_per_home_year": 0.00127,
+      "agg_1m_compressed_gb_per_home_year": 0.0042,
+      "agg_1m_uncompressed_gb_per_home_year": 0.0795,
+      "assumption": "1 series per home, one reading per 1 s each",
+      "daily_ingest_rows_10k_homes": 864000000,
+      "device_estimate_gb_per_home_year": 0.0,
+      "measured_single_stream_rows_per_second": 49583,
+      "raw_gb_per_home_year": 0.1771,
+      "readings_per_home_day": 86400,
+      "required_avg_rows_per_second": 10000,
+      "streams_needed_at_measured_rate": 0.2,
+      "tb_per_year_10k_homes_1m_compressed": 1.83,
+      "tb_per_year_10k_homes_1m_uncompressed": 2.58
+    },
+    "scenario_main_plus_9_devices_30s_with_estimates": {
+      "agg_1h_1d_gb_per_home_year": 0.01267,
+      "agg_1m_compressed_gb_per_home_year": 0.0416,
+      "agg_1m_uncompressed_gb_per_home_year": 0.7954,
+      "assumption": "10 series per home, one reading per 30 s each, 9 device_estimate series",
+      "daily_ingest_rows_10k_homes": 288000000,
+      "device_estimate_gb_per_home_year": 0.0532,
+      "measured_single_stream_rows_per_second": 49583,
+      "raw_gb_per_home_year": 0.059,
+      "readings_per_home_day": 28800,
+      "required_avg_rows_per_second": 3333,
+      "streams_needed_at_measured_rate": 0.07,
+      "tb_per_year_10k_homes_1m_compressed": 1.66,
+      "tb_per_year_10k_homes_1m_uncompressed": 9.2
+    },
+    "scenario_refit_like_10_series_7s": {
+      "agg_1h_1d_gb_per_home_year": 0.01267,
+      "agg_1m_compressed_gb_per_home_year": 0.0416,
+      "agg_1m_uncompressed_gb_per_home_year": 0.7954,
+      "assumption": "10 series per home, one reading per 7 s each",
+      "daily_ingest_rows_10k_homes": 1234285714,
+      "device_estimate_gb_per_home_year": 0.0,
+      "measured_single_stream_rows_per_second": 49583,
+      "raw_gb_per_home_year": 0.2531,
+      "readings_per_home_day": 123429,
+      "required_avg_rows_per_second": 14286,
+      "streams_needed_at_measured_rate": 0.29,
+      "tb_per_year_10k_homes_1m_compressed": 3.07,
+      "tb_per_year_10k_homes_1m_uncompressed": 10.61
+    }
+  },
+  "harness_check": {
+    "backfill_keys_are_view_names": true,
+    "backfill_timed_view_keys": [
+      "energy.device_estimate_1d",
+      "energy.device_estimate_1h",
+      "energy.device_estimate_1m",
+      "energy.reading_1d",
+      "energy.reading_1h",
+      "energy.reading_1m"
+    ],
+    "compress_stats_reading": {
+      "compressed_after_bytes": 13107200,
+      "compressed_before_bytes": 193036288,
+      "compressed_chunks": 15,
+      "ratio_compressed_chunks": 14.73,
+      "total_chunks": 15
+    },
+    "compressed_chunks_matches_db": true,
+    "csv_rows_loaded": 200000,
+    "db_compressed_chunks": 15,
+    "ratio_is_number": true,
+    "scratch_db": "wattprint_audit_h"
+  },
   "idempotency": {
     "post_compress": {
       "identical": true,
       "reading_1d_after": {
         "cov": "22185510",
-        "digest": "a68ceee71176c9a989f1f1679f34f948",
+        "digest": "5bc25fd96eca74f91323a3e9d63eee97",
         "n": 16340,
         "samples": "191928740",
         "wh": 27346572.870271545
       },
       "reading_1d_before": {
         "cov": "22185510",
-        "digest": "a68ceee71176c9a989f1f1679f34f948",
+        "digest": "5bc25fd96eca74f91323a3e9d63eee97",
         "n": 16340,
         "samples": "191928740",
         "wh": 27346572.870271545
@@ -1647,6 +1826,756 @@
       "rows_dup": 1000000,
       "rows_in": 1000000,
       "rows_new": 0
+    }
+  },
+  "isolation": {
+    "audit_db": {
+      "bad_tokens_checked": 4,
+      "device_estimate_1d_series_visible": 9,
+      "device_estimate_1h_series_visible": 9,
+      "device_estimate_1m_series_visible": 9,
+      "homes_checked": 2,
+      "own_reading_1d_rows_visible": 5800,
+      "reading_1d_series_visible": 10,
+      "reading_1h_series_visible": 10,
+      "reading_1m_series_visible": 10,
+      "views_checked": 15
+    }
+  },
+  "latency": {
+    "cold_after_restart": {
+      "compute_bill_month": {
+        "first_call_ms": 47.8,
+        "first_calls_ms": [
+          47.8,
+          21.3,
+          19.0,
+          18.6,
+          19.6
+        ]
+      },
+      "device_breakdown_1d_hourly": {
+        "first_call_ms": 17.6,
+        "first_calls_ms": [
+          17.6,
+          2.7,
+          2.1,
+          3.0,
+          2.7
+        ]
+      },
+      "device_breakdown_30d_daily": {
+        "first_call_ms": 6.3,
+        "first_calls_ms": [
+          6.3,
+          2.9,
+          3.4,
+          3.1,
+          2.8
+        ]
+      },
+      "latest_power": {
+        "first_call_ms": 2.6,
+        "first_calls_ms": [
+          2.6,
+          2.1,
+          1.8,
+          2.0,
+          2.2
+        ]
+      },
+      "series_1d_over_90d": {
+        "first_call_ms": 21.0,
+        "first_calls_ms": [
+          21.0,
+          3.7,
+          4.3,
+          3.7,
+          4.0
+        ]
+      },
+      "series_1h_over_45d": {
+        "first_call_ms": 5.9,
+        "first_calls_ms": [
+          5.9,
+          5.7,
+          5.4,
+          4.9,
+          5.3
+        ]
+      },
+      "series_5m_over_1d": {
+        "first_call_ms": 9.5,
+        "first_calls_ms": [
+          9.5,
+          7.7,
+          5.3,
+          5.9,
+          7.3
+        ]
+      },
+      "series_6h_over_90d": {
+        "first_call_ms": 17.1,
+        "first_calls_ms": [
+          17.1,
+          6.3,
+          6.2,
+          5.6,
+          6.6
+        ]
+      }
+    },
+    "lagging_watermark": {
+      "latest_power": {
+        "last_point": "LatestPower(ts=datetime.datetime(2026, 10, 31, 13, 27, tzinfo=datetime.timezone.utc), watts=1234.0)",
+        "plans": [
+          {
+            "chunk_relations_scanned": 0,
+            "execution_ms": 0.09,
+            "node_counts": {
+              "Seq Scan": 1
+            },
+            "planning_ms": 0.22,
+            "relations_scanned": 1,
+            "root_rows": 1,
+            "shared_hit": 1,
+            "shared_read": 0,
+            "sql": "SELECT series_id FROM energy.series WHERE home_id = $1 AND kind = 'main' AND metric = 'power_w'",
+            "subplans_removed": 0
+          },
+          {
+            "chunk_relations_scanned": 2,
+            "execution_ms": 0.05,
+            "node_counts": {
+              "Aggregate": 1,
+              "Append": 1,
+              "Index Scan": 2,
+              "Limit": 1,
+              "Result": 1,
+              "Subquery Scan": 2
+            },
+            "planning_ms": 0.89,
+            "relations_scanned": 2,
+            "root_rows": 1,
+            "shared_hit": 3,
+            "shared_read": 0,
+            "sql": "SELECT bucket, last_w FROM energy.reading_1m WHERE series_id = $1 AND bucket >= $2 AND bucket < $3 ORDER BY bucket DESC LIMIT 1",
+            "subplans_removed": 0
+          }
+        ],
+        "target_p95_ms": 20.0,
+        "warm": {
+          "max_ms": 1.95,
+          "n": 30,
+          "p50_ms": 1.59,
+          "p95_ms": 1.91
+        }
+      },
+      "latest_power_sees_tail": true,
+      "raw_rows_restored": true,
+      "series_1d_over_90d": {
+        "last_point": "Point(ts=datetime.datetime(2026, 10, 30, 17, 0, tzinfo=datetime.timezone.utc), avg_w=281.833300336567, min_w=155.0, max_w=10765.0, energy_wh=5298.452764550266)",
+        "plans": [
+          {
+            "chunk_relations_scanned": 0,
+            "execution_ms": 0.03,
+            "node_counts": {
+              "Seq Scan": 1
+            },
+            "planning_ms": 0.1,
+            "relations_scanned": 1,
+            "root_rows": 1,
+            "shared_hit": 1,
+            "shared_read": 0,
+            "sql": "SELECT series_id FROM energy.series WHERE home_id = $1 AND kind = 'main' AND metric = 'power_w'",
+            "subplans_removed": 0
+          },
+          {
+            "chunk_relations_scanned": 11,
+            "execution_ms": 0.38,
+            "node_counts": {
+              "Aggregate": 3,
+              "Append": 1,
+              "Custom Scan": 1,
+              "Index Scan": 11,
+              "Result": 3,
+              "Sort": 2,
+              "Subquery Scan": 4
+            },
+            "planning_ms": 1.45,
+            "relations_scanned": 12,
+            "root_rows": 76,
+            "shared_hit": 63,
+            "shared_read": 0,
+            "sql": "SELECT bucket AS ts, avg_w, min_w, max_w, energy_wh FROM energy.reading_1d WHERE series_id = $1 AND bucket >= $2 AND bucket < $3 ORDER BY bucket",
+            "subplans_removed": 0
+          }
+        ],
+        "target_p95_ms": 100.0,
+        "warm": {
+          "max_ms": 4.44,
+          "n": 30,
+          "p50_ms": 3.67,
+          "p95_ms": 4.41
+        }
+      },
+      "series_1h_over_45d": {
+        "last_point": "Point(ts=datetime.datetime(2026, 10, 31, 13, 0, tzinfo=datetime.timezone.utc), avg_w=1234.0, min_w=1234.0, max_w=1234.0, energy_wh=575.8666666666668)",
+        "plans": [
+          {
+            "chunk_relations_scanned": 0,
+            "execution_ms": 0.04,
+            "node_counts": {
+              "Seq Scan": 1
+            },
+            "planning_ms": 0.18,
+            "relations_scanned": 1,
+            "root_rows": 1,
+            "shared_hit": 1,
+            "shared_read": 0,
+            "sql": "SELECT series_id FROM energy.series WHERE home_id = $1 AND kind = 'main' AND metric = 'power_w'",
+            "subplans_removed": 0
+          },
+          {
+            "chunk_relations_scanned": 6,
+            "execution_ms": 1.38,
+            "node_counts": {
+              "Aggregate": 2,
+              "Append": 1,
+              "Custom Scan": 1,
+              "Index Scan": 6,
+              "Result": 2,
+              "Sort": 1,
+              "Subquery Scan": 3
+            },
+            "planning_ms": 1.65,
+            "relations_scanned": 7,
+            "root_rows": 902,
+            "shared_hit": 352,
+            "shared_read": 0,
+            "sql": "SELECT bucket AS ts, avg_w, min_w, max_w, energy_wh FROM energy.reading_1h WHERE series_id = $1 AND bucket >= $2 AND bucket < $3 ORDER BY bucket",
+            "subplans_removed": 0
+          }
+        ],
+        "target_p95_ms": 100.0,
+        "warm": {
+          "max_ms": 5.09,
+          "n": 30,
+          "p50_ms": 4.6,
+          "p95_ms": 5.08
+        }
+      },
+      "series_5m_over_1d": {
+        "last_point": "Point(ts=datetime.datetime(2026, 10, 31, 13, 25, tzinfo=datetime.timezone.utc), avg_w=1234.0, min_w=1234.0, max_w=1234.0, energy_wh=61.7)",
+        "plans": [
+          {
+            "chunk_relations_scanned": 0,
+            "execution_ms": 0.05,
+            "node_counts": {
+              "Seq Scan": 1
+            },
+            "planning_ms": 0.14,
+            "relations_scanned": 1,
+            "root_rows": 1,
+            "shared_hit": 1,
+            "shared_read": 0,
+            "sql": "SELECT series_id FROM energy.series WHERE home_id = $1 AND kind = 'main' AND metric = 'power_w'",
+            "subplans_removed": 0
+          },
+          {
+            "chunk_relations_scanned": 2,
+            "execution_ms": 1.43,
+            "node_counts": {
+              "Aggregate": 2,
+              "Append": 1,
+              "Bitmap Heap Scan": 1,
+              "Bitmap Index Scan": 1,
+              "Index Scan": 1,
+              "Result": 2,
+              "Sort": 1,
+              "Subquery Scan": 2
+            },
+            "planning_ms": 0.58,
+            "relations_scanned": 2,
+            "root_rows": 287,
+            "shared_hit": 408,
+            "shared_read": 0,
+            "sql": "SELECT time_bucket(CAST($1 AS interval), bucket, origin => CAST($2 AS timestamptz)) AS ts, sum(CAST(avg_w AS double precision) * n) / NULLIF(sum(n), 0) AS avg_w",
+            "subplans_removed": 0
+          }
+        ],
+        "target_p95_ms": 100.0,
+        "warm": {
+          "max_ms": 4.95,
+          "n": 30,
+          "p50_ms": 4.04,
+          "p95_ms": 4.79
+        }
+      },
+      "tail_rows": 772,
+      "tail_rows_end": "2026-10-31T13:27:30+00:00",
+      "tail_rows_start": "2026-10-31T11:57:30+00:00",
+      "watermarks": {
+        "1d": "2026-10-31T17:00:00+00:00",
+        "1h": "2026-10-31T12:00:00+00:00",
+        "1m": "2026-10-31T11:57:00+00:00"
+      }
+    },
+    "settled_data": {
+      "compressed_chunks_reading": 636,
+      "compute_bill_month": {
+        "pass": true,
+        "plans": [
+          {
+            "chunk_relations_scanned": 0,
+            "execution_ms": 0.04,
+            "node_counts": {
+              "Seq Scan": 1
+            },
+            "planning_ms": 0.19,
+            "relations_scanned": 1,
+            "root_rows": 10,
+            "shared_hit": 1,
+            "shared_read": 0,
+            "sql": "SELECT series_id, kind, device_id FROM energy.series WHERE home_id = $1 AND metric = 'power_w' AND kind IN ('main', 'device')",
+            "subplans_removed": 0
+          },
+          {
+            "chunk_relations_scanned": 4,
+            "execution_ms": 0.29,
+            "node_counts": {
+              "Aggregate": 4,
+              "Append": 2,
+              "Bitmap Heap Scan": 4,
+              "Bitmap Index Scan": 4,
+              "Result": 4,
+              "Subquery Scan": 4
+            },
+            "planning_ms": 1.16,
+            "relations_scanned": 4,
+            "root_rows": 1,
+            "shared_hit": 21,
+            "shared_read": 0,
+            "sql": "SELECT series_id, sum(energy_wh)::numeric AS wh FROM energy.reading_1d WHERE series_id = ANY($1) AND bucket >= $2 AND bucket < $3 GROUP BY series_id",
+            "subplans_removed": 0
+          },
+          {
+            "chunk_relations_scanned": 4,
+            "execution_ms": 0.28,
+            "node_counts": {
+              "Aggregate": 4,
+              "Append": 2,
+              "Bitmap Heap Scan": 4,
+              "Bitmap Index Scan": 4,
+              "Result": 4,
+              "Subquery Scan": 4
+            },
+            "planning_ms": 1.1,
+            "relations_scanned": 4,
+            "root_rows": 1,
+            "shared_hit": 21,
+            "shared_read": 0,
+            "sql": "SELECT coalesce(sum(covered_minutes), 0) FROM energy.reading_1d WHERE series_id = ANY($1) AND bucket >= $2 AND bucket < $3",
+            "subplans_removed": 0
+          },
+          {
+            "chunk_relations_scanned": 4,
+            "execution_ms": 0.34,
+            "node_counts": {
+              "Aggregate": 4,
+              "Append": 2,
+              "Bitmap Heap Scan": 1,
+              "Bitmap Index Scan": 1,
+              "Index Scan": 3,
+              "Result": 4,
+              "Subquery Scan": 4
+            },
+            "planning_ms": 1.38,
+            "relations_scanned": 4,
+            "root_rows": 9,
+            "shared_hit": 120,
+            "shared_read": 0,
+            "sql": "SELECT series_id, sum(energy_wh)::numeric AS wh FROM energy.device_estimate_1d WHERE series_id = ANY($1) AND bucket >= $2 AND bucket < $3 GROUP BY series_id",
+            "subplans_removed": 0
+          }
+        ],
+        "target_p95_ms": 100.0,
+        "varied_windows": {
+          "max_ms": 18.39,
+          "n": 30,
+          "p50_ms": 15.81,
+          "p95_ms": 17.78
+        },
+        "warm": {
+          "max_ms": 31.24,
+          "n": 30,
+          "p50_ms": 15.65,
+          "p95_ms": 17.49
+        }
+      },
+      "device_breakdown_1d_hourly": {
+        "pass": true,
+        "plans": [
+          {
+            "chunk_relations_scanned": 0,
+            "execution_ms": 0.03,
+            "node_counts": {
+              "Seq Scan": 1
+            },
+            "planning_ms": 0.1,
+            "relations_scanned": 1,
+            "root_rows": 9,
+            "shared_hit": 1,
+            "shared_read": 0,
+            "sql": "SELECT series_id, device_id FROM energy.series WHERE home_id = $1 AND kind = 'device' AND metric = 'power_w'",
+            "subplans_removed": 0
+          },
+          {
+            "chunk_relations_scanned": 1,
+            "execution_ms": 0.26,
+            "node_counts": {
+              "Aggregate": 3,
+              "Append": 1,
+              "Index Scan": 1,
+              "Result": 3,
+              "Subquery Scan": 3
+            },
+            "planning_ms": 0.67,
+            "relations_scanned": 1,
+            "root_rows": 9,
+            "shared_hit": 28,
+            "shared_read": 0,
+            "sql": "SELECT series_id, sum(energy_wh) AS wh FROM energy.device_estimate_1h WHERE series_id = ANY($1) AND bucket >= $2 AND bucket < $3 GROUP BY series_id",
+            "subplans_removed": 0
+          }
+        ],
+        "target_p95_ms": 100.0,
+        "varied_windows": {
+          "max_ms": 3.29,
+          "n": 30,
+          "p50_ms": 2.65,
+          "p95_ms": 3.21
+        },
+        "warm": {
+          "max_ms": 25.62,
+          "n": 30,
+          "p50_ms": 2.35,
+          "p95_ms": 2.88
+        }
+      },
+      "device_breakdown_30d_daily": {
+        "pass": true,
+        "plans": [
+          {
+            "chunk_relations_scanned": 0,
+            "execution_ms": 0.04,
+            "node_counts": {
+              "Seq Scan": 1
+            },
+            "planning_ms": 0.18,
+            "relations_scanned": 1,
+            "root_rows": 9,
+            "shared_hit": 1,
+            "shared_read": 0,
+            "sql": "SELECT series_id, device_id FROM energy.series WHERE home_id = $1 AND kind = 'device' AND metric = 'power_w'",
+            "subplans_removed": 0
+          },
+          {
+            "chunk_relations_scanned": 4,
+            "execution_ms": 0.42,
+            "node_counts": {
+              "Aggregate": 4,
+              "Append": 2,
+              "Index Scan": 3,
+              "Result": 4,
+              "Seq Scan": 1,
+              "Subquery Scan": 4
+            },
+            "planning_ms": 1.39,
+            "relations_scanned": 4,
+            "root_rows": 9,
+            "shared_hit": 87,
+            "shared_read": 0,
+            "sql": "SELECT series_id, sum(energy_wh) AS wh FROM energy.device_estimate_1d WHERE series_id = ANY($1) AND bucket >= $2 AND bucket < $3 GROUP BY series_id",
+            "subplans_removed": 0
+          }
+        ],
+        "target_p95_ms": 100.0,
+        "varied_windows": {
+          "max_ms": 3.93,
+          "n": 30,
+          "p50_ms": 3.02,
+          "p95_ms": 3.54
+        },
+        "warm": {
+          "max_ms": 25.79,
+          "n": 30,
+          "p50_ms": 3.57,
+          "p95_ms": 4.23
+        }
+      },
+      "latest_power": {
+        "pass": true,
+        "plans": [
+          {
+            "chunk_relations_scanned": 0,
+            "execution_ms": 0.04,
+            "node_counts": {
+              "Seq Scan": 1
+            },
+            "planning_ms": 0.17,
+            "relations_scanned": 1,
+            "root_rows": 1,
+            "shared_hit": 1,
+            "shared_read": 0,
+            "sql": "SELECT series_id FROM energy.series WHERE home_id = $1 AND kind = 'main' AND metric = 'power_w'",
+            "subplans_removed": 0
+          },
+          {
+            "chunk_relations_scanned": 2,
+            "execution_ms": 0.09,
+            "node_counts": {
+              "Aggregate": 1,
+              "Append": 1,
+              "Custom Scan": 1,
+              "Index Scan": 2,
+              "Limit": 1,
+              "Result": 2,
+              "Sort": 1,
+              "Subquery Scan": 2
+            },
+            "planning_ms": 0.79,
+            "relations_scanned": 3,
+            "root_rows": 1,
+            "shared_hit": 4,
+            "shared_read": 0,
+            "sql": "SELECT bucket, last_w FROM energy.reading_1m WHERE series_id = $1 AND bucket >= $2 AND bucket < $3 ORDER BY bucket DESC LIMIT 1",
+            "subplans_removed": 0
+          }
+        ],
+        "target_p95_ms": 20.0,
+        "varied_windows": {
+          "max_ms": 5.83,
+          "n": 30,
+          "p50_ms": 1.5,
+          "p95_ms": 3.48
+        },
+        "warm": {
+          "max_ms": 6.33,
+          "n": 30,
+          "p50_ms": 1.55,
+          "p95_ms": 2.35
+        }
+      },
+      "runs_per_case": 30,
+      "series_1d_over_90d": {
+        "pass": true,
+        "plans": [
+          {
+            "chunk_relations_scanned": 0,
+            "execution_ms": 0.05,
+            "node_counts": {
+              "Seq Scan": 1
+            },
+            "planning_ms": 0.13,
+            "relations_scanned": 1,
+            "root_rows": 1,
+            "shared_hit": 1,
+            "shared_read": 0,
+            "sql": "SELECT series_id FROM energy.series WHERE home_id = $1 AND kind = 'main' AND metric = 'power_w'",
+            "subplans_removed": 0
+          },
+          {
+            "chunk_relations_scanned": 10,
+            "execution_ms": 0.38,
+            "node_counts": {
+              "Aggregate": 3,
+              "Append": 1,
+              "Custom Scan": 1,
+              "Index Scan": 10,
+              "Result": 4,
+              "Sort": 1,
+              "Subquery Scan": 4
+            },
+            "planning_ms": 1.36,
+            "relations_scanned": 11,
+            "root_rows": 87,
+            "shared_hit": 69,
+            "shared_read": 0,
+            "sql": "SELECT bucket AS ts, avg_w, min_w, max_w, energy_wh FROM energy.reading_1d WHERE series_id = $1 AND bucket >= $2 AND bucket < $3 ORDER BY bucket",
+            "subplans_removed": 0
+          }
+        ],
+        "target_p95_ms": 100.0,
+        "varied_windows": {
+          "max_ms": 4.07,
+          "n": 30,
+          "p50_ms": 3.25,
+          "p95_ms": 3.73
+        },
+        "warm": {
+          "max_ms": 25.11,
+          "n": 30,
+          "p50_ms": 3.5,
+          "p95_ms": 4.54
+        }
+      },
+      "series_1h_over_45d": {
+        "pass": true,
+        "plans": [
+          {
+            "chunk_relations_scanned": 0,
+            "execution_ms": 0.04,
+            "node_counts": {
+              "Seq Scan": 1
+            },
+            "planning_ms": 0.17,
+            "relations_scanned": 1,
+            "root_rows": 1,
+            "shared_hit": 1,
+            "shared_read": 0,
+            "sql": "SELECT series_id FROM energy.series WHERE home_id = $1 AND kind = 'main' AND metric = 'power_w'",
+            "subplans_removed": 0
+          },
+          {
+            "chunk_relations_scanned": 6,
+            "execution_ms": 0.76,
+            "node_counts": {
+              "Aggregate": 2,
+              "Append": 1,
+              "Custom Scan": 1,
+              "Index Scan": 6,
+              "Result": 3,
+              "Sort": 1,
+              "Subquery Scan": 3
+            },
+            "planning_ms": 1.28,
+            "relations_scanned": 7,
+            "root_rows": 887,
+            "shared_hit": 354,
+            "shared_read": 0,
+            "sql": "SELECT bucket AS ts, avg_w, min_w, max_w, energy_wh FROM energy.reading_1h WHERE series_id = $1 AND bucket >= $2 AND bucket < $3 ORDER BY bucket",
+            "subplans_removed": 0
+          }
+        ],
+        "target_p95_ms": 100.0,
+        "varied_windows": {
+          "max_ms": 5.56,
+          "n": 30,
+          "p50_ms": 4.72,
+          "p95_ms": 5.04
+        },
+        "warm": {
+          "max_ms": 8.12,
+          "n": 30,
+          "p50_ms": 4.61,
+          "p95_ms": 5.96
+        }
+      },
+      "series_5m_over_1d": {
+        "pass": true,
+        "plans": [
+          {
+            "chunk_relations_scanned": 0,
+            "execution_ms": 0.05,
+            "node_counts": {
+              "Seq Scan": 1
+            },
+            "planning_ms": 0.14,
+            "relations_scanned": 1,
+            "root_rows": 1,
+            "shared_hit": 1,
+            "shared_read": 0,
+            "sql": "SELECT series_id FROM energy.series WHERE home_id = $1 AND kind = 'main' AND metric = 'power_w'",
+            "subplans_removed": 0
+          },
+          {
+            "chunk_relations_scanned": 1,
+            "execution_ms": 1.89,
+            "node_counts": {
+              "Aggregate": 2,
+              "Append": 1,
+              "Bitmap Heap Scan": 1,
+              "Bitmap Index Scan": 1,
+              "Result": 3,
+              "Sort": 1,
+              "Subquery Scan": 2
+            },
+            "planning_ms": 0.81,
+            "relations_scanned": 1,
+            "root_rows": 289,
+            "shared_hit": 461,
+            "shared_read": 0,
+            "sql": "SELECT time_bucket(CAST($1 AS interval), bucket, origin => CAST($2 AS timestamptz)) AS ts, sum(CAST(avg_w AS double precision) * n) / NULLIF(sum(n), 0) AS avg_w",
+            "subplans_removed": 0
+          }
+        ],
+        "target_p95_ms": 100.0,
+        "varied_windows": {
+          "max_ms": 5.86,
+          "n": 30,
+          "p50_ms": 4.7,
+          "p95_ms": 5.6
+        },
+        "warm": {
+          "max_ms": 29.76,
+          "n": 30,
+          "p50_ms": 3.59,
+          "p95_ms": 4.91
+        }
+      },
+      "series_6h_over_90d": {
+        "pass": true,
+        "plans": [
+          {
+            "chunk_relations_scanned": 0,
+            "execution_ms": 0.04,
+            "node_counts": {
+              "Seq Scan": 1
+            },
+            "planning_ms": 0.17,
+            "relations_scanned": 1,
+            "root_rows": 1,
+            "shared_hit": 1,
+            "shared_read": 0,
+            "sql": "SELECT series_id FROM energy.series WHERE home_id = $1 AND kind = 'main' AND metric = 'power_w'",
+            "subplans_removed": 0
+          },
+          {
+            "chunk_relations_scanned": 10,
+            "execution_ms": 2.4,
+            "node_counts": {
+              "Aggregate": 3,
+              "Append": 2,
+              "Bitmap Heap Scan": 10,
+              "Bitmap Index Scan": 10,
+              "Result": 4,
+              "Sort": 1,
+              "Subquery Scan": 3
+            },
+            "planning_ms": 1.16,
+            "relations_scanned": 10,
+            "root_rows": 332,
+            "shared_hit": 640,
+            "shared_read": 0,
+            "sql": "SELECT time_bucket(CAST($1 AS interval), bucket, origin => CAST($2 AS timestamptz)) AS ts, sum(CAST(avg_w AS double precision) * n) / NULLIF(sum(n), 0) AS avg_w",
+            "subplans_removed": 0
+          }
+        ],
+        "target_p95_ms": 100.0,
+        "varied_windows": {
+          "max_ms": 5.05,
+          "n": 30,
+          "p50_ms": 4.19,
+          "p95_ms": 4.95
+        },
+        "warm": {
+          "max_ms": 27.04,
+          "n": 30,
+          "p50_ms": 4.16,
+          "p95_ms": 5.3
+        }
+      }
     }
   },
   "load": {
@@ -1708,6 +2637,420 @@
   "policies": {
     "jobs_remaining": 0,
     "state": "off"
+  },
+  "policy_drill": {
+    "aggregate_rows_before_policies": {
+      "1d": 130,
+      "1h": 2760,
+      "1m": 164310
+    },
+    "copied_rows": {
+      "reading": 1533860
+    },
+    "jobs_after_set_policies_true": [
+      {
+        "config": {
+          "compress_after": "2 days",
+          "hypertable_id": 2
+        },
+        "hypertable": "device_estimate",
+        "job_id": 1013,
+        "proc": "policy_compression",
+        "schedule": "12:00:00"
+      },
+      {
+        "config": {
+          "drop_after": "400 days",
+          "hypertable_id": 2
+        },
+        "hypertable": "device_estimate",
+        "job_id": 1015,
+        "proc": "policy_retention",
+        "schedule": "1 day"
+      },
+      {
+        "config": {
+          "end_offset": "01:00:00",
+          "mat_hypertable_id": 8,
+          "start_offset": "60 days"
+        },
+        "hypertable": "device_estimate_1d",
+        "job_id": 1022,
+        "proc": "policy_refresh_continuous_aggregate",
+        "schedule": "01:00:00"
+      },
+      {
+        "config": {
+          "end_offset": "01:00:00",
+          "mat_hypertable_id": 7,
+          "start_offset": "30 days"
+        },
+        "hypertable": "device_estimate_1h",
+        "job_id": 1021,
+        "proc": "policy_refresh_continuous_aggregate",
+        "schedule": "01:00:00"
+      },
+      {
+        "config": {
+          "end_offset": "00:01:00",
+          "mat_hypertable_id": 6,
+          "start_offset": "7 days"
+        },
+        "hypertable": "device_estimate_1m",
+        "job_id": 1020,
+        "proc": "policy_refresh_continuous_aggregate",
+        "schedule": "00:01:00"
+      },
+      {
+        "config": {
+          "drop_after": "400 days",
+          "hypertable_id": 6
+        },
+        "hypertable": "device_estimate_1m",
+        "job_id": 1023,
+        "proc": "policy_retention",
+        "schedule": "1 day"
+      },
+      {
+        "config": {
+          "compress_after": "2 days",
+          "hypertable_id": 1
+        },
+        "hypertable": "reading",
+        "job_id": 1012,
+        "proc": "policy_compression",
+        "schedule": "12:00:00"
+      },
+      {
+        "config": {
+          "drop_after": "400 days",
+          "hypertable_id": 1
+        },
+        "hypertable": "reading",
+        "job_id": 1014,
+        "proc": "policy_retention",
+        "schedule": "1 day"
+      },
+      {
+        "config": {
+          "end_offset": "01:00:00",
+          "mat_hypertable_id": 5,
+          "start_offset": "60 days"
+        },
+        "hypertable": "reading_1d",
+        "job_id": 1018,
+        "proc": "policy_refresh_continuous_aggregate",
+        "schedule": "01:00:00"
+      },
+      {
+        "config": {
+          "end_offset": "01:00:00",
+          "mat_hypertable_id": 4,
+          "start_offset": "30 days"
+        },
+        "hypertable": "reading_1h",
+        "job_id": 1017,
+        "proc": "policy_refresh_continuous_aggregate",
+        "schedule": "01:00:00"
+      },
+      {
+        "config": {
+          "end_offset": "00:01:00",
+          "mat_hypertable_id": 3,
+          "start_offset": "7 days"
+        },
+        "hypertable": "reading_1m",
+        "job_id": 1016,
+        "proc": "policy_refresh_continuous_aggregate",
+        "schedule": "00:01:00"
+      },
+      {
+        "config": {
+          "drop_after": "400 days",
+          "hypertable_id": 3
+        },
+        "hypertable": "reading_1m",
+        "job_id": 1019,
+        "proc": "policy_retention",
+        "schedule": "1 day"
+      }
+    ],
+    "jobs_paused_for_deterministic_drill": true,
+    "mid_slice_raw_rows_intact": true,
+    "old_slice": {
+      "materialized_rows_after_1m_retention_job": {
+        "1d": 50,
+        "1h": 1200,
+        "1m": 0
+      },
+      "materialized_rows_after_backfill_over_dropped_range": {
+        "1d": 0,
+        "1h": 0,
+        "1m": 0
+      },
+      "materialized_rows_after_raw_retention": {
+        "1d": 50,
+        "1h": 1200,
+        "1m": 71280
+      },
+      "materialized_rows_after_refresh_policies": {
+        "1d": 50,
+        "1h": 1200,
+        "1m": 71280
+      },
+      "materialized_rows_before": {
+        "1d": 50,
+        "1h": 1200,
+        "1m": 71280
+      },
+      "raw_rows_after": 0,
+      "raw_rows_before": 700920,
+      "view_rows_after_1m_retention_job": {
+        "1d": 50,
+        "1h": 1200,
+        "1m": 0
+      },
+      "view_rows_after_backfill_over_dropped_range": {
+        "1d": 0,
+        "1h": 0,
+        "1m": 0
+      },
+      "view_rows_after_raw_retention": {
+        "1d": 50,
+        "1h": 1200,
+        "1m": 71280
+      },
+      "view_rows_after_refresh_policies": {
+        "1d": 50,
+        "1h": 1200,
+        "1m": 71280
+      },
+      "view_rows_before": {
+        "1d": 50,
+        "1h": 1200,
+        "1m": 71280
+      }
+    },
+    "raw_chunks_after_compression_policy": {
+      "compressed": 10,
+      "total": 12
+    },
+    "raw_chunks_after_raw_retention": {
+      "compressed": 5,
+      "total": 7
+    },
+    "raw_chunks_before": {
+      "compressed": 0,
+      "total": 12
+    },
+    "recent_slice_raw_rows_intact": true,
+    "refresh_policy_jobs_found": {
+      "1d": true,
+      "1h": true,
+      "1m": true
+    },
+    "retention_policy_jobs": [
+      "device_estimate",
+      "device_estimate_1m",
+      "reading",
+      "reading_1m"
+    ],
+    "run_at": "2026-11-01T18:19:40.514269+00:00",
+    "slices": {
+      "mid": [
+        "2026-09-01 00:00:00+00:00",
+        "2026-09-04 00:00:00+00:00"
+      ],
+      "old": [
+        "2025-02-01 00:00:00+00:00",
+        "2025-02-06 00:00:00+00:00"
+      ],
+      "recent": [
+        "2026-10-25 00:00:00+00:00",
+        "2026-11-01 00:00:00+00:00"
+      ]
+    }
+  },
+  "rebuild": {
+    "from_empty": {
+      "device_types_seeded": 22,
+      "load_output": "house 1: rows_in=100000 rows_new=100000 rows_dup=0 rows_bad=0 in 1.8s (55,486 readings/s)",
+      "manual_steps": 0,
+      "policy_jobs_after_migration": 12,
+      "readings": 100000,
+      "series": 10,
+      "tariff_tiers_seeded": 11
+    }
+  },
+  "refresh_cost": {
+    "forced_30_day_window_seconds": {
+      "1d": 0.089,
+      "1h": 1.218,
+      "1m": 31.163
+    },
+    "one_invalidated_day_refresh_seconds": {
+      "1d": 0.016,
+      "1h": 0.013,
+      "1m": 0.015
+    },
+    "policy_window_nothing_to_do_seconds": {
+      "1d": 0.004,
+      "1h": 0.004,
+      "1m": 0.004
+    },
+    "policy_window_with_one_invalidation_seconds": {
+      "1d": 0.014,
+      "1h": 0.009,
+      "1m": 0.009
+    },
+    "query_plan_30d_window": {
+      "over_materialization_table": {
+        "chunk_relations_scanned": 4,
+        "execution_ms": 12.48,
+        "node_counts": {
+          "Aggregate": 5,
+          "Append": 1,
+          "Index Scan": 2,
+          "Seq Scan": 2
+        },
+        "planning_ms": 0.54,
+        "relations_scanned": 4,
+        "root_rows": 880,
+        "shared_hit": 1161,
+        "shared_read": 0,
+        "subplans_removed": 0
+      },
+      "over_realtime_view_reading_1h": {
+        "chunk_relations_scanned": 4,
+        "execution_ms": 18.02,
+        "node_counts": {
+          "Aggregate": 3,
+          "Append": 2,
+          "Index Scan": 2,
+          "Result": 4,
+          "Seq Scan": 2,
+          "Subquery Scan": 3
+        },
+        "planning_ms": 2.72,
+        "relations_scanned": 4,
+        "root_rows": 880,
+        "shared_hit": 1161,
+        "shared_read": 0,
+        "subplans_removed": 0
+      }
+    },
+    "reading_1d_checksum_after_forced_recompute_equals_before": true,
+    "reading_1d_checksum_restored_after_marker_cycle": true,
+    "reading_1d_diff_vs_snapshot_after_forced_recompute": {
+      "max_rel_diff": 0.0,
+      "new_rows": 0,
+      "rows_changed": 0,
+      "rows_lost": 0,
+      "rows_now": 16340
+    },
+    "reading_1d_diff_vs_snapshot_after_marker_cycle": {
+      "max_rel_diff": 0.0,
+      "new_rows": 0,
+      "rows_changed": 0,
+      "rows_lost": 0,
+      "rows_now": 16340
+    },
+    "scratch_comparison": {
+      "window_only": {
+        "backfill_seconds_per_view": {
+          "energy.device_estimate_1d": 0.01,
+          "energy.device_estimate_1h": 0.01,
+          "energy.device_estimate_1m": 0.01,
+          "energy.reading_1d": 0.07,
+          "energy.reading_1h": 0.65,
+          "energy.reading_1m": 21.69
+        },
+        "copied_rows": {
+          "reading": 3850040
+        },
+        "plan_of_1d_source_query_over_reading_1h": {
+          "chunk_relations_scanned": 4,
+          "execution_ms": 6.28,
+          "node_counts": {
+            "Aggregate": 3,
+            "Append": 2,
+            "Bitmap Heap Scan": 2,
+            "Bitmap Index Scan": 2,
+            "Index Scan": 2,
+            "Result": 4,
+            "Subquery Scan": 3
+          },
+          "planning_ms": 1.1,
+          "relations_scanned": 4,
+          "root_rows": 300,
+          "shared_hit": 222,
+          "shared_read": 0,
+          "subplans_removed": 0
+        }
+      },
+      "window_plus_newer_raw_with_1m_and_1h_materialized_only": {
+        "backfill_seconds_per_view": {
+          "energy.device_estimate_1d": 0.01,
+          "energy.device_estimate_1h": 0.01,
+          "energy.device_estimate_1m": 0.01,
+          "energy.reading_1d": 0.04,
+          "energy.reading_1h": 0.56,
+          "energy.reading_1m": 22.29
+        },
+        "copied_rows": {
+          "reading": 16882370
+        },
+        "plan_of_1d_source_query_over_reading_1h": {
+          "chunk_relations_scanned": 4,
+          "execution_ms": 4.2,
+          "node_counts": {
+            "Aggregate": 5,
+            "Append": 1,
+            "Bitmap Heap Scan": 2,
+            "Bitmap Index Scan": 2,
+            "Seq Scan": 2
+          },
+          "planning_ms": 0.45,
+          "relations_scanned": 4,
+          "root_rows": 300,
+          "shared_hit": 87,
+          "shared_read": 0,
+          "subplans_removed": 0
+        }
+      },
+      "window_plus_newer_unmaterialized_raw": {
+        "backfill_seconds_per_view": {
+          "energy.device_estimate_1d": 0.01,
+          "energy.device_estimate_1h": 0.01,
+          "energy.device_estimate_1m": 0.01,
+          "energy.reading_1d": 6.48,
+          "energy.reading_1h": 0.67,
+          "energy.reading_1m": 22.14
+        },
+        "copied_rows": {
+          "reading": 16882370
+        },
+        "plan_of_1d_source_query_over_reading_1h": {
+          "chunk_relations_scanned": 4,
+          "execution_ms": 5.92,
+          "node_counts": {
+            "Aggregate": 3,
+            "Append": 2,
+            "Bitmap Heap Scan": 2,
+            "Bitmap Index Scan": 2,
+            "Index Scan": 2,
+            "Result": 4,
+            "Subquery Scan": 3
+          },
+          "planning_ms": 0.8,
+          "relations_scanned": 4,
+          "root_rows": 300,
+          "shared_hit": 222,
+          "shared_read": 0,
+          "subplans_removed": 0
+        }
+      }
+    }
   },
   "stats": {
     "bytes": {

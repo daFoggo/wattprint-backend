@@ -49,3 +49,53 @@ def test_guard_refuses_non_audit_database():
         check_target(ok, None)
     with pytest.raises(NotAuditTarget):
         check_target(ok, "")
+
+
+def test_scratch_names_never_name_the_audit_database(monkeypatch):
+    import pytest
+
+    from app.config import settings
+    from tests.audit import support
+
+    monkeypatch.setattr(settings, "database_url", "postgresql+asyncpg://u:p@db/wattprint_audit")
+    monkeypatch.setenv("AUDIT_ADMIN_URL", "postgresql+asyncpg://u:p@db/postgres")
+    assert support.scratch_url("wattprint_audit_x").endswith("/wattprint_audit_x")
+    for bad in ("wattprint_audit", "wattprint", "other_audit_x", "wattprint_auditx"):
+        with pytest.raises(support.NotAuditTarget):
+            support.scratch_url(bad)
+
+
+def test_summarize_ms_and_trim_plan():
+    from tests.audit.part_b import summarize_ms, trim_plan
+
+    s = summarize_ms([float(i) for i in range(1, 101)])
+    assert (s["n"], s["p50_ms"], s["p95_ms"], s["max_ms"]) == (100, 50.5, 95.0, 100.0)
+    plan = [{"Execution Time": 1.5, "Planning Time": 0.5, "Plan": {
+        "Node Type": "Append", "Actual Rows": 3, "Shared Hit Blocks": 7, "Shared Read Blocks": 1,
+        "Plans": [{"Node Type": "Index Scan", "Relation Name": "_hyper_1_2_chunk"},
+                  {"Node Type": "Seq Scan", "Relation Name": "series"}]}}]
+    t = trim_plan(plan)
+    assert t["chunk_relations_scanned"] == 1 and t["relations_scanned"] == 2
+    assert (t["execution_ms"], t["shared_hit"], t["shared_read"]) == (1.5, 7, 1)
+
+
+def test_extrapolation_arithmetic():
+    from tests.audit.part_b2 import extrapolate
+
+    data = {
+        "stats": {
+            "home_years": 2.0, "bytes_per_reading_raw": 5.0, "bytes_per_device_estimate_raw": 5.0,
+            "bytes": {"aggregates": {"reading_1m": 1500.0, "reading_1h": 20.0, "reading_1d": 2.0}},
+            "rows": {"aggregates": {"reading_1m": 10}},
+        },
+        "cagg_compression": {"reading_1m": {"ratio": 10.0}},
+        "load": {"house1": {"readings_per_s": 50_000}},
+    }
+    one_hz = extrapolate(data)["scenario_main_meter_only_1hz"]
+    assert one_hz["readings_per_home_day"] == 86_400
+    assert one_hz["daily_ingest_rows_10k_homes"] == 864_000_000
+    assert one_hz["required_avg_rows_per_second"] == 10_000
+    assert one_hz["streams_needed_at_measured_rate"] == 0.2
+    # 1 m row costs 150 bytes, one per minute per series per year
+    assert one_hz["agg_1m_uncompressed_gb_per_home_year"] == round(525_600 * 150 / 1e9, 4)
+    assert one_hz["agg_1m_compressed_gb_per_home_year"] == round(525_600 * 15 / 1e9, 4)
