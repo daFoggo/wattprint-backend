@@ -90,11 +90,12 @@ class Capture:
         return list(self.items)
 
 
-async def explain(session: AsyncSession, statements: list[tuple[str, tuple]]) -> list[dict]:
+async def explain(session: AsyncSession, statements: list[tuple[str, tuple]],
+                  only_energy: bool = True) -> list[dict]:
     out = []
     raw = (await (await session.connection()).get_raw_connection()).driver_connection
     for stmt, params in statements:
-        if "energy." not in stmt:
+        if only_energy and "energy." not in stmt:
             continue
         rows = await raw.fetch("EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON) " + stmt, *params)
         plan = json.loads(rows[0][0]) if isinstance(rows[0][0], str) else rows[0][0]
@@ -157,6 +158,7 @@ def _cases(homes: dict):
         "series_6h_over_90d": series_case(360, 90, "6h"),
         "series_1h_over_45d": series_case(1080, 45, "1h"),
         "series_5m_over_1d": series_case(288, 1, "5m"),
+        "series_week_15m_over_7d": series_case(2000, 7, "15m"),
         "latest_power": (None, latest),
         "device_breakdown_1d_hourly": (None, devices),
         "device_breakdown_30d_daily": (None, devices30),
@@ -211,7 +213,7 @@ async def stage_latency(args) -> None:
             cap.start()
             await factory(5, s)
             stmts = cap.stop()
-            plans = await explain(s, stmts)
+            plans = await explain(s, stmts, only_energy=name != "compute_bill_month")
         target = 20.0 if name == "latest_power" else 100.0
         out[name] = {"warm": summarize_ms(warm), "varied_windows": summarize_ms(varied),
                      "target_p95_ms": target,
@@ -238,7 +240,7 @@ async def _latency_tail(eng, cap, homes) -> None:
     async with eng.connect() as c:
         wm = {v: await _watermark(c, f"reading_{v}") for v in ("1m", "1h", "1d")}
         raw_before = await c.scalar(text("SELECT count(*) FROM energy.reading"))
-        start = wm["1m"] + timedelta(seconds=30)
+        start = max(wm.values()) + timedelta(seconds=30)  # newer than ALL three watermarks
         end = start + timedelta(minutes=90)
         await c.execute(text(
             "INSERT INTO energy.reading (ts, series_id, value, quality) "
@@ -264,7 +266,11 @@ async def _latency_tail(eng, cap, homes) -> None:
         async def f_1d(i, s):
             return await meter_series(s, h1["home"], now - timedelta(days=90), now, 90, now=now)
 
-        for name, f in (("latest_power", f_latest), ("series_5m_over_1d", f_5m),
+        async def f_week(i, s):
+            return await meter_series(s, h1["home"], now - timedelta(days=7), now, 2000, now=now)
+
+        for name, f in (("latest_power", f_latest), ("series_week_15m_over_7d", f_week),
+                        ("series_5m_over_1d", f_5m),
                         ("series_1h_over_45d", f_1h), ("series_1d_over_90d", f_1d)):
             warm = await _measure(eng, f, varied=False)
             async with AsyncSession(eng, expire_on_commit=False) as s:
@@ -273,7 +279,8 @@ async def _latency_tail(eng, cap, homes) -> None:
                 stmts = cap.stop()
                 plans = await explain(s, stmts)
             last = res if not isinstance(res, list) else (res[-1] if res else None)
-            out[name] = {"warm": summarize_ms(warm), "plans": plans,
+            tail_visible = bool(last and getattr(last, "avg_w", getattr(last, "watts", 0)) == 1234.0)
+            out[name] = {"warm": summarize_ms(warm), "plans": plans, "last_point_shows_tail": tail_visible,
                          "target_p95_ms": 20.0 if name == "latest_power" else 100.0,
                          "last_point": str(last)[:200]}
             log(f"tail {name}: {out[name]['warm']}")
@@ -337,90 +344,106 @@ async def stage_refresh_cost(args) -> None:
         await c.execute(text("DROP TABLE IF EXISTS public.audit_snap_1d"))
         await c.execute(text("CREATE TABLE public.audit_snap_1d AS SELECT * FROM energy.reading_1d"))
         d0 = _local_day_start(date(2026, 6, 15))
-        # 1. one invalidated day: insert one reading, refresh 1m, 1h, 1d on that day only
         marker = d0 + timedelta(hours=10, seconds=0.5)
-        await c.execute(text("INSERT INTO energy.reading (ts, series_id, value) "
-                             "VALUES (:t, :s, 777)"), {"t": marker, "s": sid})
-        single = {}
-        for res in ("1m", "1h", "1d"):
-            single[res] = await _timed_call(c, REFRESH.format(force=""), v=f"energy.reading_{res}",
-                                            a=d0, b=d0 + DAY)
-        out["one_invalidated_day_refresh_seconds"] = single
-        # 2. policy-sized windows with one invalidation (policy offsets of ops.set_policies(true))
-        now = datetime.now(UTC)
         marker2 = _local_day_start(date(2026, 10, 28)) + timedelta(hours=9, seconds=0.5)
-        await c.execute(text("INSERT INTO energy.reading (ts, series_id, value) "
-                             "VALUES (:t, :s, 777)"), {"t": marker2, "s": sid})
-        policy = {}
-        for res, off, end_off, step in (("1m", 7, timedelta(minutes=1), timedelta(minutes=1)),
-                                        ("1h", 30, timedelta(hours=1), timedelta(hours=1)),
-                                        ("1d", 60, timedelta(hours=1), DAY)):
-            a = _snap_floor(now - timedelta(days=off), step)
-            b = _snap_floor(now - end_off, step)
-            policy[res] = await _timed_call(c, REFRESH.format(force=""),
-                                            v=f"energy.reading_{res}", a=a, b=b)
-        out["policy_window_with_one_invalidation_seconds"] = policy
-        no_inval = {}
-        for res, off, end_off, step in (("1m", 7, timedelta(minutes=1), timedelta(minutes=1)),
-                                        ("1h", 30, timedelta(hours=1), timedelta(hours=1)),
-                                        ("1d", 60, timedelta(hours=1), DAY)):
-            a = _snap_floor(now - timedelta(days=off), step)
-            b = _snap_floor(now - end_off, step)
-            no_inval[res] = await _timed_call(c, REFRESH.format(force=""),
-                                              v=f"energy.reading_{res}", a=a, b=b)
-        out["policy_window_nothing_to_do_seconds"] = no_inval
-        w0 = _local_day_start(date(2026, 5, 1))
-        # 4. what dominates 1d: the query it runs over reading_1h, view vs materialization table
-        mat = await c.scalar(text(
-            "SELECT format('%I.%I', materialization_hypertable_schema, materialization_hypertable_name)"
-            " FROM timescaledb_information.continuous_aggregates WHERE view_name = 'reading_1h'"))
-        q = ("SELECT time_bucket('1 day', bucket, 'Asia/Ho_Chi_Minh') b, series_id, "
-             "sum(avg_w * n) / sum(n), min(min_w), max(max_w), sum(n), sum(energy_wh), "
-             "sum(covered_minutes) FROM {src} WHERE bucket >= '{a}' AND bucket < '{b}' "
-             "GROUP BY 1, 2")
-        plans = {}
-        for label, src in (("over_realtime_view_reading_1h", "energy.reading_1h"),
-                           ("over_materialization_table", mat)):
-            qq = q.format(src=src, a=w0, b=w0 + timedelta(days=30)).replace(
-                "sum(covered_minutes)", "sum(covered_minutes)" if "reading_1h" in src
-                else "sum(covered_minutes)")
-            raw = (await (await c.get_raw_connection()).driver_connection.fetch(
-                "EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON) " + qq))
-            plan = json.loads(raw[0][0]) if isinstance(raw[0][0], str) else raw[0][0]
-            plans[label] = trim_plan(plan)
-        out["query_plan_30d_window"] = plans
-        # 5. restore
-        for ts in (marker, marker2):
-            await c.execute(text("DELETE FROM energy.reading WHERE series_id = :s AND ts = :t"),
-                            {"s": sid, "t": ts})
-        for res in ("1m", "1h", "1d"):
-            await _timed_call(c, REFRESH.format(force=""), v=f"energy.reading_{res}",
-                              a=d0, b=d0 + DAY)
-            await _timed_call(c, REFRESH.format(force=""), v=f"energy.reading_{res}",
-                              a=_local_day_start(date(2026, 10, 28)),
-                              b=_local_day_start(date(2026, 10, 29)))
-        out["reading_1d_checksum_restored_after_marker_cycle"] = (await _checksum(c)) == before
-        out["reading_1d_diff_vs_snapshot_after_marker_cycle"] = await _snap_diff(c)
-        # 3b. forced recompute of a 30-day window (what the backfill windows cost)
-        w0 = _local_day_start(date(2026, 5, 1))
-        forced = {}
-        for res in ("1m", "1h", "1d"):
-            forced[res] = await _timed_call(c, REFRESH.format(force=", force => true"),
-                                            v=f"energy.reading_{res}", a=w0,
-                                            b=w0 + timedelta(days=30))
-        out["forced_30_day_window_seconds"] = forced
-        out["reading_1d_diff_vs_snapshot_after_forced_recompute"] = await _snap_diff(c)
-        out["reading_1d_checksum_after_forced_recompute_equals_before"] =             (await _checksum(c)) == before
-        await c.execute(text("DROP TABLE public.audit_snap_1d"))
-        # chunks touched by the markers are partially compressed now: recompress
-        for t in (marker, marker2):
-            chunks = (await c.execute(text("SELECT show_chunks('energy.reading', newer_than => "
-                                           "CAST(:a AS timestamptz), older_than => "
-                                           "CAST(:b AS timestamptz))"),
-                                      {"a": t - timedelta(hours=1), "b": t + timedelta(hours=1)}))
-            for (ch,) in chunks.all():
-                await c.execute(text("SELECT compress_chunk(CAST(:c AS regclass), "
-                                     "if_not_compressed => true)"), {"c": ch})
+        day2 = _local_day_start(date(2026, 10, 28))
+        try:
+            # 1. one invalidated day: insert one reading, refresh 1m, 1h, 1d on that day only
+            await c.execute(text("INSERT INTO energy.reading (ts, series_id, value) "
+                                 "VALUES (:t, :s, 777)"), {"t": marker, "s": sid})
+            single = {}
+            for res in ("1m", "1h", "1d"):
+                single[res] = await _timed_call(c, REFRESH.format(force=""), v=f"energy.reading_{res}",
+                                                a=d0, b=d0 + DAY)
+            out["one_invalidated_day_refresh_seconds"] = single
+            # 2. policy-sized windows with one invalidation (policy offsets of ops.set_policies(true))
+            now = datetime.now(UTC)
+            await c.execute(text("INSERT INTO energy.reading (ts, series_id, value) "
+                                 "VALUES (:t, :s, 777)"), {"t": marker2, "s": sid})
+            policy = {}
+            for res, off, end_off, step in (("1m", 7, timedelta(minutes=1), timedelta(minutes=1)),
+                                            ("1h", 30, timedelta(hours=1), timedelta(hours=1)),
+                                            ("1d", 60, timedelta(hours=1), DAY)):
+                a = _snap_floor(now - timedelta(days=off), step)
+                b = _snap_floor(now - end_off, step)
+                policy[res] = await _timed_call(c, REFRESH.format(force=""),
+                                                v=f"energy.reading_{res}", a=a, b=b)
+            out["policy_window_with_one_invalidation_seconds"] = policy
+            no_inval = {}
+            for res, off, end_off, step in (("1m", 7, timedelta(minutes=1), timedelta(minutes=1)),
+                                            ("1h", 30, timedelta(hours=1), timedelta(hours=1)),
+                                            ("1d", 60, timedelta(hours=1), DAY)):
+                a = _snap_floor(now - timedelta(days=off), step)
+                b = _snap_floor(now - end_off, step)
+                no_inval[res] = await _timed_call(c, REFRESH.format(force=""),
+                                                  v=f"energy.reading_{res}", a=a, b=b)
+            out["policy_window_nothing_to_do_seconds"] = no_inval
+            w0 = _local_day_start(date(2026, 5, 1))
+            # 4. what dominates 1d: the query it runs over reading_1h, view vs materialization table
+            mat = await c.scalar(text(
+                "SELECT format('%I.%I', materialization_hypertable_schema, materialization_hypertable_name)"
+                " FROM timescaledb_information.continuous_aggregates WHERE view_name = 'reading_1h'"))
+            q = ("SELECT time_bucket('1 day', bucket, 'Asia/Ho_Chi_Minh') b, series_id, "
+                 "sum(avg_w * n) / sum(n), min(min_w), max(max_w), sum(n), sum(energy_wh), "
+                 "sum(covered_minutes) FROM {src} WHERE bucket >= '{a}' AND bucket < '{b}' "
+                 "GROUP BY 1, 2")
+            plans = {}
+            for label, src in (("over_realtime_view_reading_1h", "energy.reading_1h"),
+                               ("over_materialization_table", mat)):
+                qq = q.format(src=src, a=w0, b=w0 + timedelta(days=30)).replace(
+                    "sum(covered_minutes)", "sum(covered_minutes)" if "reading_1h" in src
+                    else "sum(covered_minutes)")
+                raw = (await (await c.get_raw_connection()).driver_connection.fetch(
+                    "EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON) " + qq))
+                plan = json.loads(raw[0][0]) if isinstance(raw[0][0], str) else raw[0][0]
+                plans[label] = trim_plan(plan)
+            out["query_plan_30d_window"] = plans
+            # 5. restore
+            for ts in (marker, marker2):
+                await c.execute(text("DELETE FROM energy.reading WHERE series_id = :s AND ts = :t"),
+                                {"s": sid, "t": ts})
+            for res in ("1m", "1h", "1d"):
+                await _timed_call(c, REFRESH.format(force=""), v=f"energy.reading_{res}",
+                                  a=d0, b=d0 + DAY)
+                await _timed_call(c, REFRESH.format(force=""), v=f"energy.reading_{res}",
+                                  a=_local_day_start(date(2026, 10, 28)),
+                                  b=_local_day_start(date(2026, 10, 29)))
+            out["reading_1d_checksum_restored_after_marker_cycle"] = (await _checksum(c)) == before
+            out["reading_1d_diff_vs_snapshot_after_marker_cycle"] = await _snap_diff(c)
+            # 3b. forced recompute of a 30-day window (what the backfill windows cost)
+            w0 = _local_day_start(date(2026, 5, 1))
+            forced = {}
+            for res in ("1m", "1h", "1d"):
+                forced[res] = await _timed_call(c, REFRESH.format(force=", force => true"),
+                                                v=f"energy.reading_{res}", a=w0,
+                                                b=w0 + timedelta(days=30))
+            out["forced_30_day_window_seconds"] = forced
+            out["reading_1d_diff_vs_snapshot_after_forced_recompute"] = await _snap_diff(c)
+            out["reading_1d_checksum_after_forced_recompute_equals_before"] = (
+                await _checksum(c)) == before
+        finally:
+            # always restore the audit data, also after an error: drop the markers, re-refresh
+            # their days, recompress the touched chunks, drop the snapshot table
+            for ts in (marker, marker2):
+                await c.execute(text("DELETE FROM energy.reading WHERE series_id = :s AND ts = :t"),
+                                {"s": sid, "t": ts})
+            for res in ("1m", "1h", "1d"):
+                await _timed_call(c, REFRESH.format(force=""), v=f"energy.reading_{res}",
+                                  a=d0, b=d0 + DAY)
+                await _timed_call(c, REFRESH.format(force=""), v=f"energy.reading_{res}",
+                                  a=day2, b=day2 + DAY)
+            for t in (marker, marker2):
+                chunks = await c.execute(text(
+                    "SELECT show_chunks('energy.reading', newer_than => CAST(:a AS timestamptz), "
+                    "older_than => CAST(:b AS timestamptz))"),
+                    {"a": t - timedelta(hours=1), "b": t + timedelta(hours=1)})
+                for (ch,) in chunks.all():
+                    await c.execute(text("SELECT compress_chunk(CAST(:c AS regclass), "
+                                         "if_not_compressed => true)"), {"c": ch})
+            await c.execute(text("DROP TABLE IF EXISTS public.audit_snap_1d"))
+            out["markers_left_after_cleanup"] = await c.scalar(text(
+                "SELECT count(*) FROM energy.reading WHERE series_id = :s AND ts IN (:a, :b)"),
+                {"s": sid, "a": marker, "b": marker2})
     await eng.dispose()
     for k, v in out.items():
         results.record("refresh_cost", k, v)

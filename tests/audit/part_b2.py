@@ -170,6 +170,13 @@ async def stage_cagg_compression(args) -> None:
 
 
 # ------------------------------------------------------------------ F
+PAUSED_POLICIES = (
+    "DO $$ BEGIN PERFORM ops.set_policies(true); "
+    "PERFORM alter_job(job_id, scheduled => false) FROM timescaledb_information.jobs "
+    "WHERE hypertable_name IS NOT NULL; END $$"
+)
+
+
 async def _job(c, proc: str, table: str) -> int:
     return await c.scalar(text(
         "SELECT job_id FROM timescaledb_information.jobs WHERE proc_name = :p AND "
@@ -223,10 +230,9 @@ async def stage_policy_drill(args) -> None:
             for v in ("1m", "1h", "1d")}
         out["raw_chunks_before"] = await _chunk_state(c)
         mid_raw, recent_raw = await _raw_count(c, *mid), await _raw_count(c, *recent)
-        await c.execute(text("SELECT ops.set_policies(true)"))
-        # new jobs start immediately on the background scheduler: pause them all, run by hand
-        await c.execute(text("SELECT alter_job(job_id, scheduled => false) "
-                             "FROM timescaledb_information.jobs WHERE hypertable_name IS NOT NULL"))
+        # new jobs start at once on the background scheduler: create and pause them in ONE
+        # transaction (a DO block), then run them by hand
+        await c.execute(text(PAUSED_POLICIES))
         out["jobs_paused_for_deterministic_drill"] = True
         jobs = (await c.execute(text(
             "SELECT job_id, proc_name, hypertable_name, schedule_interval::text, config::text "
@@ -298,6 +304,10 @@ def extrapolate(data: dict) -> dict:
     small_per_home_year_10ch = (agg["reading_1h"] + agg["reading_1d"]) / home_years
     ratio = data.get("cagg_compression", {}).get("reading_1m", {}).get("ratio")
     est_bpr = st["bytes_per_device_estimate_raw"]
+    est_1m_bpr = agg["device_estimate_1m"] / st["rows"]["aggregates"]["device_estimate_1m"]
+    est_small_per_series_year = (agg["device_estimate_1h"] + agg["device_estimate_1d"]) / (
+        home_years * 9)  # the 3 measured houses each have 9 estimate series
+    ratio_est = data.get("cagg_compression", {}).get("device_estimate_1m", {}).get("ratio")
     measured_rate = data["load"]["house1"]["readings_per_s"]
 
     def scenario(channels: int, cadence_s: float, estimates: int = 0) -> dict:
@@ -306,22 +316,31 @@ def extrapolate(data: dict) -> dict:
         one_m_year = channels * 525_600 * one_m_bpr  # a 1 m row per channel per minute
         small_year = small_per_home_year_10ch * channels / 10
         est_year = estimates * 86400 / cadence_s * 365 * est_bpr
-        unc = raw_year + one_m_year + small_year + est_year
-        comp = raw_year + (one_m_year / ratio if ratio else one_m_year) + small_year + est_year
+        # device_estimate aggregates: one 1 m row per estimate series per minute, plus 1 h / 1 d
+        est_agg_1m = estimates * 525_600 * est_1m_bpr
+        est_agg_small = estimates * est_small_per_series_year
+        unc = (raw_year + one_m_year + small_year + est_year + est_agg_1m + est_agg_small)
+        comp = (raw_year + (one_m_year / ratio if ratio else one_m_year) + small_year + est_year
+                + (est_agg_1m / ratio_est if ratio_est else est_agg_1m) + est_agg_small)
         return {
             "assumption": f"{channels} series per home, one reading per {cadence_s:g} s each"
                           + (f", {estimates} device_estimate series" if estimates else ""),
             "readings_per_home_day": round(per_day),
             "daily_ingest_rows_10k_homes": round(homes * per_day),
             "required_avg_rows_per_second": round(homes * per_day / 86400),
-            "measured_single_stream_rows_per_second": measured_rate,
-            "streams_needed_at_measured_rate": round(homes * per_day / 86400 / measured_rate, 2),
+            "measured_bulk_load_rows_per_second_single_stream": measured_rate,
+            "average_rate_as_fraction_of_bulk_load_figure": round(
+                homes * per_day / 86400 / measured_rate, 2),
             "raw_gb_per_home_year": round(raw_year / 1e9, 4),
             "agg_1m_uncompressed_gb_per_home_year": round(one_m_year / 1e9, 4),
             "agg_1m_compressed_gb_per_home_year": round(one_m_year / ratio / 1e9, 4)
             if ratio else None,
             "agg_1h_1d_gb_per_home_year": round(small_year / 1e9, 5),
             "device_estimate_gb_per_home_year": round(est_year / 1e9, 4),
+            "device_estimate_agg_1m_uncompressed_gb_per_home_year": round(est_agg_1m / 1e9, 4),
+            "device_estimate_agg_1m_compressed_gb_per_home_year": round(
+                est_agg_1m / ratio_est / 1e9, 4) if ratio_est else None,
+            "device_estimate_agg_1h_1d_gb_per_home_year": round(est_agg_small / 1e9, 5),
             "tb_per_year_10k_homes_1m_uncompressed": round(homes * unc / 1e12, 2),
             "tb_per_year_10k_homes_1m_compressed": round(homes * comp / 1e12, 2),
         }
@@ -339,6 +358,12 @@ def extrapolate(data: dict) -> dict:
         "assumptions": [
             "the spec states no sampling rate; three scenarios are shown",
             "REFIT: 10 series at about 7 s median cadence (measured)",
+            "the 30 s scenario includes the device_estimate aggregates: 9 series x 525,600 1 m "
+            "rows x measured bytes/row (compressed with the measured device_estimate_1m ratio) "
+            "plus measured 1 h / 1 d bytes per series-year",
+            "the measured rows/s is a BULK-LOAD figure (30k CSV rows per batch, policies off, no "
+            "concurrent compression or refresh); small-batch ingest from many concurrent meters "
+            "was not tested",
             "the 1 m aggregate has one row per series per minute that holds a sample; the "
             "scenarios assume every minute is covered (upper bound)",
             "1h/1d aggregate bytes are scaled from the measured 3-house size by series/10",

@@ -51,7 +51,7 @@ Numbers: the generated block at the end of this file and `docs/audit-results.jso
   stretches, which the 35 s cap treats as missing while `energy_wh` counts a full minute for every
   minute with a sample; (b) `Issues`-flagged samples are missing time in the reference but the
   minute average covers them in the view. Relaxing both (hold across flagged, cap 120 s) leaves
-  max error 3.7-4.4% and p95 0.8-1.2% (16-30 days per house still over 1%, not investigated).
+  max error 2.4-4.4% and p95 0.8-1.2% (16-30 days per house still over 1%, not investigated).
   Worked examples with exact vs view values: stage `energy_examples` below.
 - **Decision requested from the spec owner:** either change the reference (cap expressed in
   minutes, flagged time handled like the view) or change the `energy_wh` rule, then re-measure;
@@ -79,74 +79,97 @@ a full 20-house load is the user's later decision). Numbers: stages `latency`, `
 | 2 | Correctness, 1% per home-day | FAIL (10a, decision open, see above) |
 | 3 | Read latency | PASS on 3 houses |
 | 4 | Ingest throughput and growth | MEASURED for 3 houses, extrapolated beyond |
-| 5 | Failure drills | PASS (5 of 5) |
+| 5 | Failure drills | PASS (5 of 5), with one stale-read caveat |
 | 6 | Isolation | PASS |
 | 7 | Rebuild from empty | PASS |
 
-- **Latency: PASS.** Data compressed, policies off, 30 runs per case, each new session. p95 in ms
-  (warm / varied windows): series 1d over 90 d 4.5 / 3.7, 6h over 90 d 5.3 / 5.0, 1h over 45 d
-  6.0 / 5.0, 5m over 1 d 4.9 / 5.6, `latest_power` 2.4 / 3.5 (target 20), device breakdown 1 d
-  2.9 / 3.2 and 30 d 4.2 / 3.5, `compute_bill` 17.5 / 17.8 (target 100 for all but `latest_power`).
-  After a server restart the first calls were 2.6-48 ms (OS page cache stays warm, so this is
-  not a disk-cold figure). Lagging watermark (1.5 h of raw rows newer than every watermark, so the
-  real-time part runs): p95 1.9 `latest_power`, 4.4-5.1 series; the real-time branch scans 2 chunks
-  and costs under 2 ms. Plans: `EXPLAIN (ANALYZE, BUFFERS)` trimmed in `latency.*.plans`; every
-  read touches only aggregate chunks (1-12 chunk relations, 0 shared reads). Limit: only 3 homes and
-  22 M 1 m rows; the plans are index/bitmap scans on `(series_id, bucket)` so cost should stay flat
-  per series, but a 10,000-home table was not measured.
+- **Latency: PASS.** Data compressed, policies off, 30 runs per case, each in a new session. p95 in
+  ms (warm / varied windows): series 1d over 90 d 4.0 / 3.7, 6h over 90 d 6.3 / 5.3, 1h over 45 d
+  5.7 / 5.7, 5m over 1 d 4.4 / 10.8, Week (15m over 7 d) 11.6 / 52.3, `latest_power` 2.5 / 4.3
+  (target 20), device breakdown 1 d 3.1 / 2.8 and 30 d 3.9 / 3.4, `compute_bill` 16.3 / 17.0 (target
+  100 for all but `latest_power`). After a server restart the first calls were 2.6-48 ms (OS page
+  cache stays warm, so this is not a disk-cold figure; the Week case was not in that run).
+  **Lagging watermark:** 772 raw rows were inserted starting 30 s after the newest of the three
+  watermarks (1 m 2026-10-31 11:57, 1 h 12:00, 1 d 17:00), so the real-time branch runs at all
+  three levels; the last point of every level shows the inserted 1234 W (so the 1 d point is
+  current), p95 1.9 `latest_power`, 5.0 (1 d), 5.7 (1 h), 4.4 (5 m), 11.3 (Week); the 1 d plan
+  touches 11 chunk relations in 1.2 ms. (The first version of this measurement started the tail only
+  after the 1 m watermark, so the 1 d and 1 h points were stale and the claim was wrong; fixed.)
+  Plans: `EXPLAIN (ANALYZE, BUFFERS)` trimmed in `latency.*.plans` (compute_bill: all its
+  statements); the aggregate reads touch 1-10 chunk relations with 0 shared reads. Limit: only 3
+  homes and 22 M 1 m rows; the plans are index/bitmap scans on `(series_id, bucket)` so cost
+  should stay flat per series, but a 10,000-home table was not measured.
 - **Failure drills: PASS.** Duplicate batch (0 new, aggregates unchanged), out-of-order and late
   batch inside a materialized range (picked up by `backfill_aggregates`, checkpoint never moves
   back), a 90 minute gap (no row, no fill, `covered_minutes` 60 of 120), `Issues`-flagged rows
-  (kept in raw, excluded from the aggregates), refresh jobs paused (new data is served by
-  real-time aggregation with the exact expected energy while nothing is materialized).
+  (kept in raw, excluded from the aggregates), refresh jobs paused (new data newer than the
+  watermark is served by real-time aggregation with the exact expected energy; the check that
+  nothing is materialized is trivial by construction). **Caveat, recorded and asserted:** with the
+  jobs stopped, LATE rows inside an already materialized range are in raw (180 rows) but NOT
+  visible through the aggregates (0 points) until a refresh runs; after the manual refresh the
+  point shows the correct 300 Wh. Only data newer than the watermark is fresh while the job is
+  stopped.
 - **Isolation: PASS** on the loaded audit database (2 homes, 15 views, token variants, no direct
   table access, no writes).
 - **Rebuild: PASS.** Empty database, `alembic upgrade head`, `app.cli.load_refit --house 1
-  --limit-rows 10000`: 100,000 readings, 10 series, tariff and catalog seeded, no manual step.
-  (Policies are ON after the migration, 12 jobs.)
+  --limit-rows 10000` (dates shifted to 5 days ago so the 400 d retention policy cannot touch
+  them): 100,000 readings, 10 series, tariff and catalog seeded, no manual step. (Policies are ON
+  after the migration, 12 jobs.)
 - **Growth and extrapolation (assumptions in `extrapolation.assumptions`):** the spec gives no
   sampling rate, so three scenarios per 10,000 homes: REFIT-like 10 series at 7 s = 1.23 G rows/day
-  (14.3k rows/s average, 0.29 of one measured 49.6k rows/s stream) and 3.1 TB/year with the 1 m
-  aggregate compressed, 10.6 TB uncompressed; main meter only at 1 Hz = 864 M rows/day (10k rows/s)
-  and 1.8 TB/year compressed (2.6 uncompressed); 10 series at 30 s with 9 estimates = 288 M rows/day
-  and 1.7 TB/year compressed (9.2 uncompressed). Averages only: no peak factor, no raw retention
-  applied, compression 17x assumed for all cadences, every minute assumed covered (upper bound;
-  measured REFIT is 0.88 GB per home-year against 1.06 predicted). One writer stream sustains
-  the average rate of all three scenarios; concurrency under 10,000 live meters was not tested.
+  (14.3k rows/s average) and 3.1 TB/year with the 1 m aggregate compressed, 10.6 TB uncompressed;
+  main meter only at 1 Hz = 864 M rows/day (10k rows/s average) and 1.8 TB/year compressed (2.6
+  uncompressed); 10 series at 30 s with 9 device estimates = 288 M rows/day (3.3k rows/s) and 2.1
+  TB/year compressed, 16.3 TB uncompressed (this scenario includes the `device_estimate` 1 m, 1 h
+  and 1 d aggregates: 0.70 GB uncompressed / 0.03 GB compressed per home-year for the 1 m one).
+  Averages only: no peak factor, no raw retention applied, compression 17x assumed for all
+  cadences, every minute assumed covered (upper bound; measured REFIT is 0.88 GB per home-year
+  against 1.06 predicted). The measured 49.6k rows/s is a BULK-LOAD figure for a single stream
+  (30k-row batches, policies off, no concurrent compression or refresh); small-batch ingest from
+  many concurrent meters was not tested, so nothing is claimed about sustaining these averages.
 - **1 m aggregate compression (evaluated on a scratch copy, not applied): recommended.**
   `ALTER MATERIALIZED VIEW ... SET (timescaledb.compress, segmentby series_id, orderby bucket DESC)`
   on one month of House 1: `reading_1m` 147.8 -> 7.7 bytes/row (19.1x), `device_estimate_1m`
-  147.2 -> 6.4 (23.1x), row counts unchanged, 1 m reads on compressed chunks 1.4-2.0 ms p95. It is a
-  small migration (plus a compression policy for the cagg); not made in this task. Applied to the
-  audit data it would take the 6.5 GB of aggregates to about 0.3 GB.
-- **Why the 1 d backfill was slow (10a open question): answered.** A forced refresh of 30 days
-  costs 0.09 s for 1 d and 1.1 s for 1 h on the audit data, and one invalidated day or a
-  policy-sized window refreshes in 7-16 ms. The cost appears only while newer raw data is not yet
-  materialized: on a scratch copy the 1 d refresh of a 30-day window took 0.07 s alone, 6.5 s with
-  four more months of unmaterialized raw data present, and 0.04 s again when `reading_1m` and
-  `reading_1h` were set `materialized_only` (the real-time branch of the source views is evaluated
-  during the refresh). So the 1 d refresh scales with the amount of raw data newer than the
-  window: a backfill of a long history should either run newest-first, or switch the 1 m/1 h views to
-  `materialized_only` for its duration. In steady state (policy windows) the cost is negligible.
-- **Retention and aggregates (scratch drill, jobs paused and run by hand):** the raw 400-day
-  retention drops the raw chunks of the old range and leaves 1 m, 1 h and 1 d buckets untouched; the
-  refresh policies (7 d / 30 d / 60 d) do not touch old buckets; the 1 m retention job (set by
-  `ops.set_policies`) deletes only the old 1 m buckets, so 1 h and 1 d survive indefinitely as the
-  spec intends and need no retention policy. **Risk found:** a manual `backfill_aggregates` over a range
-  whose raw chunks were already dropped DELETES the existing 1 m, 1 h and 1 d buckets of that range
-  (all three went to 0 rows). Never backfill a window older than the raw retention.
-  Compression policy and policy jobs fire immediately after `set_policies(true)` on the background
-  scheduler (new jobs start at once), which is why the drill pauses them first.
+  147.2 -> 6.4 (23.1x), row counts unchanged, 1 m reads on compressed chunks 1.4-2.0 ms p95. It is
+  a small migration (plus a compression policy for the cagg); not made in this task. Applied to
+  the audit data it would take the 6.5 GB of aggregates to about 0.3 GB.
+- **Why the 1 d backfill was slow (10a open question): inferred from timings, not proven.** A
+  forced refresh of 30 days costs 0.09 s for 1 d and 1.2 s for 1 h on the audit data, and one
+  invalidated day or a policy-sized window refreshes in 8-17 ms for 1 h and 1 d (the 1 m refresh
+  took 0.05-0.23 s). The 1 d cost appears only while newer raw data is not yet materialized: on a
+  scratch copy the 1 d refresh of a 30-day window took 0.07 s alone, 6.5 s with four more months
+  of unmaterialized raw data present, and 0.04 s again when `reading_1m` and `reading_1h` were both
+  set `materialized_only` (single runs; the two views were toggled together, so which of them
+  matters is not separated). This points to the real-time branch of the source views being
+  evaluated during the refresh. A backfill of a long history should therefore either run
+  newest-first or switch the 1 m/1 h views to `materialized_only` for its duration (not tested).
+  In steady state (policy windows) the cost is negligible.
+- **Retention and aggregates (scratch drill; jobs created paused in one transaction and run by
+  hand):** the raw 400-day retention drops the raw chunks of the old range and leaves 1 m, 1 h and
+  1 d buckets untouched; the refresh policies (7 d / 30 d / 60 d) do not touch old buckets; the 1 m
+  retention job (created by `ops.set_policies`) removed the old range's 1 m buckets (71,280 -> 0)
+  while 1 h (1,200) and 1 d (50) stayed, so they survive as the spec intends and need no retention
+  policy. **Risk found:** a manual `backfill_aggregates` over a range whose raw chunks were already
+  dropped deleted the existing 1 h and 1 d buckets of that range (1,200 -> 0 and 50 -> 0); the 1 m
+  buckets were already 0 from the 1 m retention job in that run. Both retentions are 400 days, so
+  the practical rule holds: never backfill a window older than the raw retention.
 - **Harness check:** a limited end-to-end run on a scratch database (load, backfill, compress)
   confirmed both fixed bugs (compressed chunk count 15 = database, per-view timing keys are view
   names) and exposed a third one, fixed: `compress` crashed when a hypertable had no compressed
   chunk (no statistics row).
 - **Docker VM disk:** 1.08 TB total, 0.96 TB free at the end (`env.docker_vm_disk_bytes`).
-- **Side effect on the audit data:** the refresh-cost drill re-materialized two days of House 1
-  (restored; per-row diff against a snapshot taken before the drill: 0 rows changed). The row digest
-  of `reading_1d` recorded in 10a differs from today's digest although all sums are equal
-  (earlier unsnapshotted drill runs, probably last-digit float differences in the two recomputed
-  days); compare digests only within one run.
+- **Mid-task incident on the audit data (found, cleaned, verified):** an early run of the
+  refresh-cost drill crashed (a code error) after inserting two marker readings (777 W, House 1,
+  2026-06-15 03:00:00.5 and 2026-10-28 02:00:00.5) and re-refreshing their days; the next run
+  failed on the duplicate marker and showed they were still there. They were deleted by hand with
+  `psql`, the two days were refreshed again (1 m, 1 h, 1 d), and the reading count was verified
+  (196,881,280 rows, the same as before the drill). The stage now restores the data in a `finally`
+  block (delete markers, refresh, recompress, drop the snapshot table) and records
+  `markers_left_after_cleanup` (0). Its drill runs also re-materialize those days: a row-by-row
+  diff against a snapshot taken before the drill shows 12 of 16,340 `reading_1d` rows changed by
+  at most 3.5e-16 relative (last-digit float noise). That explains why the row digest recorded in
+  10a no longer equals the current one although all sums are equal; compare digests only within
+  one run.
 
 <!-- audit:begin -->
 ## Measured results
@@ -267,6 +290,12 @@ Generated by `python -m tests.audit.run report` from `docs/audit-results.json`; 
 | `stopped_refresh_job.materialized_rows_for_new_hour` | 0 |
 | `stopped_refresh_job.points_5m` | 12 |
 | `stopped_refresh_job.refresh_jobs_paused` | 6 |
+| `stopped_refresh_job_late_data.energy_after_refresh_wh` | 300 |
+| `stopped_refresh_job_late_data.late_rows_new` | 180 |
+| `stopped_refresh_job_late_data.note` | late rows inside a materialized range are NOT visible until a refresh runs |
+| `stopped_refresh_job_late_data.points_after_manual_refresh` | 1 |
+| `stopped_refresh_job_late_data.points_while_job_stopped` | 0 |
+| `stopped_refresh_job_late_data.raw_rows_in_hole_hour` | 180 |
 
 ### energy_examples
 
@@ -771,7 +800,7 @@ Generated by `python -m tests.audit.run report` from `docs/audit-results.json`; 
 
 | key | value |
 |---|---|
-| `assumptions` | the spec states no sampling rate; three scenarios are shown, REFIT: 10 series at about 7 s median cadence (measured), the 1 m aggregate has one row per series per minute that holds a sample; the scenarios assume every minute is covered (upper bound), 1h/1d aggregate bytes are scaled from the measured 3-house size by series/10, compressed raw size uses the measured 17x for all cadences (not measured for others), raw retention 13 months is NOT applied; figures are per year of ingest |
+| `assumptions` | the spec states no sampling rate; three scenarios are shown, REFIT: 10 series at about 7 s median cadence (measured), the 30 s scenario includes the device_estimate aggregates: 9 series x 525,600 1 m rows x measured bytes/row (compressed with the measured device_estimate_1m ratio) plus measured 1 h / 1 d bytes per series-year, the measured rows/s is a BULK-LOAD figure (30k CSV rows per batch, policies off, no concurrent compression or refresh); small-batch ingest from many concurrent meters was not tested, the 1 m aggregate has one row per series per minute that holds a sample; the scenarios assume every minute is covered (upper bound), 1h/1d aggregate bytes are scaled from the measured 3-house size by series/10, compressed raw size uses the measured 17x for all cadences (not measured for others), raw retention 13 months is NOT applied; figures are per year of ingest |
 | `measured_inputs.agg_1m_bytes_per_row_uncompressed` | 151.3 |
 | `measured_inputs.agg_1m_compression_ratio_scratch_measurement` | 19.14 |
 | `measured_inputs.device_estimate_bytes_per_row` | 5.621 |
@@ -780,39 +809,48 @@ Generated by `python -m tests.audit.run report` from `docs/audit-results.json`; 
 | `scenario_main_meter_only_1hz.agg_1m_compressed_gb_per_home_year` | 0.0042 |
 | `scenario_main_meter_only_1hz.agg_1m_uncompressed_gb_per_home_year` | 0.0795 |
 | `scenario_main_meter_only_1hz.assumption` | 1 series per home, one reading per 1 s each |
+| `scenario_main_meter_only_1hz.average_rate_as_fraction_of_bulk_load_figure` | 0.2 |
 | `scenario_main_meter_only_1hz.daily_ingest_rows_10k_homes` | 864,000,000 |
+| `scenario_main_meter_only_1hz.device_estimate_agg_1h_1d_gb_per_home_year` | 0 |
+| `scenario_main_meter_only_1hz.device_estimate_agg_1m_compressed_gb_per_home_year` | 0 |
+| `scenario_main_meter_only_1hz.device_estimate_agg_1m_uncompressed_gb_per_home_year` | 0 |
 | `scenario_main_meter_only_1hz.device_estimate_gb_per_home_year` | 0 |
-| `scenario_main_meter_only_1hz.measured_single_stream_rows_per_second` | 49,583 |
+| `scenario_main_meter_only_1hz.measured_bulk_load_rows_per_second_single_stream` | 49,583 |
 | `scenario_main_meter_only_1hz.raw_gb_per_home_year` | 0.1771 |
 | `scenario_main_meter_only_1hz.readings_per_home_day` | 86,400 |
 | `scenario_main_meter_only_1hz.required_avg_rows_per_second` | 10,000 |
-| `scenario_main_meter_only_1hz.streams_needed_at_measured_rate` | 0.2 |
 | `scenario_main_meter_only_1hz.tb_per_year_10k_homes_1m_compressed` | 1.83 |
 | `scenario_main_meter_only_1hz.tb_per_year_10k_homes_1m_uncompressed` | 2.58 |
 | `scenario_main_plus_9_devices_30s_with_estimates.agg_1h_1d_gb_per_home_year` | 0.01267 |
 | `scenario_main_plus_9_devices_30s_with_estimates.agg_1m_compressed_gb_per_home_year` | 0.0416 |
 | `scenario_main_plus_9_devices_30s_with_estimates.agg_1m_uncompressed_gb_per_home_year` | 0.7954 |
 | `scenario_main_plus_9_devices_30s_with_estimates.assumption` | 10 series per home, one reading per 30 s each, 9 device_estimate series |
+| `scenario_main_plus_9_devices_30s_with_estimates.average_rate_as_fraction_of_bulk_load_figure` | 0.07 |
 | `scenario_main_plus_9_devices_30s_with_estimates.daily_ingest_rows_10k_homes` | 288,000,000 |
+| `scenario_main_plus_9_devices_30s_with_estimates.device_estimate_agg_1h_1d_gb_per_home_year` | 0.01136 |
+| `scenario_main_plus_9_devices_30s_with_estimates.device_estimate_agg_1m_compressed_gb_per_home_year` | 0.0303 |
+| `scenario_main_plus_9_devices_30s_with_estimates.device_estimate_agg_1m_uncompressed_gb_per_home_year` | 0.7005 |
 | `scenario_main_plus_9_devices_30s_with_estimates.device_estimate_gb_per_home_year` | 0.0532 |
-| `scenario_main_plus_9_devices_30s_with_estimates.measured_single_stream_rows_per_second` | 49,583 |
+| `scenario_main_plus_9_devices_30s_with_estimates.measured_bulk_load_rows_per_second_single_stream` | 49,583 |
 | `scenario_main_plus_9_devices_30s_with_estimates.raw_gb_per_home_year` | 0.059 |
 | `scenario_main_plus_9_devices_30s_with_estimates.readings_per_home_day` | 28,800 |
 | `scenario_main_plus_9_devices_30s_with_estimates.required_avg_rows_per_second` | 3,333 |
-| `scenario_main_plus_9_devices_30s_with_estimates.streams_needed_at_measured_rate` | 0.07 |
-| `scenario_main_plus_9_devices_30s_with_estimates.tb_per_year_10k_homes_1m_compressed` | 1.66 |
-| `scenario_main_plus_9_devices_30s_with_estimates.tb_per_year_10k_homes_1m_uncompressed` | 9.2 |
+| `scenario_main_plus_9_devices_30s_with_estimates.tb_per_year_10k_homes_1m_compressed` | 2.08 |
+| `scenario_main_plus_9_devices_30s_with_estimates.tb_per_year_10k_homes_1m_uncompressed` | 16.32 |
 | `scenario_refit_like_10_series_7s.agg_1h_1d_gb_per_home_year` | 0.01267 |
 | `scenario_refit_like_10_series_7s.agg_1m_compressed_gb_per_home_year` | 0.0416 |
 | `scenario_refit_like_10_series_7s.agg_1m_uncompressed_gb_per_home_year` | 0.7954 |
 | `scenario_refit_like_10_series_7s.assumption` | 10 series per home, one reading per 7 s each |
+| `scenario_refit_like_10_series_7s.average_rate_as_fraction_of_bulk_load_figure` | 0.29 |
 | `scenario_refit_like_10_series_7s.daily_ingest_rows_10k_homes` | 1,234,285,714 |
+| `scenario_refit_like_10_series_7s.device_estimate_agg_1h_1d_gb_per_home_year` | 0 |
+| `scenario_refit_like_10_series_7s.device_estimate_agg_1m_compressed_gb_per_home_year` | 0 |
+| `scenario_refit_like_10_series_7s.device_estimate_agg_1m_uncompressed_gb_per_home_year` | 0 |
 | `scenario_refit_like_10_series_7s.device_estimate_gb_per_home_year` | 0 |
-| `scenario_refit_like_10_series_7s.measured_single_stream_rows_per_second` | 49,583 |
+| `scenario_refit_like_10_series_7s.measured_bulk_load_rows_per_second_single_stream` | 49,583 |
 | `scenario_refit_like_10_series_7s.raw_gb_per_home_year` | 0.2531 |
 | `scenario_refit_like_10_series_7s.readings_per_home_day` | 123,429 |
 | `scenario_refit_like_10_series_7s.required_avg_rows_per_second` | 14,286 |
-| `scenario_refit_like_10_series_7s.streams_needed_at_measured_rate` | 0.29 |
 | `scenario_refit_like_10_series_7s.tb_per_year_10k_homes_1m_compressed` | 3.07 |
 | `scenario_refit_like_10_series_7s.tb_per_year_10k_homes_1m_uncompressed` | 10.61 |
 
@@ -907,120 +945,141 @@ Generated by `python -m tests.audit.run report` from `docs/audit-results.json`; 
 | `cold_after_restart.series_5m_over_1d.first_calls_ms` | 9.5, 7.7, 5.3, 5.9, 7.3 |
 | `cold_after_restart.series_6h_over_90d.first_call_ms` | 17.1 |
 | `cold_after_restart.series_6h_over_90d.first_calls_ms` | 17.1, 6.3, 6.2, 5.6, 6.6 |
-| `lagging_watermark.latest_power.last_point` | LatestPower(ts=datetime.datetime(2026, 10, 31, 13, 27, tzinfo=datetime.timezone.utc), watts=1234.0) |
+| `lagging_watermark.latest_power.last_point` | LatestPower(ts=datetime.datetime(2026, 10, 31, 18, 30, tzinfo=datetime.timezone.utc), watts=1234.0) |
+| `lagging_watermark.latest_power.last_point_shows_tail` | True |
 | `lagging_watermark.latest_power.target_p95_ms` | 20 |
-| `lagging_watermark.latest_power.warm.max_ms` | 1.95 |
+| `lagging_watermark.latest_power.warm.max_ms` | 2.59 |
 | `lagging_watermark.latest_power.warm.n` | 30 |
-| `lagging_watermark.latest_power.warm.p50_ms` | 1.59 |
-| `lagging_watermark.latest_power.warm.p95_ms` | 1.91 |
+| `lagging_watermark.latest_power.warm.p50_ms` | 1.57 |
+| `lagging_watermark.latest_power.warm.p95_ms` | 1.88 |
 | `lagging_watermark.latest_power_sees_tail` | True |
 | `lagging_watermark.raw_rows_restored` | True |
-| `lagging_watermark.series_1d_over_90d.last_point` | Point(ts=datetime.datetime(2026, 10, 30, 17, 0, tzinfo=datetime.timezone.utc), avg_w=281.833300336567, min_w=155.0, max_w=10765.0, energy_wh=5298.452764550266) |
+| `lagging_watermark.series_1d_over_90d.last_point` | Point(ts=datetime.datetime(2026, 10, 31, 17, 0, tzinfo=datetime.timezone.utc), avg_w=1234.0, min_w=1234.0, max_w=1234.0, energy_wh=1871.5666666666675) |
+| `lagging_watermark.series_1d_over_90d.last_point_shows_tail` | True |
 | `lagging_watermark.series_1d_over_90d.target_p95_ms` | 100 |
-| `lagging_watermark.series_1d_over_90d.warm.max_ms` | 4.44 |
+| `lagging_watermark.series_1d_over_90d.warm.max_ms` | 5.86 |
 | `lagging_watermark.series_1d_over_90d.warm.n` | 30 |
-| `lagging_watermark.series_1d_over_90d.warm.p50_ms` | 3.67 |
-| `lagging_watermark.series_1d_over_90d.warm.p95_ms` | 4.41 |
-| `lagging_watermark.series_1h_over_45d.last_point` | Point(ts=datetime.datetime(2026, 10, 31, 13, 0, tzinfo=datetime.timezone.utc), avg_w=1234.0, min_w=1234.0, max_w=1234.0, energy_wh=575.8666666666668) |
+| `lagging_watermark.series_1d_over_90d.warm.p50_ms` | 4.49 |
+| `lagging_watermark.series_1d_over_90d.warm.p95_ms` | 4.98 |
+| `lagging_watermark.series_1h_over_45d.last_point` | Point(ts=datetime.datetime(2026, 10, 31, 18, 0, tzinfo=datetime.timezone.utc), avg_w=1234.0, min_w=1234.0, max_w=1234.0, energy_wh=637.566666666667) |
+| `lagging_watermark.series_1h_over_45d.last_point_shows_tail` | True |
 | `lagging_watermark.series_1h_over_45d.target_p95_ms` | 100 |
-| `lagging_watermark.series_1h_over_45d.warm.max_ms` | 5.09 |
+| `lagging_watermark.series_1h_over_45d.warm.max_ms` | 5.76 |
 | `lagging_watermark.series_1h_over_45d.warm.n` | 30 |
-| `lagging_watermark.series_1h_over_45d.warm.p50_ms` | 4.6 |
-| `lagging_watermark.series_1h_over_45d.warm.p95_ms` | 5.08 |
-| `lagging_watermark.series_5m_over_1d.last_point` | Point(ts=datetime.datetime(2026, 10, 31, 13, 25, tzinfo=datetime.timezone.utc), avg_w=1234.0, min_w=1234.0, max_w=1234.0, energy_wh=61.7) |
+| `lagging_watermark.series_1h_over_45d.warm.p50_ms` | 4.84 |
+| `lagging_watermark.series_1h_over_45d.warm.p95_ms` | 5.66 |
+| `lagging_watermark.series_5m_over_1d.last_point` | Point(ts=datetime.datetime(2026, 10, 31, 18, 30, tzinfo=datetime.timezone.utc), avg_w=1234.0, min_w=1234.0, max_w=1234.0, energy_wh=20.566666666666666) |
+| `lagging_watermark.series_5m_over_1d.last_point_shows_tail` | True |
 | `lagging_watermark.series_5m_over_1d.target_p95_ms` | 100 |
-| `lagging_watermark.series_5m_over_1d.warm.max_ms` | 4.95 |
+| `lagging_watermark.series_5m_over_1d.warm.max_ms` | 4.57 |
 | `lagging_watermark.series_5m_over_1d.warm.n` | 30 |
-| `lagging_watermark.series_5m_over_1d.warm.p50_ms` | 4.04 |
-| `lagging_watermark.series_5m_over_1d.warm.p95_ms` | 4.79 |
+| `lagging_watermark.series_5m_over_1d.warm.p50_ms` | 3.73 |
+| `lagging_watermark.series_5m_over_1d.warm.p95_ms` | 4.42 |
+| `lagging_watermark.series_week_15m_over_7d.last_point` | Point(ts=datetime.datetime(2026, 10, 31, 18, 30, tzinfo=datetime.timezone.utc), avg_w=1234.0, min_w=1234.0, max_w=1234.0, energy_wh=20.566666666666666) |
+| `lagging_watermark.series_week_15m_over_7d.last_point_shows_tail` | True |
+| `lagging_watermark.series_week_15m_over_7d.target_p95_ms` | 100 |
+| `lagging_watermark.series_week_15m_over_7d.warm.max_ms` | 11.72 |
+| `lagging_watermark.series_week_15m_over_7d.warm.n` | 30 |
+| `lagging_watermark.series_week_15m_over_7d.warm.p50_ms` | 10.56 |
+| `lagging_watermark.series_week_15m_over_7d.warm.p95_ms` | 11.33 |
 | `lagging_watermark.tail_rows` | 772 |
-| `lagging_watermark.tail_rows_end` | 2026-10-31T13:27:30+00:00 |
-| `lagging_watermark.tail_rows_start` | 2026-10-31T11:57:30+00:00 |
+| `lagging_watermark.tail_rows_end` | 2026-10-31T18:30:30+00:00 |
+| `lagging_watermark.tail_rows_start` | 2026-10-31T17:00:30+00:00 |
 | `lagging_watermark.watermarks.1d` | 2026-10-31T17:00:00+00:00 |
 | `lagging_watermark.watermarks.1h` | 2026-10-31T12:00:00+00:00 |
 | `lagging_watermark.watermarks.1m` | 2026-10-31T11:57:00+00:00 |
 | `settled_data.compressed_chunks_reading` | 636 |
 | `settled_data.compute_bill_month.pass` | True |
 | `settled_data.compute_bill_month.target_p95_ms` | 100 |
-| `settled_data.compute_bill_month.varied_windows.max_ms` | 18.39 |
+| `settled_data.compute_bill_month.varied_windows.max_ms` | 17.51 |
 | `settled_data.compute_bill_month.varied_windows.n` | 30 |
-| `settled_data.compute_bill_month.varied_windows.p50_ms` | 15.81 |
-| `settled_data.compute_bill_month.varied_windows.p95_ms` | 17.78 |
-| `settled_data.compute_bill_month.warm.max_ms` | 31.24 |
+| `settled_data.compute_bill_month.varied_windows.p50_ms` | 14.51 |
+| `settled_data.compute_bill_month.varied_windows.p95_ms` | 17.03 |
+| `settled_data.compute_bill_month.warm.max_ms` | 27.12 |
 | `settled_data.compute_bill_month.warm.n` | 30 |
-| `settled_data.compute_bill_month.warm.p50_ms` | 15.65 |
-| `settled_data.compute_bill_month.warm.p95_ms` | 17.49 |
+| `settled_data.compute_bill_month.warm.p50_ms` | 13.42 |
+| `settled_data.compute_bill_month.warm.p95_ms` | 16.25 |
 | `settled_data.device_breakdown_1d_hourly.pass` | True |
 | `settled_data.device_breakdown_1d_hourly.target_p95_ms` | 100 |
-| `settled_data.device_breakdown_1d_hourly.varied_windows.max_ms` | 3.29 |
+| `settled_data.device_breakdown_1d_hourly.varied_windows.max_ms` | 2.94 |
 | `settled_data.device_breakdown_1d_hourly.varied_windows.n` | 30 |
-| `settled_data.device_breakdown_1d_hourly.varied_windows.p50_ms` | 2.65 |
-| `settled_data.device_breakdown_1d_hourly.varied_windows.p95_ms` | 3.21 |
-| `settled_data.device_breakdown_1d_hourly.warm.max_ms` | 25.62 |
+| `settled_data.device_breakdown_1d_hourly.varied_windows.p50_ms` | 2.44 |
+| `settled_data.device_breakdown_1d_hourly.varied_windows.p95_ms` | 2.81 |
+| `settled_data.device_breakdown_1d_hourly.warm.max_ms` | 25.98 |
 | `settled_data.device_breakdown_1d_hourly.warm.n` | 30 |
-| `settled_data.device_breakdown_1d_hourly.warm.p50_ms` | 2.35 |
-| `settled_data.device_breakdown_1d_hourly.warm.p95_ms` | 2.88 |
+| `settled_data.device_breakdown_1d_hourly.warm.p50_ms` | 2.38 |
+| `settled_data.device_breakdown_1d_hourly.warm.p95_ms` | 3.14 |
 | `settled_data.device_breakdown_30d_daily.pass` | True |
 | `settled_data.device_breakdown_30d_daily.target_p95_ms` | 100 |
-| `settled_data.device_breakdown_30d_daily.varied_windows.max_ms` | 3.93 |
+| `settled_data.device_breakdown_30d_daily.varied_windows.max_ms` | 3.52 |
 | `settled_data.device_breakdown_30d_daily.varied_windows.n` | 30 |
-| `settled_data.device_breakdown_30d_daily.varied_windows.p50_ms` | 3.02 |
-| `settled_data.device_breakdown_30d_daily.varied_windows.p95_ms` | 3.54 |
-| `settled_data.device_breakdown_30d_daily.warm.max_ms` | 25.79 |
+| `settled_data.device_breakdown_30d_daily.varied_windows.p50_ms` | 2.94 |
+| `settled_data.device_breakdown_30d_daily.varied_windows.p95_ms` | 3.39 |
+| `settled_data.device_breakdown_30d_daily.warm.max_ms` | 25.28 |
 | `settled_data.device_breakdown_30d_daily.warm.n` | 30 |
-| `settled_data.device_breakdown_30d_daily.warm.p50_ms` | 3.57 |
-| `settled_data.device_breakdown_30d_daily.warm.p95_ms` | 4.23 |
+| `settled_data.device_breakdown_30d_daily.warm.p50_ms` | 3.25 |
+| `settled_data.device_breakdown_30d_daily.warm.p95_ms` | 3.85 |
 | `settled_data.latest_power.pass` | True |
 | `settled_data.latest_power.target_p95_ms` | 20 |
-| `settled_data.latest_power.varied_windows.max_ms` | 5.83 |
+| `settled_data.latest_power.varied_windows.max_ms` | 7.22 |
 | `settled_data.latest_power.varied_windows.n` | 30 |
-| `settled_data.latest_power.varied_windows.p50_ms` | 1.5 |
-| `settled_data.latest_power.varied_windows.p95_ms` | 3.48 |
-| `settled_data.latest_power.warm.max_ms` | 6.33 |
+| `settled_data.latest_power.varied_windows.p50_ms` | 1.54 |
+| `settled_data.latest_power.varied_windows.p95_ms` | 4.29 |
+| `settled_data.latest_power.warm.max_ms` | 6.12 |
 | `settled_data.latest_power.warm.n` | 30 |
-| `settled_data.latest_power.warm.p50_ms` | 1.55 |
-| `settled_data.latest_power.warm.p95_ms` | 2.35 |
+| `settled_data.latest_power.warm.p50_ms` | 1.71 |
+| `settled_data.latest_power.warm.p95_ms` | 2.46 |
 | `settled_data.runs_per_case` | 30 |
 | `settled_data.series_1d_over_90d.pass` | True |
 | `settled_data.series_1d_over_90d.target_p95_ms` | 100 |
-| `settled_data.series_1d_over_90d.varied_windows.max_ms` | 4.07 |
+| `settled_data.series_1d_over_90d.varied_windows.max_ms` | 3.89 |
 | `settled_data.series_1d_over_90d.varied_windows.n` | 30 |
-| `settled_data.series_1d_over_90d.varied_windows.p50_ms` | 3.25 |
-| `settled_data.series_1d_over_90d.varied_windows.p95_ms` | 3.73 |
-| `settled_data.series_1d_over_90d.warm.max_ms` | 25.11 |
+| `settled_data.series_1d_over_90d.varied_windows.p50_ms` | 3.19 |
+| `settled_data.series_1d_over_90d.varied_windows.p95_ms` | 3.7 |
+| `settled_data.series_1d_over_90d.warm.max_ms` | 25.36 |
 | `settled_data.series_1d_over_90d.warm.n` | 30 |
-| `settled_data.series_1d_over_90d.warm.p50_ms` | 3.5 |
-| `settled_data.series_1d_over_90d.warm.p95_ms` | 4.54 |
+| `settled_data.series_1d_over_90d.warm.p50_ms` | 3.37 |
+| `settled_data.series_1d_over_90d.warm.p95_ms` | 3.96 |
 | `settled_data.series_1h_over_45d.pass` | True |
 | `settled_data.series_1h_over_45d.target_p95_ms` | 100 |
-| `settled_data.series_1h_over_45d.varied_windows.max_ms` | 5.56 |
+| `settled_data.series_1h_over_45d.varied_windows.max_ms` | 5.74 |
 | `settled_data.series_1h_over_45d.varied_windows.n` | 30 |
-| `settled_data.series_1h_over_45d.varied_windows.p50_ms` | 4.72 |
-| `settled_data.series_1h_over_45d.varied_windows.p95_ms` | 5.04 |
-| `settled_data.series_1h_over_45d.warm.max_ms` | 8.12 |
+| `settled_data.series_1h_over_45d.varied_windows.p50_ms` | 5.22 |
+| `settled_data.series_1h_over_45d.varied_windows.p95_ms` | 5.72 |
+| `settled_data.series_1h_over_45d.warm.max_ms` | 8.93 |
 | `settled_data.series_1h_over_45d.warm.n` | 30 |
-| `settled_data.series_1h_over_45d.warm.p50_ms` | 4.61 |
-| `settled_data.series_1h_over_45d.warm.p95_ms` | 5.96 |
+| `settled_data.series_1h_over_45d.warm.p50_ms` | 4.81 |
+| `settled_data.series_1h_over_45d.warm.p95_ms` | 5.66 |
 | `settled_data.series_5m_over_1d.pass` | True |
 | `settled_data.series_5m_over_1d.target_p95_ms` | 100 |
-| `settled_data.series_5m_over_1d.varied_windows.max_ms` | 5.86 |
+| `settled_data.series_5m_over_1d.varied_windows.max_ms` | 11.22 |
 | `settled_data.series_5m_over_1d.varied_windows.n` | 30 |
-| `settled_data.series_5m_over_1d.varied_windows.p50_ms` | 4.7 |
-| `settled_data.series_5m_over_1d.varied_windows.p95_ms` | 5.6 |
-| `settled_data.series_5m_over_1d.warm.max_ms` | 29.76 |
+| `settled_data.series_5m_over_1d.varied_windows.p50_ms` | 8.22 |
+| `settled_data.series_5m_over_1d.varied_windows.p95_ms` | 10.79 |
+| `settled_data.series_5m_over_1d.warm.max_ms` | 30.58 |
 | `settled_data.series_5m_over_1d.warm.n` | 30 |
-| `settled_data.series_5m_over_1d.warm.p50_ms` | 3.59 |
-| `settled_data.series_5m_over_1d.warm.p95_ms` | 4.91 |
+| `settled_data.series_5m_over_1d.warm.p50_ms` | 3.55 |
+| `settled_data.series_5m_over_1d.warm.p95_ms` | 4.4 |
 | `settled_data.series_6h_over_90d.pass` | True |
 | `settled_data.series_6h_over_90d.target_p95_ms` | 100 |
-| `settled_data.series_6h_over_90d.varied_windows.max_ms` | 5.05 |
+| `settled_data.series_6h_over_90d.varied_windows.max_ms` | 5.76 |
 | `settled_data.series_6h_over_90d.varied_windows.n` | 30 |
-| `settled_data.series_6h_over_90d.varied_windows.p50_ms` | 4.19 |
-| `settled_data.series_6h_over_90d.varied_windows.p95_ms` | 4.95 |
-| `settled_data.series_6h_over_90d.warm.max_ms` | 27.04 |
+| `settled_data.series_6h_over_90d.varied_windows.p50_ms` | 4.31 |
+| `settled_data.series_6h_over_90d.varied_windows.p95_ms` | 5.27 |
+| `settled_data.series_6h_over_90d.warm.max_ms` | 29.2 |
 | `settled_data.series_6h_over_90d.warm.n` | 30 |
-| `settled_data.series_6h_over_90d.warm.p50_ms` | 4.16 |
-| `settled_data.series_6h_over_90d.warm.p95_ms` | 5.3 |
+| `settled_data.series_6h_over_90d.warm.p50_ms` | 3.59 |
+| `settled_data.series_6h_over_90d.warm.p95_ms` | 6.25 |
+| `settled_data.series_week_15m_over_7d.pass` | True |
+| `settled_data.series_week_15m_over_7d.target_p95_ms` | 100 |
+| `settled_data.series_week_15m_over_7d.varied_windows.max_ms` | 55.22 |
+| `settled_data.series_week_15m_over_7d.varied_windows.n` | 30 |
+| `settled_data.series_week_15m_over_7d.varied_windows.p50_ms` | 33.14 |
+| `settled_data.series_week_15m_over_7d.varied_windows.p95_ms` | 52.29 |
+| `settled_data.series_week_15m_over_7d.warm.max_ms` | 40.05 |
+| `settled_data.series_week_15m_over_7d.warm.n` | 30 |
+| `settled_data.series_week_15m_over_7d.warm.p50_ms` | 10.8 |
+| `settled_data.series_week_15m_over_7d.warm.p95_ms` | 11.61 |
 
 ### load
 
@@ -1126,7 +1185,7 @@ Generated by `python -m tests.audit.run report` from `docs/audit-results.json`; 
 | `refresh_policy_jobs_found.1h` | True |
 | `refresh_policy_jobs_found.1m` | True |
 | `retention_policy_jobs` | device_estimate, device_estimate_1m, reading, reading_1m |
-| `run_at` | 2026-11-01T18:19:40.514269+00:00 |
+| `run_at` | 2026-11-01T18:37:20.298352+00:00 |
 | `slices.mid` | 2026-09-01 00:00:00+00:00, 2026-09-04 00:00:00+00:00 |
 | `slices.old` | 2025-02-01 00:00:00+00:00, 2025-02-06 00:00:00+00:00 |
 | `slices.recent` | 2026-10-25 00:00:00+00:00, 2026-11-01 00:00:00+00:00 |
@@ -1136,7 +1195,7 @@ Generated by `python -m tests.audit.run report` from `docs/audit-results.json`; 
 | key | value |
 |---|---|
 | `from_empty.device_types_seeded` | 22 |
-| `from_empty.load_output` | house 1: rows_in=100000 rows_new=100000 rows_dup=0 rows_bad=0 in 1.8s (55,486 readings/s) |
+| `from_empty.load_output` | house 1: rows_in=100000 rows_new=100000 rows_dup=0 rows_bad=0 in 2.0s (51,179 readings/s) |
 | `from_empty.manual_steps` | 0 |
 | `from_empty.policy_jobs_after_migration` | 12 |
 | `from_empty.readings` | 100,000 |
@@ -1147,28 +1206,29 @@ Generated by `python -m tests.audit.run report` from `docs/audit-results.json`; 
 
 | key | value |
 |---|---|
-| `forced_30_day_window_seconds.1d` | 0.089 |
-| `forced_30_day_window_seconds.1h` | 1.218 |
-| `forced_30_day_window_seconds.1m` | 31.16 |
-| `one_invalidated_day_refresh_seconds.1d` | 0.016 |
+| `forced_30_day_window_seconds.1d` | 0.086 |
+| `forced_30_day_window_seconds.1h` | 1.157 |
+| `forced_30_day_window_seconds.1m` | 30.95 |
+| `markers_left_after_cleanup` | 0 |
+| `one_invalidated_day_refresh_seconds.1d` | 0.017 |
 | `one_invalidated_day_refresh_seconds.1h` | 0.013 |
-| `one_invalidated_day_refresh_seconds.1m` | 0.015 |
+| `one_invalidated_day_refresh_seconds.1m` | 0.233 |
 | `policy_window_nothing_to_do_seconds.1d` | 0.004 |
 | `policy_window_nothing_to_do_seconds.1h` | 0.004 |
-| `policy_window_nothing_to_do_seconds.1m` | 0.004 |
-| `policy_window_with_one_invalidation_seconds.1d` | 0.014 |
-| `policy_window_with_one_invalidation_seconds.1h` | 0.009 |
-| `policy_window_with_one_invalidation_seconds.1m` | 0.009 |
-| `reading_1d_checksum_after_forced_recompute_equals_before` | True |
-| `reading_1d_checksum_restored_after_marker_cycle` | True |
-| `reading_1d_diff_vs_snapshot_after_forced_recompute.max_rel_diff` | 0 |
+| `policy_window_nothing_to_do_seconds.1m` | 0.006 |
+| `policy_window_with_one_invalidation_seconds.1d` | 0.015 |
+| `policy_window_with_one_invalidation_seconds.1h` | 0.008 |
+| `policy_window_with_one_invalidation_seconds.1m` | 0.046 |
+| `reading_1d_checksum_after_forced_recompute_equals_before` | False |
+| `reading_1d_checksum_restored_after_marker_cycle` | False |
+| `reading_1d_diff_vs_snapshot_after_forced_recompute.max_rel_diff` | 3.454e-16 |
 | `reading_1d_diff_vs_snapshot_after_forced_recompute.new_rows` | 0 |
-| `reading_1d_diff_vs_snapshot_after_forced_recompute.rows_changed` | 0 |
+| `reading_1d_diff_vs_snapshot_after_forced_recompute.rows_changed` | 12 |
 | `reading_1d_diff_vs_snapshot_after_forced_recompute.rows_lost` | 0 |
 | `reading_1d_diff_vs_snapshot_after_forced_recompute.rows_now` | 16,340 |
-| `reading_1d_diff_vs_snapshot_after_marker_cycle.max_rel_diff` | 0 |
+| `reading_1d_diff_vs_snapshot_after_marker_cycle.max_rel_diff` | 3.454e-16 |
 | `reading_1d_diff_vs_snapshot_after_marker_cycle.new_rows` | 0 |
-| `reading_1d_diff_vs_snapshot_after_marker_cycle.rows_changed` | 0 |
+| `reading_1d_diff_vs_snapshot_after_marker_cycle.rows_changed` | 12 |
 | `reading_1d_diff_vs_snapshot_after_marker_cycle.rows_lost` | 0 |
 | `reading_1d_diff_vs_snapshot_after_marker_cycle.rows_now` | 16,340 |
 | `scratch_comparison.window_only.backfill_seconds_per_view.energy.device_estimate_1d` | 0.01 |

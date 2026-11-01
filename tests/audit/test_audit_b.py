@@ -19,6 +19,8 @@ from app.services.aggregates import backfill_aggregates
 from app.services.ingest import ReadingRow, ingest_readings
 from app.services.meter import meter_series
 from tests.audit import results
+from tests.audit.part_b2 import PAUSED_POLICIES
+from tests.audit.run import csv_path
 from tests.audit.support import create_scratch, drop_scratch, scratch_url
 from tests.db.conftest import ROOT, run_alembic
 from tests.db.test_roles import (
@@ -166,9 +168,7 @@ async def test_drill_issues_flagged_rows(drill):
 async def test_drill_stopped_refresh_job_reads_stay_correct(drill):
     eng, ac, home = drill["eng"], drill["ac"], drill["home"]
     async with ac.connect() as c:
-        await c.execute(text("SELECT ops.set_policies(true)"))
-        await c.execute(text("SELECT alter_job(job_id, scheduled => false) "
-                             "FROM timescaledb_information.jobs WHERE hypertable_name IS NOT NULL"))
+        await c.execute(text(PAUSED_POLICIES))  # created and paused in one transaction
         jobs = (await c.execute(text(
             "SELECT proc_name, scheduled FROM timescaledb_information.jobs "
             "WHERE hypertable_name IS NOT NULL"))).all()
@@ -186,10 +186,29 @@ async def test_drill_stopped_refresh_job_reads_stay_correct(drill):
     results.record("drills", "stopped_refresh_job", {
         "refresh_jobs_paused": len(refresh_jobs), "materialized_rows_for_new_hour": mat,
         "points_5m": len(m5), "hour_wh": h1[0].energy_wh, "day_wh": d1[0].energy_wh})
-    assert mat == 0  # nothing materialized: the policy is stopped
+    assert mat == 0  # trivial by construction (nothing refreshed); the reads below are the test
     assert len(m5) == 12 and sum(p.energy_wh for p in m5) == pytest.approx(WATTS)
     assert h1[0].energy_wh == pytest.approx(WATTS)
     assert d1[0].energy_wh == pytest.approx(WATTS)
+    # late rows inside an already materialized range (the 03-12 hole 04:00-05:00 was
+    # materialized as empty) while the refresh jobs are stopped: reads are STALE until a refresh
+    late = await _ingest(eng, rows(at(12, 4), 30))
+    async with AsyncSession(eng) as s:
+        stale = await meter_series(s, home, at(12, 4), at(12, 5), 1, now=at(15, 6))
+    async with eng.connect() as c:
+        raw_late = await c.scalar(text("SELECT count(*) FROM energy.reading WHERE ts >= :a "
+                                       "AND ts < :b"), {"a": at(12, 4), "b": at(12, 5)})
+    await _refresh(ac, at(12, 0), at(12, 12))  # what the stopped job would have done
+    async with AsyncSession(eng) as s:
+        fresh = await meter_series(s, home, at(12, 4), at(12, 5), 1, now=at(15, 6))
+    results.record("drills", "stopped_refresh_job_late_data", {
+        "late_rows_new": late.rows_new, "raw_rows_in_hole_hour": raw_late,
+        "points_while_job_stopped": len(stale), "points_after_manual_refresh": len(fresh),
+        "energy_after_refresh_wh": fresh[0].energy_wh if fresh else None,
+        "note": "late rows inside a materialized range are NOT visible until a refresh runs"})
+    assert late.rows_new == 180 and raw_late == 180
+    assert stale == []  # stale read: the data is in raw but not in the aggregates
+    assert [p.energy_wh for p in fresh] == pytest.approx([300.0])
     async with ac.connect() as c:
         await c.execute(text("SELECT ops.set_policies(false)"))
 
@@ -270,9 +289,14 @@ def test_rebuild_from_empty():
             run_alembic(dsn, "upgrade", "head")  # the only schema step
             env = {**os.environ, "DATABASE_URL": make_url(scratch_url(name)).render_as_string(
                 hide_password=False)}
+            # shift the first rows to 5 days ago so a retention run (400 d) cannot drop them
+            first = int(open(csv_path(1)).readlines()[1].split(",")[1])
+            first_day = datetime.fromtimestamp(first, UTC).date()
+            shift = (datetime.now(UTC).date() - timedelta(days=5) - first_day).days
             proc = subprocess.run(
                 [sys.executable, "-m", "app.cli.load_refit", "--house", "1", "--limit-rows",
-                 "10000"], cwd=ROOT, env=env, capture_output=True, text=True)
+                 "10000", "--shift-days", str(shift)], cwd=ROOT, env=env, capture_output=True,
+                text=True)
             assert proc.returncode == 0, proc.stdout + proc.stderr
             eng = create_async_engine(dsn)
             async with eng.connect() as c:

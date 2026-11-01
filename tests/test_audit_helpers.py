@@ -85,17 +85,25 @@ def test_extrapolation_arithmetic():
     data = {
         "stats": {
             "home_years": 2.0, "bytes_per_reading_raw": 5.0, "bytes_per_device_estimate_raw": 5.0,
-            "bytes": {"aggregates": {"reading_1m": 1500.0, "reading_1h": 20.0, "reading_1d": 2.0}},
-            "rows": {"aggregates": {"reading_1m": 10}},
+            "bytes": {"aggregates": {"reading_1m": 1500.0, "reading_1h": 20.0, "reading_1d": 2.0,
+                                     "device_estimate_1m": 1000.0, "device_estimate_1h": 9.0,
+                                     "device_estimate_1d": 9.0}},
+            "rows": {"aggregates": {"reading_1m": 10, "device_estimate_1m": 10}},
         },
-        "cagg_compression": {"reading_1m": {"ratio": 10.0}},
+        "cagg_compression": {"reading_1m": {"ratio": 10.0}, "device_estimate_1m": {"ratio": 20.0}},
         "load": {"house1": {"readings_per_s": 50_000}},
     }
     one_hz = extrapolate(data)["scenario_main_meter_only_1hz"]
     assert one_hz["readings_per_home_day"] == 86_400
     assert one_hz["daily_ingest_rows_10k_homes"] == 864_000_000
     assert one_hz["required_avg_rows_per_second"] == 10_000
-    assert one_hz["streams_needed_at_measured_rate"] == 0.2
+    assert one_hz["average_rate_as_fraction_of_bulk_load_figure"] == 0.2
     # 1 m row costs 150 bytes, one per minute per series per year
     assert one_hz["agg_1m_uncompressed_gb_per_home_year"] == round(525_600 * 150 / 1e9, 4)
     assert one_hz["agg_1m_compressed_gb_per_home_year"] == round(525_600 * 15 / 1e9, 4)
+    plugs = extrapolate(data)["scenario_main_plus_9_devices_30s_with_estimates"]
+    # 9 estimate series x 525,600 minutes x 100 bytes/row, 20x compressed
+    assert plugs["device_estimate_agg_1m_uncompressed_gb_per_home_year"] == round(
+        9 * 525_600 * 100 / 1e9, 4)
+    assert plugs["device_estimate_agg_1m_compressed_gb_per_home_year"] == round(
+        9 * 525_600 * 5 / 1e9, 4)
