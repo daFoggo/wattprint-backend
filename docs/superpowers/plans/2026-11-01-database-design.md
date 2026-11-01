@@ -25,7 +25,7 @@
 - `MIN_COHORT_HOMES = 10`: `insight.cohort_stat` has `CHECK (n_homes >= 10)` [C].
 - Constraint and index names follow the naming convention in `app/database.py`. Python 3.12, ruff line length 100, `ruff check` clean.
 - Tests run inside the stack: `docker compose exec api pytest <path> -v`. DB tests use a scratch database created per session, never `wattprint`.
-- No commits are made unless the user asks; "checkpoint" steps below mean "run the checks", not `git commit`.
+- Commits go on the local branch `feat/database-design` only, one per task, staging explicit paths (never `git add -A`: `dataset/` and other untracked user files must stay unstaged). Nothing is pushed. "Checkpoint" steps mean run the checks, then commit that task.
 
 ## Review Focus
 
