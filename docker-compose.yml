@@ -20,34 +20,12 @@ services:
       retries: 10
       start_period: 15s
 
-  auth:
-    build: ./auth
-    container_name: wattprint-auth
-    environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
-      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET}
-      BETTER_AUTH_URL: ${BETTER_AUTH_URL}
-      API_AUDIENCE: ${API_AUDIENCE:-wattprint-api}
-      EXPO_APP_SCHEMES: ${EXPO_APP_SCHEMES}
-      CORS_ORIGINS: ${CORS_ORIGINS}
-      PORT: 3000
-    ports:
-      - "${AUTH_PORT:-3000}:3000"
-    depends_on:
-      db:
-        condition: service_healthy
-    volumes:
-      - ./auth/src:/app/src
-    command: sh -c "npm run migrate && npm run dev"
-
   api:
     build: ./backend
     container_name: wattprint-api
     environment:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
-      AUTH_JWKS_URL: http://auth:3000/api/auth/jwks
-      AUTH_ISSUER: ${BETTER_AUTH_URL}
-      AUTH_AUDIENCE: ${API_AUDIENCE:-wattprint-api}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY}
       CORS_ORIGINS: ${CORS_ORIGINS}
     ports:
       - "${API_PORT:-8000}:8000"
@@ -57,6 +35,7 @@ services:
     volumes:
       - ./backend/app:/code/app
       - ./backend/alembic:/code/alembic
+      - ./backend/tests:/code/tests
     command: sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload --reload-dir /code/app"
 
 volumes:

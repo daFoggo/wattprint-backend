@@ -4,8 +4,10 @@ from datetime import UTC, datetime, timedelta
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.config import settings
-from app.core.security import (
+from ..config import settings
+from ..models import RefreshToken, User
+from ..schemas import TokenPair, UserCreate
+from ..security import (
     DUMMY_HASH,
     create_access_token,
     hash_password,
@@ -13,10 +15,6 @@ from app.core.security import (
     new_refresh_token,
     verify_password,
 )
-from app.modules.auth.models import RefreshToken
-from app.modules.auth.schemas import TokenPair
-from app.modules.users.models import User
-from app.modules.users.schemas import UserCreate
 
 
 def _now() -> datetime:

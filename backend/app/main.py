@@ -1,8 +1,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.v1.routes import router as v1_router
-from app.core.config import settings
+from .config import settings
+from .routers import auth, health, users
 
 app = FastAPI(
     title=settings.project_name,
@@ -23,4 +23,5 @@ if settings.cors_origin_list:
         allow_headers=["*"],
     )
 
-app.include_router(v1_router, prefix="/api/v1")
+for module in (health, auth, users):
+    app.include_router(module.router, prefix="/api/v1")

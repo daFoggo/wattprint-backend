@@ -7,7 +7,7 @@ from datetime import UTC, datetime, timedelta
 import jwt
 from pwdlib import PasswordHash
 
-from app.core.config import settings
+from .config import settings
 
 password_hash = PasswordHash.recommended()  # Argon2id
 # Verified against when the user does not exist, so timing does not leak valid emails.
