@@ -1,6 +1,7 @@
 import pytest
 from sqlalchemy import text
 from sqlalchemy.exc import ProgrammingError
+from sqlalchemy.ext.asyncio import create_async_engine
 
 SCHEMAS = {"core", "catalog", "energy", "billing", "insight", "copilot", "knowledge", "ops"}
 ROLES = ("wattprint_app", "wattprint_ingest", "wattprint_copilot_ro")
@@ -36,3 +37,34 @@ async def test_ingest_role_cannot_create_table(conn):
     await conn.execute(text("SET LOCAL ROLE wattprint_ingest"))
     with pytest.raises(ProgrammingError, match="permission denied"):
         await conn.execute(text("CREATE TABLE energy.should_fail (id int)"))
+
+
+async def test_role_login_state_survives_rerun_and_downgrade(scratch_dsn, scratch_engine):
+    from tests.db.conftest import run_alembic  # noqa: PLC0415
+
+    admin = create_async_engine(scratch_dsn, isolation_level="AUTOCOMMIT")
+    try:
+        async with admin.connect() as c:
+            await c.execute(text("ALTER ROLE wattprint_app WITH LOGIN PASSWORD 'tmp-test-pw'"))
+        # Downgrade then upgrade without the env var: roles must be left exactly as they are.
+        run_alembic(scratch_dsn, "downgrade", "-1")
+        async with admin.connect() as c:
+            r = await c.execute(
+                text("SELECT rolname, rolcanlogin FROM pg_roles WHERE rolname = ANY(:n)"),
+                {"n": list(ROLES)},
+            )
+            assert dict(r.all()) == {
+                "wattprint_app": True,
+                "wattprint_ingest": False,
+                "wattprint_copilot_ro": False,
+            }
+        run_alembic(scratch_dsn, "upgrade", "head")
+        async with admin.connect() as c:
+            r = await c.execute(
+                text("SELECT rolcanlogin FROM pg_roles WHERE rolname = 'wattprint_app'")
+            )
+            assert r.scalar_one() is True
+    finally:
+        async with admin.connect() as c:
+            await c.execute(text("ALTER ROLE wattprint_app WITH NOLOGIN PASSWORD NULL"))
+        await admin.dispose()

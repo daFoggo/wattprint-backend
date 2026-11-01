@@ -24,7 +24,8 @@ ROLES = {
 
 
 def _create_role(name: str, password: str) -> None:
-    # Roles are cluster-wide: create only if missing, then (re)apply the login state.
+    # Roles are cluster-wide: create only if missing (NOLOGIN). Without a password env var an
+    # existing role keeps its login state and password; never demote it on a re-run.
     op.execute(
         f"""
         DO $$
@@ -39,8 +40,6 @@ def _create_role(name: str, password: str) -> None:
     if password:
         escaped = password.replace("'", "''")
         op.execute(f"ALTER ROLE {name} WITH LOGIN PASSWORD '{escaped}'")
-    else:
-        op.execute(f"ALTER ROLE {name} WITH NOLOGIN")
 
 
 def upgrade() -> None:
@@ -54,9 +53,10 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    # Extensions stay. Schemas and roles go only if nothing depends on them yet.
-    for name in ROLES:
-        op.execute(f"DROP OWNED BY {name}")
-        op.execute(f"DROP ROLE IF EXISTS {name}")
+    # Extensions and cluster-wide roles (attributes, passwords) are never touched. Only this
+    # database's grants are revoked and the schemas this revision created are dropped; DROP
+    # SCHEMA without CASCADE fails if a later revision left objects in one.
     for schema in reversed(SCHEMAS):
+        for name in ROLES:
+            op.execute(f"REVOKE ALL ON SCHEMA {schema} FROM {name}")
         op.execute(f"DROP SCHEMA IF EXISTS {schema}")

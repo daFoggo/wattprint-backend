@@ -14,6 +14,19 @@ from app.config import settings
 ROOT = Path(__file__).resolve().parents[2]
 
 
+def run_alembic(dsn: str, *args: str, **extra_env: str) -> None:
+    env = {k: v for k, v in os.environ.items() if not k.endswith("_DB_PASSWORD")}
+    env.update(extra_env)
+    env["DATABASE_URL"] = dsn
+    proc = subprocess.run(
+        [sys.executable, "-m", "alembic", *args],
+        cwd=ROOT, env=env, capture_output=True, text=True,
+    )
+    if proc.returncode != 0:
+        cmd = " ".join(args)
+        raise RuntimeError(f"alembic {cmd} failed:\n{proc.stdout}\n{proc.stderr}")
+
+
 @pytest.fixture(scope="session")
 async def scratch_dsn():
     base = make_url(settings.database_url)
@@ -23,14 +36,7 @@ async def scratch_dsn():
         await c.execute(text(f'CREATE DATABASE "{name}"'))
     dsn = base.set(database=name).render_as_string(hide_password=False)
     try:
-        env = {k: v for k, v in os.environ.items() if not k.endswith("_DB_PASSWORD")}
-        env["DATABASE_URL"] = dsn
-        proc = subprocess.run(
-            [sys.executable, "-m", "alembic", "upgrade", "head"],
-            cwd=ROOT, env=env, capture_output=True, text=True,
-        )
-        if proc.returncode != 0:
-            raise RuntimeError(f"alembic upgrade failed:\n{proc.stdout}\n{proc.stderr}")
+        run_alembic(dsn, "upgrade", "head")
         yield dsn
     finally:
         async with admin.connect() as c:
