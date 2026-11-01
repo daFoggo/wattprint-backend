@@ -71,7 +71,8 @@ async def test_idempotency(conn, session):
     eng = make_engine(isolation_level="AUTOCOMMIT")
     try:
         async with eng.connect() as ac:
-            await backfill_aggregates(ac, first_ts, first_ts + timedelta(days=15))
+            skipped = await backfill_aggregates(ac, first_ts, first_ts + timedelta(days=15))
+            assert skipped == [], skipped
     finally:
         await eng.dispose()
     after = (await conn.execute(CHECKSUM)).one()._asdict()

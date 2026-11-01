@@ -1,14 +1,20 @@
 """compress the 1 minute continuous aggregates and add their compression policies
 
-Measured on the audit data (docs/database-audit.md): reading_1m and device_estimate_1m are about
-150 bytes/row uncompressed and 6-8 bytes/row compressed (19x and 23x), three times the size of the
-compressed raw tables. segmentby series_id / orderby bucket DESC mirrors the raw tables.
+Measured on a scratch copy of one month of House 1 (docs/database-audit.md, 10b; not on the full
+audit data): reading_1m and device_estimate_1m are about 150 bytes/row uncompressed and 6-8
+bytes/row compressed (19x and 23x). On the audit data the uncompressed 1 m aggregates were three
+times the size of the compressed raw tables. segmentby series_id / orderby bucket DESC mirrors
+the raw tables.
 
 Real-time aggregation stays on (materialized_only = false): reads over compressed chunks, late-data
 refreshes of compressed ranges and the 1 h / 1 d aggregates built on top of the compressed 1 m one
 are covered by tests/db/test_cagg_compression.py. The policy compresses chunks older than 14 days,
 which must stay above the 1 m refresh policy start_offset (7 days): a refresh policy must not
 find its window already converted (TimescaleDB docs, "compress continuous aggregates").
+
+The downgrade decompresses every compressed 1 m chunk inside the migration transaction: on a
+large database that needs the disk space of the uncompressed chunks and holds locks for the
+duration, so plan it as a maintenance window.
 
 Revision ID: f3a9c1e5b7d2
 Revises: 4d7b1e9a3c52

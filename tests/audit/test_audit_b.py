@@ -77,7 +77,7 @@ async def _ingest(eng, batch):
 
 async def _refresh(ac, a, b):
     async with ac.connect() as c:
-        await backfill_aggregates(c, a, b)
+        assert await backfill_aggregates(c, a, b) == []
 
 
 async def _hour(eng, hour: datetime):

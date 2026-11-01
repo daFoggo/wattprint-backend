@@ -98,7 +98,8 @@ async def timed_backfill(eng, a: datetime, b: datetime) -> dict:
     event.listen(eng.sync_engine, "after_cursor_execute", after)
     try:
         async with eng.connect() as c:
-            await backfill_aggregates(c, a, b)
+            skipped = await backfill_aggregates(c, a, b)
+            assert skipped == [], f"backfill skipped windows on fresh data: {skipped}"
     finally:
         event.remove(eng.sync_engine, "before_cursor_execute", before)
         event.remove(eng.sync_engine, "after_cursor_execute", after)
@@ -224,7 +225,7 @@ async def stage_policy_drill(args) -> None:
                             "recent": [str(x) for x in recent]}}
     async with eng.connect() as c:
         for a, b in (old, mid, recent):
-            await backfill_aggregates(c, a, b)
+            assert await backfill_aggregates(c, a, b) == []
         out["aggregate_rows_before_policies"] = {
             v: await c.scalar(text(f"SELECT count(*) FROM energy.reading_{v}"))
             for v in ("1m", "1h", "1d")}

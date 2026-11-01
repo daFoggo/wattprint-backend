@@ -3092,7 +3092,7 @@
       "reading",
       "reading_1m"
     ],
-    "run_at": "2026-11-01T19:07:11.512750+00:00",
+    "run_at": "2026-11-01T19:18:38.767820+00:00",
     "slices": {
       "mid": [
         "2026-09-01 00:00:00+00:00",
@@ -3111,9 +3111,9 @@
   "rebuild": {
     "from_empty": {
       "device_types_seeded": 22,
-      "load_output": "house 1: rows_in=100000 rows_new=100000 rows_dup=0 rows_bad=0 in 2.0s (51,179 readings/s)",
+      "load_output": "house 1: rows_in=100000 rows_new=100000 rows_dup=0 rows_bad=0 in 2.0s (50,558 readings/s)",
       "manual_steps": 0,
-      "policy_jobs_after_migration": 12,
+      "policy_jobs_after_migration": 14,
       "readings": 100000,
       "series": 10,
       "tariff_tiers_seeded": 11

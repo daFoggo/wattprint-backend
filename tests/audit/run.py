@@ -278,6 +278,7 @@ async def stage_backfill(args) -> None:
             view = parameters["v"] if isinstance(parameters, dict) else parameters[0]
             timings[view] = timings.get(view, 0.0) + time.perf_counter() - context._audit_t0
 
+    skipped_all: list[tuple[str, str, str]] = []
     t0 = time.perf_counter()
     async with eng.connect() as c:
         ranges = [r for r in (await _hypertable_range(c, "reading"),
@@ -288,7 +289,8 @@ async def stage_backfill(args) -> None:
         while start < hi:
             end = min(start + timedelta(days=30), hi)
             w0 = time.perf_counter()
-            await backfill_aggregates(c, start, end)
+            skipped = await backfill_aggregates(c, start, end)
+            skipped_all += [(w.view, w.from_ts.isoformat(), w.to_ts.isoformat()) for w in skipped]
             windows.append({"from": start.isoformat(), "to": end.isoformat(),
                             "seconds": round(time.perf_counter() - w0, 1)})
             log(f"window {start:%F}..{end:%F} {windows[-1]['seconds']}s")
@@ -305,6 +307,9 @@ async def stage_backfill(args) -> None:
     results.record("backfill", "refresh_seconds_per_view",
                    {k: round(v, 1) for k, v in sorted(timings.items())})
     results.record("backfill", "windows", windows)
+    results.record("backfill", "skipped_windows", skipped_all)  # [] for a fresh load
+    if skipped_all:
+        log(f"WARNING: backfill skipped {len(skipped_all)} windows (raw rows missing)")
     results.record("backfill", "aggregate_rows", counts)
     log(f"backfill done in {time.perf_counter() - t0:.0f}s: {counts}")
 
