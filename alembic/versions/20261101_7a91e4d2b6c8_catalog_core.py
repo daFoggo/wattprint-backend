@@ -1,7 +1,7 @@
 """catalog and core tables, seeded reference data
 
-Revision ID: c3e5a7b9d1f2
-Revises: b2d4f6a8c0e1
+Revision ID: 7a91e4d2b6c8
+Revises: 5f0b3c8a1d47
 """
 
 import sqlalchemy as sa
@@ -9,8 +9,8 @@ from sqlalchemy.dialects import postgresql
 
 from alembic import op
 
-revision = "c3e5a7b9d1f2"
-down_revision = "b2d4f6a8c0e1"
+revision = "7a91e4d2b6c8"
+down_revision = "5f0b3c8a1d47"
 branch_labels = None
 depends_on = None
 

@@ -9,10 +9,7 @@ from sqlalchemy.exc import IntegrityError
 async def _user(conn) -> uuid.UUID:
     uid = uuid.uuid4()
     await conn.execute(
-        text(
-            "INSERT INTO public.users (id, email, is_active, created_at)"
-            " VALUES (:i, :e, true, now())"
-        ),
+        text("INSERT INTO public.users (id, email) VALUES (:i, :e)"),
         {"i": uid, "e": f"{uid}@example.com"},
     )
     return uid

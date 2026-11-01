@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import create_async_engine
 
 from tests.db.conftest import load_revision, run_alembic
 
-foundation = load_revision("20261101_b2d4f6a8c0e1")
+foundation = load_revision("20261101_5f0b3c8a1d47")
 
 SCHEMAS = {"core", "catalog", "energy", "billing", "insight", "copilot", "knowledge", "ops"}
 ROLES = ("wattprint_app", "wattprint_ingest", "wattprint_copilot_ro")

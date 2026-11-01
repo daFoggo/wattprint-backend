@@ -1,15 +1,15 @@
 """foundation: extensions, schemas, roles
 
-Revision ID: b2d4f6a8c0e1
-Revises: a1c3f5b7d9e2
+Revision ID: 5f0b3c8a1d47
+Revises: d4f6b8c0e2a1
 """
 
 import os
 
 from alembic import context, op
 
-revision = "b2d4f6a8c0e1"
-down_revision = "a1c3f5b7d9e2"
+revision = "5f0b3c8a1d47"
+down_revision = "d4f6b8c0e2a1"
 branch_labels = None
 depends_on = None
 
