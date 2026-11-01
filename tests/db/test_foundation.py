@@ -1,7 +1,13 @@
+import uuid
+
 import pytest
 from sqlalchemy import text
 from sqlalchemy.exc import ProgrammingError
 from sqlalchemy.ext.asyncio import create_async_engine
+
+from tests.db.conftest import load_revision, run_alembic
+
+foundation = load_revision("20261101_b2d4f6a8c0e1")
 
 SCHEMAS = {"core", "catalog", "energy", "billing", "insight", "copilot", "knowledge", "ops"}
 ROLES = ("wattprint_app", "wattprint_ingest", "wattprint_copilot_ro")
@@ -21,16 +27,15 @@ async def test_schemas_exist(conn):
     assert SCHEMAS <= {r[0] for r in rows}
 
 
-async def test_roles_exist_nologin_without_password(conn):
+async def test_roles_exist_with_copilot_timeout(conn):
+    # Login state depends on the developer's *_DB_PASSWORD env, so it is not asserted here.
     rows = await conn.execute(
-        text("SELECT rolname, rolcanlogin, rolconfig FROM pg_roles WHERE rolname = ANY(:n)"),
+        text("SELECT rolname, rolconfig FROM pg_roles WHERE rolname = ANY(:n)"),
         {"n": list(ROLES)},
     )
-    found = {r[0]: r for r in rows}
+    found = dict(rows.all())
     assert set(found) == set(ROLES)
-    # The scratch migration runs without *_DB_PASSWORD env vars.
-    assert not any(r[1] for r in found.values())
-    assert "statement_timeout=5s" in found["wattprint_copilot_ro"][2]
+    assert "statement_timeout=5s" in found["wattprint_copilot_ro"]
 
 
 async def test_ingest_role_cannot_create_table(conn):
@@ -39,32 +44,50 @@ async def test_ingest_role_cannot_create_table(conn):
         await conn.execute(text("CREATE TABLE energy.should_fail (id int)"))
 
 
-async def test_role_login_state_survives_rerun_and_downgrade(scratch_dsn, scratch_engine):
-    from tests.db.conftest import run_alembic  # noqa: PLC0415
+def _ensure(conn, name, password):
+    def run(sync_conn):
+        foundation.ensure_role(lambda sql: sync_conn.execute(text(sql)), name, password)
 
-    admin = create_async_engine(scratch_dsn, isolation_level="AUTOCOMMIT")
+    return conn.run_sync(run)
+
+
+async def _login(conn, name):
+    r = await conn.execute(text("SELECT rolcanlogin FROM pg_roles WHERE rolname = :n"), {"n": name})
+    return r.scalar_one()
+
+
+# Role DDL is transactional: the `conn` fixture rolls these throwaway roles back, so the real
+# cluster roles are never touched.
+async def test_new_role_without_password_is_nologin(conn):
+    name = f"wt_throwaway_{uuid.uuid4().hex[:8]}"
+    await _ensure(conn, name, "")
+    assert await _login(conn, name) is False
+
+
+async def test_existing_login_role_not_demoted_without_password(conn):
+    name = f"wt_throwaway_{uuid.uuid4().hex[:8]}"
+    await _ensure(conn, name, "throwaway-pw")
+    assert await _login(conn, name) is True
+    await _ensure(conn, name, "")
+    assert await _login(conn, name) is True
+
+
+async def test_downgrade_upgrade_leaves_roles_intact(throwaway_dsn):
+    admin = create_async_engine(throwaway_dsn, isolation_level="AUTOCOMMIT")
+    query = text(
+        "SELECT r.rolname, r.rolcanlogin, a.rolpassword IS NOT NULL, r.rolconfig "
+        "FROM pg_roles r JOIN pg_authid a ON a.oid = r.oid "
+        "WHERE r.rolname = ANY(:n) ORDER BY r.rolname"
+    )
     try:
         async with admin.connect() as c:
-            await c.execute(text("ALTER ROLE wattprint_app WITH LOGIN PASSWORD 'tmp-test-pw'"))
-        # Downgrade then upgrade without the env var: roles must be left exactly as they are.
-        run_alembic(scratch_dsn, "downgrade", "-1")
+            before = (await c.execute(query, {"n": list(ROLES)})).all()
+        assert len(before) == 3
+        run_alembic(throwaway_dsn, "downgrade", "-1")
         async with admin.connect() as c:
-            r = await c.execute(
-                text("SELECT rolname, rolcanlogin FROM pg_roles WHERE rolname = ANY(:n)"),
-                {"n": list(ROLES)},
-            )
-            assert dict(r.all()) == {
-                "wattprint_app": True,
-                "wattprint_ingest": False,
-                "wattprint_copilot_ro": False,
-            }
-        run_alembic(scratch_dsn, "upgrade", "head")
+            assert (await c.execute(query, {"n": list(ROLES)})).all() == before
+        run_alembic(throwaway_dsn, "upgrade", "head")
         async with admin.connect() as c:
-            r = await c.execute(
-                text("SELECT rolcanlogin FROM pg_roles WHERE rolname = 'wattprint_app'")
-            )
-            assert r.scalar_one() is True
+            assert (await c.execute(query, {"n": list(ROLES)})).all() == before
     finally:
-        async with admin.connect() as c:
-            await c.execute(text("ALTER ROLE wattprint_app WITH NOLOGIN PASSWORD NULL"))
         await admin.dispose()

@@ -6,7 +6,7 @@ Revises: a1c3f5b7d9e2
 
 import os
 
-from alembic import op
+from alembic import context, op
 
 revision = "b2d4f6a8c0e1"
 down_revision = "a1c3f5b7d9e2"
@@ -23,10 +23,13 @@ ROLES = {
 }
 
 
-def _create_role(name: str, password: str) -> None:
-    # Roles are cluster-wide: create only if missing (NOLOGIN). Without a password env var an
-    # existing role keeps its login state and password; never demote it on a re-run.
-    op.execute(
+def ensure_role(execute, name: str, password: str) -> None:
+    """Create the role if missing (NOLOGIN); with a password, (re)set LOGIN PASSWORD.
+
+    Roles are cluster-wide. Without a password an existing role keeps its login state and
+    password: a re-run never demotes it. `execute` takes one SQL string.
+    """
+    execute(
         f"""
         DO $$
         BEGIN
@@ -39,7 +42,7 @@ def _create_role(name: str, password: str) -> None:
     )
     if password:
         escaped = password.replace("'", "''")
-        op.execute(f"ALTER ROLE {name} WITH LOGIN PASSWORD '{escaped}'")
+        execute(f"ALTER ROLE {name} WITH LOGIN PASSWORD '{escaped}'")
 
 
 def upgrade() -> None:
@@ -48,7 +51,10 @@ def upgrade() -> None:
     for schema in SCHEMAS:
         op.execute(f"CREATE SCHEMA IF NOT EXISTS {schema}")
     for name, env_var in ROLES.items():
-        _create_role(name, os.environ.get(env_var, ""))
+        password = os.environ.get(env_var, "")
+        if password and context.is_offline_mode():
+            raise RuntimeError(f"{env_var} is set: refusing to write a password into offline SQL")
+        ensure_role(op.execute, name, password)
     op.execute("ALTER ROLE wattprint_copilot_ro SET statement_timeout = '5s'")
 
 

@@ -1,3 +1,4 @@
+import importlib.util
 import os
 import subprocess
 import sys
@@ -27,28 +28,65 @@ def run_alembic(dsn: str, *args: str, **extra_env: str) -> None:
         raise RuntimeError(f"alembic {cmd} failed:\n{proc.stdout}\n{proc.stderr}")
 
 
-@pytest.fixture(scope="session")
-async def scratch_dsn():
+def load_revision(prefix: str):
+    """Import an Alembic revision module by file prefix (file names are not importable)."""
+    path = next((ROOT / "alembic" / "versions").glob(f"{prefix}*.py"))
+    spec = importlib.util.spec_from_file_location(f"rev_{prefix}", path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+async def _create_migrated_db():
+    """Create a scratch database and migrate it. Returns (dsn, drop coroutine function)."""
     base = make_url(settings.database_url)
     name = f"wattprint_test_{uuid.uuid4().hex[:8]}"
     admin = create_async_engine(base.set(database="postgres"), isolation_level="AUTOCOMMIT")
     async with admin.connect() as c:
         await c.execute(text(f'CREATE DATABASE "{name}"'))
+
+    async def drop():
+        try:
+            async with admin.connect() as c:
+                await c.execute(text(f'DROP DATABASE IF EXISTS "{name}" WITH (FORCE)'))
+        finally:
+            await admin.dispose()
+
     dsn = base.set(database=name).render_as_string(hide_password=False)
     try:
         run_alembic(dsn, "upgrade", "head")
+    except BaseException:
+        await drop()
+        raise
+    return dsn, drop
+
+
+@pytest.fixture(scope="session")
+async def scratch_dsn():
+    dsn, drop = await _create_migrated_db()
+    try:
         yield dsn
     finally:
-        async with admin.connect() as c:
-            await c.execute(text(f'DROP DATABASE IF EXISTS "{name}" WITH (FORCE)'))
-        await admin.dispose()
+        await drop()
+
+
+@pytest.fixture
+async def throwaway_dsn():
+    """A private migrated database for tests that downgrade or otherwise mutate the schema."""
+    dsn, drop = await _create_migrated_db()
+    try:
+        yield dsn
+    finally:
+        await drop()
 
 
 @pytest.fixture(scope="session")
 async def scratch_engine(scratch_dsn):
     engine = create_async_engine(scratch_dsn)
-    yield engine
-    await engine.dispose()
+    try:
+        yield engine
+    finally:
+        await engine.dispose()
 
 
 @pytest.fixture
@@ -70,6 +108,8 @@ async def session(conn):
 @pytest.fixture
 async def autocommit_conn(scratch_dsn):
     engine = create_async_engine(scratch_dsn, isolation_level="AUTOCOMMIT")
-    async with engine.connect() as c:
-        yield c
-    await engine.dispose()
+    try:
+        async with engine.connect() as c:
+            yield c
+    finally:
+        await engine.dispose()
