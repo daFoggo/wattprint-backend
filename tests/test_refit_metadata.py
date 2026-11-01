@@ -1,4 +1,5 @@
 import json
+import os
 from pathlib import Path
 
 import pytest
@@ -13,9 +14,12 @@ def test_twenty_houses_without_house_14():
 
 
 def test_keys_match_csv_file_names():
-    csv_dir = ROOT / "dataset" / "CLEAN_REFIT_081116"
-    if not csv_dir.is_dir():
-        pytest.skip("dataset/CLEAN_REFIT_081116 is not mounted (the CSVs are not in git)")
+    candidates = [ROOT / "dataset" / "CLEAN_REFIT_081116", Path("/data/CLEAN_REFIT_081116")]
+    if os.environ.get("REFIT_DATASET_DIR"):
+        candidates.insert(0, Path(os.environ["REFIT_DATASET_DIR"]))
+    csv_dir = next((c for c in candidates if c.is_dir()), None)
+    if csv_dir is None:
+        pytest.skip("REFIT CSV directory not found (the CSVs are not in git)")
     names = {p.name for p in csv_dir.glob("CLEAN_House*.csv")}
     assert {f"CLEAN_House{h}.csv" for h in META} == names
 

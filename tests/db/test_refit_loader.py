@@ -185,12 +185,14 @@ async def test_provision_all_twenty_houses(session):
         assert await count(
             session, "SELECT count(*) FROM energy.series WHERE home_id = :h", h=hid
         ) == 10
-        types = list(
-            await session.scalars(
-                text("SELECT device_type_code FROM core.device WHERE home_id = :h"), {"h": hid}
+        devs = (
+            await session.execute(
+                text("SELECT device_type_code, name FROM core.device WHERE home_id = :h"),
+                {"h": hid},
             )
-        )
-        assert len(types) == 9 and set(types) <= codes
+        ).all()
+        assert len(devs) == 9 and {d[0] for d in devs} <= codes
+        assert len({d[1] for d in devs}) == 9, f"house {h}: duplicate device names"
 
 
 def test_device_type_mapping():
