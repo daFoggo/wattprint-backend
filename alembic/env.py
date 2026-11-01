@@ -1,3 +1,4 @@
+# Revisions are hand-written; do not use --autogenerate (hypertables and continuous aggregates are not in the metadata).  # noqa: E501
 import asyncio
 
 from sqlalchemy.ext.asyncio import create_async_engine

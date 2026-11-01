@@ -122,3 +122,237 @@ async def test_device_type_seed(conn):
         text("SELECT count(*) FROM catalog.device_type WHERE label_vi = '' OR label_en = ''")
     )
     assert missing == 0
+
+
+# --- ORM round trip and metadata ---
+
+
+def test_metadata_sorted_tables_resolves():
+    from app.database import Base
+
+    names = {t.fullname for t in Base.metadata.sorted_tables}
+    assert {"users", "core.home", "core.home_member", "core.device", "catalog.metric"} <= names
+
+
+async def test_orm_round_trip(session):
+    from sqlalchemy import select
+
+    from app.models import (
+        Device,
+        DeviceAlertRule,
+        DeviceType,
+        Home,
+        HomeInvite,
+        HomeMember,
+        Meter,
+        User,
+    )
+
+    user = User(email=f"{uuid.uuid4()}@example.com")
+    home = Home(name="My home", home_type="apartment")
+    session.add_all([user, home])
+    await session.flush()
+    expires = datetime(2030, 1, 1, tzinfo=UTC)
+    session.add_all(
+        [
+            HomeMember(home_id=home.id, user_id=user.id, role="owner"),
+            HomeInvite(home_id=home.id, code_hash="h" * 64, expires_at=expires),
+            Meter(serial="SN-ORM", home_id=home.id, claim_code_hash="c" * 64),
+        ]
+    )
+    session.add(DeviceType(code="orm_test_type", label_vi="Thu", label_en="Test"))
+    await session.flush()
+    device = Device(
+        home_id=home.id, device_type_code="orm_test_type", name="Gadget", origin="manual"
+    )
+    session.add(device)
+    await session.flush()
+    session.add(DeviceAlertRule(device_id=device.id, kind="on"))
+    await session.flush()
+    home_id = home.id
+    session.expire_all()
+
+    member = (await session.execute(select(HomeMember).join(User))).scalar_one()
+    assert member.home_id == home_id and member.role == "owner"
+    invite = (await session.execute(select(HomeInvite))).scalar_one()
+    assert invite.role == "member" and invite.used_by is None
+    assert (await session.execute(select(Meter))).scalar_one().status == "new"
+    got = (await session.execute(select(Device))).scalar_one()
+    assert got.show_on_timeline is True and got.active_from is not None
+    rule = (await session.execute(select(DeviceAlertRule))).scalar_one()
+    assert rule.params == {} and rule.enabled is True
+
+
+# --- CHECK vocabularies ---
+
+
+async def _device(conn, home_id, **overrides) -> uuid.UUID:
+    did = uuid.uuid4()
+    cols = {
+        "id": did,
+        "home_id": home_id,
+        "device_type_code": "fridge",
+        "name": "D",
+        "origin": "manual",
+        **overrides,
+    }
+    names = ", ".join(cols)
+    params = ", ".join(f":{k}" for k in cols)
+    await conn.execute(text(f"INSERT INTO core.device ({names}) VALUES ({params})"), cols)
+    return did
+
+
+async def _rejects(conn, sql, params=None):
+    with pytest.raises(IntegrityError):
+        async with conn.begin_nested():
+            await conn.execute(text(sql), params or {})
+
+
+async def test_home_type_check(conn):
+    await _home(conn, home_type="house")
+    with pytest.raises(IntegrityError):
+        async with conn.begin_nested():
+            await _home(conn, home_type="castle")
+
+
+async def test_member_and_invite_role_check(conn):
+    uid, hid = await _user(conn), await _home(conn)
+    await conn.execute(
+        text("INSERT INTO core.home_member (home_id, user_id, role) VALUES (:h, :u, 'member')"),
+        {"h": hid, "u": uid},
+    )
+    uid2 = await _user(conn)
+    await _rejects(
+        conn,
+        "INSERT INTO core.home_member (home_id, user_id, role) VALUES (:h, :u, 'admin')",
+        {"h": hid, "u": uid2},
+    )
+    ins = (
+        "INSERT INTO core.home_invite (home_id, code_hash, role, expires_at)"
+        " VALUES (:h, :c, :r, now())"
+    )
+    await conn.execute(text(ins), {"h": hid, "c": "a", "r": "owner"})
+    await _rejects(conn, ins, {"h": hid, "c": "b", "r": "admin"})
+
+
+async def test_invite_code_hash_unique(conn):
+    hid = await _home(conn)
+    ins = "INSERT INTO core.home_invite (home_id, code_hash, expires_at) VALUES (:h, 'x', now())"
+    await conn.execute(text(ins), {"h": hid})
+    await _rejects(conn, ins, {"h": hid})
+
+
+async def test_device_origin_check(conn):
+    hid = await _home(conn)
+    await _device(conn, hid, origin="nilm")
+    with pytest.raises(IntegrityError):
+        async with conn.begin_nested():
+            await _device(conn, hid, origin="magic")
+
+
+async def test_alert_rule_kind_check(conn):
+    did = await _device(conn, await _home(conn))
+    ins = "INSERT INTO core.device_alert_rule (device_id, kind) VALUES (:d, :k)"
+    await conn.execute(text(ins), {"d": did, "k": "custom"})
+    await _rejects(conn, ins, {"d": did, "k": "sms"})
+
+
+async def test_meter_status_check(conn):
+    ins = "INSERT INTO core.meter (serial, status) VALUES (:s, :t)"
+    await conn.execute(text(ins), {"s": "S1", "t": "active"})
+    await _rejects(conn, ins, {"s": "S2", "t": "broken"})
+
+
+async def test_metric_aggregation_check(conn):
+    ins = "INSERT INTO catalog.metric (event_type, unit, aggregation) VALUES (:e, 'W', :a)"
+    await conn.execute(text(ins), {"e": "t_ok", "a": "max"})
+    await _rejects(conn, ins, {"e": "t_bad", "a": "median"})
+
+
+async def test_meter_claim_code_hash_unique_when_set(conn):
+    ins = "INSERT INTO core.meter (serial, claim_code_hash) VALUES (:s, :c)"
+    await conn.execute(text(ins), {"s": "A", "c": None})
+    await conn.execute(text(ins), {"s": "B", "c": None})  # NULLs may repeat
+    await conn.execute(text(ins), {"s": "C", "c": "h"})
+    await _rejects(conn, ins, {"s": "D", "c": "h"})
+
+
+# --- foreign keys and cascades ---
+
+
+async def test_home_delete_cascades(conn):
+    uid, hid = await _user(conn), await _home(conn)
+    await conn.execute(
+        text("INSERT INTO core.home_member (home_id, user_id, role) VALUES (:h, :u, 'owner')"),
+        {"h": hid, "u": uid},
+    )
+    await conn.execute(
+        text(
+            "INSERT INTO core.home_invite (home_id, code_hash, expires_at)"
+            " VALUES (:h, 'k', now())"
+        ),
+        {"h": hid},
+    )
+    did = await _device(conn, hid)
+    await conn.execute(
+        text("INSERT INTO core.device_alert_rule (device_id, kind) VALUES (:d, 'on')"), {"d": did}
+    )
+    await conn.execute(text("DELETE FROM core.home WHERE id = :h"), {"h": hid})
+    for table in ("home_member", "home_invite", "device", "device_alert_rule"):
+        n = await conn.scalar(text(f"SELECT count(*) FROM core.{table}"))
+        assert n == 0, table
+    assert await conn.scalar(text("SELECT count(*) FROM public.users WHERE id = :u"), {"u": uid})
+
+
+async def test_meter_fk_to_home_blocks_delete(conn):
+    hid = await _home(conn)
+    await conn.execute(
+        text("INSERT INTO core.meter (serial, home_id) VALUES ('SN-FK', :h)"), {"h": hid}
+    )
+    await _rejects(conn, "DELETE FROM core.home WHERE id = :h", {"h": hid})
+    await _rejects(
+        conn,
+        "INSERT INTO core.meter (serial, home_id) VALUES ('SN-FK2', :h)",
+        {"h": uuid.uuid4()},
+    )
+
+
+async def test_fk_columns_are_indexed(conn):
+    rows = await conn.execute(text("SELECT indexname FROM pg_indexes WHERE schemaname = 'core'"))
+    names = {r[0] for r in rows}
+    assert {
+        "ix_device_home_id",
+        "ix_device_alert_rule_device_id",
+        "ix_home_invite_home_id",
+        "ix_meter_home_id",
+        "ix_device_merged_into_id",
+        "ix_home_invite_used_by",
+        "ix_home_invite_code_hash",
+        "ix_meter_claim_code_hash",
+    } <= names
+
+
+# --- migration round trip ---
+
+
+async def test_catalog_core_downgrade_upgrade(throwaway_dsn):
+    from sqlalchemy.ext.asyncio import create_async_engine
+
+    from tests.db.conftest import run_alembic
+
+    q = text(
+        "SELECT count(*) FROM information_schema.tables WHERE table_schema IN ('core','catalog')"
+    )
+    engine = create_async_engine(throwaway_dsn, isolation_level="AUTOCOMMIT")
+    try:
+        async with engine.connect() as c:
+            assert await c.scalar(q) == 8
+        run_alembic(throwaway_dsn, "downgrade", "5f0b3c8a1d47")
+        async with engine.connect() as c:
+            assert await c.scalar(q) == 0
+        run_alembic(throwaway_dsn, "upgrade", "head")
+        async with engine.connect() as c:
+            assert await c.scalar(q) == 8
+            assert await c.scalar(text("SELECT count(*) FROM catalog.device_type")) == 22
+    finally:
+        await engine.dispose()

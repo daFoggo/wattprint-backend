@@ -142,7 +142,7 @@ def upgrade() -> None:
         "home_member",
         sa.Column("home_id", sa.Uuid(), nullable=False),
         sa.Column("user_id", sa.Uuid(), nullable=False),
-        sa.Column("role", sa.String(16), nullable=False),
+        sa.Column("role", sa.String(16), nullable=False, server_default="member"),
         sa.Column("joined_at", sa.DateTime(timezone=True), nullable=False, server_default=NOW),
         sa.PrimaryKeyConstraint("home_id", "user_id", name="pk_home_member"),
         sa.ForeignKeyConstraint(
@@ -177,6 +177,15 @@ def upgrade() -> None:
         sa.CheckConstraint("role IN ('owner','member')", name="ck_home_invite_role"),
         schema="core",
     )
+    op.create_index("ix_home_invite_home_id", "home_invite", ["home_id"], schema="core")
+    op.create_index("ix_home_invite_used_by", "home_invite", ["used_by"], schema="core")
+    op.create_index(
+        "ix_home_invite_code_hash",
+        "home_invite",
+        ["code_hash"],
+        schema="core",
+        unique=True,
+    )
     op.create_table(
         "meter",
         sa.Column("id", sa.Uuid(), nullable=False, **UUID_PK),
@@ -192,6 +201,15 @@ def upgrade() -> None:
         sa.UniqueConstraint("serial", name="uq_meter_serial"),
         sa.CheckConstraint("status IN ('new','active','retired')", name="ck_meter_status"),
         schema="core",
+    )
+    op.create_index("ix_meter_home_id", "meter", ["home_id"], schema="core")
+    op.create_index(
+        "ix_meter_claim_code_hash",
+        "meter",
+        ["claim_code_hash"],
+        unique=True,
+        schema="core",
+        postgresql_where=sa.text("claim_code_hash IS NOT NULL"),
     )
     op.create_table(
         "device",
@@ -225,6 +243,8 @@ def upgrade() -> None:
         ),
         schema="core",
     )
+    op.create_index("ix_device_home_id", "device", ["home_id"], schema="core")
+    op.create_index("ix_device_merged_into_id", "device", ["merged_into_id"], schema="core")
     op.create_table(
         "device_alert_rule",
         sa.Column("id", sa.Uuid(), nullable=False, **UUID_PK),
@@ -245,6 +265,12 @@ def upgrade() -> None:
             ondelete="CASCADE",
         ),
         sa.CheckConstraint("kind IN ('on','off','custom')", name="ck_device_alert_rule_kind"),
+        schema="core",
+    )
+    op.create_index(
+        "ix_device_alert_rule_device_id",
+        "device_alert_rule",
+        ["device_id"],
         schema="core",
     )
 

@@ -83,7 +83,7 @@ async def test_downgrade_upgrade_leaves_roles_intact(throwaway_dsn):
         async with admin.connect() as c:
             before = (await c.execute(query, {"n": list(ROLES)})).all()
         assert len(before) == 3
-        run_alembic(throwaway_dsn, "downgrade", "-1")
+        run_alembic(throwaway_dsn, "downgrade", "d4f6b8c0e2a1")  # undo catalog_core and foundation
         async with admin.connect() as c:
             assert (await c.execute(query, {"n": list(ROLES)})).all() == before
         run_alembic(throwaway_dsn, "upgrade", "head")
