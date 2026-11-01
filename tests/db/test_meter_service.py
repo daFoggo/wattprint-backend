@@ -18,6 +18,9 @@ def utc(*args) -> datetime:
     return datetime(*args, tzinfo=UTC)
 
 
+# Note: these tests rely on uncommitted rows at a fixed past date and on an empty scratch DB;
+# real-time aggregation shows them without a refresh. A refresh policy on a populated database
+# could move the continuous aggregate watermark and hide them.
 T0 = utc(2026, 10, 1, 17)  # local midnight (17:00 UTC)
 FAR = utc(2030, 1, 1)  # a "now" well past every test row
 
@@ -238,6 +241,71 @@ async def test_meter_series_excludes_open_minute(session):
     assert pts[0].avg_w == pytest.approx(150)  # only the two closed minutes
 
 
+async def test_meter_series_15m_step_alignment(session):
+    hid, sid = await new_home(session)
+    assert pick_step(T0, T0 + timedelta(days=5), 600) == "15m"
+    for m in (0, 14, 15, 29, 30):
+        await put(session, sid, T0 + timedelta(minutes=m), 100 * (m + 1))
+    pts = await meter_series(session, hid, T0, T0 + timedelta(days=5), 600, FAR)
+    assert [p.ts for p in pts] == [T0 + timedelta(minutes=m) for m in (0, 15, 30)]
+    assert pts[0].avg_w == pytest.approx((100 + 1500) / 2)
+    assert pts[1].avg_w == pytest.approx((1600 + 3000) / 2)
+
+
+async def test_meter_series_window_is_bucket_granular(session):
+    """An unaligned `until` inside a bucket returns that bucket whole, at every step."""
+    hid, sid = await new_home(session)
+    await load(session, sid, T0, 24 * 60, 600)  # 600 W every minute: 10 Wh per minute
+    m = timedelta
+
+    async def run(until, max_points, step):
+        assert pick_step(T0, until, max_points) == step
+        return await meter_series(session, hid, T0, until, max_points, FAR)
+
+    # 5m: until 17:07 -> buckets 17:00 and 17:05, the latter whole (5 minutes).
+    pts = await run(T0 + m(minutes=7), 2, "5m")
+    assert [p.ts for p in pts] == [T0, T0 + m(minutes=5)]
+    assert pts[-1].energy_wh == pytest.approx(50.0)
+    # 15m: until 17:20 -> 17:15 bucket whole.
+    pts = await run(T0 + m(minutes=20), 2, "15m")
+    assert [p.ts for p in pts] == [T0, T0 + m(minutes=15)]
+    assert pts[-1].energy_wh == pytest.approx(150.0)
+    # 30m: until 17:40 -> 17:30 bucket whole, not cut at 17:40.
+    pts = await run(T0 + m(minutes=40), 2, "30m")
+    assert [p.ts for p in pts] == [T0, T0 + m(minutes=30)]
+    assert pts[-1].energy_wh == pytest.approx(300.0)
+    # 1h: until 19:20 -> 19:00 bucket whole.
+    pts = await run(T0 + m(hours=2, minutes=20), 3, "1h")
+    assert [p.ts for p in pts] == [T0 + m(hours=h) for h in (0, 1, 2)]
+    assert pts[-1].energy_wh == pytest.approx(600.0)
+    # 3h: until 20:30 -> 20:00 bucket whole (3 hours).
+    pts = await run(T0 + m(hours=3, minutes=30), 2, "3h")
+    assert [p.ts for p in pts] == [T0, T0 + m(hours=3)]
+    assert pts[-1].energy_wh == pytest.approx(1800.0)
+    # 6h: until 23:30 -> second 6h bucket (23:00) whole.
+    pts = await run(T0 + m(hours=6, minutes=30), 2, "6h")
+    assert [p.ts for p in pts] == [T0, T0 + m(hours=6)]
+    assert pts[-1].energy_wh == pytest.approx(3600.0)
+    # 1d: until 7 h into the day -> the whole day bucket (not cut at 7 h).
+    pts = await run(T0 + m(hours=7), 1, "1d")
+    assert [p.ts for p in pts] == [T0]
+    assert pts[0].energy_wh == pytest.approx(24 * 60 * 10.0)
+
+
+async def test_meter_series_open_minute_is_capped_at_30m_but_not_at_1h(session):
+    hid, sid = await new_home(session)
+    await put(session, sid, T0, 100)
+    await put(session, sid, T0 + timedelta(minutes=1), 300)  # closed minute
+    await put(session, sid, T0 + timedelta(minutes=2, seconds=5), 500)  # the open minute
+    now = T0 + timedelta(minutes=2, seconds=30)
+    assert pick_step(T0, T0 + timedelta(days=7), 600) == "30m"
+    p30 = await meter_series(session, hid, T0, T0 + timedelta(days=7), 600, now)
+    assert p30[0].avg_w == pytest.approx(200)  # closed minutes only
+    assert pick_step(T0, T0 + timedelta(days=45), 2000) == "1h"
+    p1h = await meter_series(session, hid, T0, T0 + timedelta(days=45), 2000, now)
+    assert p1h[0].avg_w == pytest.approx(300)  # real-time data up to the present instant
+
+
 async def test_meter_series_until_is_exclusive_and_since_floors_to_step(session):
     hid, sid = await new_home(session)
     for m in range(0, 10):
@@ -279,7 +347,7 @@ async def test_meter_series_rejects_naive_datetimes(session):
         await meter_series(session, hid, T0, T0 + timedelta(days=1), now=datetime(2026, 10, 1))
 
 
-async def test_other_homes_are_never_included(session, conn):
+async def test_other_homes_are_never_included(session):
     a, sa = await new_home(session)
     b, sb = await new_home(session)
     await load(session, sa, T0, 60, 100)
@@ -300,7 +368,7 @@ async def test_other_homes_are_never_included(session, conn):
     assert bd[0].kwh == pytest.approx(0.06) and bd[0].share == pytest.approx(1.0)
 
 
-async def test_meter_series_never_touches_raw_tables(session, conn):
+async def test_meter_series_never_touches_raw_tables(session):
     hid, sid = await new_home(session)
     await load(session, sid, T0, 5, 100)
     did, dsid = await new_device(session, hid)
@@ -310,10 +378,13 @@ async def test_meter_series_never_touches_raw_tables(session, conn):
     def spy(conn_, cursor, statement, parameters, context, executemany):
         seen.append(statement)
 
-    event.listen(conn.sync_engine, "before_cursor_execute", spy)
+    event.listen(session.bind.sync_engine, "before_cursor_execute", spy)
     try:
         await meter_series(session, hid, T0, T0 + timedelta(hours=1), 600, FAR)  # 1m
         await meter_series(session, hid, T0, T0 + timedelta(days=1), 600, FAR)  # 5m
+        await meter_series(session, hid, T0, T0 + timedelta(days=5), 600, FAR)  # 15m
+        await meter_series(session, hid, T0, T0 + timedelta(days=7), 600, FAR)  # 30m
+        await meter_series(session, hid, T0, T0 + timedelta(days=90), 600, FAR)  # 6h
         await meter_series(session, hid, T0, T0 + timedelta(days=45), 2000, FAR)  # 1h
         await meter_series(session, hid, T0, T0 + timedelta(days=30), 300, FAR)  # 3h
         await meter_series(session, hid, T0, T0 + timedelta(days=90), 50, FAR)  # 1d
@@ -321,9 +392,9 @@ async def test_meter_series_never_touches_raw_tables(session, conn):
         await device_breakdown(session, hid, T0, T0 + timedelta(hours=2))
         await device_breakdown(session, hid, T0, T0 + timedelta(days=10))
     finally:
-        event.remove(conn.sync_engine, "before_cursor_execute", spy)
+        event.remove(session.bind.sync_engine, "before_cursor_execute", spy)
     energy = [s for s in seen if "energy." in s]
-    assert len(energy) >= 8
+    assert len(energy) >= 11
     raw = re.compile(r"\benergy\.(reading|device_estimate)\b")
     assert not [s for s in seen if raw.search(s)]
     joined = " ".join(seen)
@@ -370,6 +441,8 @@ async def test_latest_power_query_is_bounded(session):
     assert "LIMIT" in sql.upper() and "ORDER BY bucket DESC" in sql
     # The query always bounds the scan by series_id and a bucket range, so the planner can
     # exclude chunks and use the primary-key/bucket index instead of reading everything.
+    assert "bucket >= :lo" in sql and "bucket < :hi" in sql
+    assert params["sid"] == sid and params["hi"] - params["lo"] == timedelta(days=7)
     assert re.search(rf"series_id = {sid}(?!\d)", plan)  # equality on the series, not a scan of all
     assert re.search(r"^Limit", plan)  # stops at the first (newest) row
 
@@ -396,23 +469,50 @@ async def test_device_breakdown_switches_to_daily_view_over_3_days(session):
     hid, _ = await new_home(session)
     did, sid = await new_device(session, hid)
     await load(session, sid, T0, 60, 1000, "device_estimate")  # 1 kWh on day 1
-    seen: list[str] = []
-
-    def spy(conn_, cursor, statement, parameters, context, executemany):
-        seen.append(statement)
-
     eng = session.bind.sync_engine
-    event.listen(eng, "before_cursor_execute", spy)
-    try:
-        short = await device_breakdown(session, hid, T0, T0 + timedelta(days=3))
-        long_ = await device_breakdown(session, hid, T0, T0 + timedelta(days=3, seconds=1))
-    finally:
-        event.remove(eng, "before_cursor_execute", spy)
-    assert short[0].kwh == pytest.approx(1.0) and long_[0].kwh == pytest.approx(1.0)
-    assert any("device_estimate_1h" in s for s in seen[:2])
-    assert not any("device_estimate_1d" in s for s in seen[:2])
-    assert any("device_estimate_1d" in s for s in seen[2:])
-    assert not any("device_estimate_1h" in s for s in seen[2:])
+
+    async def run(until):
+        seen: list[str] = []
+
+        def spy(conn_, cursor, statement, parameters, context, executemany):
+            seen.append(statement)
+
+        event.listen(eng, "before_cursor_execute", spy)
+        try:
+            out = await device_breakdown(session, hid, T0, until)
+        finally:
+            event.remove(eng, "before_cursor_execute", spy)
+        return out, " ".join(seen)
+
+    short, sql = await run(T0 + timedelta(days=3))
+    assert short[0].kwh == pytest.approx(1.0)
+    assert "device_estimate_1h" in sql and "device_estimate_1d" not in sql
+    long_, sql = await run(T0 + timedelta(days=3, seconds=1))
+    assert long_[0].kwh == pytest.approx(1.0)
+    assert "device_estimate_1d" in sql and "device_estimate_1h" not in sql
+
+
+async def test_device_breakdown_window_is_widened_to_whole_buckets(session):
+    hid, _ = await new_home(session)
+    did, sid = await new_device(session, hid)
+    await load(session, sid, T0, 180, 100, "device_estimate")  # 100 Wh per hour, 3 hours
+    one_h = timedelta(hours=1)
+    out = await device_breakdown(session, hid, T0 + one_h, T0 + 2 * one_h)  # aligned: 1 bucket
+    assert out[0].kwh == pytest.approx(0.1)
+    half = timedelta(minutes=30)  # unaligned 1-hour window: two whole hourly buckets
+    out = await device_breakdown(session, hid, T0 + one_h + half, T0 + 2 * one_h + half)
+    assert out[0].kwh == pytest.approx(0.2)
+
+
+async def test_device_breakdown_ties_are_ordered_by_device_id(session):
+    hid, _ = await new_home(session)
+    ids = []
+    for name in ("A", "B", "C"):
+        did, sid = await new_device(session, hid, name)
+        await load(session, sid, T0, 60, 100, "device_estimate")
+        ids.append(did)
+    out = await device_breakdown(session, hid, T0, T0 + timedelta(hours=2))
+    assert [d.device_id for d in out] == sorted(ids, key=str)
 
 
 async def test_device_breakdown_empty_and_zero_energy(session):

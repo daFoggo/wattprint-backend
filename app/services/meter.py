@@ -98,6 +98,11 @@ def _floor(ts: datetime, step: timedelta) -> datetime:
     return ORIGIN + ((ts - ORIGIN) // step) * step
 
 
+def _ceil(ts: datetime, step: timedelta) -> datetime:
+    """First step boundary at or after ts (aligned to local midnight)."""
+    return ORIGIN - ((ORIGIN - ts) // step) * step
+
+
 def _minute(now: datetime | None) -> datetime:
     now = now or datetime.now(UTC)
     _require_aware(now=now)
@@ -124,11 +129,18 @@ async def meter_series(
 ) -> list[Point]:
     """The main-meter power series of a home as at most ~max_points points.
 
-    The step comes from `pick_step`. Buckets are aligned to local midnight (17:00 UTC), `since` is
-    floored to its step and `until` is exclusive. The minute still being written (the one holding
-    `now`) is never returned, but a coarser bucket that contains it is, and is therefore partial.
-    Missing buckets are not filled. A re-bucketed `avg_w` is sample-weighted (sum(avg_w * n) /
-    sum(n)), never a mean of means. Returns [] for a home without a main series or data.
+    The step comes from `pick_step`; buckets are aligned to local midnight (17:00 UTC).
+
+    The window `[since, until)` is bucket-granular: every bucket whose start lies in
+    `[floor(since), until)` is returned whole, never cut at `since` or `until`. The only cap is
+    the open-minute rule: for steps 1m/5m/15m/30m (derived from `reading_1m`) data of the minute
+    still being written (>= date_trunc('minute', now)) is excluded; steps 1h/3h/6h/1d (derived
+    from the 1h/1d real-time views) include real-time data up to the present instant. So the last
+    point of any step is partial and moves, and when the step switches from 30m to 1h the content
+    of the "current" point can change (it then includes the open minute).
+
+    A re-bucketed `avg_w` is sample-weighted (sum(avg_w * n) / sum(n)), never a mean of means.
+    Missing buckets are not filled. Returns [] for a home without a main series or data.
     """
     step = pick_step(since, until, max_points)
     open_minute = _minute(now)
@@ -139,8 +151,10 @@ async def meter_series(
     params = {
         "sid": series_id,
         "lo": _floor(since, _STEP[step]),
-        "hi": min(until, open_minute),
+        "hi": _ceil(until, _STEP[step]),  # output bucket starts < until, buckets whole
     }
+    if view == "reading_1m":
+        params["hi"] = min(params["hi"], open_minute)
     if rebucket:
         sql = (
             "SELECT time_bucket(CAST(:step AS interval), bucket, "
@@ -191,9 +205,11 @@ async def device_breakdown(
 ) -> list[DeviceEnergy]:
     """Energy per device of a home over the window, largest first.
 
-    Reads `device_estimate_1h` for windows up to 3 days and `device_estimate_1d` beyond; `since`
-    is floored to that view's bucket. `share` is relative to the listed devices, so shares add
-    up to 1 (all 0 when the devices have no energy). Devices without data are omitted.
+    Reads `device_estimate_1h` for windows up to 3 days and `device_estimate_1d` beyond. The
+    window is bucket-granular and widened to whole buckets at both ends: every bucket whose start
+    lies in `[floor(since), until)` counts, so an unaligned 1-hour window spans two hourly
+    buckets. Pass aligned bounds for an exact figure. `share` is relative to the listed devices,
+    so shares add up to 1 (all 0 when the devices have no energy). Devices without data are omitted.
     """
     _check_window(since, until)
     series = (
@@ -209,14 +225,15 @@ async def device_breakdown(
         return []
     daily = until - since > DEVICE_HOURLY_MAX
     view = "device_estimate_1d" if daily else "device_estimate_1h"
-    lo = _floor(since, _STEP["1d" if daily else "1h"])
+    bucket = _STEP["1d" if daily else "1h"]
+    lo = _floor(since, bucket)
     by_series = {s.series_id: s.device_id for s in series}
     rows = await session.execute(
         text(
             f"SELECT series_id, sum(energy_wh) AS wh FROM energy.{view} "
             "WHERE series_id = ANY(:ids) AND bucket >= :lo AND bucket < :hi GROUP BY series_id"
         ),
-        {"ids": list(by_series), "lo": lo, "hi": until},
+        {"ids": list(by_series), "lo": lo, "hi": _ceil(until, bucket)},
     )
     kwh: dict[UUID, float] = {}
     for r in rows:
@@ -225,5 +242,5 @@ async def device_breakdown(
     total = sum(kwh.values())
     return [
         DeviceEnergy(d, k, k / total if total > 0 else 0.0)
-        for d, k in sorted(kwh.items(), key=lambda e: -e[1])
+        for d, k in sorted(kwh.items(), key=lambda e: (-e[1], str(e[0])))
     ]
