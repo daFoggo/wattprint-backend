@@ -35,7 +35,7 @@ services:
       - ./app:/code/app
       - ./alembic:/code/alembic
       - ./tests:/code/tests
-    command: sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload --reload-dir /code/app"
+    command: sh -c "alembic upgrade head && exec uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload --reload-dir /code/app"
 
 volumes:
   wattprint_pgdata:

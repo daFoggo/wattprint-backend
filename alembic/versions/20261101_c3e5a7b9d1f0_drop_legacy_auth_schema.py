@@ -18,4 +18,5 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    # Intentionally a no-op: the legacy schema is not restored.
     pass

@@ -1,7 +1,7 @@
 import uuid
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import delete, or_, select, update
+from sqlalchemy import delete, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.concurrency import run_in_threadpool
@@ -56,12 +56,11 @@ async def authenticate(db: AsyncSession, email: str, password: str) -> User | No
 
 
 async def issue_tokens(db: AsyncSession, user: User) -> TokenPair:
-    # Opportunistic cleanup: this user's tokens expired or revoked more than a day ago.
-    cutoff = _now() - timedelta(days=1)
+    # Opportunistic cleanup: only this user's already-expired rows. Unexpired rows are kept even
+    # when revoked, so replaying an old revoked token still triggers theft detection.
     await db.execute(
         delete(RefreshToken).where(
-            RefreshToken.user_id == user.id,
-            or_(RefreshToken.expires_at < cutoff, RefreshToken.revoked_at < cutoff),
+            RefreshToken.user_id == user.id, RefreshToken.expires_at < _now()
         )
     )
     raw, hashed = new_refresh_token()
