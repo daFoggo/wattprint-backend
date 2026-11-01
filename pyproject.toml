@@ -35,3 +35,5 @@ asyncio_default_fixture_loop_scope = "session"
 asyncio_default_test_loop_scope = "session"
 testpaths = ["tests"]
 pythonpath = ["."]
+addopts = "-m 'not audit'"
+markers = ["audit: long-running database audit (run with -m audit against the audit server)"]
