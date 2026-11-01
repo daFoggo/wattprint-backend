@@ -26,12 +26,12 @@ TOKEN_REGEX = "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9
 CURRENT_HOME_FN = f"""
 CREATE FUNCTION copilot_ro.current_home() RETURNS uuid
 LANGUAGE sql STABLE SECURITY DEFINER
-SET search_path = pg_catalog, public AS $$
+SET search_path = pg_catalog, public, pg_temp AS $$
     SELECT t.home_id
     FROM copilot.scope_token t
     WHERE t.expires_at > now()
-      AND t.token::text = (
-          SELECT lower(v) FROM (SELECT current_setting('app.copilot_token', true) AS v) x
+      AND t.token = (
+          SELECT v::uuid FROM (SELECT current_setting('app.copilot_token', true) AS v) x
           WHERE v ~ '{TOKEN_REGEX}'
       )
 $$

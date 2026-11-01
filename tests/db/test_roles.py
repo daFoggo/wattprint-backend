@@ -151,6 +151,17 @@ async def view_ids(c, view: str, col: str = "id") -> set:
     return set((await c.execute(text(f"SELECT {col} FROM copilot_ro.{view}"))).scalars())
 
 
+async def table_denied(c, role: str, table: str) -> bool:
+    """No table-level privilege at all (schema USAGE must not be the only barrier)."""
+    for p in ("SELECT", "INSERT", "UPDATE", "DELETE"):
+        if await c.scalar(text("SELECT has_table_privilege(:r, :t, :p)"),
+                          {"r": role, "t": table, "p": p}):
+            return False
+    return not await c.scalar(
+        text("SELECT has_any_column_privilege(:r, :t, 'SELECT')"), {"r": role, "t": table}
+    )
+
+
 async def denied(c, sql: str, **params) -> None:
     """The statement must fail with 'permission denied' (SQLSTATE 42501), not 'does not exist'."""
     sp = await c.begin_nested()
@@ -223,6 +234,8 @@ async def test_copilot_bad_tokens_return_nothing_without_error(conn):
     bad = (
         "", " ", "not-a-uuid", "x" * 5000, "'; DROP TABLE core.home; --",
         str(a["token"]) + "0", "{" + str(a["token"]) + "}", str(a["token"]).replace("-", ""),
+        "-" * 36,  # 36 chars of hex/dashes, not a uuid
+        "g" * 8 + "-" + "g" * 4 + "-" + "g" * 4 + "-" + "g" * 4 + "-" + "g" * 12,
         str(uuid.uuid4()),  # well formed, unknown
         str(expired),  # well formed, known, expired
     )
@@ -252,8 +265,11 @@ async def test_copilot_home_id_setting_has_no_effect(conn):
 async def test_copilot_inline_token_switch_needs_a_known_token(conn):
     """Characterisation: the role can set its own session settings, so it can switch to another
     home inside one SELECT, but only by presenting that home's token. Tokens are 122-bit random
-    uuids, short-lived (5 minutes by default) and unreadable by the role (copilot.scope_token is
-    permission denied), so it cannot learn one. A guessed token sees nothing."""
+    uuids, short-lived (5 minutes per transaction start) and unreadable through tables
+    (copilot.scope_token is permission denied), and a guessed token sees nothing. They CAN be
+    learned from a sibling session's query text (pg_stat_activity) if the backend ever inlines
+    one as a literal; the backend contract (bind parameter, is_local, parse-tree validator that
+    denies pg_stat_activity and set_config) prevents that. See spec section 8."""
     a, b, _ = await seed(conn)
     await as_role(conn, COPILOT, a["token"])
     inline = text(
@@ -263,6 +279,9 @@ async def test_copilot_inline_token_switch_needs_a_known_token(conn):
     assert set((await conn.execute(inline, {"t": str(b["token"])})).scalars()) == {b["home"]}
     assert (await conn.execute(inline, {"t": str(uuid.uuid4())})).all() == []
     await denied(conn, "SELECT token FROM copilot.scope_token")
+    await reset(conn)
+    for role in (INGEST, COPILOT):
+        assert await table_denied(conn, role, "copilot.scope_token")
 
 
 async def test_scope_token_function_is_locked_down(conn):
@@ -272,7 +291,7 @@ async def test_scope_token_function_is_locked_down(conn):
         "WHERE n.nspname = 'copilot_ro' AND p.proname = 'current_home'"
     ))).one()
     assert row[0] is True and row[1] in ("s", b"s")
-    assert "search_path=pg_catalog, public" in row[2]
+    assert "search_path=pg_catalog, public, pg_temp" in row[2]
     assert row[3] not in ROLES
     acl = (await conn.execute(text(
         "SELECT a.grantee, a.is_grantable FROM pg_proc p, LATERAL aclexplode(p.proacl) a "
@@ -288,6 +307,30 @@ async def test_scope_token_function_is_locked_down(conn):
         assert got is want, role
 
 
+async def test_token_lookup_uses_the_primary_key(conn):
+    src = await conn.scalar(
+        text("SELECT prosrc FROM pg_proc WHERE oid = 'copilot_ro.current_home()'::regprocedure")
+    )
+    pk = await conn.scalar(
+        text("SELECT conname FROM pg_constraint WHERE conrelid = 'copilot.scope_token'::regclass "
+             "AND contype = 'p'")
+    )
+    await conn.execute(text("SET LOCAL enable_seqscan = off"))
+    await conn.execute(text("SELECT set_config('app.copilot_token', :t, true)"),
+                       {"t": str(uuid.uuid4())})
+    plan = "\n".join(
+        (await conn.execute(text("EXPLAIN " + src.replace(":", "\\:")))).scalars()
+    )
+    assert pk in plan and "Index Cond" in plan, plan
+
+
+async def test_deleting_a_home_cascades_to_its_tokens(conn):
+    a, b, _ = await seed(conn)
+    await conn.execute(text("DELETE FROM core.home WHERE id = :h"), {"h": a["home"]})
+    left = (await conn.execute(text("SELECT home_id FROM copilot.scope_token"))).scalars().all()
+    assert a["home"] not in left and b["home"] in left
+
+
 async def test_app_issues_and_prunes_tokens_others_cannot_read(conn):
     a, _, _ = await seed(conn)
     await as_role(conn, APP)
@@ -300,6 +343,7 @@ async def test_app_issues_and_prunes_tokens_others_cannot_read(conn):
     await denied(conn, "UPDATE copilot.scope_token SET home_id = home_id")
     await reset(conn)
     for role in (INGEST, COPILOT):
+        assert await table_denied(conn, role, "copilot.scope_token")
         await as_role(conn, role)
         await denied(conn, "SELECT * FROM copilot.scope_token")
         await denied(conn, "INSERT INTO copilot.scope_token (home_id) VALUES (gen_random_uuid())")
@@ -724,6 +768,14 @@ async def test_revision_downgrade_removes_grants_and_upgrade_restores_them(throw
                 text("SELECT count(*) FROM pg_namespace WHERE nspname = 'copilot_ro'")
             )
 
+    async def objects(c):
+        return (
+            await c.scalar(text("SELECT count(*) FROM pg_class WHERE "
+                                "relname = 'scope_token' AND relnamespace = "
+                                "'copilot'::regnamespace")),
+            await c.scalar(text("SELECT count(*) FROM pg_proc WHERE proname = 'current_home'")),
+        )
+
     try:
         before, schema_before = await snapshot()
         assert schema_before == 1 and before[COPILOT]["usage"] - {"public"}
@@ -737,12 +789,16 @@ async def test_revision_downgrade_removes_grants_and_upgrade_restores_them(throw
             assert all(p == set() for p in after[role]["rels"].values()), (
                 role, {r: p for r, p in after[role]["rels"].items() if p},
             )
+        async with engine.connect() as c:
+            assert await objects(c) == (0, 0)  # token table and function are gone
         async with engine.connect() as c:  # roles themselves are untouched
             n = await c.scalar(
                 text("SELECT count(*) FROM pg_roles WHERE rolname = ANY(:r)"), {"r": list(ROLES)}
             )
             assert n == 3
         run_alembic(throwaway_dsn, "upgrade", "head")
+        async with engine.connect() as c:
+            assert await objects(c) == (1, 1)
         again, _ = await snapshot()
         for role in ROLES:
             assert again[role]["usage"] == before[role]["usage"]
