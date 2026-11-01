@@ -32,22 +32,25 @@ Note: a database volume created by the earlier Better Auth setup keeps its old `
 ## Layout
 
 ```
-backend/
-  app/
-    main.py          entrypoint, includes routers
-    config.py        settings (env)
-    database.py      async engine, session, Base
-    dependencies.py  shared dependencies (db session, current user)
-    security.py      password hashing, JWT helpers
-    models/          SQLAlchemy models (user, refresh_token)
-    schemas/         Pydantic schemas (token, user)
-    routers/         auth, health, users
-    services/        business logic (auth)
-  alembic/           migrations (versions/)
-  tests/
-  pyproject.toml     (uv)
-database/init/       SQL run on first DB start
+app/
+  main.py          entrypoint, includes routers
+  config.py        settings (env)
+  database.py      async engine, session, Base
+  dependencies.py  shared dependencies (db session, current user)
+  security.py      password hashing, JWT helpers
+  models/          SQLAlchemy models (user, refresh_token)
+  schemas/         Pydantic schemas (token, user)
+  routers/         auth, health, users
+  services/        business logic (auth)
+alembic/           migrations (versions/); an early one enables the TimescaleDB extension
+tests/
+pyproject.toml     (uv)
+Dockerfile
+docker-compose.yml
 ```
+
+TimescaleDB: the extension is enabled by the `enable timescaledb` Alembic migration (needs a superuser DB role,
+which the compose `db` user is).
 
 ## Auth flow
 
@@ -61,8 +64,8 @@ In Swagger (`/docs`) click Authorize and log in with email and password to try p
 
 ## Adding a router
 
-1. Create `backend/app/routers/x.py` with an `APIRouter(prefix="/x", tags=["x"])`.
-2. Import it in `backend/app/main.py` and add it to the tuple in the `for module in (health, auth, users):` loop,
+1. Create `app/routers/x.py` with an `APIRouter(prefix="/x", tags=["x"])`.
+2. Import it in `app/main.py` and add it to the tuple in the `for module in (health, auth, users):` loop,
    which mounts every router under `/api/v1`.
 
 ## Migrations and tests
