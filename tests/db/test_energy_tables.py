@@ -13,7 +13,8 @@ from app.models.energy import device_estimate_table, reading_table
 POLICY_PROCS = ("policy_compression", "policy_retention")
 JOBS_SQL = text(
     "SELECT proc_name, hypertable_name FROM timescaledb_information.jobs "
-    "WHERE hypertable_schema = 'energy' AND proc_name = ANY(:p) ORDER BY 1, 2"
+    "WHERE hypertable_schema = 'energy' AND hypertable_name IN ('reading', 'device_estimate') "
+    "AND proc_name = ANY(:p) ORDER BY 1, 2"
 )
 
 
@@ -322,7 +323,10 @@ async def test_energy_downgrade_upgrade(throwaway_dsn):
 
     from tests.db.conftest import run_alembic
 
-    q = text("SELECT count(*) FROM information_schema.tables WHERE table_schema = 'energy'")
+    q = text(
+        "SELECT count(*) FROM information_schema.tables "
+        "WHERE table_schema = 'energy' AND table_type = 'BASE TABLE'"
+    )
     fn = text("SELECT count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace "
               "WHERE n.nspname = 'ops' AND p.proname = 'set_policies'")
     engine = create_async_engine(throwaway_dsn, isolation_level="AUTOCOMMIT")
