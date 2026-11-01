@@ -18,7 +18,7 @@ from sqlalchemy import event, text
 
 from app.services.aggregates import backfill_aggregates
 from tests.audit import results
-from tests.audit.support import database_name, ensure_database, make_engine
+from tests.audit.support import database_name, ensure_database, guard, make_engine
 
 ROOT = Path(__file__).resolve().parents[2]
 DATA_DIR = Path(os.environ.get("REFIT_DIR", "/data/CLEAN_REFIT_081116"))
@@ -443,6 +443,75 @@ async def stage_stats(args) -> None:
     log("stats: " + json.dumps(out, default=str)[:700])
 
 
+# ------------------------------------------------------------------ worked examples
+EXAMPLE_SQL = text(
+    "WITH a AS (SELECT ts, value, quality,"
+    "  extract(epoch FROM lead(ts) OVER (ORDER BY ts) - ts) AS gap FROM energy.reading"
+    "  WHERE series_id = :sid AND ts >= :d AND ts < :d + interval '1 day' + interval '1 minute'),"
+    " b AS (SELECT ts, value, extract(epoch FROM lead(ts) OVER (ORDER BY ts) - ts) AS gap"
+    "  FROM energy.reading WHERE series_id = :sid AND ts >= :d"
+    "  AND ts < :d + interval '1 day' + interval '1 minute' AND quality & 1 = 0),"
+    " day AS (SELECT * FROM a WHERE ts < :d + interval '1 day')"
+    " SELECT"
+    " (SELECT sum(value * least(gap, 35)) FILTER (WHERE quality & 1 = 0) / 3600 FROM day"
+    "   WHERE gap IS NOT NULL) AS reference_wh,"
+    " (SELECT sum(value * least(gap, 35)) / 3600 FROM b WHERE gap IS NOT NULL"
+    "   AND ts < :d + interval '1 day') AS hold_across_flagged_wh,"
+    " (SELECT sum(value * least(gap, 120)) / 3600 FROM b WHERE gap IS NOT NULL"
+    "   AND ts < :d + interval '1 day') AS hold_across_flagged_cap_120s_wh,"
+    " (SELECT energy_wh FROM energy.reading_1d WHERE series_id = :sid AND bucket = :d) AS view_wh,"
+    " (SELECT covered_minutes FROM energy.reading_1d WHERE series_id = :sid AND bucket = :d)"
+    "   AS covered_minutes,"
+    " (SELECT count(*) FROM day) AS samples,"
+    " (SELECT count(*) FROM day WHERE quality & 1 = 1) AS flagged_samples,"
+    " (SELECT count(*) FROM day WHERE gap > 35) AS intervals_over_35s,"
+    " (SELECT count(*) FROM day WHERE gap > 120) AS intervals_over_120s,"
+    " (SELECT max(gap) FROM day) AS max_gap_s"
+)
+# (day start UTC, label, cause). Numbers are generated; the cause text is written by hand.
+EXAMPLE_DAYS = (
+    ("2025-11-22T17:00:00+00:00", "worst day", "irregular cadence: about 62 s logging vs the "
+     "35 s cap (reference) while the view counts a full minute per minute with a sample"),
+    ("2025-08-24T17:00:00+00:00", "flagged samples only",
+     "Issues-flagged samples are missing time in the reference, covered in the view"),
+    ("2025-04-17T17:00:00+00:00", "flagged plus one gap",
+     "flagged samples plus one 194 s gap"),
+    ("2025-08-25T17:00:00+00:00", "control (passes)",
+     "gaps agree between reference and view"),
+)
+
+
+async def stage_examples(args) -> None:
+    """Worked examples for house 1 (read-only) and the gate baseline from the first measurement."""
+    await ensure_database()
+    eng = make_engine()
+    out = []
+    async with eng.connect() as c:
+        sid = await c.scalar(
+            text("SELECT s.series_id FROM energy.series s JOIN core.home h ON h.id = s.home_id "
+                 "WHERE h.name = 'REFIT House 1' AND s.kind = 'main'")
+        )
+        await c.execute(text("SET work_mem = '256MB'"))
+        for day, label, cause in EXAMPLE_DAYS:
+            d = datetime.fromisoformat(day)
+            row = (await c.execute(EXAMPLE_SQL, {"sid": sid, "d": d})).one()._asdict()
+            row = {k: (float(v) if v is not None else None) for k, v in row.items()}
+            row["err_pct"] = (row["view_wh"] - row["reference_wh"]) / row["reference_wh"] * 100
+            out.append({"day_start_utc": day, "label": label, "cause_source": "manual",
+                        "cause": cause, **row})
+            log(f"example {day}: reference {row['reference_wh']:.1f} view {row['view_wh']:.1f}")
+    await eng.dispose()
+    results.record("energy_examples", "house1_days", out)
+    data = results.load()
+    if "energy_gate_baseline" not in data:
+        pre = data["energy_vs_exact_pre_compress"]
+        for house, v in pre.items():
+            results.record("energy_gate_baseline", house, {
+                "days_over_gate": v["full_coverage"]["days_over_gate"],
+                "err_pct_max": v["full_coverage"]["err_pct_max"],
+                "source": "first measurement, pre-compression"})
+
+
 # ------------------------------------------------------------------ report
 def _fmt(v) -> str:
     if isinstance(v, float):
@@ -502,7 +571,7 @@ async def stage_report(args) -> None:
 STAGES = {
     "env": stage_env, "policies": stage_policies_off, "load": stage_load,
     "estimates": stage_estimates, "backfill": stage_backfill, "compress": stage_compress,
-    "stats": stage_stats, "report": stage_report,
+    "stats": stage_stats, "examples": stage_examples, "report": stage_report,
 }
 
 
@@ -517,6 +586,8 @@ def main(argv=None) -> int:
     args = p.parse_args(argv)
     if args.stage == "policies" and args.mode != "off":
         p.error("usage: policies off")
+    if args.stage != "report":
+        guard()
     log(f"stage {args.stage} on database {database_name()}")
     asyncio.run(STAGES[args.stage](args))
     return 0

@@ -98,8 +98,14 @@ def compare(exact: dict, view: dict, gate_pct: float = 1.0, min_coverage: float 
 
     def stats(items):
         errs = sorted(e for e, *_ in items)
+        # signed: (view - reference) / reference in percent, so the direction is verifiable
+        signed = sorted((v - x) / x * 100 for _e, _d, x, v, _c in items if x)
         return {
             "days": len(items),
+            "signed_err_pct_p50": percentile(signed, 50),
+            "signed_err_pct_mean": sum(signed) / len(signed) if signed else None,
+            "days_view_higher": sum(1 for v in signed if v > 0),
+            "days_view_lower": sum(1 for v in signed if v < 0),
             "err_pct_p50": percentile(errs, 50),
             "err_pct_p95": percentile(errs, 95),
             "err_pct_p99": percentile(errs, 99),
@@ -118,4 +124,6 @@ def compare(exact: dict, view: dict, gate_pct: float = 1.0, min_coverage: float 
         "view_days_without_exact": sorted(
             d.isoformat() for d in view if d not in exact
         )[:10],
+        "exact_days_without_view_count": sum(1 for d in exact if d not in view),
+        "exact_days_without_view": sorted(d.isoformat() for d in exact if d not in view)[:10],
     }

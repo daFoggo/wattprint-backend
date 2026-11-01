@@ -62,3 +62,9 @@ def test_percentile_and_compare():
     assert res["full_coverage"]["days_over_gate"] == 0
     assert res["low_coverage"]["days"] == 1 and res["low_coverage"]["days_over_gate"] == 1
     assert res["covered_minutes_mismatch_days"] == 0
+    assert res["full_coverage"]["signed_err_pct_p50"] == 0.5
+    assert res["low_coverage"]["signed_err_pct_p50"] == -60.0
+    assert res["full_coverage"]["days_view_higher"] == 1
+    assert res["exact_days_without_view_count"] == 0
+    extra = compare({**exact, D0 + timedelta(days=2): (5.0, 10)}, view)
+    assert extra["exact_days_without_view_count"] == 1

@@ -8,7 +8,7 @@
       "energy.reading_1h": 378670,
       "energy.reading_1m": 22185510
     },
-    "note": "per-view seconds summed after the run from the per-window timings the first harness version stored under the full parameter tuple; they add up to total_seconds",
+    "note": "per-view seconds were summed BY HAND (a one-off script) after the run from the per-window timings the first harness version stored under the full parameter tuple; they add up to total_seconds. The harness is fixed for future runs, not re-run.",
     "range": [
       "2025-01-30T00:00:00+00:00",
       "2026-11-01T00:00:00+00:00"
@@ -146,7 +146,7 @@
       "device_estimate": 17002078208,
       "reading": 18789769216
     },
-    "note": "stats.compressed_chunks patched by hand from hypertable_compression_stats.number_compressed_chunks (636 of 638 per table; the newest 2 days stay uncompressed by design)",
+    "note": "BY HAND: stats.*.compressed_chunks set to 636 (the first harness version stored 1, the row count of hypertable_compression_stats; real value is number_compressed_chunks, 636 of 638 per table, newest 2 days stay uncompressed) and stats.*.ratio_compressed_chunks converted from a Decimal string to a number. The harness is fixed for future runs, not re-run.",
     "ratio_hypertable_size": {
       "device_estimate": 17.07,
       "reading": 16.99
@@ -172,38 +172,91 @@
   "energy_examples": {
     "house1_days": [
       {
-        "cause": "irregular cadence: 1152 of 3159 intervals exceed the 35 s cap (meter logs about once per 62 s for long stretches, median 7 s over the series). Reference counts 35 s per sample, the 1 m aggregate counts a full minute per minute with a sample. Same day with cap 120 s: 5346.4 (view -3.0%)",
-        "err_pct": 53.8,
-        "exact_wh": 3372.1,
-        "house": 1,
-        "local_day_starts_utc": "2025-11-22T17:00Z",
-        "view_wh": 5186.6
+        "cause": "irregular cadence: about 62 s logging vs the 35 s cap (reference) while the view counts a full minute per minute with a sample",
+        "cause_source": "manual",
+        "covered_minutes": 1397.0,
+        "day_start_utc": "2025-11-22T17:00:00+00:00",
+        "err_pct": 53.80991201642898,
+        "flagged_samples": 2.0,
+        "hold_across_flagged_cap_120s_wh": 5346.428611111111,
+        "hold_across_flagged_wh": 3372.947222222222,
+        "intervals_over_120s": 0.0,
+        "intervals_over_35s": 1152.0,
+        "label": "worst day",
+        "max_gap_s": 117.0,
+        "reference_wh": 3372.1116666666667,
+        "samples": 3159.0,
+        "view_wh": 5186.641987595737
       },
       {
-        "cause": "Issues-flagged samples (106 of 10053), no interval over 33 s: flagged time is missing in the reference but covered by the minute average in the view. Holding across flagged samples: 10184.8 (view +1.1%)",
-        "err_pct": 4.2,
-        "exact_wh": 9879.8,
-        "house": 1,
-        "local_day_starts_utc": "2025-08-24T17:00Z",
-        "view_wh": 10296.5
+        "cause": "Issues-flagged samples are missing time in the reference, covered in the view",
+        "cause_source": "manual",
+        "covered_minutes": 1440.0,
+        "day_start_utc": "2025-08-24T17:00:00+00:00",
+        "err_pct": 4.21775295919891,
+        "flagged_samples": 106.0,
+        "hold_across_flagged_cap_120s_wh": 10223.868888888888,
+        "hold_across_flagged_wh": 10184.751944444444,
+        "intervals_over_120s": 0.0,
+        "intervals_over_35s": 0.0,
+        "label": "flagged samples only",
+        "max_gap_s": 33.0,
+        "reference_wh": 9879.823333333334,
+        "samples": 10053.0,
+        "view_wh": 10296.529874338625
       },
       {
-        "cause": "427 flagged samples (3.4 h of missing time in the reference) plus one 194 s gap; holding across flagged: 30779.0 (view +2.1%), plus cap 120 s: 31433.7 (view -0.05%)",
-        "err_pct": 4.1,
-        "exact_wh": 30190.0,
-        "house": 1,
-        "local_day_starts_utc": "2025-04-17T17:00Z",
-        "view_wh": 31417.9
+        "cause": "flagged samples plus one 194 s gap",
+        "cause_source": "manual",
+        "covered_minutes": 1418.0,
+        "day_start_utc": "2025-04-17T17:00:00+00:00",
+        "err_pct": 4.067322937616015,
+        "flagged_samples": 427.0,
+        "hold_across_flagged_cap_120s_wh": 31433.7175,
+        "hold_across_flagged_wh": 30778.998055555556,
+        "intervals_over_120s": 1.0,
+        "intervals_over_35s": 1.0,
+        "label": "flagged plus one gap",
+        "max_gap_s": 194.0,
+        "reference_wh": 30189.952777777777,
+        "samples": 10006.0,
+        "view_wh": 31417.875651963775
       },
       {
-        "cause": "control (passes): 9 intervals over 35 s incl. a 787 s gap, coverage 97.8%, 7 flagged; gaps agree between reference and view",
-        "err_pct": 0.18,
-        "exact_wh": 7341.0,
-        "house": 1,
-        "local_day_starts_utc": "2025-08-25T17:00Z",
-        "view_wh": 7354.0
+        "cause": "gaps agree between reference and view",
+        "cause_source": "manual",
+        "covered_minutes": 1408.0,
+        "day_start_utc": "2025-08-25T17:00:00+00:00",
+        "err_pct": 0.1782626821927267,
+        "flagged_samples": 7.0,
+        "hold_across_flagged_cap_120s_wh": 7639.845833333334,
+        "hold_across_flagged_wh": 7345.478888888889,
+        "intervals_over_120s": 4.0,
+        "intervals_over_35s": 9.0,
+        "label": "control (passes)",
+        "max_gap_s": 787.0,
+        "reference_wh": 7340.955277777778,
+        "samples": 11184.0,
+        "view_wh": 7354.041461554513
       }
     ]
+  },
+  "energy_gate_baseline": {
+    "house1": {
+      "days_over_gate": 129,
+      "err_pct_max": 53.80991201642898,
+      "source": "first measurement, pre-compression"
+    },
+    "house2": {
+      "days_over_gate": 152,
+      "err_pct_max": 45.463300822628206,
+      "source": "first measurement, pre-compression"
+    },
+    "house3": {
+      "days_over_gate": 226,
+      "err_pct_max": 54.19570770217057,
+      "source": "first measurement, pre-compression"
+    }
   },
   "energy_sample": {
     "days": {
@@ -580,121 +633,181 @@
   "energy_variants_post_compress": {
     "house1.hold_across_flagged": {
       "covered_minutes_mismatch_days": 0,
+      "exact_days_without_view": [],
+      "exact_days_without_view_count": 0,
       "full_coverage": {
         "days": 512,
         "days_over_gate": 17,
+        "days_view_higher": 364,
+        "days_view_lower": 148,
         "err_pct_max": 53.77180981143802,
         "err_pct_p50": 0.13490870933579435,
         "err_pct_p95": 0.8156289162827526,
-        "err_pct_p99": 1.987476504781431
+        "err_pct_p99": 1.987476504781431,
+        "signed_err_pct_mean": 0.2870137696851054,
+        "signed_err_pct_p50": 0.09707437405812319
       },
       "low_coverage": {
         "days": 68,
         "days_over_gate": 9,
+        "days_view_higher": 50,
+        "days_view_lower": 18,
         "err_pct_max": 48.294778066037985,
         "err_pct_p50": 0.2633861098988243,
         "err_pct_p95": 3.515737551397455,
-        "err_pct_p99": 21.377848283118237
+        "err_pct_p99": 21.377848283118237,
+        "signed_err_pct_mean": 1.2873002141635943,
+        "signed_err_pct_p50": 0.22109030702864035
       },
       "view_days_without_exact": []
     },
     "house1.hold_across_flagged_cap_120s": {
       "covered_minutes_mismatch_days": 0,
+      "exact_days_without_view": [],
+      "exact_days_without_view_count": 0,
       "full_coverage": {
         "days": 512,
         "days_over_gate": 19,
+        "days_view_higher": 194,
+        "days_view_lower": 318,
         "err_pct_max": 3.7409704071753693,
         "err_pct_p50": 0.1472089010038244,
         "err_pct_p95": 0.7951118539373547,
-        "err_pct_p99": 2.9419706990944694
+        "err_pct_p99": 2.9419706990944694,
+        "signed_err_pct_mean": -0.12665588833048505,
+        "signed_err_pct_p50": -0.05422319375962981
       },
       "low_coverage": {
         "days": 68,
         "days_over_gate": 20,
+        "days_view_higher": 10,
+        "days_view_lower": 58,
         "err_pct_max": 10.045403924455673,
         "err_pct_p50": 0.42055205581976307,
         "err_pct_p95": 2.7837838413341798,
-        "err_pct_p99": 8.755554816396138
+        "err_pct_p99": 8.755554816396138,
+        "signed_err_pct_mean": -0.7087294207328146,
+        "signed_err_pct_p50": -0.3759332622373587
       },
       "view_days_without_exact": []
     },
     "house2.hold_across_flagged": {
       "covered_minutes_mismatch_days": 0,
+      "exact_days_without_view": [],
+      "exact_days_without_view_count": 0,
       "full_coverage": {
         "days": 432,
         "days_over_gate": 31,
+        "days_view_higher": 325,
+        "days_view_lower": 107,
         "err_pct_max": 45.02827374552126,
         "err_pct_p50": 0.21834650459876054,
         "err_pct_p95": 1.0658455788129884,
-        "err_pct_p99": 1.4508681566573352
+        "err_pct_p99": 1.4508681566573352,
+        "signed_err_pct_mean": 0.39884253404540154,
+        "signed_err_pct_p50": 0.1525712359814535
       },
       "low_coverage": {
         "days": 60,
         "days_over_gate": 17,
+        "days_view_higher": 50,
+        "days_view_lower": 10,
         "err_pct_max": 12.105637550181866,
         "err_pct_p50": 0.4771309719720551,
         "err_pct_p95": 6.552796007915422,
-        "err_pct_p99": 10.069348816550914
+        "err_pct_p99": 10.069348816550914,
+        "signed_err_pct_mean": 1.5502701990084304,
+        "signed_err_pct_p50": 0.438550469387126
       },
       "view_days_without_exact": []
     },
     "house2.hold_across_flagged_cap_120s": {
       "covered_minutes_mismatch_days": 0,
+      "exact_days_without_view": [],
+      "exact_days_without_view_count": 0,
       "full_coverage": {
         "days": 432,
         "days_over_gate": 16,
+        "days_view_higher": 264,
+        "days_view_lower": 168,
         "err_pct_max": 2.355293941124697,
         "err_pct_p50": 0.17869511160586726,
         "err_pct_p95": 0.9205137999870517,
-        "err_pct_p99": 1.260767134107062
+        "err_pct_p99": 1.260767134107062,
+        "signed_err_pct_mean": 0.14800013844416546,
+        "signed_err_pct_p50": 0.04449997916061388
       },
       "low_coverage": {
         "days": 60,
         "days_over_gate": 19,
+        "days_view_higher": 17,
+        "days_view_lower": 43,
         "err_pct_max": 28.073919667234847,
         "err_pct_p50": 0.5956138136794904,
         "err_pct_p95": 24.28944197019081,
-        "err_pct_p99": 26.28708091085352
+        "err_pct_p99": 26.28708091085352,
+        "signed_err_pct_mean": -3.439936699870105,
+        "signed_err_pct_p50": -0.3756230877393889
       },
       "view_days_without_exact": []
     },
     "house3.hold_across_flagged": {
       "covered_minutes_mismatch_days": 0,
+      "exact_days_without_view": [],
+      "exact_days_without_view_count": 0,
       "full_coverage": {
         "days": 415,
         "days_over_gate": 64,
+        "days_view_higher": 369,
+        "days_view_lower": 46,
         "err_pct_max": 54.13721271352531,
         "err_pct_p50": 0.3003127042369607,
         "err_pct_p95": 1.839857304181033,
-        "err_pct_p99": 3.8310289098024137
+        "err_pct_p99": 3.8310289098024137,
+        "signed_err_pct_mean": 0.667857905488718,
+        "signed_err_pct_p50": 0.296363086815111
       },
       "low_coverage": {
         "days": 147,
         "days_over_gate": 78,
+        "days_view_higher": 141,
+        "days_view_lower": 6,
         "err_pct_max": 38.649393325694895,
         "err_pct_p50": 1.0752290451312594,
         "err_pct_p95": 4.715712915378484,
-        "err_pct_p99": 10.578905847312974
+        "err_pct_p99": 10.578905847312974,
+        "signed_err_pct_mean": 1.9262830344087105,
+        "signed_err_pct_p50": 1.0752290451312594
       },
       "view_days_without_exact": []
     },
     "house3.hold_across_flagged_cap_120s": {
       "covered_minutes_mismatch_days": 0,
+      "exact_days_without_view": [],
+      "exact_days_without_view_count": 0,
       "full_coverage": {
         "days": 415,
         "days_over_gate": 30,
+        "days_view_higher": 254,
+        "days_view_lower": 161,
         "err_pct_max": 4.379069513196201,
         "err_pct_p50": 0.2053408933880013,
         "err_pct_p95": 1.2228340036752423,
-        "err_pct_p99": 2.9973194755503734
+        "err_pct_p99": 2.9973194755503734,
+        "signed_err_pct_mean": 0.05478834452458053,
+        "signed_err_pct_p50": 0.06028636614873203
       },
       "low_coverage": {
         "days": 147,
         "days_over_gate": 76,
+        "days_view_higher": 18,
+        "days_view_lower": 129,
         "err_pct_max": 11.927702546439422,
         "err_pct_p50": 1.0285074846064142,
         "err_pct_p95": 6.937539397850786,
-        "err_pct_p99": 11.379490334232049
+        "err_pct_p99": 11.379490334232049,
+        "signed_err_pct_mean": -1.6459034149110068,
+        "signed_err_pct_p50": -1.0050000653827373
       },
       "view_days_without_exact": []
     }
@@ -826,13 +939,19 @@
       "covered_minutes_mismatch_days": 0,
       "days_in_exact": 580,
       "days_in_view": 580,
+      "exact_days_without_view": [],
+      "exact_days_without_view_count": 0,
       "full_coverage": {
         "days": 512,
         "days_over_gate": 129,
+        "days_view_higher": 482,
+        "days_view_lower": 30,
         "err_pct_max": 53.80991201642898,
         "err_pct_p50": 0.4637282186980798,
         "err_pct_p95": 2.43535575232986,
         "err_pct_p99": 4.314503549410746,
+        "signed_err_pct_mean": 0.8398613875387656,
+        "signed_err_pct_p50": 0.4637282186980798,
         "worst": [
           {
             "coverage": 0.9701388888888889,
@@ -874,10 +993,14 @@
       "low_coverage": {
         "days": 68,
         "days_over_gate": 31,
+        "days_view_higher": 64,
+        "days_view_lower": 4,
         "err_pct_max": 48.320578547772676,
         "err_pct_p50": 0.9274108324284017,
         "err_pct_p95": 5.565904321820771,
         "err_pct_p99": 22.589402795217204,
+        "signed_err_pct_mean": 1.9724213680934932,
+        "signed_err_pct_p50": 0.9274108324284017,
         "worst": [
           {
             "coverage": 0.7388888888888889,
@@ -923,13 +1046,19 @@
       "covered_minutes_mismatch_days": 0,
       "days_in_exact": 492,
       "days_in_view": 492,
+      "exact_days_without_view": [],
+      "exact_days_without_view_count": 0,
       "full_coverage": {
         "days": 432,
         "days_over_gate": 152,
+        "days_view_higher": 423,
+        "days_view_lower": 9,
         "err_pct_max": 45.463300822628206,
         "err_pct_p50": 0.6858028708754891,
         "err_pct_p95": 1.946866215694443,
         "err_pct_p99": 2.3042946118256613,
+        "signed_err_pct_mean": 0.9203296367770492,
+        "signed_err_pct_p50": 0.6858028708754891,
         "worst": [
           {
             "coverage": 0.9701388888888889,
@@ -971,10 +1100,14 @@
       "low_coverage": {
         "days": 60,
         "days_over_gate": 30,
+        "days_view_higher": 60,
+        "days_view_lower": 0,
         "err_pct_max": 12.105637550181866,
         "err_pct_p50": 0.9745816038301494,
         "err_pct_p95": 7.480288579506294,
         "err_pct_p99": 10.069348816550914,
+        "signed_err_pct_mean": 2.0777850092546744,
+        "signed_err_pct_p50": 0.9745816038301494,
         "worst": [
           {
             "coverage": 0.08680555555555555,
@@ -1020,13 +1153,19 @@
       "covered_minutes_mismatch_days": 0,
       "days_in_exact": 562,
       "days_in_view": 562,
+      "exact_days_without_view": [],
+      "exact_days_without_view_count": 0,
       "full_coverage": {
         "days": 415,
         "days_over_gate": 226,
+        "days_view_higher": 408,
+        "days_view_lower": 7,
         "err_pct_max": 54.19570770217057,
         "err_pct_p50": 1.1695092166847414,
         "err_pct_p95": 5.351839988931065,
         "err_pct_p99": 10.234928985324949,
+        "signed_err_pct_mean": 1.8308707172885363,
+        "signed_err_pct_p50": 1.1695092166847414,
         "worst": [
           {
             "coverage": 0.9701388888888889,
@@ -1068,10 +1207,14 @@
       "low_coverage": {
         "days": 147,
         "days_over_gate": 116,
+        "days_view_higher": 145,
+        "days_view_lower": 2,
         "err_pct_max": 39.27559952776473,
         "err_pct_p50": 2.6479323944997315,
         "err_pct_p95": 11.609292607216222,
         "err_pct_p99": 29.34957033778626,
+        "signed_err_pct_mean": 4.327876558725947,
+        "signed_err_pct_p50": 2.6479323944997315,
         "worst": [
           {
             "coverage": 0.7368055555555556,

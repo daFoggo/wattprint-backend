@@ -12,12 +12,41 @@ from tests.db.conftest import run_alembic
 ADMIN_URL_ENV = "AUDIT_ADMIN_URL"
 
 
+AUDIT_DB_PREFIX = "wattprint_audit"
+
+
+class NotAuditTarget(RuntimeError):  # noqa: N818 - reads better as a refusal
+    """The audit would run against a database that is not the isolated audit database."""
+
+
+def check_target(database_url: str, admin_url: str | None) -> str:
+    """Refuse unless DATABASE_URL names a `wattprint_audit*` database and AUDIT_ADMIN_URL is set.
+
+    The audit loads hundreds of millions of rows, switches policies off, compresses chunks and
+    (in 10b) drops databases: it must never run against the shared development database.
+    """
+    name = make_url(database_url).database or ""
+    if not name.startswith(AUDIT_DB_PREFIX):
+        raise NotAuditTarget(
+            f"refusing to run the audit on database {name!r}: its name must start with "
+            f"{AUDIT_DB_PREFIX!r} (use .superpowers/sdd/.../run-audit.sh)"
+        )
+    if not admin_url:
+        raise NotAuditTarget(f"refusing to run the audit: {ADMIN_URL_ENV} is not set")
+    return name
+
+
+def guard() -> str:
+    return check_target(settings.database_url, os.environ.get(ADMIN_URL_ENV))
+
+
 def database_name() -> str:
     return make_url(settings.database_url).database
 
 
 async def ensure_database() -> str:
     """Create the audit database if missing and migrate it to head. Returns its DSN."""
+    guard()
     dsn = settings.database_url
     name = database_name()
     admin_url = os.environ.get(ADMIN_URL_ENV) or make_url(dsn).set(database="postgres")
@@ -45,4 +74,5 @@ async def ensure_database() -> str:
 
 
 def make_engine(**kw):
+    guard()
     return create_async_engine(settings.database_url, **kw)

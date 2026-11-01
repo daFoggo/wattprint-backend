@@ -31,3 +31,21 @@ def test_shift_puts_last_reading_on_yesterday(tmp_path):
     moved = datetime.fromtimestamp(last, UTC) + timedelta(days=shift)
     assert moved.date() == today - timedelta(days=1)
     assert moved.time() == datetime.fromtimestamp(last, UTC).time()
+
+
+def test_guard_refuses_non_audit_database():
+    import pytest
+
+    from tests.audit.support import NotAuditTarget, check_target
+
+    admin = "postgresql+asyncpg://u:p@db/postgres"
+    ok = "postgresql+asyncpg://u:p@db:5432/wattprint_audit"
+    assert check_target(ok, admin) == "wattprint_audit"
+    assert check_target(ok.replace("wattprint_audit", "wattprint_audit_b"), admin)
+    for bad in ("wattprint", "postgres", "audit_wattprint", "wattprint_test_ab12"):
+        with pytest.raises(NotAuditTarget, match="refusing"):
+            check_target(f"postgresql+asyncpg://u:p@db/{bad}", admin)
+    with pytest.raises(NotAuditTarget, match="AUDIT_ADMIN_URL"):
+        check_target(ok, None)
+    with pytest.raises(NotAuditTarget):
+        check_target(ok, "")

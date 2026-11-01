@@ -4,15 +4,18 @@ Run with `pytest -m audit tests/audit/test_audit_a.py` after the load / estimate
 """
 
 import math
+from datetime import timedelta
 from pathlib import Path
 
 import pytest
 from sqlalchemy import text
 
 from app.cli.load_refit import load_house
+from app.services.aggregates import backfill_aggregates
 from tests.audit import results
 from tests.audit.exact import compare, exact_days, median_cadence, view_days
 from tests.audit.run import csv_path
+from tests.audit.support import make_engine
 
 pytestmark = pytest.mark.audit
 
@@ -25,8 +28,19 @@ CHECKSUM = text(
 )
 
 
-def _phase() -> str:
-    return "post_compress" if "compress" in results.load() else "pre_compress"
+async def _phase(conn) -> str:
+    """post_compress when the DB holds compressed raw chunks (not what the JSON claims)."""
+    n = await conn.scalar(
+        text("SELECT count(*) FROM timescaledb_information.chunks "
+             "WHERE hypertable_schema = 'energy' AND hypertable_name = 'reading' AND is_compressed")
+    )
+    return "post_compress" if n else "pre_compress"
+
+
+@pytest.fixture(scope="module")
+async def phase(engine):
+    async with engine.connect() as conn:
+        return await _phase(conn)
 
 
 async def _main_series(conn, house: int) -> int:
@@ -38,11 +52,28 @@ async def _main_series(conn, house: int) -> int:
 
 
 async def test_idempotency(conn, session):
+    """Reload 100k CSV rows of House 1: nothing new, aggregates unchanged.
+
+    Duplicate rows insert nothing, so no invalidation is logged and the refresh of the reloaded
+    window below is expected to be a no-op; the check shows that a refresh after the reload
+    leaves reading_1d identical (it would not be if the reload had changed raw data).
+    """
     shift = results.load()["load"]["house1"]["shift_days"]
     before = (await conn.execute(CHECKSUM)).one()._asdict()
     raw_before = await conn.scalar(text("SELECT count(*) FROM energy.reading"))
+    first_ts = await conn.scalar(
+        text("SELECT min(ts) FROM energy.reading r JOIN energy.series s USING (series_id) "
+             "JOIN core.home h ON h.id = s.home_id WHERE h.name = 'REFIT House 1' "
+             "AND s.kind = 'main'")
+    )
     await conn.rollback()
     res = await load_house(session, 1, Path(csv_path(1)), shift_days=shift, limit_rows=100_000)
+    eng = make_engine(isolation_level="AUTOCOMMIT")
+    try:
+        async with eng.connect() as ac:
+            await backfill_aggregates(ac, first_ts, first_ts + timedelta(days=15))
+    finally:
+        await eng.dispose()
     after = (await conn.execute(CHECKSUM)).one()._asdict()
     raw_after = await conn.scalar(text("SELECT count(*) FROM energy.reading"))
     out = {
@@ -51,7 +82,7 @@ async def test_idempotency(conn, session):
         "reading_rows_after": raw_after, "reading_1d_before": before, "reading_1d_after": after,
         "identical": before == after,
     }
-    results.record("idempotency", _phase(), out)
+    results.record("idempotency", await _phase(conn), out)
     assert (res.rows_in, res.rows_new, res.rows_dup, res.rows_bad) == (1_000_000, 0, 1_000_000, 0)
     assert raw_before == raw_after
     assert before == after
@@ -79,8 +110,11 @@ async def energy_numbers(engine):
     return out
 
 
-async def test_energy_vs_exact_integration(energy_numbers):
-    phase = _phase()
+async def test_energy_coverage_consistent(energy_numbers, phase):
+    """Record the day-level comparison; assert only that covered_minutes matches the raw data.
+
+    The 1% accuracy gate itself is test_energy_gate_one_percent.
+    """
     sample = {}
     for house, (_sid, cadence, exact, view, variants) in energy_numbers.items():
         stats = compare(exact, view)
@@ -105,29 +139,36 @@ async def test_energy_vs_exact_integration(energy_numbers):
         results.record("energy_sample", "days", sample)
 
 
-@pytest.mark.xfail(
-    strict=False,
-    reason="measured, not hidden: with the reference of spec section 9 (gap > 5 x median cadence "
-    "is missing time, flagged samples are missing time) 129/512, 152/432 and 226/415 days of "
-    "houses 1/2/3 exceed 1% (max 54%). Causes (docs/database-audit.md, task-10a report): the "
-    "meter logs at ~62 s in long stretches, which the 35 s cap treats as missing while "
-    "the 1 m aggregate counts a full minute; Issues-flagged samples are missing time in the "
-    "reference but are covered by the minute average in the view.",
-)
 async def test_energy_gate_one_percent(energy_numbers):
-    """The 1% gate on days with coverage >= 95% (a measurement: see docs/database-audit.md)."""
-    worst = 0.0
+    """The 1% gate on days with coverage >= 95%: fails today, measured (docs/database-audit.md,
+    section "Verdicts"). Passes if no day exceeds 1%; is an xfail carrying the measured numbers
+    while the result equals the recorded baseline; FAILS if it got worse than the baseline.
+    """
+    base = results.load().get("energy_gate_baseline", {})
+    measured = {}
     for house, (_sid, _cad, exact, view, _v) in energy_numbers.items():
         full = compare(exact, view)["full_coverage"]
-        worst = max(worst, full["err_pct_max"] or 0.0)
-        assert full["days_over_gate"] == 0, (house, full["days_over_gate"], full["err_pct_max"])
-    assert worst <= 1.0
+        measured[f"house{house}"] = {
+            "days": full["days"], "days_over_gate": full["days_over_gate"],
+            "err_pct_max": full["err_pct_max"], "err_pct_p95": full["err_pct_p95"],
+        }
+    if all(m["days_over_gate"] == 0 for m in measured.values()):
+        return
+    assert base, "gate failing and no energy_gate_baseline recorded"
+    worse = {
+        h: (m, base[h]) for h, m in measured.items()
+        if m["days_over_gate"] > base[h]["days_over_gate"]
+        or m["err_pct_max"] > base[h]["err_pct_max"] * (1 + 1e-6)
+    }
+    assert not worse, f"gate result got WORSE than the recorded baseline: {worse}"
+    pytest.xfail(f"1% gate fails as recorded in the baseline (docs/database-audit.md, Verdicts): "
+                 f"{measured}")
 
 
-async def test_energy_after_compression(engine, energy_numbers):
+async def test_energy_after_compression(energy_numbers, phase):
     res = results.load()
-    if "compress" not in res or "days" not in res.get("energy_sample", {}):
-        pytest.skip("compression stage not run yet")
+    if phase != "post_compress" or "days" not in res.get("energy_sample", {}):
+        pytest.skip("no compressed raw chunks yet, or no pre-compression sample recorded")
     checked = 0
     for house, (_sid, _cad, exact, view, _v) in energy_numbers.items():
         for day, (ex_before, view_before) in res["energy_sample"]["days"][f"house{house}"].items():
