@@ -1,0 +1,5 @@
+# Only for the machine that runs scripts/ingest_refit.py (not the API image).
+torch
+numpy
+pandas
+psycopg[binary]>=3.2

@@ -9,3 +9,9 @@ node_modules/
 dist/
 .idea/
 .vscode/
+
+# NILM demo inputs (large / third-party, keep out of git)
+backend/checkpoints/
+backend/data/
+backend/third_party/
+*.pt

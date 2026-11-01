@@ -3,8 +3,10 @@ from sqlalchemy import text
 
 from app.api.deps import DbSession
 from app.core.security import AuthUser, CurrentUser
+from app.modules.disaggregation.router import router as disaggregation_router
 
 router = APIRouter()
+router.include_router(disaggregation_router)
 
 
 @router.get("/health", tags=["system"], summary="Liveness + DB check")

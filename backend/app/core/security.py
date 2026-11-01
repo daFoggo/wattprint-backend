@@ -10,6 +10,7 @@ from typing import Annotated
 
 import jwt
 from fastapi import Depends, HTTPException, Request, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jwt import PyJWKClient
 from pydantic import BaseModel
 from starlette.concurrency import run_in_threadpool
@@ -18,7 +19,7 @@ from app.core.config import settings
 
 _ALGORITHMS = ["EdDSA"]
 _LEEWAY_SECONDS = 10
-
+bearer_scheme = HTTPBearer(auto_error=False)
 
 class AuthUser(BaseModel):
     id: str
@@ -40,7 +41,9 @@ def _bearer_token(request: Request) -> str:
 
 
 async def get_current_user(
-    request: Request, jwk_client: Annotated[PyJWKClient, Depends(get_jwk_client)]
+    request: Request,
+    jwk_client: Annotated[PyJWKClient, Depends(get_jwk_client)],
+    _credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer_scheme)] = None,
 ) -> AuthUser:
     token = _bearer_token(request)
     try:
