@@ -96,7 +96,7 @@ a full 20-house load is the user's later decision). Numbers: stages `latency`, `
   touches 11 chunk relations in 1.2 ms. (The first version of this measurement started the tail only
   after the 1 m watermark, so the 1 d and 1 h points were stale and the claim was wrong; fixed.)
   Plans: `EXPLAIN (ANALYZE, BUFFERS)` trimmed in `latency.*.plans` (compute_bill: all its
-  statements); the aggregate reads touch 1-10 chunk relations with 0 shared reads. Limit: only 3
+  statements); the aggregate reads touch 0-11 chunk relations with 0 shared reads. Limit: only 3
   homes and 22 M 1 m rows; the plans are index/bitmap scans on `(series_id, bucket)` so cost
   should stay flat per series, but a 10,000-home table was not measured.
 - **Failure drills: PASS.** Duplicate batch (0 new, aggregates unchanged), out-of-order and late

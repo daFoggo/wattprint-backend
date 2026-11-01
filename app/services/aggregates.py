@@ -132,7 +132,10 @@ async def backfill_aggregates(
     runs per view, as SkippedWindow and logged as warnings.
     A fresh history (nothing materialized yet) and late rows (raw >= materialized) are refreshed as
     usual. The check scans the raw rows of the window once per family: backfilling is an admin
-    operation, not a hot path. Pass allow_missing_raw=True only to rebuild from scratch, when
+    operation, not a hot path. Known limit: the guard compares materialized `n` with the raw rows
+    still present per series and local day, so on a partly dropped local day an equal or higher
+    raw count produced by late rows of the same series hides the loss; passing the guard does not
+    prove the raw rows are intact. Pass allow_missing_raw=True only to rebuild from scratch, when
     emptying or shrinking the aggregates of a range is intended; raw rows deliberately flagged
     or removed after being aggregated need that opt-in too.
     """
