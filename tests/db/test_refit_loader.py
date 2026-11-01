@@ -7,9 +7,9 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
-from app.cli import load_refit as load_mod
 from app.cli.load_refit import load_house, main
 from app.cli.provision_refit import METADATA, device_type_for, provision_house
+from app.services import ingest as ingest_mod
 from app.services.aggregates import backfill_aggregates
 
 SAMPLE = Path(__file__).resolve().parents[1] / "data" / "refit_sample.csv"
@@ -118,6 +118,79 @@ async def test_provision_unknown_house_raises(session):
         await provision_house(session, 14, email())
     with pytest.raises(ValueError):
         await provision_house(session, 99, email())
+
+
+async def _snapshot(session):
+    tables = ("users", "core.home", "core.meter", "core.device", "energy.series",
+              "core.home_member")
+    return [await count(session, f"SELECT count(*) FROM {t}") for t in tables]
+
+
+async def test_provision_refuses_users_real_home(session):
+    addr = email()
+    uid = await session.scalar(
+        text("INSERT INTO users (id, email) VALUES (gen_random_uuid(), :e) RETURNING id"),
+        {"e": addr},
+    )
+    hid = await session.scalar(
+        text("INSERT INTO core.home (name) VALUES ('My real home') RETURNING id")
+    )
+    await session.execute(
+        text("INSERT INTO core.home_member (home_id, user_id, role) VALUES (:h, :u, 'owner')"),
+        {"h": hid, "u": uid},
+    )
+    before = await _snapshot(session)
+    with pytest.raises(ValueError, match="My real home"):
+        await provision_house(session, 1, addr)
+    assert await _snapshot(session) == before
+
+
+async def test_provision_refuses_other_house_email(session):
+    addr = email()
+    await provision_house(session, 1, addr)
+    before = await _snapshot(session)
+    with pytest.raises(ValueError, match="REFIT House 1"):
+        await provision_house(session, 2, addr)
+    assert await _snapshot(session) == before
+
+
+async def test_provision_refuses_existing_meter_of_other_home(session):
+    await provision_house(session, 1, email())
+    before = await _snapshot(session)
+    with pytest.raises(ValueError):
+        await provision_house(session, 1, email())  # new user, meter REFIT-H1 is taken
+    assert await _snapshot(session) == before
+
+
+async def test_device_names_unique_per_house(session):
+    names = {}
+    for h in (1, 4, 7, 16):
+        hid = await provision_house(session, h, email())
+        rows = await session.scalars(
+            text("SELECT name FROM core.device WHERE home_id = :h"), {"h": hid}
+        )
+        names[h] = sorted(rows)
+        assert len(names[h]) == 9 and len(set(names[h])) == 9, names[h]
+    assert {"Freezer (1)", "Freezer (2)"} <= set(names[1])
+    assert {"Washing Machine (1)", "Washing Machine (2)"} <= set(names[4])
+    assert {"Freezer #1", "Freezer #2"} <= set(names[7])
+    assert {"Fridge-Freezer #1", "Fridge-Freezer #2"} <= set(names[16])
+    assert {"Electric Heater (1)", "Electric Heater (2)"} <= set(names[16])
+
+
+async def test_provision_all_twenty_houses(session):
+    codes = set(await session.scalars(text("SELECT code FROM catalog.device_type")))
+    for h in sorted(int(k) for k in METADATA):
+        hid = await provision_house(session, h, email())
+        assert await count(
+            session, "SELECT count(*) FROM energy.series WHERE home_id = :h", h=hid
+        ) == 10
+        types = list(
+            await session.scalars(
+                text("SELECT device_type_code FROM core.device WHERE home_id = :h"), {"h": hid}
+            )
+        )
+        assert len(types) == 9 and set(types) <= codes
 
 
 def test_device_type_mapping():
@@ -274,23 +347,31 @@ async def test_commits_per_chunk_so_progress_survives(committed, monkeypatch):
         await provision_house(s, 1, email())
         await s.commit()
 
-    real = load_mod.ingest_readings
+    real = ingest_mod._write_readings
     calls = {"n": 0}
 
-    async def flaky(session, serial, rows, source):
+    async def flaky(session, valid, source):
         calls["n"] += 1
-        result = await real(session, serial, rows, source)
+        result = await real(session, valid, source)
         if calls["n"] == 3:
-            raise RuntimeError("boom after chunk 3 was flushed")
+            raise RuntimeError("boom inside the write of chunk 3")
         return result
 
-    monkeypatch.setattr(load_mod, "ingest_readings", flaky)
+    monkeypatch.setattr(ingest_mod, "_write_readings", flaky)
     async with committed() as s:
-        with pytest.raises(RuntimeError, match="boom"):
+        with pytest.raises(RuntimeError, match="boom inside"):
             await load_house(s, 1, SAMPLE, batch_rows=40)
     async with committed() as s:
         stored = await count(s, "SELECT count(*) FROM energy.reading")
-    assert stored == 2 * 40 * 10  # chunks 1 and 2 committed, chunk 3 rolled back
+        batches = (
+            await s.execute(
+                text("SELECT status, rows_new, note FROM ops.ingest_batch ORDER BY started_at")
+            )
+        ).all()
+    assert stored == 2 * 40 * 10  # chunks 1 and 2 committed, chunk 3 not stored
+    assert [b.status for b in batches] == ["ok", "ok", "failed"]
+    assert [b.rows_new for b in batches[:2]] == [400, 400]
+    assert "boom inside the write of chunk 3" in batches[2].note
 
 
 async def test_cli_main_loads_sample(committed, capsys):
@@ -299,7 +380,7 @@ async def test_cli_main_loads_sample(committed, capsys):
     rc = await main([*argv, "--batch-rows", "100"], session_factory=committed)
     assert rc == 0
     out = capsys.readouterr().out
-    assert "3200" in out and "rows/s" in out
+    assert "3200" in out and "readings/s" in out
     async with committed() as s:
         assert await count(s, "SELECT count(*) FROM energy.reading") == SAMPLE_ROWS * 10
         assert await count(s, "SELECT count(*) FROM users WHERE email = :e", e=addr) == 1
@@ -347,3 +428,22 @@ async def test_loaded_main_series_reads_back_through_reading_1m(throwaway_dsn):
     assert rows and sum(r.n for r in rows) == 300
     assert rows[0].bucket == datetime(2013, 10, 9, 13, 6, tzinfo=UTC)
     assert 400 < rows[0].avg_w < 700
+
+
+async def test_cli_rejects_unknown_house_before_path_check(committed, tmp_path, capsys):
+    rc = await main(
+        ["--house", "14", "--csv", str(tmp_path / "nope.csv")], session_factory=committed
+    )
+    assert rc == 2
+    assert "unknown REFIT house" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize(
+    "bad",
+    [["--limit-rows", "0"], ["--batch-rows", "0"], ["--batch-rows", "-5"],
+     ["--limit-rows", "-1"], ["--shift-days", "99999999999"]],
+)
+async def test_cli_rejects_meaningless_numbers(bad):
+    with pytest.raises(SystemExit) as exc:
+        await main(["--house", "1", *bad])
+    assert exc.value.code == 2

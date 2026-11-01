@@ -18,7 +18,7 @@ from pathlib import Path
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..services.ingest import IngestResult, ReadingRow, ingest_readings
-from .provision_refit import CHANNELS, meter_serial, provision_house
+from .provision_refit import CHANNELS, METADATA, meter_serial, provision_house
 
 SOURCE = "refit"
 EXPECTED_COLUMNS = 13  # Time, Unix, Aggregate, Appliance1..9, Issues
@@ -82,7 +82,16 @@ async def load_house(
             if not chunk:
                 break
             readings = [rd for row in chunk for rd in csv_row_to_readings(row, shift)]
-            res = await ingest_readings(session, serial, readings, SOURCE)
+            try:
+                res = await ingest_readings(session, serial, readings, SOURCE)
+            except Exception:
+                # ingest_readings marked its batch row 'failed' (flushed only); commit it so the
+                # audit survives. If the transaction is unusable, roll back instead.
+                try:
+                    await session.commit()
+                except Exception:
+                    await session.rollback()
+                raise
             await session.commit()
             total.batch_id = res.batch_id
             total.rows_in += res.rows_in
@@ -92,13 +101,27 @@ async def load_house(
     return total
 
 
+def _positive(text: str) -> int:
+    value = int(text)
+    if value < 1:
+        raise argparse.ArgumentTypeError("must be >= 1")
+    return value
+
+
+def _days(text: str) -> int:
+    value = int(text)
+    if abs(value) > 36_500:
+        raise argparse.ArgumentTypeError("must be within +-36500 days")
+    return value
+
+
 def _parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="python -m app.cli.load_refit", description=__doc__)
     p.add_argument("--house", type=int, required=True)
     p.add_argument("--csv", type=Path, help=f"default {DEFAULT_CSV}")
-    p.add_argument("--shift-days", type=int, default=0)
-    p.add_argument("--limit-rows", type=int)
-    p.add_argument("--batch-rows", type=int, default=30_000)
+    p.add_argument("--shift-days", type=_days, default=0)
+    p.add_argument("--limit-rows", type=_positive)
+    p.add_argument("--batch-rows", type=_positive, default=30_000)
     p.add_argument("--owner-email")
     return p
 
@@ -108,35 +131,42 @@ async def main(
     session_factory: Callable[[], AsyncSession] | None = None,
 ) -> int:
     args = _parser().parse_args(argv)
-    if session_factory is None:
-        from ..database import SessionLocal
-
-        session_factory = SessionLocal
+    if str(args.house) not in METADATA:
+        print(f"error: unknown REFIT house {args.house}", file=sys.stderr)
+        return 2
     path = args.csv or Path(DEFAULT_CSV.format(house=args.house))
     if not path.is_file():
         print(f"error: CSV not found: {path}", file=sys.stderr)
         return 2
-    if args.batch_rows < 1:
-        print("error: --batch-rows must be >= 1", file=sys.stderr)
-        return 2
     owner = args.owner_email or f"refit-house{args.house}@example.invalid"
-    async with session_factory() as session:
-        try:
-            await provision_house(session, args.house, owner)
-        except ValueError as exc:
-            print(f"error: {exc}", file=sys.stderr)
-            return 2
-        await session.commit()
-        started = time.perf_counter()
-        res = await load_house(
-            session, args.house, path, args.shift_days, args.batch_rows, args.limit_rows
-        )
-        elapsed = time.perf_counter() - started
+    own_engine = session_factory is None
+    if session_factory is None:
+        from ..database import SessionLocal
+
+        session_factory = SessionLocal
+    try:
+        async with session_factory() as session:
+            try:
+                await provision_house(session, args.house, owner)
+            except ValueError as exc:
+                print(f"error: {exc}", file=sys.stderr)
+                return 2
+            await session.commit()
+            started = time.perf_counter()
+            res = await load_house(
+                session, args.house, path, args.shift_days, args.batch_rows, args.limit_rows
+            )
+            elapsed = time.perf_counter() - started
+    finally:
+        if own_engine:
+            from ..database import engine
+
+            await engine.dispose()
     rate = res.rows_in / elapsed if elapsed > 0 else 0.0
     print(
         f"house {args.house}: rows_in={res.rows_in} rows_new={res.rows_new} "
         f"rows_dup={res.rows_dup} rows_bad={res.rows_bad} "
-        f"in {elapsed:.1f}s ({rate:,.0f} rows/s)"
+        f"in {elapsed:.1f}s ({rate:,.0f} readings/s)"
     )
     return 0
 

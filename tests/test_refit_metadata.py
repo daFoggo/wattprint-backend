@@ -1,6 +1,8 @@
 import json
 from pathlib import Path
 
+import pytest
+
 ROOT = Path(__file__).resolve().parents[1]
 META = json.loads((ROOT / "app" / "seed" / "refit_metadata.json").read_text(encoding="utf-8"))
 HOUSES = [*range(1, 14), *range(15, 22)]
@@ -12,10 +14,9 @@ def test_twenty_houses_without_house_14():
 
 def test_keys_match_csv_file_names():
     csv_dir = ROOT / "dataset" / "CLEAN_REFIT_081116"
-    if csv_dir.is_dir():
-        names = {p.name for p in csv_dir.glob("CLEAN_House*.csv")}
-    else:  # the dataset is not in git; fall back to the documented file naming
-        names = {f"CLEAN_House{h}.csv" for h in HOUSES}
+    if not csv_dir.is_dir():
+        pytest.skip("dataset/CLEAN_REFIT_081116 is not mounted (the CSVs are not in git)")
+    names = {p.name for p in csv_dir.glob("CLEAN_House*.csv")}
     assert {f"CLEAN_House{h}.csv" for h in META} == names
 
 
