@@ -64,14 +64,34 @@ async def test_garbage_token_rejected(client):
     assert r.status_code == 401
 
 
-async def test_refresh_rotates_and_detects_reuse(client, email):
+async def test_refresh_rotates_and_replay_within_grace_keeps_chain(client, email):
     first = await _register_and_login(client, email)
     r = await client.post("/api/v1/auth/refresh", json={"refresh_token": first["refresh_token"]})
     assert r.status_code == 200
     second = r.json()
     assert second["refresh_token"] != first["refresh_token"]
 
-    # Replaying the already-used token fails and revokes the whole chain.
+    # Benign replay inside the grace window is rejected but does not kill the chain.
+    r = await client.post("/api/v1/auth/refresh", json={"refresh_token": first["refresh_token"]})
+    assert r.status_code == 401
+    r = await client.post("/api/v1/auth/refresh", json={"refresh_token": second["refresh_token"]})
+    assert r.status_code == 200
+
+
+async def test_replay_after_grace_detects_reuse_and_revokes_chain(client, email):
+    first = await _register_and_login(client, email)
+    r = await client.post("/api/v1/auth/refresh", json={"refresh_token": first["refresh_token"]})
+    assert r.status_code == 200
+    second = r.json()
+
+    async with SessionLocal() as session:
+        await session.execute(
+            update(RefreshToken)
+            .where(RefreshToken.token_hash == hash_token(first["refresh_token"]))
+            .values(revoked_at=datetime.now(UTC) - timedelta(minutes=1))
+        )
+        await session.commit()
+
     r = await client.post("/api/v1/auth/refresh", json={"refresh_token": first["refresh_token"]})
     assert r.status_code == 401
     r = await client.post("/api/v1/auth/refresh", json={"refresh_token": second["refresh_token"]})

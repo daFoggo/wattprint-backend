@@ -94,8 +94,11 @@ async def rotate_refresh_token(db: AsyncSession, raw: str) -> TokenPair | None:
         await db.rollback()
         stored = await db.scalar(select(RefreshToken).where(RefreshToken.token_hash == token_hash))
         if stored is not None and stored.revoked_at is not None:
-            # A rotated token came back: treat as theft and end every session of this user.
-            await _revoke_all(db, stored.user_id)
+            # Replay within the grace window is a benign retry/race: just reject it.
+            # Older reuse of a revoked token is treated as theft: end every session.
+            grace = timedelta(seconds=settings.refresh_reuse_grace_seconds)
+            if now - stored.revoked_at > grace:
+                await _revoke_all(db, stored.user_id)
         return None
     await db.commit()
     user = await db.get(User, user_id)

@@ -16,6 +16,8 @@ class Settings(BaseSettings):
     jwt_secret_key: str = Field(min_length=32)
     access_token_expire_minutes: int = 15
     refresh_token_expire_days: int = 30
+    # A revoked refresh token replayed within this window is a benign retry, not theft.
+    refresh_reuse_grace_seconds: int = 10
 
     @property
     def cors_origin_list(self) -> list[str]:

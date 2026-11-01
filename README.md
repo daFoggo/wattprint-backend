@@ -60,6 +60,8 @@ which the compose `db` user is).
 4. `POST /api/v1/auth/refresh` exchanges a refresh token for a new pair.
 5. `POST /api/v1/auth/logout` revokes the refresh token.
 
+Refresh tokens are single-use. Replaying a revoked token within `REFRESH_REUSE_GRACE_SECONDS` (default 10) just returns 401 (benign retry); replaying it later is treated as theft and revokes all of the user's refresh tokens.
+
 In Swagger (`/docs`) click Authorize and log in with email and password to try protected endpoints.
 
 ## Adding a router
