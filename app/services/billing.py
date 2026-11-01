@@ -60,6 +60,31 @@ def _split_amount(
     return amounts
 
 
+def _allocate(
+    dev_kwh: list[Decimal], kwh_total: Decimal, before_vat: Decimal
+) -> list[tuple[Decimal, Decimal, Decimal]]:
+    """(kwh, share, amount) per item: the devices (largest first, as given), then `other`.
+
+    Shares are relative to the main-meter kWh. `other` takes the kWh the devices do not explain
+    and the rounding remainder of the amounts. When the devices claim at least as much as the
+    meter measured (their estimates are not quality-filtered, the meter series is), there is no
+    `other` item; if they claim more, the shares are normalised by the device sum so they add up
+    to exactly 1 (the stored kwh stays each device's own estimate). Without an `other` item the
+    rounding remainder goes to the largest item. Amounts sum exactly to before_vat.
+    """
+    dev_sum = sum(dev_kwh, Decimal(0))
+    denom = max(dev_sum, kwh_total)
+    kwhs = list(dev_kwh)
+    if dev_sum < kwh_total:
+        kwhs.append(kwh_total - dev_sum)
+    exact = [k / denom for k in kwhs]
+    has_other = dev_sum < kwh_total
+    amounts = _split_amount(exact, before_vat, len(kwhs) - 1 if has_other else 0)
+    return [
+        (k, _round(e, "0.000001"), a) for k, e, a in zip(kwhs, exact, amounts, strict=True)
+    ]
+
+
 async def compute_bill(
     session: AsyncSession, home_id: UUID, period_start: date, now: datetime | None = None
 ) -> Bill:
@@ -68,6 +93,8 @@ async def compute_bill(
     The bill is priced with the tariff version valid on period_start only (no proration); a
     version change inside the period just sets tariff_straddle. The caller commits.
     """
+    if now is not None and now.tzinfo is None:
+        raise ValueError("now must be a timezone-aware datetime")
     home = await session.get(Home, home_id)
     if home is None:
         raise LookupError(f"home {home_id} not found")
@@ -85,6 +112,8 @@ async def compute_bill(
                 TariffVersion.valid_from <= period_start,
                 func.coalesce(TariffVersion.valid_to, date.max) >= period_start,
             )
+            .order_by(TariffVersion.valid_from.desc())
+            .limit(1)  # overlapping versions: the later valid_from wins
         )
     ).scalar_one_or_none()
     if version is None:
@@ -131,11 +160,12 @@ async def compute_bill(
             {"ids": main_ids, "lo": lo, "hi": hi},
         )
     expected = (min(now, hi) - lo).total_seconds() / 60
-    coverage = (
-        _round(min(_ONE, Decimal(int(covered)) / Decimal(round(expected))), "0.0001")
-        if expected >= 1 else Decimal("0.0000")
+    ratio = (
+        min(_ONE, Decimal(int(covered)) / Decimal(round(expected)))
+        if expected >= 1 else Decimal(0)
     )
-    if coverage < PARTIAL_BELOW:
+    coverage = _round(ratio, "0.0001")  # stored rounded; the status uses the exact ratio
+    if ratio < PARTIAL_BELOW:
         status = "partial"
     elif period_end < now.astimezone(ICT).date():
         status = "closed"
@@ -170,22 +200,15 @@ async def compute_bill(
                 select(Device.id, Device.name).where(Device.id.in_(set(dev_series.values())))
             )).all()
         ) if dev_series else {}
-        entries: list[tuple[UUID | None, str, Decimal]] = [
-            (dev_series[sid], names[dev_series[sid]], kwh)
-            for sid, kwh in sorted(dev_kwh.items(), key=lambda kv: -kv[1])
-        ]
-        remaining = kwh_total - sum((e[2] for e in entries), Decimal(0))
-        if remaining > 0:
-            entries.append((None, "other", remaining))
-        shares = [_round(e[2] / kwh_total, "0.000001") for e in entries]
-        # The remainder goes to `other` (last) or, without one, to the largest item (first).
-        has_other = entries[-1][0] is None
-        amounts = _split_amount(
-            [e[2] / kwh_total for e in entries], before_vat, len(entries) - 1 if has_other else 0
+        devs = sorted(
+            ((dev_series[sid], names[dev_series[sid]], kwh) for sid, kwh in dev_kwh.items()),
+            key=lambda e: -e[2],
         )
+        allocated = _allocate([e[2] for e in devs], kwh_total, before_vat)
+        labels = [(d, label) for d, label, _ in devs] + [(None, "other")]
         session.add_all(
             BillItem(bill_id=bill_id, device_id=d, label=label, kwh=k, share=sh, amount=a)
-            for (d, label, k), sh, a in zip(entries, shares, amounts, strict=True)
+            for (d, label), (k, sh, a) in zip(labels, allocated, strict=False)
         )
     await session.flush()
     return await session.get(Bill, bill_id, populate_existing=True)

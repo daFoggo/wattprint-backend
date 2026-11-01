@@ -11,13 +11,15 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from app.database import Base
 from app.models import Bill, BillItem, Home, TariffPlan, TariffTier, TariffVersion
 from app.services.aggregates import backfill_aggregates as backfill
-from app.services.billing import compute_bill
+from app.services.billing import _allocate, compute_bill
 from tests.db.conftest import _create_migrated_db, run_alembic
 
 PLAN = "vn_residential"
 ICT = timedelta(hours=7)
 V1279 = date(2025, 5, 10)
 V2892 = date(2026, 11, 1)
+# A lock hang must fail loudly instead of stalling the run.
+LOCK_TIMEOUT = {"server_settings": {"lock_timeout": "5000"}}
 
 
 def local_midnight(d: date) -> datetime:
@@ -28,7 +30,9 @@ def local_midnight(d: date) -> datetime:
 async def bdb():
     """Private migrated database (policies off); yields (AUTOCOMMIT connection, dsn)."""
     dsn, drop = await _create_migrated_db()
-    engine = create_async_engine(dsn, isolation_level="AUTOCOMMIT")
+    engine = create_async_engine(
+        dsn, isolation_level="AUTOCOMMIT", connect_args=LOCK_TIMEOUT
+    )
     try:
         async with engine.connect() as c:
             await c.execute(text("SELECT ops.set_policies(false)"))
@@ -40,7 +44,7 @@ async def bdb():
 
 @pytest.fixture
 async def bsession(bdb):
-    engine = create_async_engine(bdb[1])
+    engine = create_async_engine(bdb[1], connect_args=LOCK_TIMEOUT)
     try:
         async with AsyncSession(engine, expire_on_commit=False) as s:
             yield s
@@ -320,6 +324,179 @@ async def test_home_without_readings_is_partial_zero(bdb, bsession):
         Decimal("0.000"), Decimal("0.00"), Decimal("0.00"), Decimal("0.00"),
     )
     assert b.coverage == Decimal("0.0000") and b.status == "partial" and n == 0
+
+
+async def _bill_items(session, bill):
+    items = (await session.execute(select(BillItem).where(BillItem.bill_id == bill.id))
+             ).scalars().all()
+    return sorted(items, key=lambda i: (i.device_id is None, -i.kwh))
+
+
+async def test_remainder_lands_on_other(bdb, bsession):
+    c, _ = bdb
+    async with home(c, bsession) as h:
+        _, a = await add_device(c, h, "A")
+        _, b2 = await add_device(c, h, "B")
+        await load(c, a, local_midnight(V2892), 3000, table="device_estimate")  # 50 kWh
+        await load(c, b2, local_midnight(V2892), 3000, table="device_estimate")  # 50 kWh
+        b = await bill_for(c, bsession, h, V2892, 350)
+        items = await _bill_items(bsession, b)
+        got = [(i.label, i.amount) for i in items]
+        before = b.amount_before_vat
+    # 853100 * (50/350) rounds to 121871 twice; other's exact share rounds to 609357, and the
+    # +1 dong rounding remainder lands on it
+    assert sorted(got) == [("A", Decimal("121871")), ("B", Decimal("121871")),
+                           ("other", Decimal("609358"))]
+    assert sum(a for _, a in got) == before == Decimal("853100")
+
+
+async def test_devices_equal_main_kwh_has_no_other_item(bdb, bsession):
+    c, _ = bdb
+    async with home(c, bsession) as h:
+        _, a = await add_device(c, h, "A")
+        _, b2 = await add_device(c, h, "B")
+        await load(c, a, local_midnight(V2892), 3000, table="device_estimate")  # 50 kWh
+        await load(c, b2, local_midnight(V2892), 3000, table="device_estimate")  # 50 kWh
+        b = await bill_for(c, bsession, h, V2892, 100)
+        items = await _bill_items(bsession, b)
+        got = [(i.device_id is None, i.share, i.amount) for i in items]
+        before = b.amount_before_vat
+    assert got == [(False, Decimal("0.500000"), Decimal("95050"))] * 2
+    assert sum(g[2] for g in got) == before
+
+
+async def test_device_overshoot_normalises_shares(bdb, bsession):
+    c, _ = bdb
+    async with home(c, bsession) as h:
+        _, a = await add_device(c, h, "Big")
+        _, b2 = await add_device(c, h, "Small")
+        await load(c, a, local_midnight(V2892), 1800, table="device_estimate")  # 30 kWh
+        await load(c, b2, local_midnight(V2892), 300, table="device_estimate")  # 5 kWh
+        b = await bill_for(c, bsession, h, V2892, 10)  # main sees only 10 kWh
+        items = await _bill_items(bsession, b)
+        got = [(i.label, i.kwh, i.share, i.amount) for i in items]
+        before = b.amount_before_vat
+    assert [g[0] for g in got] == ["Big", "Small"]  # no other item
+    assert [g[1] for g in got] == [Decimal("30.000"), Decimal("5.000")]  # own estimates kept
+    assert abs(sum(g[2] for g in got) - 1) <= Decimal("0.000001")
+    assert all(g[3] >= 0 for g in got) and sum(g[3] for g in got) == before
+    assert got[0][3] > got[1][3]
+
+
+def test_allocate_remainder_goes_to_other():
+    items = _allocate([Decimal(1), Decimal(1)], Decimal(3), Decimal(100))
+    assert [a for _, _, a in items] == [Decimal(33), Decimal(33), Decimal(34)]
+
+
+def test_allocate_without_other_remainder_goes_to_largest():
+    items = _allocate([Decimal(1)] * 3, Decimal(3), Decimal(100))
+    assert [a for _, _, a in items] == [Decimal(34), Decimal(33), Decimal(33)]
+
+
+@pytest.mark.parametrize("devs", [[30, 5], [30, 30], [60, 45]])
+def test_allocate_overshoot_is_normalised_and_never_negative(devs):
+    kwh_total, before = Decimal(10 if devs[0] < 60 else 100), Decimal(19010)
+    items = _allocate([Decimal(d) for d in devs], kwh_total, before)
+    assert len(items) == len(devs)  # no other item
+    assert all(a >= 0 for _, _, a in items) and sum(a for _, _, a in items) == before
+    assert all(sh <= 1 for _, sh, _ in items)
+    assert abs(sum(sh for _, sh, _ in items) - 1) <= Decimal("0.000001") * len(devs)
+    assert [k for k, _, _ in items] == [Decimal(d) for d in devs]
+
+
+def test_allocate_large_overshoot_fits_share_column():
+    (k, share, amount), _ = _allocate([Decimal(500), Decimal(500)], Decimal(10), Decimal(1000))
+    assert share == Decimal("0.500000") and amount == Decimal(500) and k == Decimal(500)
+
+
+async def test_naive_now_rejected(bdb, bsession):
+    c, _ = bdb
+    async with home(c, bsession) as h:
+        with pytest.raises(ValueError):
+            await compute_bill(bsession, h["id"], V2892, now=datetime(2026, 12, 1))
+
+
+async def test_coverage_compared_unrounded(bdb, bsession):
+    c, _ = bdb
+    async with home(c, bsession) as h:
+        await load(c, h["main"], local_midnight(V2892), 41039)  # 41039/43200 = 0.949977
+        await backfill(c, local_midnight(V2892) - timedelta(days=1),
+                       local_midnight(V2892) + timedelta(days=45))
+        b = await compute_bill(bsession, h["id"], V2892, now=local_midnight(date(2026, 12, 5)))
+        got = (b.coverage, b.status)
+    assert got == (Decimal("0.9500"), "partial")
+
+
+async def test_period_window_includes_last_day_excludes_neighbours(bdb, bsession):
+    c, _ = bdb
+    async with home(c, bsession) as h:
+        for ts in (
+            local_midnight(V2892) - timedelta(minutes=1),  # last minute of the previous cycle
+            local_midnight(date(2026, 12, 1)) - timedelta(minutes=1),  # last minute of this one
+            local_midnight(date(2026, 12, 1)),  # first minute of the next cycle
+        ):
+            await load(c, h["main"], ts, 1, watts=60000)  # exactly 1 kWh each
+        b = await bill_for(c, bsession, h, V2892, None)
+        kwh = b.kwh_total
+    assert kwh == Decimal("1.000")
+
+
+async def test_expected_minutes_derived_from_now_inside_period(bdb, bsession):
+    c, _ = bdb
+    async with home(c, bsession) as h:
+        await load(c, h["main"], local_midnight(V2892), 10 * 1440)  # first 10 days only
+        await backfill(c, local_midnight(V2892) - timedelta(days=1),
+                       local_midnight(V2892) + timedelta(days=45))
+        full = await compute_bill(bsession, h["id"], V2892, now=local_midnight(date(2026, 11, 11)))
+        got_full = (full.coverage, full.status)
+        half = await compute_bill(bsession, h["id"], V2892, now=local_midnight(date(2026, 11, 21)))
+        got_half = (half.coverage, half.status)
+    assert got_full == (Decimal("1.0000"), "open")
+    assert got_half == (Decimal("0.5000"), "partial")
+
+
+@asynccontextmanager
+async def plan(c, code, versions):
+    """A committed test plan; versions are (valid_from, valid_to) pairs (no tiers)."""
+    await c.execute(text("INSERT INTO billing.tariff_plan (code, name) VALUES (:c, 'T')"),
+                    {"c": code})
+    ids = []
+    for vf, vt in versions:
+        ids.append(await c.scalar(
+            text(
+                "INSERT INTO billing.tariff_version (plan_code, valid_from, valid_to, vat_rate, "
+                "source_doc) VALUES (:c, :f, :t, 0.08, 'test') RETURNING id"
+            ),
+            {"c": code, "f": vf, "t": vt},
+        ))
+    try:
+        yield ids
+    finally:
+        await c.execute(text("DELETE FROM billing.bill WHERE version_id = ANY(:i)"), {"i": ids})
+        await c.execute(text("DELETE FROM core.home WHERE tariff_plan_code = :c"), {"c": code})
+        await c.execute(text("DELETE FROM billing.tariff_version WHERE plan_code = :c"),
+                        {"c": code})
+        await c.execute(text("DELETE FROM billing.tariff_plan WHERE code = :c"), {"c": code})
+
+
+async def test_straddle_when_next_version_starts_on_period_end(bdb, bsession):
+    c, _ = bdb
+    versions = [(date(2026, 1, 1), date(2026, 1, 30)), (date(2026, 1, 31), None)]
+    async with plan(c, "tst_edge", versions) as ids:
+        async with home(c, bsession, plan="tst_edge") as h:
+            b = await compute_bill(bsession, h["id"], date(2026, 1, 1))
+            got = (b.period_end, b.version_id, b.tariff_straddle)
+    assert got == (date(2026, 1, 31), ids[0], True)
+
+
+async def test_overlapping_versions_later_valid_from_wins(bdb, bsession):
+    c, _ = bdb
+    versions = [(date(2026, 1, 1), None), (date(2026, 1, 15), None)]
+    async with plan(c, "tst_overlap", versions) as ids:
+        async with home(c, bsession, plan="tst_overlap") as h:
+            b = await compute_bill(bsession, h["id"], date(2026, 2, 1))
+            got = b.version_id
+    assert got == ids[1]
 
 
 # --- schema, seed, constraints ---
