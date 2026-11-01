@@ -4,7 +4,7 @@ import jwt
 from httpx import AsyncClient
 from sqlalchemy import update
 
-from app.config import settings
+from app.config import JWT_ALGORITHM, settings
 from app.database import SessionLocal
 from app.models import User
 from tests._helpers import PASSWORD
@@ -13,7 +13,7 @@ from tests._helpers import PASSWORD
 def _token(sub: str, key: str, exp_delta: timedelta = timedelta(minutes=5)) -> str:
     now = datetime.now(UTC)
     claims = {"sub": sub, "iat": now, "exp": now + exp_delta}
-    return jwt.encode(claims, key, algorithm=settings.jwt_algorithm)
+    return jwt.encode(claims, key, algorithm=JWT_ALGORITHM)
 
 
 async def _me(client: AsyncClient, token: str):

@@ -2,7 +2,9 @@ import uuid
 from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import select, update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
+from starlette.concurrency import run_in_threadpool
 
 from ..config import settings
 from ..models import RefreshToken, User
@@ -27,19 +29,26 @@ async def register_user(db: AsyncSession, data: UserCreate) -> User | None:
     if await db.scalar(select(User.id).where(User.email == email)):
         return None
     user = User(
-        email=email, hashed_password=hash_password(data.password), full_name=data.full_name
+        email=email,
+        hashed_password=await run_in_threadpool(hash_password, data.password),
+        full_name=data.full_name,
     )
     db.add(user)
-    await db.commit()
+    try:
+        await db.commit()
+    except IntegrityError:
+        # Lost a race with a concurrent registration of the same email.
+        await db.rollback()
+        return None
     return user
 
 
 async def authenticate(db: AsyncSession, email: str, password: str) -> User | None:
     user = await db.scalar(select(User).where(User.email == email.lower()))
     if user is None or user.hashed_password is None:
-        verify_password(password, DUMMY_HASH)
+        await run_in_threadpool(verify_password, password, DUMMY_HASH)
         return None
-    if not verify_password(password, user.hashed_password):
+    if not await run_in_threadpool(verify_password, password, user.hashed_password):
         return None
     return user
 
@@ -68,21 +77,30 @@ async def _revoke_all(db: AsyncSession, user_id: uuid.UUID) -> None:
 
 async def rotate_refresh_token(db: AsyncSession, raw: str) -> TokenPair | None:
     """Exchange a refresh token for a new pair. Each token is single-use."""
-    stored = await db.scalar(
-        select(RefreshToken).where(RefreshToken.token_hash == hash_token(raw))
+    token_hash = hash_token(raw)
+    now = _now()
+    # Atomic claim: only one concurrent caller can flip revoked_at from NULL.
+    user_id = await db.scalar(
+        update(RefreshToken)
+        .where(
+            RefreshToken.token_hash == token_hash,
+            RefreshToken.revoked_at.is_(None),
+            RefreshToken.expires_at > now,
+        )
+        .values(revoked_at=now)
+        .returning(RefreshToken.user_id)
     )
-    if stored is None:
+    if user_id is None:
+        await db.rollback()
+        stored = await db.scalar(select(RefreshToken).where(RefreshToken.token_hash == token_hash))
+        if stored is not None and stored.revoked_at is not None:
+            # A rotated token came back: treat as theft and end every session of this user.
+            await _revoke_all(db, stored.user_id)
         return None
-    if stored.revoked_at is not None:
-        # A rotated token came back: treat as theft and end every session of this user.
-        await _revoke_all(db, stored.user_id)
-        return None
-    if stored.expires_at <= _now():
-        return None
-    user = await db.get(User, stored.user_id)
+    await db.commit()
+    user = await db.get(User, user_id)
     if user is None or not user.is_active:
         return None
-    stored.revoked_at = _now()
     return await issue_tokens(db, user)
 
 

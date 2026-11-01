@@ -7,7 +7,7 @@ from datetime import UTC, datetime, timedelta
 import jwt
 from pwdlib import PasswordHash
 
-from .config import settings
+from .config import JWT_ALGORITHM, settings
 
 password_hash = PasswordHash.recommended()  # Argon2id
 # Verified against when the user does not exist, so timing does not leak valid emails.
@@ -29,7 +29,7 @@ def create_access_token(subject: str) -> str:
         "iat": now,
         "exp": now + timedelta(minutes=settings.access_token_expire_minutes),
     }
-    return jwt.encode(claims, settings.jwt_secret_key, algorithm=settings.jwt_algorithm)
+    return jwt.encode(claims, settings.jwt_secret_key, algorithm=JWT_ALGORITHM)
 
 
 def decode_access_token(token: str) -> str:
@@ -37,7 +37,7 @@ def decode_access_token(token: str) -> str:
     payload = jwt.decode(
         token,
         settings.jwt_secret_key,
-        algorithms=[settings.jwt_algorithm],
+        algorithms=[JWT_ALGORITHM],
         options={"require": ["exp", "sub"]},
     )
     return payload["sub"]

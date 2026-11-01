@@ -1,5 +1,12 @@
-from httpx import AsyncClient
+import asyncio
+from datetime import UTC, datetime, timedelta
 
+from httpx import AsyncClient
+from sqlalchemy import update
+
+from app.database import SessionLocal
+from app.models import RefreshToken
+from app.security import hash_token
 from tests._helpers import PASSWORD
 
 
@@ -75,5 +82,28 @@ async def test_logout_revokes_refresh_token(client, email):
     tokens = await _register_and_login(client, email)
     r = await client.post("/api/v1/auth/logout", json={"refresh_token": tokens["refresh_token"]})
     assert r.status_code == 204
+    r = await client.post("/api/v1/auth/refresh", json={"refresh_token": tokens["refresh_token"]})
+    assert r.status_code == 401
+
+
+async def test_concurrent_refresh_only_one_wins(client, email):
+    tokens = await _register_and_login(client, email)
+    body = {"refresh_token": tokens["refresh_token"]}
+    results = await asyncio.gather(
+        client.post("/api/v1/auth/refresh", json=body),
+        client.post("/api/v1/auth/refresh", json=body),
+    )
+    assert sorted(r.status_code for r in results) == [200, 401]
+
+
+async def test_expired_refresh_token_rejected(client, email):
+    tokens = await _register_and_login(client, email)
+    async with SessionLocal() as session:
+        await session.execute(
+            update(RefreshToken)
+            .where(RefreshToken.token_hash == hash_token(tokens["refresh_token"]))
+            .values(expires_at=datetime.now(UTC) - timedelta(minutes=1))
+        )
+        await session.commit()
     r = await client.post("/api/v1/auth/refresh", json={"refresh_token": tokens["refresh_token"]})
     assert r.status_code == 401

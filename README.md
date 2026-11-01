@@ -13,18 +13,21 @@ FastAPI + PostgreSQL/TimescaleDB with FastAPI-native JWT auth (access token + ro
 
 ```bash
 cp .env.example .env
-# set POSTGRES_PASSWORD and JWT_SECRET_KEY (see below)
+# set POSTGRES_PASSWORD and JWT_SECRET_KEY (empty in .env.example; compose aborts until set)
 docker compose up --build
 ```
 
-`JWT_SECRET_KEY` must be at least 32 characters (enforced at startup). The value in `.env.example` is only a
-placeholder and must be replaced. Generate one with:
+`JWT_SECRET_KEY` must be at least 32 characters (enforced at startup) and is intentionally empty in
+`.env.example`, so you must set your own. Generate one with:
 
 ```bash
 openssl rand -hex 32
 ```
 
 API docs: http://localhost:8000/docs
+
+Note: a database volume created by the earlier Better Auth setup keeps its old `auth` schema. Reset it with
+`docker compose down -v` (destroys local data) or `DROP SCHEMA auth CASCADE;` in the database.
 
 ## Layout
 

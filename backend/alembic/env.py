@@ -1,8 +1,8 @@
 import asyncio
 
-from alembic import context
 from sqlalchemy.ext.asyncio import create_async_engine
 
+from alembic import context
 from app import models  # noqa: F401
 from app.config import settings
 from app.database import Base
@@ -24,7 +24,9 @@ async def _run_online():
 
 
 if context.is_offline_mode():
-    context.configure(url=settings.database_url, target_metadata=target_metadata, literal_binds=True)
+    context.configure(
+        url=settings.database_url, target_metadata=target_metadata, literal_binds=True
+    )
     with context.begin_transaction():
         context.run_migrations()
 else:
