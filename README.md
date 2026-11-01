@@ -17,6 +17,8 @@ cp .env.example .env
 docker compose up --build
 ```
 
+The image's default command runs `alembic upgrade head` before starting uvicorn; compose uses a dev command (same migration step, plus `--reload`).
+
 `JWT_SECRET_KEY` must be at least 32 characters (enforced at startup) and is intentionally empty in
 `.env.example`, so you must set your own. Generate one with:
 
@@ -26,8 +28,7 @@ openssl rand -hex 32
 
 API docs: http://localhost:8000/docs
 
-Note: a database volume created by the earlier Better Auth setup keeps its old `auth` schema. Reset it with
-`docker compose down -v` (destroys local data) or `DROP SCHEMA auth CASCADE;` in the database.
+A migration drops the legacy `auth` schema (left over from the previous external auth service) if it exists.
 
 ## Layout
 
@@ -42,7 +43,7 @@ app/
   schemas/         Pydantic schemas (token, user)
   routers/         auth, health, users
   services/        business logic (auth)
-alembic/           migrations (versions/); an early one enables the TimescaleDB extension
+alembic/           migrations (versions/): users/refresh tokens, TimescaleDB extension, legacy schema removal, server defaults
 tests/
 pyproject.toml     (uv)
 Dockerfile
@@ -60,7 +61,7 @@ which the compose `db` user is).
 4. `POST /api/v1/auth/refresh` exchanges a refresh token for a new pair.
 5. `POST /api/v1/auth/logout` revokes the refresh token.
 
-Refresh tokens are single-use. Replaying a revoked token within `REFRESH_REUSE_GRACE_SECONDS` (default 10) just returns 401 (benign retry); replaying it later is treated as theft and revokes all of the user's refresh tokens.
+Refresh tokens are single-use. Each login/refresh also deletes that user's refresh tokens that expired or were revoked more than a day ago. Replaying a revoked token within `REFRESH_REUSE_GRACE_SECONDS` (default 10) just returns 401 (benign retry); replaying it later is treated as theft and revokes all of the user's refresh tokens.
 
 In Swagger (`/docs`) click Authorize and log in with email and password to try protected endpoints.
 
@@ -76,6 +77,7 @@ In Swagger (`/docs`) click Authorize and log in with email and password to try p
 docker compose exec api alembic revision --autogenerate -m "msg"
 docker compose exec api alembic upgrade head
 docker compose exec api pytest
+docker compose exec api ruff check app tests alembic
 ```
 
 Tests run inside the `api` container because settings require `JWT_SECRET_KEY` at import time.
