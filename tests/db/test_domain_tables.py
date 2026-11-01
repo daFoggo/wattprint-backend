@@ -1,3 +1,4 @@
+import re
 import uuid
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
@@ -117,11 +118,19 @@ async def count(c, table: str, where: str = "true", **params) -> int:
     return await c.scalar(text(f"SELECT count(*) FROM {table} WHERE {where}"), params)
 
 
-async def rejected(db, sql: str, /, **params) -> None:
-    """The statement must violate a constraint; run in a savepoint so `db` stays usable."""
+async def rejected(db, sql: str, /, constraint: str, **params) -> None:
+    """The statement must fail on exactly the named constraint (savepoint keeps `db` usable)."""
     sp = await db.begin_nested()
-    with pytest.raises(IntegrityError):
+    with pytest.raises(IntegrityError) as exc:
         await db.execute(text(sql), params)
+    cause = exc.value.orig.__cause__
+    if constraint.startswith("not_null:"):  # NOT NULL violations carry a column, not a name
+        assert cause.column_name == constraint.removeprefix("not_null:")
+    else:
+        # hypertable chunks prefix the constraint name with their own id (e.g. "3_pk_x")
+        assert re.fullmatch(rf"(\d+_)*{constraint}", cause.constraint_name or ""), (
+            cause.constraint_name
+        )
     await sp.rollback()
 
 
@@ -136,7 +145,7 @@ COHORT = (
 
 async def test_cohort_min_size_check(conn):
     assert MIN_COHORT_HOMES == 10
-    await rejected(conn, COHORT, n=9)
+    await rejected(conn, COHORT, "ck_cohort_stat_min_size", n=9)
     await conn.execute(text(COHORT), {"n": 10})
     assert await count(conn, "insight.cohort_stat") == 1
 
@@ -167,7 +176,7 @@ async def test_chunk_fts_matches_unaccented_vietnamese(conn):
     )
 
 
-async def test_chunk_hnsw_nearest(conn):
+async def test_chunk_hnsw_index_exists_and_nearest_is_correct(conn):
     indexdef = await conn.scalar(
         text(
             "SELECT indexdef FROM pg_indexes WHERE schemaname = 'knowledge' "
@@ -198,13 +207,13 @@ async def test_chunk_unique_ord_and_not_null_embedding(conn):
         conn,
         "INSERT INTO knowledge.chunk (document_id, ord, body, embedding, embedding_model) "
         "VALUES (:d, 1, 'x', CAST(:v AS vector), 'm')",
-        d=doc, v=lit(vec(0)),
+        "uq_chunk_document_id", d=doc, v=lit(vec(0)),
     )
     await rejected(
         conn,
         "INSERT INTO knowledge.chunk (document_id, ord, body, embedding_model) "
         "VALUES (:d, 2, 'x', 'm')",
-        d=doc,
+        "not_null:embedding", d=doc,
     )
 
 
@@ -239,10 +248,11 @@ async def test_device_cycle_check_pk_and_cascade(conn):
         "(home_id, device_id, start_ts, end_ts, energy_wh, peak_w) "
         "VALUES (:h, :d, CAST(:s AS timestamptz), CAST(:e AS timestamptz), 5, 100)"
     )
-    await rejected(conn, sql, h=h, d=d, s=T0, e=T0)
-    await rejected(conn, sql, h=h, d=d, s=T0, e=T0 - timedelta(days=1))
+    await rejected(conn, sql, "ck_device_cycle_range", h=h, d=d, s=T0, e=T0)
+    await rejected(conn, sql, "ck_device_cycle_range", h=h, d=d, s=T0,
+                   e=T0 - timedelta(days=1))
     await conn.execute(text(sql), {"h": h, "d": d, "s": T0, "e": T1})
-    await rejected(conn, sql, h=h, d=d, s=T0, e=T1)  # duplicate PK
+    await rejected(conn, sql, "pk_device_cycle", h=h, d=d, s=T0, e=T1)  # duplicate PK
     await conn.execute(text("DELETE FROM core.device WHERE id = :d"), {"d": d})
     assert await count(conn, "insight.device_cycle") == 0
 
@@ -259,7 +269,7 @@ async def test_ingest_checkpoint_pk(conn):
     )
     await conn.execute(text(sql), {"src": "csv", "s": s})
     await conn.execute(text(sql), {"src": "mqtt", "s": s})
-    await rejected(conn, sql, src="csv", s=s)
+    await rejected(conn, sql, "pk_ingest_checkpoint", src="csv", s=s)
     await conn.execute(text("DELETE FROM energy.series WHERE series_id = :s"), {"s": s})
     assert await count(conn, "ops.ingest_checkpoint") == 0
 
@@ -290,7 +300,7 @@ async def test_ingest_batch_defaults_and_home_set_null(conn):
 # --- CHECK vocabularies ---
 
 
-async def _alert(c, h, **over):
+def _alert(**over):
     cols = {"severity": "info", "status": "open", **over}
     return (
         "INSERT INTO insight.alert (home_id, kind, severity, status, ts) "
@@ -301,23 +311,23 @@ async def _alert(c, h, **over):
 @pytest.mark.parametrize("severity", ["info", "warning", "critical"])
 async def test_alert_severity_accepted(conn, severity):
     h = await mk_home(conn)
-    await conn.execute(text(await _alert(conn, h, severity=severity)), {"h": h})
+    await conn.execute(text(_alert(severity=severity)), {"h": h})
 
 
 async def test_alert_severity_rejected(conn):
     h = await mk_home(conn)
-    await rejected(conn, await _alert(conn, h, severity="fatal"), h=h)
+    await rejected(conn, _alert(severity="fatal"), "ck_alert_severity", h=h)
 
 
 @pytest.mark.parametrize("status", ["open", "acknowledged", "resolved"])
 async def test_alert_status_accepted(conn, status):
     h = await mk_home(conn)
-    await conn.execute(text(await _alert(conn, h, status=status)), {"h": h})
+    await conn.execute(text(_alert(status=status)), {"h": h})
 
 
 async def test_alert_status_rejected(conn):
     h = await mk_home(conn)
-    await rejected(conn, await _alert(conn, h, status="closed"), h=h)
+    await rejected(conn, _alert(status="closed"), "ck_alert_status", h=h)
 
 
 async def test_message_role_check(conn):
@@ -330,7 +340,7 @@ async def test_message_role_check(conn):
     sql = "INSERT INTO copilot.message (conversation_id, role, content) VALUES (:c, :r, 'x')"
     for role in ("user", "assistant", "tool", "system"):
         await conn.execute(text(sql), {"c": cid, "r": role})
-    await rejected(conn, sql, c=cid, r="bot")
+    await rejected(conn, sql, "ck_message_role", c=cid, r="bot")
 
 
 async def test_suggestion_status_check(conn):
@@ -341,7 +351,7 @@ async def test_suggestion_status_check(conn):
     )
     for status in ("proposed", "shown", "accepted", "dismissed", "done"):
         await conn.execute(text(sql), {"h": h, "s": status})
-    await rejected(conn, sql, h=h, s="pending")
+    await rejected(conn, sql, "ck_suggestion_status", h=h, s="pending")
     default = await conn.scalar(
         text("INSERT INTO copilot.suggestion (home_id, kind, title, body) "
              "VALUES (:h, 'k', 't', 'b') RETURNING status"),
@@ -360,14 +370,14 @@ async def test_suggestion_feedback_action_check(conn):
     )
     for action in ("accept", "ignore", "done", "dislike"):
         await conn.execute(text(sql), {"s": sid, "u": u, "a": action})
-    await rejected(conn, sql, s=sid, u=u, a="love")
+    await rejected(conn, sql, "ck_suggestion_feedback_action", s=sid, u=u, a="love")
 
 
 async def test_document_type_check(conn):
     sql = "INSERT INTO knowledge.document (title, doc_type) VALUES ('t', :t)"
     for t in ("standard", "guide", "tariff", "expert_rule", "other"):
         await conn.execute(text(sql), {"t": t})
-    await rejected(conn, sql, t="blog")
+    await rejected(conn, sql, "ck_document_doc_type", t="blog")
     assert await conn.scalar(
         text("INSERT INTO knowledge.document (title, doc_type) VALUES ('t', 'other') "
              "RETURNING lang")
@@ -378,7 +388,7 @@ async def test_ingest_batch_status_check(conn):
     sql = "INSERT INTO ops.ingest_batch (source, status) VALUES ('s', :s)"
     for s in ("running", "ok", "failed"):
         await conn.execute(text(sql), {"s": s})
-    await rejected(conn, sql, s="done")
+    await rejected(conn, sql, "ck_ingest_batch_status", s="done")
 
 
 async def test_forecast_snapshot_unique(conn):
@@ -389,7 +399,7 @@ async def test_forecast_snapshot_unique(conn):
         "VALUES (:h, '2026-11-01T00:00Z', '2026-11-30', 100, 200000, 'v1')"
     )
     await conn.execute(text(sql), {"h": h})
-    await rejected(conn, sql, h=h)
+    await rejected(conn, sql, "uq_forecast_snapshot_home_id", h=h)
 
 
 # --- cascades ---
@@ -583,7 +593,7 @@ async def test_series_daily_coverage_view(vdb):
     row = (
         await c.execute(
             text("SELECT day, covered_minutes, expected_minutes, coverage "
-                 "FROM ops.series_daily_coverage WHERE series_id = :s"),
+                 "FROM ops.series_daily_coverage WHERE series_id = :s AND day = '2026-10-10'"),
             {"s": s},
         )
     ).one()
@@ -596,15 +606,14 @@ async def test_stale_series_view(vdb):
     c = vdb
     h = await mk_home(c)
     fresh = await mk_series(c, h)
-    d1, d2 = await mk_device(c, h), await mk_device(c, h)
     ids = []
-    for d in (d1, d2):
+    for d in [await mk_device(c, h) for _ in range(4)]:
         ids.append(await c.scalar(
             text("INSERT INTO energy.series (home_id, kind, device_id, metric, unit) "
                  "VALUES (:h, 'device', :d, 'power_w', 'W') RETURNING series_id"),
             {"h": h, "d": d},
         ))
-    stale, old = ids
+    stale, old, at59, at61 = ids
     insert = (
         "INSERT INTO ops.ingest_checkpoint (source, series_id, last_ts) "
         "VALUES (:src, :s, now() - CAST(:age AS interval))"
@@ -614,16 +623,88 @@ async def test_stale_series_view(vdb):
     # a second, fresher source for `old` keeps it out of the view
     await c.execute(text(insert), {"src": "a", "s": old, "age": timedelta(hours=5)})
     await c.execute(text(insert), {"src": "b", "s": old, "age": timedelta(minutes=1)})
+    await c.execute(text(insert), {"src": "a", "s": at59, "age": timedelta(minutes=59)})
+    await c.execute(text(insert), {"src": "a", "s": at61, "age": timedelta(minutes=61)})
     rows = {
         r.series_id: r.minutes_since
         for r in await c.execute(
             text("SELECT series_id, minutes_since FROM ops.stale_series "
                  "WHERE series_id = ANY(:ids)"),
-            {"ids": [fresh, stale, old]},
+            {"ids": [fresh, stale, old, at59, at61]},
         )
     }
-    assert set(rows) == {stale}
+    assert set(rows) == {stale, at61}  # 59 minutes is fresh, 61 is stale
+    assert rows[at61] == 61
     assert 179 <= rows[stale] <= 181
+
+
+async def test_series_daily_coverage_lists_silent_days_as_zero(vdb):
+    c = vdb
+    h = await mk_home(c)
+    s = await mk_series(c, h)
+    silent = await c.scalar(  # never reported: no history, not listed
+        text("INSERT INTO energy.series (home_id, kind, device_id, metric, unit) "
+             "VALUES (:h, 'device', :d, 'power_w', 'W') RETURNING series_id"),
+        {"h": h, "d": await mk_device(c, h)},
+    )
+    today_local = await c.scalar(text("SELECT (now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date"))
+    first = today_local - timedelta(days=6)
+    for offset in (0, 1, 2, 6):  # reports on days 1-3 and 7, silent on 4-6
+        start = await c.scalar(
+            text("SELECT CAST(:d AS timestamp) AT TIME ZONE 'Asia/Ho_Chi_Minh'"),
+            {"d": datetime.combine(first + timedelta(days=offset), datetime.min.time())},
+        )
+        await c.execute(
+            text(
+                "INSERT INTO energy.reading (ts, series_id, value) "
+                "SELECT CAST(:s AS timestamptz) + g * interval '1 minute', :sid, 100 "
+                "FROM generate_series(0, 59) g"
+            ),
+            {"s": start, "sid": s},
+        )
+    now = datetime.now(UTC)
+    await backfill(c, now - timedelta(days=10), now + timedelta(days=1))
+    rows = (
+        await c.execute(
+            text("SELECT day, covered_minutes, coverage FROM ops.series_daily_coverage "
+                 "WHERE series_id = :s ORDER BY day"),
+            {"s": s},
+        )
+    ).all()
+    assert [r.day for r in rows] == [first + timedelta(days=i) for i in range(7)]
+    assert [r.covered_minutes for r in rows] == [60, 60, 60, 0, 0, 0, 60]
+    assert rows[3].coverage == 0
+    assert await c.scalar(
+        text("SELECT count(*) FROM ops.series_daily_coverage WHERE series_id = :s"),
+        {"s": silent},
+    ) == 0
+
+
+async def test_model_and_migration_indexes_agree(vdb):
+    schemas = ("insight", "copilot", "knowledge", "ops")
+    in_db = {
+        (r.schemaname, r.indexname)
+        for r in await vdb.execute(
+            text("SELECT schemaname, indexname FROM pg_indexes WHERE schemaname = ANY(:s)"),
+            {"s": list(schemas)},
+        )
+    }
+    declared = {
+        (t.schema, i.name)
+        for t in Base.metadata.sorted_tables if t.schema in schemas for i in t.indexes
+    }
+    assert declared <= in_db
+    # no stray indexes in the database (PK / unique indexes back constraints, not model Indexes)
+    backing = {
+        (r.schemaname, r.indexname)
+        for r in await vdb.execute(
+            text("SELECT n.nspname AS schemaname, c.conname AS indexname FROM pg_constraint c "
+                 "JOIN pg_namespace n ON n.oid = c.connamespace "
+                 "WHERE n.nspname = ANY(:s) AND c.contype IN ('p','u')"),
+            {"s": list(schemas)},
+        )
+    }
+    assert in_db - declared - backing == set()
 
 
 # --- migration round trip ---

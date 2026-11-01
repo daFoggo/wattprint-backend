@@ -18,28 +18,44 @@ UUID_PK = sa.text("gen_random_uuid()")
 NOW = sa.text("now()")
 
 # unaccent() is STABLE, so it cannot be used in a generated column directly. The wrapper pins
-# the dictionary and search_path, which makes it safe to declare IMMUTABLE. The stdlib unaccent
-# rules do not map the Vietnamese letters d-stroke (U+0111 / U+0110), hence the translate().
+# the dictionary and search_path, which makes it safe to declare IMMUTABLE. The stock unaccent
+# rules already fold the Vietnamese d-stroke (U+0110 / U+0111) to D / d.
 IMMUTABLE_UNACCENT = """
 CREATE FUNCTION knowledge.immutable_unaccent(text) RETURNS text
 LANGUAGE sql IMMUTABLE PARALLEL SAFE STRICT
-SET search_path = public, pg_catalog AS $$
-    SELECT translate(
-        public.unaccent('public.unaccent'::regdictionary, $1),
-        U&'\\0111\\0110', 'dD'
-    )
+SET search_path = pg_catalog, public AS $$
+    SELECT public.unaccent('public.unaccent'::regdictionary, $1)
 $$
 """
 
 SERIES_DAILY_COVERAGE = """
 CREATE VIEW ops.series_daily_coverage AS
-SELECT series_id,
-       (bucket AT TIME ZONE 'Asia/Ho_Chi_Minh')::date AS day,
-       covered_minutes,
+SELECT f.series_id,
+       g.day,
+       coalesce(r.covered_minutes, 0)::bigint AS covered_minutes,
        1440 AS expected_minutes,
-       covered_minutes::numeric / 1440 AS coverage
-FROM energy.reading_1d
+       coalesce(r.covered_minutes, 0)::numeric / 1440 AS coverage
+FROM (SELECT series_id,
+             (min(bucket) AT TIME ZONE 'Asia/Ho_Chi_Minh')::date AS first_day
+      FROM energy.reading_1d
+      GROUP BY series_id) f
+CROSS JOIN LATERAL (
+    SELECT d::date AS day
+    FROM generate_series(f.first_day::timestamp,
+                         (now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date::timestamp,
+                         INTERVAL '1 day') d
+) g
+LEFT JOIN energy.reading_1d r
+       ON r.series_id = f.series_id
+      AND (r.bucket AT TIME ZONE 'Asia/Ho_Chi_Minh')::date = g.day
 """
+
+SERIES_DAILY_COVERAGE_COMMENT = (
+    "One row per series per local (Asia/Ho_Chi_Minh) day, from the series' first reading_1d "
+    "bucket through today; days without readings show covered_minutes 0 and coverage 0. "
+    "Limitation: a series with no readings at all has no history and is not listed. Today's "
+    "row is always partial (real-time aggregation is on, and the day is not over)."
+)
 
 STALE_SERIES = """
 CREATE VIEW ops.stale_series AS
@@ -51,6 +67,18 @@ GROUP BY series_id
 HAVING max(last_ts) < now() - INTERVAL '60 minutes'
 """
 
+STALE_SERIES_COMMENT = (
+    "Series whose newest ingest checkpoint is older than 60 minutes. Multi-source rule: "
+    "max(last_ts) across sources, so a series is stale only if every source is stale. "
+    "Limitation: built from ops.ingest_checkpoint only; a series that never reported has no "
+    "checkpoint and is not listed."
+)
+
+
+def _comment_view(view: str, text: str) -> None:
+    # COMMENT does not accept bind parameters, so the literal is quoted by hand.
+    op.execute(sa.text("COMMENT ON VIEW " + view + " IS '" + text.replace("'", "''") + "'"))
+
 
 def _uuid_pk() -> sa.Column:
     return sa.Column("id", sa.UUID, primary_key=True, server_default=UUID_PK)
@@ -61,7 +89,8 @@ def _fk(col: str, target: str, ondelete: str) -> sa.ForeignKeyConstraint:
 
 
 def _index(table: str, schema: str, col: str) -> None:
-    op.create_index(f"ix_{table}_{col}", table, [col], schema=schema)
+    # Same name the metadata naming convention generates (ix_<schema>_<table>_<column>).
+    op.create_index(f"ix_{schema}_{table}_{col}", table, [col], schema=schema)
 
 
 def _insight() -> None:
@@ -85,7 +114,7 @@ def _insight() -> None:
     )
     op.execute(
         "SELECT create_hypertable('insight.device_cycle', "
-        "by_range('start_ts', INTERVAL '30 days'))"
+        "by_range('start_ts', INTERVAL '30 days'), create_default_indexes => false)"
     )
     op.create_index(
         "ix_device_cycle_home_start", "device_cycle",
@@ -319,7 +348,9 @@ def _ops() -> None:
     )
     _index("ingest_checkpoint", "ops", "series_id")
     op.execute(SERIES_DAILY_COVERAGE)
+    _comment_view("ops.series_daily_coverage", SERIES_DAILY_COVERAGE_COMMENT)
     op.execute(STALE_SERIES)
+    _comment_view("ops.stale_series", STALE_SERIES_COMMENT)
 
 
 def upgrade() -> None:

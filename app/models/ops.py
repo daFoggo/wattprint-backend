@@ -50,7 +50,7 @@ class IngestCheckpoint(Base):
 
     source: Mapped[str] = mapped_column(Text, primary_key=True)
     series_id: Mapped[int] = mapped_column(
-        ForeignKey("energy.series.series_id", ondelete="CASCADE"), primary_key=True
+        ForeignKey("energy.series.series_id", ondelete="CASCADE"), primary_key=True, index=True
     )
     last_ts: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=_NOW)
