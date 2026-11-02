@@ -1,0 +1,122 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1300" height="830" viewBox="0 0 1300 830" role="img" font-family="Segoe UI, Roboto, Helvetica, Arial, sans-serif">
+<title>Luồng dữ liệu WattPrint</title><desc>Hai làn: số đo thật từ nguồn qua ingest, reading, aggregate; và ước lượng NILM từ reading sang device_estimate, aggregate; cả hai đổ vào các module</desc>
+<defs><marker id="ar" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
+<rect width="1300" height="830" fill="#FFFFFF"/>
+<rect x="20" y="30" width="1020" height="280" rx="16" fill="#F4F9FE" stroke="#B5D4F4" stroke-width="1"/>
+<text x="40" y="56" font-size="13" font-weight="700" fill="#185FA5" text-anchor="start">LÀN 1 · SỐ ĐO THẬT</text>
+<rect x="20" y="370" width="1020" height="290" rx="16" fill="#FBF9F4" stroke="#B4B2A9" stroke-width="1" stroke-dasharray="6 4"/>
+<text x="40" y="396" font-size="13" font-weight="700" fill="#5F5E5A" text-anchor="start">LÀN 2 · ƯỚC LƯỢNG TỪNG THIẾT BỊ (NILM)</text>
+<rect x="40" y="65" width="200" height="98" rx="12" fill="#E6F1FB" stroke="#185FA5" stroke-width="1.6"/>
+<circle cx="66" cy="93" r="14" fill="#185FA5"/>
+<text x="66" y="98" font-size="15" font-weight="700" fill="#FFFFFF" text-anchor="middle">1</text>
+<text x="88" y="99" font-size="16" font-weight="700" fill="#0C447C" text-anchor="start">REFIT CSV</text>
+<text x="56" y="131" font-size="14.5" font-weight="400" fill="#185FA5" text-anchor="start">loader đã có</text>
+<rect x="40" y="182" width="200" height="98" rx="12" fill="#F1EFE8" stroke="#5F5E5A" stroke-width="1.6" stroke-dasharray="6 4"/>
+<circle cx="66" cy="210" r="14" fill="#5F5E5A"/>
+<text x="66" y="215" font-size="15" font-weight="700" fill="#FFFFFF" text-anchor="middle">1</text>
+<text x="88" y="216" font-size="16" font-weight="700" fill="#2C2C2A" text-anchor="start">Công tơ thật</text>
+<text x="56" y="248" font-size="14.5" font-weight="400" fill="#5F5E5A" text-anchor="start">chưa có endpoint</text>
+<rect x="290" y="65" width="200" height="215" rx="12" fill="#E6F1FB" stroke="#185FA5" stroke-width="1.6"/>
+<circle cx="316" cy="93" r="14" fill="#185FA5"/>
+<text x="316" y="98" font-size="15" font-weight="700" fill="#FFFFFF" text-anchor="middle">2</text>
+<text x="338" y="99" font-size="16" font-weight="700" fill="#0C447C" text-anchor="start">ingest_readings()</text>
+<text x="306" y="131" font-size="14.5" font-weight="400" fill="#185FA5" text-anchor="start">tra series_id</text>
+<text x="306" y="154" font-size="14.5" font-weight="400" fill="#185FA5" text-anchor="start">COPY → bảng tạm</text>
+<text x="306" y="177" font-size="14.5" font-weight="400" fill="#185FA5" text-anchor="start">bỏ qua dòng trùng</text>
+<text x="306" y="200" font-size="14.5" font-weight="400" fill="#185FA5" text-anchor="start">ghi batch + checkpoint</text>
+<rect x="540" y="65" width="200" height="215" rx="12" fill="#9FE1CB" stroke="#0F6E56" stroke-width="1.6"/>
+<circle cx="566" cy="93" r="14" fill="#0F6E56"/>
+<text x="566" y="98" font-size="15" font-weight="700" fill="#FFFFFF" text-anchor="middle">3</text>
+<text x="588" y="99" font-size="16" font-weight="700" fill="#04342C" text-anchor="start">energy.reading</text>
+<text x="556" y="131" font-size="14.5" font-weight="400" fill="#085041" text-anchor="start">hypertable · chunk 1 ngày</text>
+<text x="556" y="154" font-size="14.5" font-weight="400" fill="#085041" text-anchor="start">series main + plug</text>
+<text x="556" y="177" font-size="14.5" font-weight="400" fill="#085041" text-anchor="start">PK (series_id, ts)</text>
+<rect x="552" y="226" width="176" height="42" rx="8" fill="#FFFFFF" stroke="#0F6E56" stroke-width="1"/>
+<text x="562" y="243" font-size="12" font-weight="600" fill="#0F6E56" text-anchor="start">ví dụ</text>
+<text x="562" y="260" font-size="13.5" font-weight="500" fill="#04342C" text-anchor="start">series 1 · 523 W · q=0</text>
+<rect x="790" y="65" width="200" height="215" rx="12" fill="#EEEDFE" stroke="#534AB7" stroke-width="1.6"/>
+<circle cx="816" cy="93" r="14" fill="#534AB7"/>
+<text x="816" y="98" font-size="15" font-weight="700" fill="#FFFFFF" text-anchor="middle">5</text>
+<text x="838" y="99" font-size="16" font-weight="700" fill="#3C3489" text-anchor="start">Aggregate</text>
+<rect x="802" y="117" width="176" height="44" rx="8" fill="#FFFFFF" stroke="#534AB7" stroke-width="1.2"/>
+<text x="814" y="136" font-size="14" font-weight="700" fill="#3C3489" text-anchor="start">reading_1m</text>
+<text x="814" y="153" font-size="12.5" font-weight="400" fill="#534AB7" text-anchor="start">1 phút</text>
+<rect x="802" y="169" width="176" height="44" rx="8" fill="#FFFFFF" stroke="#534AB7" stroke-width="1.2"/>
+<text x="814" y="188" font-size="14" font-weight="700" fill="#3C3489" text-anchor="start">reading_1h</text>
+<text x="814" y="205" font-size="12.5" font-weight="400" fill="#534AB7" text-anchor="start">1 giờ</text>
+<rect x="802" y="221" width="176" height="44" rx="8" fill="#FFFFFF" stroke="#534AB7" stroke-width="1.2"/>
+<text x="814" y="240" font-size="14" font-weight="700" fill="#3C3489" text-anchor="start">reading_1d</text>
+<text x="814" y="257" font-size="12.5" font-weight="400" fill="#534AB7" text-anchor="start">1 ngày giờ VN</text>
+<rect x="290" y="425" width="200" height="215" rx="12" fill="#F1EFE8" stroke="#5F5E5A" stroke-width="1.6" stroke-dasharray="6 4"/>
+<circle cx="316" cy="453" r="14" fill="#5F5E5A"/>
+<text x="316" y="458" font-size="15" font-weight="700" fill="#FFFFFF" text-anchor="middle">4</text>
+<text x="338" y="459" font-size="16" font-weight="700" fill="#2C2C2A" text-anchor="start">Mô hình NILM</text>
+<text x="306" y="491" font-size="14.5" font-weight="400" fill="#5F5E5A" text-anchor="start">chưa có code</text>
+<text x="306" y="514" font-size="14.5" font-weight="400" fill="#5F5E5A" text-anchor="start">đọc series main</text>
+<text x="306" y="537" font-size="14.5" font-weight="400" fill="#5F5E5A" text-anchor="start">ghi inference_run</text>
+<rect x="540" y="425" width="200" height="215" rx="12" fill="#9FE1CB" stroke="#0F6E56" stroke-width="1.6"/>
+<circle cx="566" cy="453" r="14" fill="#0F6E56"/>
+<text x="566" y="458" font-size="15" font-weight="700" fill="#FFFFFF" text-anchor="middle">4</text>
+<text x="588" y="459" font-size="16" font-weight="700" fill="#04342C" text-anchor="start">device_estimate</text>
+<text x="556" y="491" font-size="14.5" font-weight="400" fill="#085041" text-anchor="start">series kind = device</text>
+<text x="556" y="514" font-size="14.5" font-weight="400" fill="#085041" text-anchor="start">upsert: run mới thắng</text>
+<rect x="552" y="586" width="176" height="42" rx="8" fill="#FFFFFF" stroke="#0F6E56" stroke-width="1"/>
+<text x="562" y="603" font-size="12" font-weight="600" fill="#0F6E56" text-anchor="start">ví dụ</text>
+<text x="562" y="620" font-size="13.5" font-weight="500" fill="#04342C" text-anchor="start">series 5 · 74 W · run 1</text>
+<rect x="790" y="425" width="200" height="215" rx="12" fill="#EEEDFE" stroke="#534AB7" stroke-width="1.6"/>
+<circle cx="816" cy="453" r="14" fill="#534AB7"/>
+<text x="816" y="458" font-size="15" font-weight="700" fill="#FFFFFF" text-anchor="middle">5</text>
+<text x="838" y="459" font-size="16" font-weight="700" fill="#3C3489" text-anchor="start">Aggregate</text>
+<rect x="802" y="477" width="176" height="44" rx="8" fill="#FFFFFF" stroke="#534AB7" stroke-width="1.2"/>
+<text x="814" y="496" font-size="14" font-weight="700" fill="#3C3489" text-anchor="start">device_estimate_1m</text>
+<text x="814" y="513" font-size="12.5" font-weight="400" fill="#534AB7" text-anchor="start">1 phút</text>
+<rect x="802" y="529" width="176" height="44" rx="8" fill="#FFFFFF" stroke="#534AB7" stroke-width="1.2"/>
+<text x="814" y="548" font-size="14" font-weight="700" fill="#3C3489" text-anchor="start">device_estimate_1h</text>
+<text x="814" y="565" font-size="12.5" font-weight="400" fill="#534AB7" text-anchor="start">1 giờ</text>
+<rect x="802" y="581" width="176" height="44" rx="8" fill="#FFFFFF" stroke="#534AB7" stroke-width="1.2"/>
+<text x="814" y="600" font-size="14" font-weight="700" fill="#3C3489" text-anchor="start">device_estimate_1d</text>
+<text x="814" y="617" font-size="12.5" font-weight="400" fill="#534AB7" text-anchor="start">1 ngày giờ VN</text>
+<rect x="1070" y="65" width="220" height="575" rx="16" fill="#FFFFFF" stroke="#888780" stroke-width="1.6"/>
+<circle cx="1096" cy="93" r="14" fill="#5F5E5A"/>
+<text x="1096" y="98" font-size="15" font-weight="700" fill="#FFFFFF" text-anchor="middle">6</text>
+<text x="1118" y="99" font-size="16" font-weight="700" fill="#2C2C2A" text-anchor="start">Module dùng dữ liệu</text>
+<rect x="1084" y="120" width="192" height="80" rx="10" fill="#E6F1FB" stroke="#185FA5" stroke-width="1.4"/>
+<text x="1098" y="152" font-size="15" font-weight="700" fill="#0C447C" text-anchor="start">Màn hình Meter</text>
+<text x="1098" y="174" font-size="12.5" font-weight="400" fill="#185FA5" text-anchor="start">đọc reading_1m / 1h / 1d</text>
+<rect x="1084" y="214" width="192" height="80" rx="10" fill="#E6F1FB" stroke="#185FA5" stroke-width="1.4"/>
+<text x="1098" y="246" font-size="15" font-weight="700" fill="#0C447C" text-anchor="start">Hóa đơn</text>
+<text x="1098" y="268" font-size="12.5" font-weight="400" fill="#185FA5" text-anchor="start">kWh tổng + chia thiết bị</text>
+<rect x="1084" y="308" width="192" height="80" rx="10" fill="#FAEEDA" stroke="#854F0B" stroke-width="1.4"/>
+<text x="1098" y="340" font-size="15" font-weight="700" fill="#633806" text-anchor="start">Copilot</text>
+<text x="1098" y="362" font-size="12.5" font-weight="400" fill="#854F0B" text-anchor="start">6 aggregate qua view + token</text>
+<rect x="1084" y="402" width="192" height="80" rx="10" fill="#E6F1FB" stroke="#185FA5" stroke-width="1.4"/>
+<text x="1098" y="434" font-size="15" font-weight="700" fill="#0C447C" text-anchor="start">Màn hình thiết bị</text>
+<text x="1098" y="456" font-size="12.5" font-weight="400" fill="#185FA5" text-anchor="start">đọc device_estimate_1h / 1d</text>
+<rect x="1084" y="496" width="192" height="80" rx="10" fill="#F1EFE8" stroke="#5F5E5A" stroke-width="1.4" stroke-dasharray="6 4"/>
+<text x="1098" y="528" font-size="15" font-weight="700" fill="#2C2C2A" text-anchor="start">Insight</text>
+<text x="1098" y="550" font-size="12.5" font-weight="400" fill="#5F5E5A" text-anchor="start">chưa có code</text>
+<path d="M240 114 L290 150" fill="none" stroke="#185FA5" stroke-width="2" marker-end="url(#ar)"/>
+<path d="M240 231 L290 195" fill="none" stroke="#5F5E5A" stroke-width="2" stroke-dasharray="6 4" marker-end="url(#ar)"/>
+<path d="M490 172 L540 172" fill="none" stroke="#185FA5" stroke-width="2" marker-end="url(#ar)"/>
+<path d="M740 172 L790 172" fill="none" stroke="#0F6E56" stroke-width="2" marker-end="url(#ar)"/>
+<path d="M640 280 L640 340 L390 340 L390 425" fill="none" stroke="#0F6E56" stroke-width="2" stroke-dasharray="6 4" marker-end="url(#ar)"/>
+<text x="520" y="330" font-size="13.5" font-weight="500" fill="#5F5E5A" text-anchor="middle">NILM đọc số đo tổng</text>
+<path d="M490 532 L540 532" fill="none" stroke="#5F5E5A" stroke-width="2" stroke-dasharray="6 4" marker-end="url(#ar)"/>
+<path d="M740 532 L790 532" fill="none" stroke="#0F6E56" stroke-width="2" marker-end="url(#ar)"/>
+<path d="M990 172 L1070 172" fill="none" stroke="#534AB7" stroke-width="2" marker-end="url(#ar)"/>
+<path d="M990 532 L1030 532 L1030 450 L1070 450" fill="none" stroke="#534AB7" stroke-width="2" marker-end="url(#ar)"/>
+<rect x="20" y="686" width="22" height="18" rx="4" fill="#9FE1CB" stroke="#0F6E56" stroke-width="1.4"/>
+<text x="50" y="701" font-size="14" font-weight="400" fill="#2C2C2A" text-anchor="start">hypertable (ghi)</text>
+<rect x="201.6" y="686" width="22" height="18" rx="4" fill="#EEEDFE" stroke="#534AB7" stroke-width="1.4"/>
+<text x="231.6" y="701" font-size="14" font-weight="400" fill="#2C2C2A" text-anchor="start">continuous aggregate (đọc)</text>
+<rect x="459.20000000000005" y="686" width="22" height="18" rx="4" fill="#E6F1FB" stroke="#185FA5" stroke-width="1.4"/>
+<text x="489.20000000000005" y="701" font-size="14" font-weight="400" fill="#2C2C2A" text-anchor="start">đã có code</text>
+<rect x="595.2" y="686" width="22" height="18" rx="4" fill="#F1EFE8" stroke="#5F5E5A" stroke-width="1.4" stroke-dasharray="6 4"/>
+<text x="625.2" y="701" font-size="14" font-weight="400" fill="#2C2C2A" text-anchor="start">chưa có code</text>
+<circle cx="30" cy="737" r="4" fill="#5F5E5A"/>
+<text x="44" y="742" font-size="15" fill="#2C2C2A"><tspan font-weight="700">Mọi màn hình đọc aggregate, </tspan>không bao giờ quét bảng thô.</text>
+<circle cx="30" cy="765" r="4" fill="#5F5E5A"/>
+<text x="44" y="770" font-size="15" fill="#2C2C2A"><tspan font-weight="700">Ngày cắt theo giờ Việt Nam; </tspan>thời gian thiếu tính 0 Wh, không được lấp.</text>
+<circle cx="30" cy="793" r="4" fill="#5F5E5A"/>
+<text x="44" y="798" font-size="15" fill="#2C2C2A"><tspan font-weight="700">Nhà chỉ có series plug (REFIT) </tspan>thì màn hình thiết bị và bill_item rỗng, vì chúng chỉ đọc kind = device.</text>
+</svg>
