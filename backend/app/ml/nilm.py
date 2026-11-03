@@ -1,7 +1,7 @@
 import sys
 import threading
 from pathlib import Path
-
+import types
 import numpy as np
 import torch
 
@@ -20,12 +20,22 @@ EXO_DIV = {"minute": 60.0, "hour": 24.0, "dow": 7.0, "month": 12.0}
 _models = None
 _lock = threading.Lock()
 
+def _stub_xformers():
+    """NILMFormer imports xformers.ops but never calls it (use_efficient_attention=False)."""
+    if "xformers" in sys.modules:
+        return
+    pkg = types.ModuleType("xformers")
+    ops = types.ModuleType("xformers.ops")
+    pkg.ops = ops
+    sys.modules["xformers"] = pkg
+    sys.modules["xformers.ops"] = ops
 
 def _load_models():
-    repo = Path(settings.nilm_repo_path).resolve()
+    repo = str(Path(settings.nilm_repo_path).resolve())
     if repo not in sys.path:
         sys.path.insert(0, repo)
-    from src.nilmformer.congif import NILMFormerConfig  
+    _stub_xformers()
+    from src.nilmformer.congif import NILMFormerConfig  # noqa 
     from src.nilmformer.model import NILMFormer
 
     models = {}

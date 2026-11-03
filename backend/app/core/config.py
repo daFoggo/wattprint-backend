@@ -15,6 +15,9 @@ class Settings(BaseSettings):
     cors_origins: str = ""
     nilm_repo_path: str = "third_party/NILMFormer"
     nilm_ckpt_dir: str = "checkpoints"
+    nilm_scale: float = 10000.0   # = scaler.power_stat2 lúc train
+    refit_csv_path: str = "data/CLEAN_House2.csv"
+    
     @property
     def cors_origin_list(self) -> list[str]:
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]

@@ -2,3 +2,6 @@
 __pycache__
 .pytest_cache
 .env
+data
+checkpoints
+third_party
