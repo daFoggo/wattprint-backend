@@ -13,3 +13,8 @@ dist/
 
 # Local datasets (REFIT, ~6.5 GB): never commit
 dataset/
+
+# NILM replay inputs (model checkpoints, third-party NILMFormer repo): never commit
+checkpoints/
+third_party/
+*.pt

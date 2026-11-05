@@ -1,0 +1,21 @@
+# Overlay for the NILM replay (see docs/nilm-simulation.md). Use it with the base file:
+#   docker compose -f docker-compose.yml -f docker-compose.nilm.yml up -d --build
+# or set COMPOSE_FILE=docker-compose.yml:docker-compose.nilm.yml in .env.
+#
+# It mounts the inputs the replay needs, read-only, from folders you choose in .env:
+#   REFIT_DIR           folder with the REFIT CSVs (replaces the ./dataset mount of the base file)
+#   REFIT_CSV_DIR       where the CLEAN_House<N>.csv files are inside the container
+#   NILM_REPO_DIR       clone of https://github.com/adrienpetralia/NILMFormer
+#   NILM_CKPT_HOST_DIR  NILMFormer_custom0_{kettle,microwave,dishwasher,washingmachine}.pt
+services:
+  api:
+    build:
+      args:
+        TORCH_EXTRA: ${TORCH_EXTRA:-cpu}
+    environment:
+      REFIT_CSV_DIR: ${REFIT_CSV_DIR:-/data/CLEAN_REFIT_081116}
+      NILM_SCALE: ${NILM_SCALE:-10000}
+    volumes:
+      - ${REFIT_DIR:-./dataset}:/data:ro
+      - ${NILM_REPO_DIR:-./third_party/NILMFormer}:/code/third_party/NILMFormer:ro
+      - ${NILM_CKPT_HOST_DIR:-./checkpoints}:/code/checkpoints:ro

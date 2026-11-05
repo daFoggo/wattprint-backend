@@ -19,6 +19,15 @@ class Settings(BaseSettings):
     # A revoked refresh token replayed within this window is a benign retry, not theft.
     refresh_reuse_grace_seconds: int = 10
 
+    # NILM replay (app/services/simulation.py). Paths are relative to the working directory
+    # (/code in the container); docker-compose.nilm.yml mounts the host folders there.
+    nilm_repo_path: str = "third_party/NILMFormer"
+    nilm_ckpt_dir: str = "checkpoints"
+    # = scaler.power_stat2 of the training run (REFIT default: the 10 kW cutoff).
+    nilm_scale: float = 10000.0
+    # Folder with the REFIT CLEAN_House<N>.csv files.
+    refit_csv_dir: str = "/data/CLEAN_REFIT_081116"
+
     @property
     def cors_origin_list(self) -> list[str]:
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]

@@ -14,10 +14,38 @@ dependencies = [
     "python-multipart>=0.0.9",
     "email-validator>=2.2",
     "pgvector>=0.5.1",
+    "numpy>=2.1",
+    "pandas>=2.2",
 ]
+
+[project.optional-dependencies]
+# PyTorch for the NILM replay. Exactly one of the two builds is installed:
+#   uv sync --extra cpu   (default in the Dockerfile)
+#   uv sync --extra gpu   (CUDA 13.0 wheels; needs the NVIDIA driver and container toolkit)
+cpu = ["torch>=2.5"]
+gpu = ["torch>=2.5"]
 
 [dependency-groups]
 dev = ["httpx>=0.27", "pytest>=8", "pytest-asyncio>=0.24", "ruff>=0.6"]
+
+[tool.uv]
+conflicts = [[{ extra = "cpu" }, { extra = "gpu" }]]
+
+[tool.uv.sources]
+torch = [
+    { index = "pytorch-cpu", extra = "cpu" },
+    { index = "pytorch-cu130", extra = "gpu" },
+]
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[[tool.uv.index]]
+name = "pytorch-cu130"
+url = "https://download.pytorch.org/whl/cu130"
+explicit = true
 
 [tool.fastapi]
 entrypoint = "app.main:app"
