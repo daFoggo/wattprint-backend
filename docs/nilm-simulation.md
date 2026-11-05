@@ -74,6 +74,33 @@ PyTorch comes from the `cpu` or `gpu` extra of `pyproject.toml` (`TORCH_EXTRA`, 
 time). The job runs inside the API process: restarting the API (or `--reload` on a code change)
 stops a running replay; its run is then marked `failed`. One replay at a time per home.
 
+## Migrating the data of the previous demo schema
+
+The first version of the demo stored its results in three tables outside the energy schema
+(`aggregate_power`, `appliance_power`, `appliance_truth`, watts per minute, keyed by
+`house_id`). `app/cli/migrate_legacy.py` moves such data into the energy schema through the
+same ingest services; no table is added.
+
+1. Export the three tables of the old database to CSV with a header (run against the old DB):
+   ```bash
+   for t in aggregate_power appliance_power appliance_truth; do
+     psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
+       -c "\copy (SELECT * FROM $t ORDER BY 1, 2) TO STDOUT WITH CSV HEADER" > $t.csv
+   done
+   ```
+2. Register the account that will own the data (`POST /auth/register`), then in the new stack:
+   ```bash
+   docker compose run --rm -v /path/to/csv:/dump:ro api \
+     python -m app.cli.migrate_legacy --dump /dump --owner-email you@example.com --dry-run
+   # same command without --dry-run to load
+   ```
+
+All old houses are merged into the REFIT home of that account (the highest old id wins on a shared
+minute). Like the replay, the days are stored under recent days: the last source day under
+`--replay-end` (default yesterday), the earlier ones before it, so the 400-day retention keeps
+them. What the home already holds on those days is replaced, and the continuous aggregates are
+refreshed over the range at the end (`backfill_aggregates`).
+
 ## Limits
 
 * The model is a demo checkpoint trained on REFIT house 2; other houses give poor estimates.

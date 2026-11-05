@@ -257,6 +257,29 @@ async def _estimate_series(db: AsyncSession, home_id: uuid.UUID, device_id: uuid
     )
 
 
+async def appliance_items(db: AsyncSession, home_id: uuid.UUID) -> list[Item]:
+    """The appliances of a home the model covers, with their series (estimate ones created)."""
+    plugs = (
+        await db.execute(
+            text(
+                "SELECT s.series_id, s.source_channel, d.id AS device_id, "
+                "d.device_type_code AS type FROM energy.series s "
+                "JOIN core.device d ON d.id = s.device_id "
+                "WHERE s.home_id = :h AND s.kind = 'plug' AND s.metric = 'power_w' "
+                "ORDER BY s.source_channel"
+            ),
+            {"h": home_id},
+        )
+    ).all()
+    items = []
+    for typ in NILM_APPLIANCES:
+        plug = next((p for p in plugs if p.type == typ), None)
+        if plug is not None:
+            estimate = await _estimate_series(db, home_id, plug.device_id)
+            items.append(Item(typ, plug.device_id, plug.source_channel, plug.series_id, estimate))
+    return items
+
+
 async def start(db: AsyncSession, user: User, body: SimulationCreate) -> Job:
     """Validate, provision the REFIT home of the user if needed and launch the replay."""
     house = body.house
@@ -284,24 +307,7 @@ async def start(db: AsyncSession, user: User, body: SimulationCreate) -> Job:
     if busy is not None:
         raise SimulationRefused(409, f"simulation {busy.run_id} is still running for this home")
 
-    plugs = (
-        await db.execute(
-            text(
-                "SELECT s.series_id, s.source_channel, d.id AS device_id, "
-                "d.device_type_code AS type FROM energy.series s "
-                "JOIN core.device d ON d.id = s.device_id "
-                "WHERE s.home_id = :h AND s.kind = 'plug' AND s.metric = 'power_w' "
-                "ORDER BY s.source_channel"
-            ),
-            {"h": home_id},
-        )
-    ).all()
-    items = []
-    for typ in NILM_APPLIANCES:
-        plug = next((p for p in plugs if p.type == typ), None)
-        if plug is not None:
-            estimate = await _estimate_series(db, home_id, plug.device_id)
-            items.append(Item(typ, plug.device_id, plug.source_channel, plug.series_id, estimate))
+    items = await appliance_items(db, home_id)
     if not items:
         raise SimulationRefused(
             422, f"REFIT house {house} has none of: {', '.join(NILM_APPLIANCES)}"
