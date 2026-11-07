@@ -1,0 +1,10 @@
+{
+  "dependencies": [
+    "."
+  ],
+  "graphs": {
+    "copilot": "app.copilot.agents.router:copilot_graph"
+  },
+  "env": ".env",
+  "python_version": "3.12"
+}

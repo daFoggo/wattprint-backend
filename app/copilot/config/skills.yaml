@@ -1,0 +1,350 @@
+# System tools and skills of the Copilot (spec 2026-11-07, section 3).
+# `python -m app.cli.copilot_skills sync` loads this file: tools get their JSON Schema from the
+# handler in code (app/copilot/tools/handlers), every skill and tool is chunked and embedded.
+# A tool's name is its handler's name; a row cannot point anywhere else.
+
+tools:
+  - name: query_usage
+    label_vi: Tra cứu điện năng
+    label_en: Usage query
+    category: usage
+    user_selectable: true
+    timeout_ms: 8000
+    presettable: [device_ids, measure, grain, group_by, source]
+    description: >-
+      Electricity used by the whole home, devices or device types over local days: a total or a
+      breakdown per day, week, month, hour, device or weekday, top or least, or compared with the
+      period before. Returns rows with kWh or W, the data coverage and whether the figure is
+      measured (meter or plug) or estimated by NILM.
+  - name: compute_bill
+    label_vi: Tính hoá đơn
+    label_en: Bill
+    category: billing
+    user_selectable: true
+    timeout_ms: 8000
+    description: >-
+      The bill of the billing cycle containing a day, priced with the home's tiered tariff: kWh,
+      amount before VAT, VAT, total in VND and data coverage.
+  - name: bill_by_tier
+    label_vi: Hoá đơn theo bậc
+    label_en: Bill by tier
+    category: billing
+    user_selectable: true
+    timeout_ms: 8000
+    description: >-
+      The kWh and the money of a billing cycle in each tariff tier.
+  - name: search_price
+    label_vi: Tra giá điện
+    label_en: Tariff lookup
+    category: billing
+    user_selectable: true
+    description: >-
+      The tariff version of the home's plan valid on a day: each tier's kWh range and price per
+      kWh, and the VAT rate.
+  - name: usage_to_date
+    label_vi: Điện năng từ đầu kỳ
+    label_en: Usage so far
+    category: forecast
+    user_selectable: true
+    description: >-
+      kWh from the start of the billing cycle to the latest day with data, and the days counted.
+  - name: forecast_usage
+    label_vi: Dự báo điện năng
+    label_en: Usage forecast
+    category: forecast
+    description: >-
+      Forecast kWh at the end of the billing cycle: use so far plus the mean of the last 7 days for
+      each day left. Stores the forecast.
+  - name: price_kwh
+    label_vi: Tính tiền theo kWh
+    label_en: Price kWh
+    category: forecast
+    description: >-
+      Price an amount of kWh with the tariff tiers and VAT (the forecast by default).
+  - name: tier_gap
+    label_vi: Khoảng cách tới bậc
+    label_en: Tier gap
+    category: forecast
+    description: >-
+      The tariff tier the forecast falls in, the kWh above that tier's start, and how much to cut
+      per day to stay in the tier below.
+  - name: read_suggestions
+    label_vi: Gợi ý tiết kiệm
+    label_en: Saving suggestions
+    category: advice
+    user_selectable: true
+    description: >-
+      Up to three open saving suggestions with the kWh and VND per month each could save.
+  - name: get_savings
+    label_vi: Tiết kiệm đã đo
+    label_en: Measured savings
+    category: advice
+    user_selectable: true
+    description: >-
+      Measured savings of the suggestions the household accepted (7 days before vs after).
+  - name: nilm_latest
+    label_vi: Thiết bị đang chạy
+    label_en: Running now
+    category: usage
+    user_selectable: true
+    presettable: [minutes]
+    description: >-
+      The latest power reading and the appliances NILM sees on, or the time of the latest data when
+      nothing arrived recently.
+  - name: list_alerts
+    label_vi: Danh sách cảnh báo
+    label_en: Alerts
+    category: alerts
+    user_selectable: true
+    description: >-
+      The household's alert watches and alerts, newest first.
+  - name: create_alert
+    label_vi: Tạo cảnh báo
+    label_en: Create alert
+    category: alerts
+    user_selectable: true
+    presettable: [measure, threshold_w, start_hour, end_hour, device_id]
+    description: >-
+      Create an alert watch: warn when the home's (or a device's) power goes above a threshold in
+      a time window. It changes data, but the app itself shows the user a confirmation card before
+      it runs, so call it directly whenever the user asks to be alerted.
+  - name: search_knowledge
+    label_vi: Tra tài liệu
+    label_en: Documents
+    category: knowledge
+    user_selectable: true
+    description: >-
+      Passages from tariff and energy-saving documents that answer a general question.
+  - name: derive_cycles
+    label_vi: Tách chu kỳ thiết bị
+    label_en: Appliance cycles
+    category: pipeline
+    timeout_ms: 20000
+    description: >-
+      Derive the appliance on/off cycles of the last days.
+  - name: detect_motifs
+    label_vi: Tìm thói quen
+    label_en: Patterns
+    category: pipeline
+    timeout_ms: 20000
+    description: >-
+      Detect the five behaviour patterns (night baseline, high day, repeat use, long run, tier
+      crossing).
+  - name: evaluate_rules
+    label_vi: Áp quy tắc
+    label_en: Rules
+    category: pipeline
+    timeout_ms: 20000
+    description: >-
+      Check the expert and household rules against the patterns found.
+  - name: price_candidates
+    label_vi: Tính tiền tiết kiệm
+    label_en: Price savings
+    category: pipeline
+    description: >-
+      The monthly kWh and VND each candidate suggestion saves at the home's tier.
+  - name: rank_candidates
+    label_vi: Xếp hạng gợi ý
+    label_en: Rank
+    category: pipeline
+    description: >-
+      Rank by saving times the chance of acceptance; skip open, snoozed or rejected kinds.
+  - name: phrase_suggestions
+    label_vi: Viết gợi ý
+    label_en: Phrase
+    category: pipeline
+    timeout_ms: 20000
+    description: >-
+      Title and body of each suggestion; numbers only from the facts.
+  - name: store_suggestions
+    label_vi: Lưu gợi ý
+    label_en: Store
+    category: pipeline
+    description: >-
+      Store the ranked suggestions with their evidence.
+  - name: measure_savings
+    label_vi: Đo tiết kiệm
+    label_en: Measure savings
+    category: pipeline
+    description: >-
+      Measure kWh before and after the suggestions accepted 7 or more days ago.
+  - name: read_session
+    label_vi: Đọc phiên
+    label_en: Read session
+    category: memory
+    description: >-
+      The messages and tool calls of a finished conversation.
+  - name: summarize_session
+    label_vi: Tóm tắt phiên
+    label_en: Summarise session
+    category: memory
+    timeout_ms: 30000
+    description: >-
+      Summarise a conversation and extract household facts, checked against its tool results.
+  - name: store_session_memory
+    label_vi: Lưu trí nhớ
+    label_en: Store memory
+    category: memory
+    description: >-
+      Store the session summary and merge the household facts into long-term memory.
+
+skills:
+  - code: usage_query
+    name: Tra cứu điện năng
+    description: >-
+      Electricity used by the whole home, a device or a group of devices over a period: totals,
+      per day or hour, which appliance or day used most or least, compared with the period before.
+    instructions: >-
+      Call query_usage once with the dates, devices and breakdown the question asks for. Use only
+      device ids and device type codes from the linked terms. Set unclear when the question points
+      at an appliance it does not name and the history does not say which.
+    tools: [query_usage]
+    followups:
+      - "So với tuần trước thì sao?"
+      - "Thiết bị nào dùng nhiều nhất?"
+    examples:
+      - Hôm qua nhà tôi dùng bao nhiêu điện?
+      - Tuần qua nhà dùng hết bao nhiêu kWh?
+      - Ngày nào tuần qua dùng nhiều điện nhất?
+      - Máy giặt hôm qua dùng bao nhiêu điện?
+      - Ấm đun nước tốn bao nhiêu điện tuần này?
+      - Thiết bị nào dùng nhiều điện nhất?
+      - Giờ nào trong ngày dùng điện nhiều nhất?
+      - Tháng này so với tháng trước dùng nhiều hơn không?
+      - Lò vi sóng thực đo bao nhiêu?
+      - Cái máy đó dùng bao nhiêu?
+      - How much electricity did we use yesterday?
+      - How much did the washing machine use last week?
+
+  - code: bill_explain
+    name: Hoá đơn tiền điện
+    description: >-
+      The electricity bill of a billing cycle in VND, how it splits across the tariff tiers, and
+      why it is high.
+    instructions: >-
+      For the amount, call compute_bill. To explain a high bill, call compute_bill, bill_by_tier
+      and query_usage with grain day for the cycle, all in one round; then answer with the amount
+      (it includes VAT: say so), the kWh in each tariff tier (bậc) and the day that used the most.
+    tools: [compute_bill, bill_by_tier, search_price, query_usage]
+    followups:
+      - "Cuối tháng tiền điện khoảng bao nhiêu?"
+      - "Làm sao để tiết kiệm điện?"
+    examples:
+      - Tháng này tiền điện bao nhiêu?
+      - Hoá đơn tháng này bao nhiêu tiền?
+      - Vì sao hoá đơn tháng này cao?
+      - Tiền điện kỳ này tính theo bậc thế nào?
+      - How much is this month's bill?
+
+  - code: forecast_bill
+    name: Dự báo hoá đơn
+    mode: pipeline
+    description: >-
+      Estimate the kWh and the money at the end of the current billing cycle from the use so far
+      and the last 7 days.
+    tools: [usage_to_date, forecast_usage, search_price, price_kwh]
+    followups:
+      - "Mỗi ngày phải giảm bao nhiêu để không lên bậc?"
+    examples:
+      - Cuối tháng tiền điện khoảng bao nhiêu?
+      - Dự báo hoá đơn tháng này
+      - Tháng này dự kiến hết bao nhiêu tiền điện?
+      - What will my bill be at the end of the month?
+
+  - code: tier_guard
+    name: Giữ bậc giá
+    mode: pipeline
+    description: >-
+      How much electricity to cut per day so this billing cycle stays below the next tariff tier.
+    tools: [forecast_usage, search_price, tier_gap]
+    examples:
+      - Mỗi ngày phải giảm bao nhiêu để không lên bậc?
+      - Làm sao để không bị lên bậc giá điện?
+      - Tháng này có bị lên bậc không?
+      - How much should I cut to stay in the lower tier?
+
+  - code: savings_advice
+    name: Gợi ý tiết kiệm
+    description: The household's open saving suggestions and how much each could save per month.
+    instructions: Call read_suggestions.
+    tools: [read_suggestions]
+    followups:
+      - "Làm theo gợi ý có tiết kiệm được không?"
+    examples:
+      - Làm sao để tiết kiệm điện?
+      - Có gợi ý tiết kiệm điện nào không?
+      - Nhà tôi nên làm gì để giảm tiền điện?
+      - How can I save electricity?
+
+  - code: savings_tracking
+    name: Kết quả tiết kiệm
+    description: How much the suggestions the household followed actually saved.
+    instructions: Call get_savings.
+    tools: [get_savings]
+    examples:
+      - Làm theo gợi ý có tiết kiệm được không?
+      - Tôi đã tiết kiệm được bao nhiêu điện từ khi làm theo gợi ý?
+
+  - code: live_status
+    name: Đang chạy
+    description: Which appliances are running right now and the current power, from the latest NILM run.
+    instructions: Call nilm_latest.
+    tools: [nilm_latest]
+    examples:
+      - Bây giờ thiết bị nào đang chạy?
+      - Công suất hiện tại là bao nhiêu?
+      - Đang có máy nào bật không?
+      - What is running right now?
+
+  - code: alerts
+    name: Cảnh báo
+    description: >-
+      List the household's alerts or create one: a warning when power goes above a threshold in a
+      time window. Creating asks the user first.
+    instructions: >-
+      When the user asks to be warned, told or alerted about something (báo cho tôi, cảnh báo khi,
+      nhắc tôi nếu, alert me), call create_alert with threshold_w in W (2 kW = 2000) and the window
+      in local hours (night = start_hour 0, end_hour 5; no time = 0 to 24). Call list_alerts only
+      when the user asks which alerts exist.
+    max_steps: 2
+    tools: [list_alerts, create_alert]
+    examples:
+      - Báo cho tôi nếu ban đêm dùng quá 200 W
+      - Cảnh báo khi công suất vượt 3000 W
+      - Tôi có những cảnh báo nào?
+      - Alert me when power goes over 2 kW at night
+
+  - code: energy_knowledge
+    name: Kiến thức điện
+    description: General questions about electricity tariffs, VAT and how to save energy, answered from documents.
+    instructions: Call search_knowledge with the question.
+    tools: [search_knowledge]
+    examples:
+      - Giá điện bậc thang tính thế nào?
+      - VAT tiền điện là bao nhiêu phần trăm?
+      - Điều hoà để bao nhiêu độ thì tiết kiệm?
+
+  - code: daily_advice
+    name: Phân tích thói quen
+    mode: pipeline
+    triggers: [schedule, chat]
+    schedule: "0 2 * * *"
+    description: >-
+      Analyse the last days of the household's use: find behaviour patterns, check them against
+      expert and household rules, price the savings and store up to three suggestions.
+    tools: [derive_cycles, detect_motifs, evaluate_rules, price_candidates, rank_candidates,
+            phrase_suggestions, store_suggestions, measure_savings]
+    examples:
+      - Phân tích lại thói quen dùng điện giúp tôi
+      - Phân tích thói quen dùng điện của nhà tôi
+      - Cập nhật gợi ý tiết kiệm mới
+
+  - code: session_summary
+    name: Tóm tắt phiên
+    mode: pipeline
+    triggers: [event]
+    description: >-
+      Summarise a finished conversation into long-term memory: what was asked, which skills and
+      tools ran, what changed, what stayed open; update the household facts.
+    tools: [read_session, summarize_session, store_session_memory]
+    examples: []

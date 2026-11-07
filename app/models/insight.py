@@ -10,6 +10,7 @@ from sqlalchemy import (
     DateTime,
     Float,
     ForeignKey,
+    ForeignKeyConstraint,
     Index,
     Integer,
     Numeric,
@@ -108,3 +109,35 @@ class CohortStat(Base):
     p66_w: Mapped[Decimal] = mapped_column(Numeric(10, 2))
     p90_w: Mapped[Decimal] = mapped_column(Numeric(10, 2))
     n_homes: Mapped[int] = mapped_column(Integer)
+
+
+class MotifInstance(Base):
+    """One occurrence of a behaviour pattern (app/copilot/utils/motifs.py), with its facts.
+
+    Unique (home_id, motif, device_id, start_ts) with NULLs equal; device_id NULL = the home.
+    """
+
+    __tablename__ = "motif_instance"
+    __table_args__ = (
+        CheckConstraint("end_ts > start_ts", name="range"),
+        Index("ix_motif_instance_home_motif_start", "home_id", "motif", text("start_ts DESC")),
+        ForeignKeyConstraint(["home_id", "device_id"], ["core.device.home_id", "core.device.id"],
+                             ondelete="CASCADE", name="fk_motif_instance_home_id_device"),
+        {"schema": "insight"},
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        primary_key=True, default=uuid.uuid4, server_default=_UUID_DEFAULT
+    )
+    home_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("core.home.id", ondelete="CASCADE"))
+    motif: Mapped[str] = mapped_column(Text)
+    device_id: Mapped[uuid.UUID | None] = mapped_column()
+    start_ts: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    end_ts: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    facts: Mapped[dict[str, Any]] = mapped_column(
+        JSONB, default=dict, server_default=text("'{}'::jsonb")
+    )
+    kwh: Mapped[Decimal | None] = mapped_column(Numeric(12, 3))
+    detected_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=text("now()")
+    )

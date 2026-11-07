@@ -49,6 +49,8 @@ class Home(Base):
         String(64), ForeignKey("billing.tariff_plan.code", onupdate="CASCADE", ondelete="SET NULL")
     )
     billing_cycle_day: Mapped[int] = mapped_column(SmallInteger, default=1, server_default="1")
+    # off: the Copilot neither writes nor recalls summaries of past sessions (long-term memory)
+    copilot_memory: Mapped[bool] = mapped_column(default=True, server_default=text("true"))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=_NOW)
 
 
@@ -120,6 +122,8 @@ class Device(Base):
     __table_args__ = (
         CheckConstraint("origin IN ('nilm','plug','manual')", name="origin"),
         CheckConstraint("active_to IS NULL OR active_to > active_from", name="validity_range"),
+        # target of the same-home links (home_id, device_id) of suggestions, alerts, cycles
+        UniqueConstraint("home_id", "id", name="uq_device_home_id"),
         {"schema": "core"},
     )
 

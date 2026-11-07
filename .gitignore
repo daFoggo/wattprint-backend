@@ -13,3 +13,18 @@ dist/
 
 # Local datasets (REFIT, ~6.5 GB): never commit
 dataset/
+
+# NILM replay inputs (model checkpoints, third-party NILMFormer repo): never commit
+checkpoints/
+third_party/
+*.pt
+
+# LangGraph dev server state (uv run langgraph dev)
+.langgraph_api/
+
+# Docs stay local (guides, specs, eval reports, screenshots); files main already tracks stay tracked
+docs/
+
+# Local Copilot Q&A results and the uv lockfile stay out of the repo
+/test.csv
+/uv.lock

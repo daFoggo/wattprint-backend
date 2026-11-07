@@ -33,7 +33,7 @@ SCHEMAS = ("core", "catalog", "energy", "billing", "insight", "copilot", "knowle
 COPILOT_VIEWS = (
     "home", "device", "series", "bill", "bill_item", "alert", "device_cycle", "suggestion",
     "forecast_snapshot", "reading_1m", "reading_1h", "reading_1d", "device_estimate_1m",
-    "device_estimate_1h", "device_estimate_1d",
+    "device_estimate_1h", "device_estimate_1d", "lexicon", "term", "rule", "motif_instance",
 )
 # rows each view shows for ONE home of the seed below
 EXPECTED_ROWS = {
@@ -41,6 +41,7 @@ EXPECTED_ROWS = {
     "device_cycle": 1, "suggestion": 1, "forecast_snapshot": 1,
     "reading_1m": 3, "reading_1h": 1, "reading_1d": 1,
     "device_estimate_1m": 3, "device_estimate_1h": 1, "device_estimate_1d": 1,
+    "term": 1, "rule": 1, "motif_instance": 1,
 }
 
 
@@ -100,6 +101,29 @@ async def _seed_home(c, name: str) -> dict:
         ),
         {"h": home},
     )
+    await c.execute(
+        text(
+            "INSERT INTO copilot.term (home_id, phrase, match_key, kind, target) "
+            "VALUES (:h, :p, copilot_ro.match_key(:p), 'device', "
+            "jsonb_build_object('device_id', CAST(:d AS text)))"
+        ),
+        {"h": home, "p": f"tủ nhà {name}", "d": str(device)},
+    )
+    await c.execute(
+        text(
+            "INSERT INTO copilot.rule (home_id, name, motif, body, suggest_kind, compiled_sql, "
+            "content_hash) VALUES (:h, 'r', 'night_baseline', '{}', 'standby_hunt', 'SELECT 1', "
+            "'x')"
+        ),
+        {"h": home},
+    )
+    await c.execute(
+        text(
+            "INSERT INTO insight.motif_instance (home_id, motif, device_id, start_ts, end_ts) "
+            "VALUES (:h, 'long_run', :d, :s, :e)"
+        ),
+        {"h": home, "d": device, "s": T0, "e": T0 + timedelta(hours=1)},
+    )
     token = await c.scalar(
         text("INSERT INTO copilot.scope_token (home_id) VALUES (:h) RETURNING token"), {"h": home}
     )
@@ -110,23 +134,9 @@ async def _seed_home(c, name: str) -> dict:
     }
 
 
-async def seed(c) -> tuple[dict, dict, dict]:
-    """Two homes plus hostile rows: home_id = A but the device belongs to B."""
-    a = await _seed_home(c, "A")
-    b = await _seed_home(c, "B")
-    hostile = {
-        "alert": await mk_alert(c, a["home"], b["device"]),
-        "suggestion": await mk_suggestion(c, a["home"], b["device"]),
-    }
-    await c.execute(
-        text(
-            "INSERT INTO insight.device_cycle (home_id, device_id, start_ts, end_ts, "
-            "energy_wh, peak_w) VALUES (:h, :d, :s, :e, 999, 999)"
-        ),
-        {"h": a["home"], "d": b["device"], "s": T0 + timedelta(hours=3),
-         "e": T0 + timedelta(hours=4)},
-    )
-    return a, b, hostile
+async def seed(c) -> tuple[dict, dict]:
+    """Two homes. Rows naming the other home's device are rejected by the same-home links."""
+    return await _seed_home(c, "A"), await _seed_home(c, "B")
 
 
 async def set_token(c, token: uuid.UUID | str) -> None:
@@ -177,7 +187,7 @@ async def denied(c, sql: str, **params) -> None:
 
 
 async def test_copilot_sees_only_own_home(conn):
-    a, b, _ = await seed(conn)
+    a, b = await seed(conn)
     for home, other in ((a, b), (b, a)):
         await as_role(conn, COPILOT, home["token"])
         for view, n in EXPECTED_ROWS.items():
@@ -197,7 +207,7 @@ async def test_copilot_sees_only_own_home(conn):
 
 
 async def test_copilot_switching_token_flips_result(conn):
-    a, b, _ = await seed(conn)
+    a, b = await seed(conn)
     await as_role(conn, COPILOT, a["token"])
     assert await view_ids(conn, "home") == {a["home"]}
     await set_token(conn, b["token"])
@@ -224,7 +234,7 @@ async def test_copilot_unset_token_returns_nothing(scratch_dsn):
 
 
 async def test_copilot_bad_tokens_return_nothing_without_error(conn):
-    a, _, _ = await seed(conn)
+    a, _ = await seed(conn)
     expired = await conn.scalar(
         text("INSERT INTO copilot.scope_token (home_id, expires_at) "
              "VALUES (:h, now() - interval '1 second') RETURNING token"),
@@ -249,7 +259,7 @@ async def test_copilot_bad_tokens_return_nothing_without_error(conn):
 
 
 async def test_copilot_home_id_setting_has_no_effect(conn):
-    a, b, _ = await seed(conn)
+    a, b = await seed(conn)
     await as_role(conn, COPILOT)
     await conn.execute(text("SELECT set_config('app.home_id', :h, true)"), {"h": str(b["home"])})
     for view in COPILOT_VIEWS:  # no token: still nothing
@@ -270,7 +280,7 @@ async def test_copilot_inline_token_switch_needs_a_known_token(conn):
     learned from a sibling session's query text (pg_stat_activity) if the backend ever inlines
     one as a literal; the backend contract (bind parameter, is_local, parse-tree validator that
     denies pg_stat_activity and set_config) prevents that. See spec section 8."""
-    a, b, _ = await seed(conn)
+    a, b = await seed(conn)
     await as_role(conn, COPILOT, a["token"])
     inline = text(
         "SELECT h.id FROM (SELECT set_config('app.copilot_token', :t, true)) s, "
@@ -325,14 +335,14 @@ async def test_token_lookup_uses_the_primary_key(conn):
 
 
 async def test_deleting_a_home_cascades_to_its_tokens(conn):
-    a, b, _ = await seed(conn)
+    a, b = await seed(conn)
     await conn.execute(text("DELETE FROM core.home WHERE id = :h"), {"h": a["home"]})
     left = (await conn.execute(text("SELECT home_id FROM copilot.scope_token"))).scalars().all()
     assert a["home"] not in left and b["home"] in left
 
 
 async def test_app_issues_and_prunes_tokens_others_cannot_read(conn):
-    a, _, _ = await seed(conn)
+    a, _ = await seed(conn)
     await as_role(conn, APP)
     t = await conn.scalar(
         text("INSERT INTO copilot.scope_token (home_id) VALUES (:h) RETURNING token"),
@@ -351,29 +361,59 @@ async def test_app_issues_and_prunes_tokens_others_cannot_read(conn):
         await reset(conn)
 
 
-async def test_copilot_hostile_denormalized_rows_hidden(conn):
-    a, b, hostile = await seed(conn)
-    total = {
-        "insight.alert": 3, "copilot.suggestion": 3, "insight.device_cycle": 3,
-    }
-    for table, n in total.items():  # the hostile rows really exist
-        assert await conn.scalar(text(f"SELECT count(*) FROM {table}")) >= n
+async def test_rows_naming_another_homes_device_are_rejected(conn):
+    a, b = await seed(conn)
+    hostile = (
+        ("INSERT INTO insight.alert (home_id, device_id, kind, severity, ts) "
+         "VALUES (:h, :d, 'long_run', 'info', now())"),
+        ("INSERT INTO copilot.suggestion (home_id, device_id, kind, title, body) "
+         "VALUES (:h, :d, 'k', 't', 'b')"),
+        ("INSERT INTO insight.device_cycle (home_id, device_id, start_ts, end_ts, energy_wh, "
+         "peak_w) VALUES (:h, :d, now(), now() + interval '1 hour', 999, 999)"),
+        ("INSERT INTO insight.motif_instance (home_id, motif, device_id, start_ts, end_ts) "
+         "VALUES (:h, 'long_run', :d, now(), now() + interval '1 hour')"),
+    )
+    for sql in hostile:
+        sp = await conn.begin_nested()
+        with pytest.raises(DBAPIError) as exc:
+            await conn.execute(text(sql), {"h": a["home"], "d": b["device"]})
+        assert exc.value.orig.__cause__.sqlstate == "23503", sql  # foreign_key_violation
+        await sp.rollback()
+    for home in (a, b):  # each home still sees exactly its own rows
+        await as_role(conn, COPILOT, home["token"])
+        assert await view_count(conn, "device_cycle") == 1
+        assert await view_ids(conn, "motif_instance", "device_id") == {home["device"]}
+        await reset(conn)
+
+
+async def test_copilot_lexicon_lists_only_own_home(conn):
+    a, b = await seed(conn)
     for home in (a, b):
         await as_role(conn, COPILOT, home["token"])
-        assert hostile["alert"] not in await view_ids(conn, "alert")
-        assert hostile["suggestion"] not in await view_ids(conn, "suggestion")
-        assert await view_count(conn, "device_cycle") == 1
-        assert await conn.scalar(
-            text("SELECT count(*) FROM copilot_ro.device_cycle WHERE energy_wh = 999")
-        ) == 0
+        rows = (await conn.execute(text(
+            "SELECT source, ref FROM copilot_ro.lexicon WHERE source IN ('device', 'term')"
+        ))).all()
+        assert set(rows) == {("device", str(home["device"])), ("term", str(home["device"]))}
+        types = await conn.scalar(text(
+            "SELECT count(DISTINCT ref) FROM copilot_ro.lexicon WHERE source = 'device_type'"
+        ))
+        assert types == await conn.scalar(text("SELECT count(*) FROM catalog.device_type"))
         await reset(conn)
+
+
+async def test_match_key_drops_tone_marks_and_question_words(conn):
+    await as_role(conn, COPILOT)
+    got = await conn.scalar(text("SELECT copilot_ro.match_key('Tivi tốn điện KHÔNG?')"))
+    assert got == "tivi"
+    assert await conn.scalar(text("SELECT copilot_ro.match_key('Xe điện')")) == "xe"
+    assert await conn.scalar(text("SELECT copilot_ro.match_key('Bình tắm')")) == "binh tam"
 
 
 # --- copilot: privileges ---
 
 
 async def test_copilot_cannot_write(conn):
-    a, _, _ = await seed(conn)
+    a, _ = await seed(conn)
     await as_role(conn, COPILOT, a["token"])
     for sql in (
         "INSERT INTO copilot_ro.home (id, name) VALUES (gen_random_uuid(), 'x')",
@@ -405,13 +445,13 @@ COPILOT_DENIED_READS = (
 
 @pytest.mark.parametrize("table", COPILOT_DENIED_READS)
 async def test_copilot_cannot_read_base_tables(conn, table):
-    a, _, _ = await seed(conn)
+    a, _ = await seed(conn)
     await as_role(conn, COPILOT, a["token"])
     await denied(conn, f"SELECT * FROM {table}")
 
 
 async def test_copilot_can_read_reference_data(conn):
-    a, _, _ = await seed(conn)
+    a, _ = await seed(conn)
     await as_role(conn, COPILOT, a["token"])
     for table in (
         "knowledge.document", "knowledge.chunk", "catalog.metric", "catalog.device_type",
@@ -480,7 +520,7 @@ async def test_no_privilege_for_public_on_new_objects(conn):
 
 
 async def test_ingest_can_write_readings_and_ops(conn):
-    a, _, _ = await seed(conn)
+    a, _ = await seed(conn)
     main = (await conn.scalar(
         text("SELECT series_id FROM energy.series WHERE home_id = :h AND kind = 'main'"),
         {"h": a["home"]},
@@ -559,7 +599,7 @@ async def test_ingest_cannot_delete_truncate_or_read_other_tables(conn):
 
 
 async def test_app_dml_and_aggregate_reads(conn):
-    a, _, _ = await seed(conn)
+    a, _ = await seed(conn)
     await as_role(conn, APP)
     h = await conn.scalar(text("INSERT INTO core.home (name) VALUES ('N') RETURNING id"))
     await conn.execute(text("UPDATE core.home SET name = 'M' WHERE id = :h"), {"h": h})
@@ -644,7 +684,7 @@ def expected_copilot(rel: str) -> set[str]:
 
 EXPECTED = {APP: expected_app, INGEST: expected_ingest, COPILOT: expected_copilot}
 EXPECTED_USAGE = {
-    APP: set(SCHEMAS),
+    APP: {*SCHEMAS, "copilot_ro"},  # copilot_ro.match_key for terms; no view SELECT
     INGEST: {"core", "energy", "ops"},
     COPILOT: {"copilot_ro", "knowledge", "catalog", "billing"},
 }
@@ -814,7 +854,7 @@ async def test_revision_downgrade_removes_grants_and_upgrade_restores_them(throw
     "view", ["reading_1m", "reading_1h", "reading_1d", "device_estimate_1m", "device_estimate_1h"]
 )
 async def test_aggregate_view_pushes_series_filter_into_index_scan(conn, view):
-    a, _, _ = await seed(conn)
+    a, _ = await seed(conn)
     await conn.execute(text("SET LOCAL enable_seqscan = off"))
     await as_role(conn, COPILOT, a["token"])
     plan = "\n".join((await conn.execute(

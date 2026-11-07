@@ -1,0 +1,16 @@
+# GPU overlay: runs the NILM replay on an NVIDIA GPU. Put it after the NILM overlay:
+#   COMPOSE_FILE=docker-compose.yml:docker-compose.nilm.yml:docker-compose.gpu.yml
+# Needs the NVIDIA driver and the NVIDIA Container Toolkit on the Docker host; rebuild the image
+# after adding it (the CUDA build of PyTorch is selected at build time).
+services:
+  api:
+    build:
+      args:
+        TORCH_EXTRA: gpu
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]

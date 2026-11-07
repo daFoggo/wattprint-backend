@@ -353,6 +353,7 @@ async def test_catalog_core_downgrade_upgrade(throwaway_dsn):
         run_alembic(throwaway_dsn, "upgrade", "head")
         async with engine.connect() as c:
             assert await c.scalar(q) == 8
-            assert await c.scalar(text("SELECT count(*) FROM catalog.device_type")) == 22
+            # 22 seeded types plus fan (copilot retrieval revision)
+            assert await c.scalar(text("SELECT count(*) FROM catalog.device_type")) == 23
     finally:
         await engine.dispose()

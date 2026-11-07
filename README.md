@@ -41,8 +41,9 @@ app/
   security.py      password hashing, JWT helpers
   models/          SQLAlchemy models (user, refresh_token)
   schemas/         Pydantic schemas (token, user)
-  routers/         auth, health, users
-  services/        business logic (auth)
+  routers/         auth, health, users, simulations, disaggregation
+  services/        business logic (auth, ingest, meter read model, NILM replay and its read model)
+  ml/              NILMFormer inference (torch, loaded only when a replay runs)
 alembic/           migrations (versions/): users/refresh tokens, TimescaleDB extension, legacy schema removal, server defaults, energy time series and continuous aggregates (the 1 m ones compressed), billing, roles
 tests/
 pyproject.toml     (uv)
@@ -52,6 +53,14 @@ docker-compose.yml
 
 TimescaleDB: the extension is enabled by the `enable timescaledb` Alembic migration (needs a superuser DB role,
 which the compose `db` user is).
+
+## NILM replay
+
+`POST /api/v1/simulations` replays one REFIT day minute by minute through the NILMFormer checkpoints
+and stores the aggregate, the sub-meters and the per-appliance estimates in the energy schema;
+`GET /api/v1/disaggregation` and `/disaggregation/latest` read them back. It needs PyTorch (the
+`cpu` or `gpu` extra) and inputs that are not in the repository (REFIT CSVs, checkpoints, the
+NILMFormer source), mounted by `docker-compose.nilm.yml`. See `docs/nilm-simulation.md`.
 
 ## Auth flow
 
