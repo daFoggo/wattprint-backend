@@ -24,3 +24,7 @@ third_party/
 
 # Docs stay local (guides, specs, eval reports, screenshots); files main already tracks stay tracked
 docs/
+
+# Local Copilot Q&A results and the uv lockfile stay out of the repo
+/test.csv
+/uv.lock
