@@ -1,0 +1,15 @@
+# The Copilot's chat model on OpenRouter (app/copilot/agents/llm.py reads this).
+# The key and the model name stay in .env (OPENROUTER_API_KEY, OPENROUTER_MODEL, OPENROUTER_BASE_URL):
+# they differ per environment and the key is a secret.
+temperature: 0
+timeout_s: 30   # per request
+max_retries: 2  # on transient errors, by the OpenAI client
+reasoning: false  # no hidden reasoning tokens: ~9 s → ~1.5 s per call on OpenRouter
+
+# Skill search and the agent loop (spec 2026-11-07). Similarities are bge-m3 cosines.
+embedding: {model: BAAI/bge-m3, dim: 1024, cache_size: 2048}
+# skill_top_k: the n best skills the search keeps; the model chooses among them in decide
+retrieval: {skill_top_k: 3, choose_min_sim: 0.45, memory_min_sim: 0.55, memory_half_life_days: 14}
+executor: {max_failed_rounds: 2, pending_minutes: 10}
+limits: {household_skills: 20, examples_per_skill: 30, tools_per_skill: 5, messages_per_minute: 20,
+         message_chars: 1000}

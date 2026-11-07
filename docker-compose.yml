@@ -29,6 +29,11 @@ services:
       APP_DB_PASSWORD: ${APP_DB_PASSWORD:-}
       INGEST_DB_PASSWORD: ${INGEST_DB_PASSWORD:-}
       COPILOT_DB_PASSWORD: ${COPILOT_DB_PASSWORD:-}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      OPENROUTER_BASE_URL: ${OPENROUTER_BASE_URL:-https://openrouter.ai/api/v1}
+      OPENROUTER_MODEL: ${OPENROUTER_MODEL:-}
+      # empty password: no Copilot login, the Copilot endpoints answer 503
+      COPILOT_DATABASE_URL: ${COPILOT_DB_PASSWORD:+postgresql+asyncpg://wattprint_copilot_ro:${COPILOT_DB_PASSWORD}@db:5432/${POSTGRES_DB}}
     ports:
       - "${API_PORT:-8000}:8000"
     depends_on:

@@ -38,6 +38,7 @@ _DEVICE_TYPE_RULES: tuple[tuple[re.Pattern[str], str], ...] = tuple(
         (r"toaster", "toaster"),
         (r"hi-?fi", "hifi"),
         (r"router|network", "router"),
+        (r"\bfan\b", "fan"),
     )
 )
 

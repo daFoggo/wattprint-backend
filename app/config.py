@@ -1,3 +1,5 @@
+from datetime import date
+
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -27,6 +29,24 @@ class Settings(BaseSettings):
     nilm_scale: float = 10000.0
     # Folder with the REFIT CLEAN_House<N>.csv files.
     refit_csv_dir: str = "/data/CLEAN_REFIT_081116"
+
+    # LLM for the Copilot; empty key = Copilot features off.
+    openrouter_api_key: str = ""
+    openrouter_base_url: str = "https://openrouter.ai/api/v1"
+    openrouter_model: str = ""
+    # Login of the read-only role wattprint_copilot_ro (COPILOT_DB_PASSWORD set before
+    # migrating): every query the Copilot builds runs there. Empty = Copilot off.
+    copilot_database_url: str = ""
+    # Demo only: pin the Copilot's "today" (e.g. 2026-11-05 for the legacy dump, which ends 4 Nov)
+    copilot_today: date | None = None
+
+    @property
+    def llm_enabled(self) -> bool:
+        return bool(self.openrouter_api_key and self.openrouter_model)
+
+    @property
+    def copilot_enabled(self) -> bool:
+        return bool(self.copilot_database_url) and self.llm_enabled
 
     @property
     def cors_origin_list(self) -> list[str]:

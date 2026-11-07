@@ -1,14 +1,18 @@
+import datetime as dt
 import importlib.util
+import json
 import os
 import subprocess
 import sys
+import tarfile
 import uuid
+from dataclasses import dataclass
 from pathlib import Path
 
 import pytest
 from sqlalchemy import text
 from sqlalchemy.engine import make_url
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from app.config import settings
 
@@ -113,3 +117,160 @@ async def autocommit_conn(scratch_dsn):
             yield c
     finally:
         await engine.dispose()
+
+
+# --- Copilot: the demo home loaded from the legacy dump, and a scripted chat model ---
+
+DUMP = ROOT / "tests" / "data" / "wattprint_dump_20261103.tar.gz"
+DEMO_TODAY = dt.date(2026, 11, 5)  # the dump is stored under 29 Oct .. 4 Nov 2026
+
+
+@dataclass
+class Demo:
+    dsn: str
+    sessions: async_sessionmaker
+    user_id: uuid.UUID
+    home_id: uuid.UUID
+    email: str
+
+
+@pytest.fixture(scope="session")
+async def demo(tmp_path_factory):
+    """A migrated database holding REFIT House 2 from the dump, owned by one registered user."""
+    from app.cli.migrate_legacy import make_plan, migrate, read_legacy
+    from app.schemas.user import UserCreate
+    from app.services.aggregates import backfill_aggregates
+    from app.services.auth import register_user
+    from app.services.disaggregation import home_of, local_day_start
+
+    folder = tmp_path_factory.mktemp("dump")
+    with tarfile.open(DUMP) as tar:
+        tar.extractall(folder, filter="data")
+    dsn, drop = await _create_migrated_db()
+    engine = create_async_engine(dsn)
+    sessions = async_sessionmaker(engine, expire_on_commit=False)
+    email = "owner@example.com"
+    try:
+        async with sessions() as s:
+            user = await register_user(
+                s, UserCreate(email=email, password="demo-password-123", full_name="Anh Demo")
+            )
+            legacy = read_legacy(folder)
+            plan = make_plan(legacy, DEMO_TODAY - dt.timedelta(days=1), DEMO_TODAY)
+            await migrate(s, legacy, plan, 2, email)
+            home_id = await home_of(s, user.id)
+        auto = create_async_engine(dsn, isolation_level="AUTOCOMMIT")
+        async with auto.connect() as c:
+            await backfill_aggregates(c, local_day_start(plan.first_target),
+                                      local_day_start(plan.last_target) + dt.timedelta(days=1))
+        await auto.dispose()
+        from app.copilot.skills import retrieval
+        from app.copilot.skills.catalog_sync import sync
+
+        # the fake embedder's cosines run lower than bge-m3's: its own "choose" floor
+        retrieval.CFG["choose_min_sim"] = 0.3
+        retrieval.CFG["memory_min_sim"] = 0.3
+        from app.copilot.nodes import ingress_node
+
+        ingress_node.LIMITS["messages_per_minute"] = 100_000  # one demo user asks every test
+        async with sessions() as s:
+            await sync(s, FakeEmbedder())
+        yield Demo(dsn, sessions, user.id, home_id, email)
+    finally:
+        await engine.dispose()
+        await drop()
+
+
+class FakeEmbedder:
+    """Deterministic stand-in for bge-m3: character trigrams of the toneless text, hashed into
+    1024 dimensions and normalised, so similar wordings score high and the same text scores 1."""
+
+    model_name = "fake-trigram"
+
+    def _one(self, text: str) -> list[float]:
+        import hashlib
+        import math
+
+        from app.copilot.skills.chunker import no_tone
+
+        v = [0.0] * 1024
+        t = f"  {no_tone(text)}  "
+        for i in range(len(t) - 2):
+            v[int(hashlib.md5(t[i:i + 3].encode()).hexdigest(), 16) % 1024] += 1.0
+        norm = math.sqrt(sum(x * x for x in v)) or 1.0
+        return [x / norm for x in v]
+
+    async def embed(self, texts: list[str]) -> list[list[float]]:
+        return [self._one(t) for t in texts]
+
+    async def embed_query(self, text: str) -> list[float]:
+        return self._one(text)
+
+
+class FakeChatModel:
+    """Scripted stand-in for the OpenRouter model.
+
+    `calls` maps the user's question to the tool calls of the first round: a list of
+    (tool, args) or a function of the decide payload (it sees the linked terms, as the real model
+    does). Later rounds return no call. The skill choice defaults to the top candidate; `choose`
+    overrides it per question. Free text is `answer`.
+    """
+
+    def __init__(self, calls: dict | None = None, answer: str = "(câu trả lời mẫu)",
+                 choose: dict | None = None, summary=None, rewrites: dict | None = None):
+        self.calls, self.answer, self.choose = calls or {}, answer, choose or {}
+        self.summary, self.rewrites = summary, rewrites or {}
+        self.payloads: list[dict] = []
+        self.model_name = "fake"
+
+    def with_structured_output(self, schema, **_):
+        return _Structured(self, schema)
+
+    def bind_tools(self, tools):
+        return _Bound(self, tools)
+
+    async def ainvoke(self, messages):
+        from langchain_core.messages import AIMessage
+
+        return AIMessage(content=self.answer)
+
+
+class _Bound:
+    def __init__(self, model: FakeChatModel, tools):
+        self.model, self.tools = model, tools
+
+    async def ainvoke(self, messages):
+        from langchain_core.messages import AIMessage, ToolMessage
+
+        payload = json.loads(messages[1].content)
+        payload["tools"] = [t["function"]["name"] for t in self.tools]
+        payload["tool_params"] = {t["function"]["name"]: list(
+            t["function"]["parameters"].get("properties", {})) for t in self.tools}
+        self.model.payloads.append(payload)
+        if any(isinstance(m, ToolMessage) for m in messages):
+            return AIMessage(content="")
+        script = self.model.calls.get(payload["original"], [])
+        calls = script(payload) if callable(script) else script
+        return AIMessage(content="", tool_calls=[
+            {"name": name, "args": args, "id": f"call_{i}"}
+            for i, (name, args) in enumerate(calls)])
+
+
+class _Structured:
+    def __init__(self, model: FakeChatModel, schema):
+        self.model, self.schema = model, schema
+
+    async def ainvoke(self, messages):
+        payload = json.loads(messages[-1].content)
+        self.model.payloads.append(payload)
+        name = self.schema.__name__
+        if name == "SkillChoice":
+            for question, code in self.model.choose.items():
+                if payload["question"].startswith(question):
+                    return self.schema(code=code)
+            return self.schema(code=payload["candidates"][0]["code"])
+        if name == "SessionSummaryOut" and self.model.summary:
+            return self.model.summary(payload)
+        if name == "Rewrite" and payload["follow_up"] in self.model.rewrites:
+            return self.schema(question=self.model.rewrites[payload["follow_up"]])
+        raise RuntimeError(f"no script for {name}")  # callers fall back
