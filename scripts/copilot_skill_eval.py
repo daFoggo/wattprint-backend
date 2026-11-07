@@ -5,9 +5,10 @@
 
 --setup builds a database like the tests' demo home (REFIT House 2, 29 Oct .. 4 Nov 2026), migrated
 to head, with the catalog synced and embedded by bge-m3, and prints its DSN. The run asks every case
-of docs/copilot-tests/skill-tool-cases.yaml through the Copilot graph (built queries run on the
+of scripts/copilot_skill_cases.yaml through the Copilot graph (built queries run on the
 read-only login wattprint_copilot_ro), reads back tool_call, alert, suggestion and memory rows, and
-writes docs/copilot-tests/skill-tool-results.{json,md}. Needs OPENROUTER_* in .env.
+writes docs/copilot-tests/skill-tool-results.{json,md} (local, git-ignored). Needs OPENROUTER_* in
+.env.
 """
 
 import argparse
@@ -43,7 +44,7 @@ from app.models import Skill, SkillSetting, SkillTool  # noqa: E402
 from app.routers.copilot import ask_out  # noqa: E402
 
 TODAY = dt.date(2026, 11, 5)
-CASES = ROOT / "docs" / "copilot-tests" / "skill-tool-cases.yaml"
+CASES = ROOT / "scripts" / "copilot_skill_cases.yaml"
 OUT = ROOT / "docs" / "copilot-tests" / "skill-tool-results"
 EMAIL, OTHER_EMAIL = "owner@example.com", "other@example.com"
 
@@ -472,11 +473,13 @@ def metrics(rows: list[dict]) -> dict:
 
 
 def write(rows: list[dict], m: dict) -> None:
+    OUT.parent.mkdir(parents=True, exist_ok=True)  # docs/ is git-ignored: absent on a fresh clone
     OUT.with_suffix(".json").write_text(json.dumps({"metrics": m, "cases": rows},
                                                    ensure_ascii=False, indent=1, default=str))
     lines = ["# Skill/tool chat cases: results", "",
              f"Run {dt.datetime.now():%Y-%m-%d %H:%M} · real model and bge-m3 on the demo home "
-             "(today pinned to 2026-11-05) · cases: [skill-tool-cases.yaml](skill-tool-cases.yaml)",
+             "(today pinned to 2026-11-05) · cases: "
+             "[copilot_skill_cases.yaml](../../scripts/copilot_skill_cases.yaml)",
              "", "## Metrics", "", "| Metric | Value |", "| --- | --- |",
              *(f"| {k} | {v} |" for k, v in m.items()), "", "## Cases", "",
              "| # | Question | Expected skill → got (rank, case) | Expected tools → got | "

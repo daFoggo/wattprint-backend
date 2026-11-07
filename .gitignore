@@ -21,3 +21,6 @@ third_party/
 
 # LangGraph dev server state (uv run langgraph dev)
 .langgraph_api/
+
+# Docs stay local (guides, specs, eval reports, screenshots); files main already tracks stay tracked
+docs/
