@@ -17,6 +17,7 @@ dist/
 dataset/CLEAN_House*.csv
 dataset/preprocessed/
 dataset/training/data/
+dataset/training/artifacts/
 dataset/training/checkpoints/
 dataset/training/figures/
 dataset/training/logs/
