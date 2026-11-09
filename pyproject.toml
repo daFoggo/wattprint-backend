@@ -14,6 +14,15 @@ dependencies = [
     "python-multipart>=0.0.9",
     "email-validator>=2.2",
     "pgvector>=0.5.1",
+    "ipykernel>=7.4.0",
+    "pandas>=3.1.1",
+    "matplotlib>=3.11.2",
+    "seaborn>=0.13.2",
+    "torch>=2.15.0",
+    "scikit-learn>=1.9.1",
+    "numpy>=2.5.4",
+    "xformers>=0.0.35",
+    "tqdm>=4.66",
 ]
 
 [dependency-groups]
