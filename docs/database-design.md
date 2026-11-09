@@ -6,6 +6,12 @@ Tài liệu này dành cho người mới vào dự án: vì sao database đư�
 (`docs/database-audit.md`, số liệu gốc trong `docs/audit-results.json`). Mọi con số trong tài liệu này
 lấy từ hai file audit đó và được ghi rõ là **đo** (measured) hay **ngoại suy** (extrapolated).
 
+> **Đang chuyển sang microservices.** Mục 1–6 mô tả database của code hiện tại: một database, nhiều schema. Kiến
+> trúc đã chốt (`docs/architecture/README.md`) tách thành 4 service, mỗi service một database trên cùng PostgreSQL
+> server. Thiết kế bảng, hypertable, aggregate, policy và các số đo bên dưới giữ nguyên; thứ thay đổi là bảng nào nằm
+> ở database nào, phân quyền, và cách Copilot đọc dữ liệu. Xem **mục 7**. Thứ tự làm nằm trong
+> `docs/superpowers/plans/2026-11-10-microservices-split.md`.
+
 ## 1. Vì sao chọn stack này
 
 Toàn bộ dữ liệu nằm trong **một instance PostgreSQL 17 với TimescaleDB 2.31 và pgvector** (image pin
@@ -96,6 +102,9 @@ thầm tính thiếu. Chi phí theo thiết bị = tỉ lệ kWh × tiền trư�
 điện; nếu VAT trở lại 10% thì cần một version mới.
 
 ### Cô lập Copilot
+
+> Cơ chế dưới đây (`copilot_ro`, scope token) bị thay khi tách service: Copilot không còn kết nối tới database dữ liệu
+> tiêu thụ nữa mà gọi API truy vấn an toàn của insight. Xem mục 7.3.
 
 Copilot không đọc bảng mà chỉ đọc view `copilot_ro.*` (owner là migration owner, `security_barrier`)
 cộng `knowledge.*`, `catalog.*` và các bảng tariff. Phạm vi home do một **scope token** quyết định:
@@ -221,3 +230,58 @@ không có khẳng định nào rằng hệ thống giữ được các mức tr
   `ops.stale_series` dựa vào checkpoint nên series chưa bao giờ báo dữ liệu không xuất hiện; view "khoảng
   trống dài hơn N phút" của spec mục 6.8 chưa làm; `copilot.scope_token` không có job dọn, backend phải
   tự prune.
+
+## 7. Khi tách thành microservices
+
+### 7.1 Một server, năm database
+
+Vẫn một PostgreSQL 17 + TimescaleDB + pgvector, image giữ nguyên `timescale/timescaledb:2.31.0-pg17`.
+Mỗi service một database và một role; role của service này không có quyền `CONNECT` vào database của service khác.
+Keycloak cũng dùng một database trên server này thay cho container `keycloak-db` riêng.
+
+| Database | Chủ | Nội dung (lấy từ schema hiện tại) | Extension |
+|---|---|---|---|
+| `core_db` | core | `public.users`; `core.home`, `home_member`, `home_invite`, `meter`, `device`; `catalog.*`; `energy.series`, `reading`, `device_estimate` và 6 continuous aggregate; `billing.*`; `ops.*`; thêm `outbox` | TimescaleDB |
+| `nilm_db` | nilm | `energy.inference_run`; thêm danh mục phiên bản model và tham số hiệu chỉnh theo hộ | |
+| `insight_db` | insight | `insight.device_cycle`, `alert`, `forecast_snapshot`, `cohort_stat`; `copilot.savings_measure`; `energy.weather_hourly`; `core.device_alert_rule`; thêm read model tiêu thụ theo giờ (hypertable), bản sao danh mục thiết bị, view cho truy vấn an toàn, `inbox`, `outbox` | TimescaleDB |
+| `copilot_db` | copilot | `copilot.conversation`, `message`, `tool_call`, `suggestion`, `suggestion_feedback`; `knowledge.*`; thêm bảng saga, `inbox`, `outbox` | pgvector, unaccent, pg_trgm |
+| `keycloak_db` | Keycloak | Do Keycloak tự quản | |
+
+Bỏ hẳn: schema `copilot_ro`, `copilot.scope_token`, role `wattprint_copilot_ro`.
+
+### 7.2 Không còn join chéo giữa các database
+
+Lý do ở mục 1 ("join bằng SQL, số kWh/VND chỉ tính ở một nơi") vẫn đúng **bên trong** core: billing, reading,
+aggregate, tariff cùng nằm ở `core_db`, nên hóa đơn vẫn tính bằng một câu SQL ở một nơi. Phần cần dữ liệu của service
+khác đi theo hai cách:
+
+- **Sự kiện:** core phát `energy.usage.updated` (tổng theo giờ từng thiết bị) và `core.device.changed`; insight lưu
+  bản sao vào read model của nó. Đây là pattern CQRS: insight đọc nhanh, không chạm database ghi của core.
+- **Gọi API:** insight hỏi core biểu giá khi dự báo hóa đơn; copilot hỏi insight số liệu qua tool.
+
+Hệ quả: read model của insight có độ trễ (thường vài giây sau khi batch xong), và có thể lệch tạm thời khi một
+message nằm trong DLQ. Màn hình nào cần số chính xác tuyệt đối (hóa đơn) thì đọc từ core.
+
+### 7.3 Copilot đọc dữ liệu thế nào
+
+Thay cho `copilot_ro` + scope token: copilot gọi `POST /queries` của insight. Insight chạy câu SQL do LLM sinh trên
+các view của `insight_db`, với các yêu cầu đã nêu ở mục 3 (Cô lập Copilot) chuyển sang SQL guard của insight:
+
+- chỉ một câu `SELECT`, kiểm trên parse tree; chặn `set_config`, `current_setting`, hàm `pg_*`;
+- `home_id` lấy từ header `X-User-Id` đã qua gateway (không lấy từ câu hỏi), ép vào mọi view;
+- chạy bằng một login riêng chỉ có `SELECT` trên các view đó, `statement_timeout = 2s`;
+- sai bất kỳ điều nào → 400, không chạy.
+
+### 7.4 Migration
+
+Mỗi service có thư mục Alembic riêng và một migration nền mới cho database của nó, gộp phần tương ứng của 13 revision
+hiện tại. Chuỗi revision cũ dừng ở `a7c2e9f4b1d6` và không chạy tiếp. Các quy tắc ở mục 4 (DDL TimescaleDB trong
+`op.execute`, refresh trong `autocommit_block()`, dựng lại được từ volume rỗng, `ops.set_policies`) áp dụng nguyên
+cho `core_db` và `insight_db`.
+
+### 7.5 Việc mở thêm khi tách
+
+- Kết quả đo ở mục 5 là của một database; sau khi tách cần chạy lại ít nhất bài idempotency, failure drill và
+  latency trên `core_db`.
+- Cột `device_id`, `home_id` ở `insight_db` và `copilot_db` không còn foreign key tới `core_db`; tính đúng dựa vào sự
+  kiện `core.device.changed`. Thiết bị bị xóa ở core phải phát sự kiện để insight dọn theo.
