@@ -1,8 +1,12 @@
 """Extract the dataset and NILM training artifacts into the repository.
 
 - dataset/archive.zip            -> dataset/ (REFIT CSVs)
-- dataset/training/artifacts.zip -> dataset/training/checkpoints/nilm_pipeline.pt (production weights)
-                                    dataset/training/data/refit_house2_windows.npz (training windows)
+- dataset/training/artifacts.zip -> dataset/training/artifacts/
+                                      nilm_pipeline.pt2   architecture + weights (torch.export)
+                                      nilm_pipeline.pt    weights + config (torch.load weights_only=True)
+                                      nilm_pipeline.json  metadata (appliances, thresholds, I/O spec, test results)
+                                      inference.py, model/  architecture source + NILMModel.predict
+                                    dataset/training/data/refit_house2_windows{,_L256,_L512}.npz
 """
 from pathlib import Path
 from zipfile import ZipFile
