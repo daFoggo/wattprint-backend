@@ -9,7 +9,18 @@ node_modules/
 dist/
 .idea/
 .vscode/
+!.vscode/
+!.vscode/settings.json
 .superpowers/
 
-# Local datasets (REFIT, ~6.5 GB): never commit
-dataset/
+# NILM dataset / training outputs (shipped as dataset/archive.zip and dataset/training/artifacts.zip)
+dataset/CLEAN_House*.csv
+dataset/preprocessed/
+dataset/training/data/
+dataset/training/checkpoints/
+dataset/training/figures/
+dataset/training/logs/
+
+# Raw REFIT download (6.5 GB + 7z): never commit
+dataset/CLEAN_REFIT_*
+dataset/MetaData_Tables.xlsx
