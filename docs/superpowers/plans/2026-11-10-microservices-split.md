@@ -11,7 +11,7 @@ sau một API gateway, đáp ứng đề bài tập lớn (`bai-tap-lon-yeu-cau-
 làm theo thứ tự nào; quyết định kiến trúc nằm ở README đó, có lệch thì README thắng.
 
 **Stack:** Python 3.12, FastAPI, SQLAlchemy 2 async + asyncpg, Alembic, pydantic-settings, FastStream (RabbitMQ),
-httpx + tenacity, PyTorch (chỉ nilm), uv workspace; Envoy 1.40; Keycloak 26; PostgreSQL 17 + TimescaleDB 2.31 +
+httpx + tenacity, PyTorch (chỉ nilm), uv workspace; Envoy 1.40; Keycloak 26; PostgreSQL 18 + TimescaleDB 2.31 +
 pgvector; RabbitMQ 4; Docker Compose v2; ruff, pytest, Postman + Newman, GitHub Actions.
 
 ## Ràng buộc chung
@@ -67,10 +67,16 @@ pgvector; RabbitMQ 4; Docker Compose v2; ruff, pytest, Postman + Newman, GitHub 
       JWT; `local_ratelimit`; timeout và retry theo route (không retry POST).
 - [ ] Compose: Keycloak dùng `keycloak_db` trên Postgres chung; xóa service `keycloak-db` và volume của nó khỏi
       compose; RabbitMQ nạp `definitions.json`; `mem_limit`/`cpus` cho từng container.
+- [x] Postgres lên `timescale/timescaledb:2.31.0-pg18` (làm sớm, 2026-11-10, trong compose hiện tại): volume mới mount vào `/var/lib/postgresql` (từ PG18 image
+      để `PGDATA` ở `/var/lib/postgresql/18/docker`, không còn `/var/lib/postgresql/data`); đặt
+      `timescaledb.enable_cagg_reorder_groupby = off` cho cả server để tránh timescale/timescaledb#10500 (lỗi chỉ có
+      trên PG18, gặp khi `DISTINCT`/`GROUP BY` trên continuous aggregate rồi `ORDER BY`).
 - [ ] Sửa README backend và `docs/keycloak-auth.md` cho đúng cách chạy mới.
 
 **Kiểm chứng:**
 - `docker compose up -d` từ volume rỗng; `docker compose ps` đủ 8 container healthy.
+- `SELECT version()` ra PostgreSQL 18; `\dx` trong `core_db` có `timescaledb` 2.31.0, trong `copilot_db` có `vector`;
+  `SHOW timescaledb.enable_cagg_reorder_groupby` ra `off`.
 - `curl :11093/api/core/health` không token → 401; có token Keycloak thật → 200; token sửa một ký tự → 401.
 - RabbitMQ UI thấy exchange `wattprint.events`, `wattprint.dlx`, 2 queue và 2 DLQ.
 

@@ -19,7 +19,7 @@
 ## Run
 - `docker compose up -d`; phone: `adb reverse tcp:11094 tcp:11094`, `tcp:11093`, `tcp:11095`.
 - Env: see `.env.example` (admin password >= 12 chars, `WATTPRINT_WEB_CLIENT_SECRET`, `GOOGLE_CLIENT_ID/SECRET`).
-- Re-import the realm: `docker compose rm -sfv keycloak keycloak-db`, `docker volume rm wattprint_wattprint_keycloak_pgdata`,
+- Re-import the realm: `docker compose rm -sfv keycloak keycloak-db`, `docker volume rm wattprint_wattprint_keycloak_pg18data`,
   `docker compose up -d`. New realm = new user `sub`: delete stale `users` rows or they answer 409.
 - Google consent screen is in Testing mode: only listed test users can sign in.
 

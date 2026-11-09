@@ -6,13 +6,13 @@
 
 **Architecture:** Hand-written Alembic revisions on top of the existing two (`e8d6cdf24fe4`, `a1c3f5b7d9e2`). Relational tables get SQLAlchemy models in `app/models/<domain>.py`; hypertables and continuous aggregates exist only in migrations (raw SQL) with thin `sa.Table` objects for the ingest writer. One ingest service function is the only writer of readings; the REFIT loader is a CLI that calls it. Dashboards read only continuous aggregates through `app/services/meter.py`.
 
-**Tech Stack:** PostgreSQL 17.11, TimescaleDB 2.31.0, pgvector 0.8.1 (image `timescale/timescaledb:2.31.0-pg17`), SQLAlchemy 2.1 async + asyncpg 0.32, Alembic 1.20, pgvector-python, pytest-asyncio, uv, Docker Compose.
+**Tech Stack:** PostgreSQL 17.11, TimescaleDB 2.31.0, pgvector 0.8.1 (image `timescale/timescaledb:2.31.0-pg17`; the stack moved to `2.31.0-pg18` on 2026-11-10), SQLAlchemy 2.1 async + asyncpg 0.32, Alembic 1.20, pgvector-python, pytest-asyncio, uv, Docker Compose.
 
 **Spec:** `docs/superpowers/specs/2026-11-01-database-design-design.md` (read it first; section numbers below refer to it).
 
 ## Global Constraints
 
-- Image pinned to `timescale/timescaledb:2.31.0-pg17`; extensions `timescaledb`, `vector`, `unaccent`, `pg_trgm`. No `timescaledb_toolkit`.
+- Image pinned to `timescale/timescaledb:2.31.0-pg17` (now `2.31.0-pg18`); extensions `timescaledb`, `vector`, `unaccent`, `pg_trgm`. No `timescaledb_toolkit`.
 - Schemas: `core`, `catalog`, `energy`, `billing`, `insight`, `copilot`, `knowledge`, `ops`; `public.users`, `public.refresh_tokens` untouched.
 - All timestamps `timestamptz` (UTC). Money `numeric`. Power `real`, derived energy `double precision`. Native `uuid` for relational PKs; `series_id int identity` for hypertable keys. No FK into hypertables.
 - Hypertables `energy.reading` and `energy.device_estimate`: PK `(series_id, ts)`, chunk interval 1 day, `compress_segmentby = series_id`, `compress_orderby = ts DESC`, no secondary indexes.

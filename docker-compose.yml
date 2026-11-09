@@ -2,7 +2,7 @@ name: wattprint
 
 services:
   db:
-    image: timescale/timescaledb:2.31.0-pg17
+    image: timescale/timescaledb:2.31.0-pg18
     container_name: wattprint-db
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
@@ -12,7 +12,10 @@ services:
     ports:
       - "${DB_PORT:-11096}:${DB_PORT:-11096}"
     volumes:
-      - wattprint_pgdata:/var/lib/postgresql/data
+      # PG18 images keep PGDATA at /var/lib/postgresql/18/docker, so the volume mounts one level up.
+      - wattprint_pg18data:/var/lib/postgresql
+    # timescale/timescaledb#10500: PG18-only planner error on some DISTINCT/GROUP BY + ORDER BY over caggs.
+    command: ["postgres", "-c", "timescaledb.enable_cagg_reorder_groupby=off"]
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U $$POSTGRES_USER -d $$POSTGRES_DB"]
       interval: 5s
@@ -21,7 +24,7 @@ services:
       start_period: 15s
 
   keycloak-db:
-    image: postgres:17-alpine
+    image: postgres:18-alpine
     container_name: wattprint-keycloak-db
     environment:
       POSTGRES_USER: keycloak
@@ -29,7 +32,7 @@ services:
       POSTGRES_DB: keycloak
       PGPORT: "11097"
     volumes:
-      - wattprint_keycloak_pgdata:/var/lib/postgresql/data
+      - wattprint_keycloak_pg18data:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U keycloak -d keycloak"]
       interval: 5s
@@ -94,5 +97,5 @@ services:
     command: sh -c "alembic upgrade head && exec uvicorn app.main:app --host 0.0.0.0 --port 11093 --reload --reload-dir /code/app"
 
 volumes:
-  wattprint_pgdata:
-  wattprint_keycloak_pgdata:
+  wattprint_pg18data:
+  wattprint_keycloak_pg18data:

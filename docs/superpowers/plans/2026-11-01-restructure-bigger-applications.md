@@ -6,7 +6,7 @@
 
 **Architecture:** Flat `app/` package: `main.py`, `dependencies.py`, `routers/`, plus `models/`, `schemas/`, `services/` and top-level `config.py`, `database.py`, `security.py`. Routers are modules each exposing `router = APIRouter(prefix=..., tags=[...])`; `main.py` includes them under `/api/v1` using relative imports. Business logic lives in `services/`, routers stay thin.
 
-**Tech Stack:** FastAPI, SQLAlchemy 2 async + asyncpg, Alembic, PyJWT, pwdlib[argon2], pytest-asyncio, TimescaleDB (PG17), Docker Compose.
+**Tech Stack:** FastAPI, SQLAlchemy 2 async + asyncpg, Alembic, PyJWT, pwdlib[argon2], pytest-asyncio, TimescaleDB (PG17 at the time, PG18 since 2026-11-10), Docker Compose.
 
 **Spec:** https://fastapi.tiangolo.com/tutorial/bigger-applications/ and https://fastapi.tiangolo.com/tutorial/security/oauth2-jwt/ (plus the user's decision to drop the previous external auth service for FastAPI JWT).
 

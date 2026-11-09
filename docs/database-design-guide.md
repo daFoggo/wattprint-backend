@@ -97,7 +97,7 @@ số đo và ước lượng (rất lớn), nhà và thiết bị, tiền điệ
 
 | Nguyên tắc | Áp dụng | Lý do |
 |---|---|---|
-| Một DB cho tất cả | PostgreSQL 17 + TimescaleDB 2.31 + pgvector (`timescale/timescaledb:2.31.0-pg17`, pin cứng) | Billing, Copilot và màn hình cần join chuỗi thời gian với dữ liệu quan hệ; chỉ một nơi backup, phân quyền |
+| Một DB cho tất cả | PostgreSQL 18 + TimescaleDB 2.31 + pgvector (`timescale/timescaledb:2.31.0-pg18`, pin cứng) | Billing, Copilot và màn hình cần join chuỗi thời gian với dữ liệu quan hệ; chỉ một nơi backup, phân quyền |
 | Thời gian UTC | Mọi cột là `timestamptz`; ngày cắt theo giờ Việt Nam; `home.timezone` có CHECK = `Asia/Ho_Chi_Minh` | Tránh lệch ngày khi tính hóa đơn |
 | Kiểu dữ liệu theo vai trò | Tiền `numeric`; công suất `real` (W); năng lượng suy ra `double precision` | Không dùng float cho tiền |
 | Ghi một đường duy nhất | Mọi nguồn đi qua `ingest_readings`, kể cả REFIT | Có idempotency, checkpoint, audit ở một nơi |
@@ -311,7 +311,7 @@ không tin `home_id` phi chuẩn hóa.
 
 - **Audit với dữ liệu thật:** REFIT nhà 1-3 nạp qua đúng đường ingest production, **196,881,280 reading**
   và **177,193,152 dòng `device_estimate` giả lập** (khoảng 5.1 home-year), ngày được dời để kết thúc
-  vào 2026-10-31, policy tắt lúc nạp. Máy: PostgreSQL 17.11, TimescaleDB 2.31.0, 16 CPU, `shared_buffers`
+  vào 2026-10-31, policy tắt lúc nạp. Máy: PostgreSQL 17.11 (trước khi lên PG18), TimescaleDB 2.31.0, 16 CPU, `shared_buffers`
   3 GB. Harness ở `tests/audit`, số liệu gốc `docs/audit-results.json`.
 - **Test tự động:** 254 hàm test trong `tests/db` (foundation, bảng, ingest, aggregate, backfill guard,
   nén aggregate, meter, billing, loader REFIT, role). *Chưa chạy lại trong phiên viết tài liệu này.*

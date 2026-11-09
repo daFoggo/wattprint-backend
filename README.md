@@ -7,7 +7,7 @@ FastAPI + PostgreSQL/TimescaleDB with Keycloak identity service (OIDC, runs in t
 | Service | Stack | Port | Role |
 |---|---|---|---|
 | `api` | FastAPI, SQLAlchemy 2 async, Alembic | 11093 | Business API (`/api/v1`, OpenAPI at `/docs`) |
-| `db` | TimescaleDB on PG17 | 11096 | Application database |
+| `db` | TimescaleDB 2.31 on PostgreSQL 18 | 11096 | Application database |
 | `keycloak` | Keycloak 26 (`start-dev`) + its own Postgres (`keycloak-db`) | 11095 | Identity: login, users, roles. Realm `wattprint` is imported from `keycloak/realm/` on first start |
 
 ## Run
@@ -59,7 +59,7 @@ which the compose `db` user is).
   grants), resource client `wattprint-api` (bearer only; its audience is added to access tokens by a mapper), realm roles
   `admin` and `user`, self-registration off, brute-force protection on.
 - First start imports `keycloak/realm/wattprint-realm.json` (later starts skip it: edit realms in the console, or
-  `docker compose rm -sfv keycloak keycloak-db` and delete the `wattprint_keycloak_pgdata` volume to re-import). It creates
+  `docker compose rm -sfv keycloak keycloak-db` and delete the `wattprint_keycloak_pg18data` volume to re-import). It creates
   the user `admin` (email `admin@wattprint.local`, roles `admin`+`user`) with the password from `WATTPRINT_ADMIN_PASSWORD`
   (at least 12 characters, the realm's password policy).
 - Sessions: access token 15 min; the refresh token lives as long as the Keycloak SSO session (idle 30 days, max 90 days;

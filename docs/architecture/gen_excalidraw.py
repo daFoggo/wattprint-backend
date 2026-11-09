@@ -261,7 +261,7 @@ def overview():
     d.box("llm", 0, 380, 220, 130, "external", "LLM", desc="API ngoài", **big)
     d.arrow("llm_a", "cop", "llm", pts=[(294, 445), (226, 445)])
     d.box("infra", 300, 750, 1400, 80, "offshelf", "Hạ tầng chung",
-          desc="PostgreSQL 17 + TimescaleDB + pgvector (một server, mỗi service và Keycloak một DB) · "
+          desc="PostgreSQL 18 + TimescaleDB + pgvector (một server, mỗi service và Keycloak một DB) · "
                "RabbitMQ: exchange → queue → DLQ", name_fs=22, desc_fs=18)
     d.legend(1800, 380, ["team", "offshelf", "db", "external"], ["sync", "async"], w=420)
     return d
@@ -431,7 +431,7 @@ def deployment():
 
     d.boundary("n_data", 60, 840, 2620, 300, "Dữ liệu và messaging  [network: internal]", color="#2e6295")
     d.box("pg", 100, 900, 920, 200, "db", "postgres",
-          "[timescale/timescaledb:2.31.0-pg17 · 1.5 GB · volume pgdata]",
+          "[timescale/timescaledb:2.31.0-pg18 · 1.5 GB · volume pgdata]",
           "5 database: core_db, insight_db (TimescaleDB: hypertable, continuous aggregate), copilot_db (pgvector), nilm_db, keycloak_db")
     d.box("mq", 1060, 900, 760, 200, "offshelf", "rabbitmq", "[rabbitmq:4-management · 512 MB · volume mqdata]",
           "Exchange wattprint.events, quorum queue theo consumer, delivery-limit 3 → DLQ")

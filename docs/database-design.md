@@ -14,8 +14,8 @@ lấy từ hai file audit đó và được ghi rõ là **đo** (measured) hay *
 
 ## 1. Vì sao chọn stack này
 
-Toàn bộ dữ liệu nằm trong **một instance PostgreSQL 17 với TimescaleDB 2.31 và pgvector** (image pin
-`timescale/timescaledb:2.31.0-pg17`). Lý do chính: billing, Copilot (Text-to-SQL) và các màn hình đều
+Toàn bộ dữ liệu nằm trong **một instance PostgreSQL 18 với TimescaleDB 2.31 và pgvector** (image pin
+`timescale/timescaledb:2.31.0-pg18`; lên từ PG17 ngày 2026-11-10, xem mục 4). Lý do chính: billing, Copilot (Text-to-SQL) và các màn hình đều
 cần join dữ liệu time series với dữ liệu quan hệ (home, device, tariff). Đặt chung một chỗ thì join làm
 bằng SQL, chỉ có một hệ thống để backup và phân quyền, và con số kWh/VND chỉ được tính ở một nơi.
 
@@ -151,12 +151,17 @@ chỉ cho phép một câu SELECT, chặn `set_config`, `current_setting` của 
   Grant theo từng object, không bao giờ `ALL TABLES`.
 - **Migration** viết tay bằng Alembic, mỗi thay đổi một revision, DDL của TimescaleDB đặt trong
   `op.execute`, refresh trong `autocommit_block()`. Database phải dựng lại được từ volume rỗng.
-- **Image** pin `timescale/timescaledb:2.31.0-pg17`; nâng cấp là một thay đổi có chủ đích.
+- **Image** pin `timescale/timescaledb:2.31.0-pg18`; nâng cấp là một thay đổi có chủ đích. Lên PG18 ngày
+  2026-11-10 vì I/O bất đồng bộ (`io_method`) cho quét tuần tự, refresh, vacuum và `uuidv7()` có sẵn; TimescaleDB
+  hỗ trợ PG18 từ 2.23. Volume PG17 cũ không dùng tiếp: compose dùng volume mới `wattprint_pg18data` mount vào
+  `/var/lib/postgresql` (PG18 để `PGDATA` ở `/var/lib/postgresql/18/docker`), dữ liệu nạp lại. Compose đặt
+  `timescaledb.enable_cagg_reorder_groupby = off` để tránh timescale/timescaledb#10500 (lỗi chỉ có trên PG18 với
+  một số truy vấn `DISTINCT`/`GROUP BY` + `ORDER BY` trên continuous aggregate).
 
 ## 5. Kết quả đo
 
 Dữ liệu: REFIT house 1-3 nạp qua đúng ingest path, ngày được dời để kết thúc vào 2026-10-31, policy tắt
-trong lúc nạp. Máy audit: PostgreSQL 17.11, TimescaleDB 2.31.0, 16 CPU, `shared_buffers` 3GB.
+trong lúc nạp. Máy audit: PostgreSQL 17.11 (đo trước khi lên PG18, chưa đo lại), TimescaleDB 2.31.0, 16 CPU, `shared_buffers` 3GB.
 
 | Hạng mục | Kết quả | Loại |
 |---|---|---|
@@ -235,7 +240,8 @@ không có khẳng định nào rằng hệ thống giữ được các mức tr
 
 ### 7.1 Một server, năm database
 
-Vẫn một PostgreSQL 17 + TimescaleDB + pgvector, image giữ nguyên `timescale/timescaledb:2.31.0-pg17`.
+Vẫn đúng server ở mục 1 và 4 (PostgreSQL 18, TimescaleDB 2.31, pgvector). `uuidv7()` của PG18 dùng cho `message_id`
+của outbox/inbox và khóa chính mới. Lỗi #10500 (mục 4) đáng chú ý vì Text-to-SQL có thể sinh ra đúng dạng truy vấn đó.
 Mỗi service một database và một role; role của service này không có quyền `CONNECT` vào database của service khác.
 Keycloak cũng dùng một database trên server này thay cho container `keycloak-db` riêng.
 
@@ -281,7 +287,7 @@ cho `core_db` và `insight_db`.
 
 ### 7.5 Việc mở thêm khi tách
 
-- Kết quả đo ở mục 5 là của một database; sau khi tách cần chạy lại ít nhất bài idempotency, failure drill và
+- Kết quả đo ở mục 5 là của một database trên PostgreSQL 17.11; sau khi tách và lên PG18 cần chạy lại ít nhất bài idempotency, failure drill và
   latency trên `core_db`.
 - Cột `device_id`, `home_id` ở `insight_db` và `copilot_db` không còn foreign key tới `core_db`; tính đúng dựa vào sự
   kiện `core.device.changed`. Thiết bị bị xóa ở core phải phát sự kiện để insight dọn theo.
