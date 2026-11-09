@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 
+
 class ResidualBlock(nn.Module):
     def __init__(self, c_in: int, c_out: int, k: int=8, dilation: int=1, stride: int=1, bias: bool=True):
         super().__init__()
@@ -29,7 +30,8 @@ class ResidualBlock(nn.Module):
             return torch.add(x, out)                    # (B, c_out, L)
 
 class DilatedResidualBlock(nn.Module):
-    def __init__(self, c_in=32, c_out=32, kernel_size=8, dilated_list=[1, 2, 4, 8], bias: bool=True):
+    # shortcut: dilated_list is ignored (dilations hardcoded below); wire it up or drop it
+    def __init__(self, c_in=32, c_out=32, kernel_size=8, dilated_list=(1, 2, 4, 8), bias: bool = True):
         super().__init__()
 
         self.dilated_1 = ResidualBlock(c_in, c_out, k=kernel_size, dilation=1, bias=bias)

@@ -1,4 +1,3 @@
-from typing import List
 from dataclasses import dataclass, field
 
 import torch
@@ -6,6 +5,7 @@ import torch.nn as nn
 
 from .DilatedResidualBlock import DilatedResidualBlock
 from .Transformer import EncoderLayer
+
 
 @dataclass
 class NILMFormerConfig:
@@ -15,7 +15,7 @@ class NILMFormerConfig:
 
     kernel_size: int = 3
     kernel_size_head: int = 3
-    dilations: List[int] = field(default_factory=lambda: [1, 2, 4, 8])
+    dilations: list[int] = field(default_factory=lambda: [1, 2, 4, 8])
     conv_bias: bool = True
 
     use_efficient_attention: bool = False

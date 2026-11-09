@@ -1,12 +1,14 @@
 from __future__ import annotations
 
-import numpy as np
+from typing import TYPE_CHECKING, Any
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from typing import Any
+if TYPE_CHECKING:
+    from .NILMFormerRegressor import NILMFormerConfig
+
 
 class DiagonalMaskFromSeqlen:
     def __init__(self, B, L, device="cpu"):

@@ -396,7 +396,7 @@ async def test_copilot_cannot_write(conn):
 
 COPILOT_DENIED_READS = (
     "energy.reading", "energy.series", "energy.device_estimate", "energy.reading_1m",
-    "core.home", "core.home_member", "core.device", "public.users", "public.refresh_tokens",
+    "core.home", "core.home_member", "core.device", "public.users",
     "billing.bill", "billing.bill_item", "copilot.message",
     "copilot.scope_token", "copilot.suggestion",
     "insight.alert", "insight.cohort_stat", "ops.ingest_batch",
@@ -576,7 +576,6 @@ async def test_app_dml_and_aggregate_reads(conn):
     assert await conn.scalar(text("SELECT count(*) FROM ops.stale_series")) >= 0
     assert await conn.scalar(text("SELECT count(*) FROM catalog.metric")) > 0
     await conn.execute(text("SELECT count(*) FROM public.users"))
-    await conn.execute(text("SELECT count(*) FROM public.refresh_tokens"))
 
 
 async def test_app_cannot_touch_raw_hypertables_or_ops_writes(conn):
@@ -613,8 +612,7 @@ def expected_app(rel: str) -> set[str]:
         return {"SELECT", "INSERT", "DELETE"}
     if schema in ("core", "billing", "insight", "copilot", "knowledge"):
         return DML
-    if rel in ("energy.series", "energy.inference_run", "energy.weather_hourly",
-               "public.users", "public.refresh_tokens"):
+    if rel in ("energy.series", "energy.inference_run", "energy.weather_hourly", "public.users"):
         return DML
     if schema in ("catalog", "ops") or rel in AGGS:
         return {"SELECT"}

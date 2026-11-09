@@ -5,6 +5,7 @@ from dataclasses import dataclass
 import torch
 import torch.nn as nn
 
+
 @dataclass
 class GRUConfig:
     c_in: int = 1

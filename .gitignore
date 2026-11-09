@@ -22,3 +22,6 @@ dataset/training/checkpoints/
 dataset/training/figures/
 dataset/training/logs/
 
+# Raw REFIT download (6.5 GB + 7z): never commit
+dataset/CLEAN_REFIT_*
+dataset/MetaData_Tables.xlsx

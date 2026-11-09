@@ -19,12 +19,59 @@ services:
       retries: 10
       start_period: 15s
 
+  keycloak-db:
+    image: postgres:17-alpine
+    container_name: wattprint-keycloak-db
+    environment:
+      POSTGRES_USER: keycloak
+      POSTGRES_PASSWORD: ${KEYCLOAK_DB_PASSWORD:?KEYCLOAK_DB_PASSWORD is required}
+      POSTGRES_DB: keycloak
+    volumes:
+      - wattprint_keycloak_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U keycloak -d keycloak"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.2
+    container_name: wattprint-keycloak
+    # start-dev: HTTP and relaxed checks. Production needs `start`, TLS and a real hostname.
+    command: start-dev --import-realm
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?KEYCLOAK_ADMIN_PASSWORD is required}
+      # Replaces ${WATTPRINT_ADMIN_PASSWORD} in the imported realm file (the app-level admin user).
+      WATTPRINT_ADMIN_PASSWORD: ${WATTPRINT_ADMIN_PASSWORD:?WATTPRINT_ADMIN_PASSWORD is required}
+      # Secret of the confidential web client `wattprint-web` (the Next.js dashboard).
+      WATTPRINT_WEB_CLIENT_SECRET: ${WATTPRINT_WEB_CLIENT_SECRET:?WATTPRINT_WEB_CLIENT_SECRET is required}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:?GOOGLE_CLIENT_ID is required}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:?GOOGLE_CLIENT_SECRET is required}
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://keycloak-db:5432/keycloak
+      KC_DB_USERNAME: keycloak
+      KC_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD}
+      # Fixed public URL = stable `iss`; the API still reaches Keycloak as http://keycloak:8080.
+      KC_HOSTNAME: ${KEYCLOAK_PUBLIC_URL:-http://localhost:8180}
+      KC_HOSTNAME_BACKCHANNEL_DYNAMIC: "true"
+      KC_HTTP_ENABLED: "true"
+    ports:
+      - "${KEYCLOAK_BIND:-127.0.0.1}:${KEYCLOAK_PORT:-8180}:8080"
+    volumes:
+      - ./keycloak/realm:/opt/keycloak/data/import:ro
+    depends_on:
+      keycloak-db:
+        condition: service_healthy
+
   api:
     build: .
     container_name: wattprint-api
     environment:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
-      JWT_SECRET_KEY: ${JWT_SECRET_KEY:?JWT_SECRET_KEY is required}
+      # Issuer = the URL clients (the phone) use; JWKS = how this container reaches Keycloak.
+      KEYCLOAK_ISSUER: ${KEYCLOAK_ISSUER:-http://localhost:8180/realms/wattprint}
+      KEYCLOAK_JWKS_URL: http://keycloak:8080/realms/wattprint/protocol/openid-connect/certs
       CORS_ORIGINS: ${CORS_ORIGINS}
       APP_DB_PASSWORD: ${APP_DB_PASSWORD:-}
       INGEST_DB_PASSWORD: ${INGEST_DB_PASSWORD:-}
@@ -34,6 +81,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      keycloak:
+        condition: service_started
     volumes:
       - ./app:/code/app
       - ./alembic:/code/alembic
@@ -43,3 +92,4 @@ services:
 
 volumes:
   wattprint_pgdata:
+  wattprint_keycloak_pgdata:
