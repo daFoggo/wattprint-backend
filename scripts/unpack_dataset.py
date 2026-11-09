@@ -1,13 +1,20 @@
-"""Extract dataset/archive.zip into the repository's dataset/ directory."""
+"""Extract the dataset and NILM training artifacts into the repository.
+
+- dataset/archive.zip            -> dataset/ (REFIT CSVs)
+- dataset/training/artifacts.zip -> dataset/training/checkpoints/nilm_pipeline.pt (production weights)
+                                    dataset/training/data/refit_house2_windows.npz (training windows)
+"""
 from pathlib import Path
 from zipfile import ZipFile
 
 ROOT = Path(__file__).resolve().parents[1]
-ARCHIVE = ROOT / "dataset" / "archive.zip"
+ARCHIVES = [ROOT / "dataset" / "archive.zip", ROOT / "dataset" / "training" / "artifacts.zip"]
 
 if __name__ == "__main__":
-    if not ARCHIVE.exists():
-        raise FileNotFoundError(f"Dataset archive not found: {ARCHIVE}")
-    with ZipFile(ARCHIVE) as archive:
-        archive.extractall(ROOT)
-    print(f"Extracted dataset files into {ROOT / 'dataset'}")
+    missing = [a for a in ARCHIVES if not a.exists()]
+    if missing:
+        raise FileNotFoundError(f"Archive(s) not found: {', '.join(map(str, missing))}")
+    for archive_path in ARCHIVES:
+        with ZipFile(archive_path) as archive:
+            archive.extractall(ROOT)               # members are stored with repo-relative paths
+        print(f"Extracted {archive_path.relative_to(ROOT)}")

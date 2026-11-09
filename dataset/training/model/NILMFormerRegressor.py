@@ -26,7 +26,7 @@ class NILMFormerConfig:
     n_head: int = 8
     norm_eps: float = 1e-5
 
-class NILMFormer(nn.Module):
+class NILMFormerRegressor(nn.Module):
     def __init__(self, NFConfig: NILMFormerConfig):
         super().__init__()
         self.config = NFConfig

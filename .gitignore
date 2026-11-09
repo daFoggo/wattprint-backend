@@ -13,3 +13,11 @@ dist/
 !.vscode/settings.json
 .superpowers/
 
+# NILM dataset / training outputs (shipped as dataset/archive.zip and dataset/training/artifacts.zip)
+dataset/CLEAN_House*.csv
+dataset/preprocessed/
+dataset/training/data/
+dataset/training/checkpoints/
+dataset/training/figures/
+dataset/training/logs/
+
