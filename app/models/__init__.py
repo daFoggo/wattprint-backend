@@ -14,7 +14,6 @@ from .energy import InferenceRun, Series, WeatherHourly
 from .insight import Alert, CohortStat, DeviceCycle, ForecastSnapshot
 from .knowledge import Chunk, Document
 from .ops import IngestBatch, IngestCheckpoint
-from .refresh_token import RefreshToken
 from .user import User
 
 __all__ = [
@@ -39,7 +38,6 @@ __all__ = [
     "Message",
     "Meter",
     "Metric",
-    "RefreshToken",
     "SavingsMeasure",
     "ScopeToken",
     "Series",

@@ -116,7 +116,7 @@ async def provision_house(session: AsyncSession, house: int, owner_email: str) -
         raise ValueError(f"meter {serial} already belongs to another home")
 
     if user is None:
-        user = User(email=email, hashed_password=None)
+        user = User(email=email)
         session.add(user)
         await session.flush()
     if home_id is None:

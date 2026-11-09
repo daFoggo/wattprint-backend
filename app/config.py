@@ -1,7 +1,4 @@
-from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
-
-JWT_ALGORITHM = "HS256"
 
 
 class Settings(BaseSettings):
@@ -12,12 +9,23 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+asyncpg://postgres:change-me@localhost:5433/wattprint"
     cors_origins: str = ""
 
-    # Required, no default: generate with "openssl rand -hex 32".
-    jwt_secret_key: str = Field(min_length=32)
-    access_token_expire_minutes: int = 15
-    refresh_token_expire_days: int = 30
-    # A revoked refresh token replayed within this window is a benign retry, not theft.
-    refresh_reuse_grace_seconds: int = 10
+    # Keycloak realm URL exactly as clients see it: it must equal the token's `iss` claim.
+    keycloak_issuer: str = "http://localhost:8180/realms/wattprint"
+    # Where this process fetches the signing keys; empty = derived from the issuer. In compose the
+    # issuer is localhost (what the phone uses) but the API reaches Keycloak as http://keycloak:8080.
+    keycloak_jwks_url: str = ""
+    # The access token must be minted for this API (audience mapper in the realm).
+    keycloak_audience: str = "wattprint-api"
+    # Comma separated clients (`azp`) accepted: the mobile app and the web dashboard.
+    keycloak_client_ids: str = "wattprint-mobile,wattprint-web"
+
+    @property
+    def client_id_list(self) -> list[str]:
+        return [c.strip() for c in self.keycloak_client_ids.split(",") if c.strip()]
+
+    @property
+    def jwks_url(self) -> str:
+        return self.keycloak_jwks_url or f"{self.keycloak_issuer}/protocol/openid-connect/certs"
 
     @property
     def cors_origin_list(self) -> list[str]:

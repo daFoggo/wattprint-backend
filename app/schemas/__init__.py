@@ -1,4 +1,3 @@
-from .token import RefreshRequest, TokenPair
-from .user import UserCreate, UserRead
+from .user import Me, UserRead
 
-__all__ = ["RefreshRequest", "TokenPair", "UserCreate", "UserRead"]
+__all__ = ["Me", "UserRead"]

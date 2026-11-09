@@ -54,10 +54,9 @@ async def test_provision_creates_home_meter_and_ten_series(session):
     )
     user = (
         await session.execute(
-            text("SELECT id, hashed_password FROM users WHERE email = :e"), {"e": addr}
+            text("SELECT id FROM users WHERE email = :e"), {"e": addr}
         )
     ).one()
-    assert user.hashed_password is None
     role = await count(
         session,
         "SELECT role FROM core.home_member WHERE home_id = :h AND user_id = :u",
