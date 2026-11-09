@@ -6,13 +6,13 @@ class Settings(BaseSettings):
 
     project_name: str = "Wattprint API"
     version: str = "0.1.0"
-    database_url: str = "postgresql+asyncpg://postgres:change-me@localhost:5433/wattprint"
+    database_url: str = "postgresql+asyncpg://postgres:change-me@localhost:11096/wattprint"
     cors_origins: str = ""
 
     # Keycloak realm URL exactly as clients see it: it must equal the token's `iss` claim.
-    keycloak_issuer: str = "http://localhost:8180/realms/wattprint"
+    keycloak_issuer: str = "http://localhost:11095/realms/wattprint"
     # Where this process fetches the signing keys; empty = derived from the issuer. In compose the
-    # issuer is localhost (what the phone uses) but the API reaches Keycloak as http://keycloak:8080.
+    # issuer is localhost (what the phone uses) but the API reaches Keycloak as http://keycloak:11095.
     keycloak_jwks_url: str = ""
     # The access token must be minted for this API (audience mapper in the realm).
     keycloak_audience: str = "wattprint-api"

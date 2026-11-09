@@ -6,9 +6,9 @@ FastAPI + PostgreSQL/TimescaleDB with Keycloak identity service (OIDC, runs in t
 
 | Service | Stack | Port | Role |
 |---|---|---|---|
-| `api` | FastAPI, SQLAlchemy 2 async, Alembic | 8000 | Business API (`/api/v1`, OpenAPI at `/docs`) |
-| `db` | TimescaleDB on PG17 | 5433 | Application database |
-| `keycloak` | Keycloak 26 (`start-dev`) + its own Postgres (`keycloak-db`) | 8180 | Identity: login, users, roles. Realm `wattprint` is imported from `keycloak/realm/` on first start |
+| `api` | FastAPI, SQLAlchemy 2 async, Alembic | 11093 | Business API (`/api/v1`, OpenAPI at `/docs`) |
+| `db` | TimescaleDB on PG17 | 11096 | Application database |
+| `keycloak` | Keycloak 26 (`start-dev`) + its own Postgres (`keycloak-db`) | 11095 | Identity: login, users, roles. Realm `wattprint` is imported from `keycloak/realm/` on first start |
 
 ## Run
 
@@ -20,9 +20,9 @@ docker compose up --build
 
 The image's default command runs `alembic upgrade head` before starting uvicorn; compose uses a dev command (same migration step, plus `--reload`).
 
-API docs: http://localhost:8000/docs
+API docs: http://localhost:11093/docs
 
-Keycloak console: http://localhost:8180 (user `admin`, `KEYCLOAK_ADMIN_PASSWORD`). Port 8080 is left to the separate `keycloak-idp` stack.
+Keycloak console: http://localhost:11095 (user `admin`, `KEYCLOAK_ADMIN_PASSWORD`).
 
 ## Layout
 
@@ -52,8 +52,8 @@ which the compose `db` user is).
 
 - Sign-in is Google only: the realm's browser flow `browser-google` redirects straight to the Google identity provider (no
   Keycloak login form; set `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`, redirect URI
-  `http://localhost:8180/realms/wattprint/broker/google/endpoint`). A new Google user gets the role `user`; give `admin` in the
-  Keycloak console (http://localhost:8180, realm `wattprint`, Users > Role mapping). The seeded `admin` user has a password but
+  `http://localhost:11095/realms/wattprint/broker/google/endpoint`). A new Google user gets the role `user`; give `admin` in the
+  Keycloak console (http://localhost:11095, realm `wattprint`, Users > Role mapping). The seeded `admin` user has a password but
   no way to use it through the apps; the Keycloak console itself lives in the `master` realm.
 - Realm `wattprint`: public client `wattprint-mobile` (authorization code + PKCE, redirect `wattprint://auth`, no direct
   grants), resource client `wattprint-api` (bearer only; its audience is added to access tokens by a mapper), realm roles
@@ -71,7 +71,7 @@ which the compose `db` user is).
   foreign keys. A user whose email already exists under another id gets 409. Roles come from `realm_access.roles`.
 - `GET /api/v1/users/me` returns the profile and roles; `GET /api/v1/users` needs the `admin` role (403 otherwise).
 - Issuer: `KEYCLOAK_ISSUER` must equal the URL clients use (`KEYCLOAK_PUBLIC_URL`); the API itself reaches Keycloak as
-  `http://keycloak:8080` (`KEYCLOAK_JWKS_URL`). A phone with `adb reverse tcp:8180 tcp:8180` uses `localhost`. On a LAN phone set
+  `http://keycloak:11095` (`KEYCLOAK_JWKS_URL`). A phone with `adb reverse tcp:11095 tcp:11095` uses `localhost`. On a LAN phone set
   `KEYCLOAK_BIND=0.0.0.0` and both URLs to the LAN IP.
 - `start-dev` is for development only (HTTP, relaxed checks). Production: `start`, TLS, a real hostname, a secret admin password.
 

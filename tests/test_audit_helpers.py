@@ -39,7 +39,7 @@ def test_guard_refuses_non_audit_database():
     from tests.audit.support import NotAuditTarget, check_target
 
     admin = "postgresql+asyncpg://u:p@db/postgres"
-    ok = "postgresql+asyncpg://u:p@db:5432/wattprint_audit"
+    ok = "postgresql+asyncpg://u:p@db:11096/wattprint_audit"
     assert check_target(ok, admin) == "wattprint_audit"
     assert check_target(ok.replace("wattprint_audit", "wattprint_audit_b"), admin)
     for bad in ("wattprint", "postgres", "audit_wattprint", "wattprint_test_ab12"):
