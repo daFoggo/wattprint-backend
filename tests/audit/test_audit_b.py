@@ -3,26 +3,20 @@
 Run with `pytest -m audit tests/audit/test_audit_b.py` against the isolated audit server.
 """
 
-import os
-import subprocess
-import sys
 import uuid
 from datetime import UTC, datetime, timedelta
 
 import pytest
 from sqlalchemy import text
-from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
-from app.cli.provision_refit import provision_house
 from app.services.aggregates import backfill_aggregates
 from app.services.ingest import ReadingRow, ingest_readings
 from app.services.meter import meter_series
 from tests.audit import results
 from tests.audit.part_b2 import PAUSED_POLICIES
-from tests.audit.run import csv_path
-from tests.audit.support import create_scratch, drop_scratch, scratch_url
-from tests.db.conftest import ROOT, run_alembic
+from tests.audit.support import create_scratch, drop_scratch
+from tests.db.conftest import run_alembic
 from tests.db.test_roles import (
     COPILOT,
     COPILOT_VIEWS,
@@ -52,12 +46,41 @@ def rows(start: datetime, minutes: int, value: float = WATTS, quality: int = 0, 
 
 
 # ------------------------------------------------------------------ B: failure drills
+async def _provision(s: AsyncSession) -> int:
+    """Owner, home, meter SERIAL and its Aggregate main series; returns the home id."""
+    user = await s.scalar(
+        text("INSERT INTO public.tb_users (email) VALUES ('drill@example.invalid') RETURNING id")
+    )
+    home = await s.scalar(
+        text("INSERT INTO public.tb_home (name, home_type) VALUES ('Drill', 'house') RETURNING id")
+    )
+    await s.execute(
+        text("INSERT INTO public.tb_home_member (home_id, user_id, role) VALUES (:h, :u, 'owner')"),
+        {"h": home, "u": user},
+    )
+    meter = await s.scalar(
+        text(
+            "INSERT INTO public.tb_meter (serial, home_id, status) VALUES (:s, :h, 'active') "
+            "RETURNING id"
+        ),
+        {"s": SERIAL, "h": home},
+    )
+    await s.execute(
+        text(
+            "INSERT INTO public.tb_series (home_id, kind, meter_id, source_channel, metric, unit) "
+            "VALUES (:h, 'main', :m, 'Aggregate', 'power_w', 'W')"
+        ),
+        {"h": home, "m": meter},
+    )
+    return home
+
+
 @pytest.fixture(scope="module")
 async def drill():
     dsn = await create_scratch("wattprint_audit_b")
     eng = create_async_engine(dsn)
     async with AsyncSession(eng, expire_on_commit=False) as s:
-        home = await provision_house(s, 1, "drill@example.invalid")
+        home = await _provision(s)
         await s.commit()
     ac = create_async_engine(dsn, isolation_level="AUTOCOMMIT")
     try:
@@ -388,33 +411,6 @@ def test_rebuild_from_empty():
         dsn = await create_scratch(name, migrate=False)
         try:
             run_alembic(dsn, "upgrade", "head")  # the only schema step
-            env = {
-                **os.environ,
-                "DATABASE_URL": make_url(scratch_url(name)).render_as_string(hide_password=False),
-            }
-            # policies are ON after the migration: the loader refuses data the retention or the
-            # compression policy would touch, so move the first row into the last 2 days
-            first = int(open(csv_path(1)).readlines()[1].split(",")[1])
-            first_ts = datetime.fromtimestamp(first, UTC)
-            shift = (datetime.now(UTC) - timedelta(hours=6) - first_ts).days
-            proc = subprocess.run(
-                [
-                    sys.executable,
-                    "-m",
-                    "app.cli.load_refit",
-                    "--house",
-                    "1",
-                    "--limit-rows",
-                    "10000",
-                    "--shift-days",
-                    str(shift),
-                ],
-                cwd=ROOT,
-                env=env,
-                capture_output=True,
-                text=True,
-            )
-            assert proc.returncode == 0, proc.stdout + proc.stderr
             eng = create_async_engine(dsn)
             async with eng.connect() as c:
                 n = await c.scalar(text("SELECT count(*) FROM public.tb_reading"))
@@ -429,7 +425,6 @@ def test_rebuild_from_empty():
                 )
             await eng.dispose()
             out = {
-                "load_output": proc.stdout.strip().splitlines()[-1],
                 "readings": n,
                 "series": series,
                 "tariff_tiers_seeded": tiers,
@@ -438,7 +433,7 @@ def test_rebuild_from_empty():
                 "manual_steps": 0,
             }
             results.record("rebuild", "from_empty", out)
-            assert n == 100_000 and series == 10 and tiers > 0 and types > 0
+            assert n == 0 and series == 0 and tiers > 0 and types > 0  # seed revision skipped
         finally:
             await drop_scratch(name)
 

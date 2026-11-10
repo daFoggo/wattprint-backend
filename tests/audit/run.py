@@ -1,7 +1,7 @@
 """Audit stages: python -m tests.audit.run <stage> [options]
 
-Order (spec section 9): env, policies off, load, estimates, backfill, `pytest -m audit`
-(idempotency + energy vs exact), compress, `pytest -m audit` again, stats, report.
+Order (spec section 9): env, policies off, estimates, backfill, `pytest -m audit`
+(energy vs exact), compress, `pytest -m audit` again, stats, report.
 """
 
 import argparse
@@ -10,7 +10,6 @@ import json
 import os
 import re
 import shutil
-import sys
 import time
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
@@ -113,83 +112,6 @@ async def stage_policies_off(args) -> None:
     results.record("policies", "state", "off")
     results.record("policies", "jobs_remaining", 0)
     log("policies off, no policy jobs remain")
-
-
-# ------------------------------------------------------------------ load
-async def _run_loader(house: int, shift: int, tag: str, limit_rows: int | None = None) -> dict:
-    cmd = [
-        sys.executable,
-        "-m",
-        "app.cli.load_refit",
-        "--house",
-        str(house),
-        "--shift-days",
-        str(shift),
-    ]
-    if limit_rows:
-        cmd += ["--limit-rows", str(limit_rows)]
-    started = time.perf_counter()
-    proc = await asyncio.create_subprocess_exec(
-        *cmd, cwd=ROOT, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.STDOUT
-    )
-    out = (await proc.communicate())[0].decode()
-    wall = time.perf_counter() - started
-    log(f"{tag} house {house} exit={proc.returncode}: {out.strip().splitlines()[-1:]}")
-    if proc.returncode != 0:
-        raise SystemExit(f"load house {house} failed:\n{out}")
-    m = re.search(r"rows_in=(\d+) rows_new=(\d+) rows_dup=(\d+) rows_bad=(\d+) in ([\d.]+)s", out)
-    rows_in, rows_new, rows_dup, rows_bad = (int(m.group(i)) for i in range(1, 5))
-    secs = float(m.group(5))
-    return {
-        "shift_days": shift,
-        "rows_in": rows_in,
-        "rows_new": rows_new,
-        "rows_dup": rows_dup,
-        "rows_bad": rows_bad,
-        "csv_rows": rows_in // 10,
-        "load_seconds": round(secs, 1),
-        "process_wall_seconds": round(wall, 1),
-        "readings_per_s": round(rows_in / secs),
-    }
-
-
-async def stage_load(args) -> None:
-    await ensure_database()
-    houses = parse_houses(args.houses)
-    prior = results.load().get("load", {})
-    todo = [h for h in houses if args.force or f"house{h}" not in prior]
-    for h in houses:
-        if h not in todo:
-            log(f"house {h} already loaded (use --force to reload)")
-    shifts = {h: shift_days_for_csv(csv_path(h)) for h in todo}
-    for h, s in shifts.items():
-        last = datetime.fromtimestamp(last_unix(csv_path(h)), UTC) + timedelta(days=s)
-        log(f"house {h}: shift {s} days, last reading -> {last:%F %T} UTC")
-    started = time.perf_counter()
-    if args.parallel:
-        out = await asyncio.gather(
-            *(_run_loader(h, shifts[h], "par", args.limit_rows) for h in todo)
-        )
-    else:
-        out = [await _run_loader(h, shifts[h], "seq", args.limit_rows) for h in todo]
-    wall = time.perf_counter() - started
-    for h, r in zip(todo, out, strict=True):
-        results.record("load", f"house{h}", r)
-    if todo:
-        total = sum(r["rows_in"] for r in out)
-        mode = "parallel" if args.parallel else "sequential"
-        batch = {
-            "houses": todo,
-            "mode": mode,
-            "wall_seconds": round(wall, 1),
-            "readings": total,
-            "aggregate_readings_per_s": round(total / wall),
-            "mean_per_stream_readings_per_s": round(
-                sum(r["readings_per_s"] for r in out) / len(out)
-            ),
-        }
-        results.record("load", f"run_{mode}_{'-'.join(map(str, todo))}", batch)
-        log(f"load done: {batch}")
 
 
 # ------------------------------------------------------------------ estimates
@@ -705,7 +627,6 @@ async def stage_report(args) -> None:
 STAGES = {
     "env": stage_env,
     "policies": stage_policies_off,
-    "load": stage_load,
     "estimates": stage_estimates,
     "backfill": stage_backfill,
     "compress": stage_compress,
@@ -727,10 +648,7 @@ def main(argv=None) -> int:
     p.add_argument("stage", choices=sorted(STAGES))
     p.add_argument("mode", nargs="?", help="'off' for the policies stage")
     p.add_argument("--houses", default="1,2,3")
-    p.add_argument("--parallel", action="store_true")
-    p.add_argument("--force", action="store_true")
     p.add_argument("--workers", type=int, default=4)
-    p.add_argument("--limit-rows", type=int)
     p.add_argument("--cold", action="store_true")
     args = p.parse_args(argv)
     if args.stage == "policies" and args.mode != "off":

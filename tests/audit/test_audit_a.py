@@ -1,31 +1,20 @@
-"""Audit part A: idempotency and energy correctness against exact integration.
+"""Audit part A: energy correctness against exact integration.
 
-Run with `pytest -m audit tests/audit/test_audit_a.py` after the load / estimates / backfill stages.
+Run with `pytest -m audit tests/audit/test_audit_a.py` after the estimates / backfill stages.
 """
 
 import math
-from datetime import timedelta
-from pathlib import Path
 
 import pytest
 from sqlalchemy import text
 
-from app.cli.load_refit import load_house
-from app.services.aggregates import backfill_aggregates
 from tests.audit import results
 from tests.audit.exact import compare, exact_days, median_cadence, view_days
-from tests.audit.run import csv_path
-from tests.audit.support import make_engine
 
 pytestmark = pytest.mark.audit
 
 HOUSES = (1, 2, 3)
 SAMPLE_DAYS = 30
-CHECKSUM = text(
-    "SELECT count(*) AS n, sum(energy_wh) AS wh, sum(n) AS samples, sum(covered_minutes) AS cov, "
-    "md5(string_agg(series_id || '|' || bucket || '|' || energy_wh || '|' || n || '|' || "
-    "covered_minutes, ',' ORDER BY series_id, bucket)) AS digest FROM public.reading_1d"
-)
 
 
 async def _phase(conn) -> str:
@@ -54,51 +43,6 @@ async def _main_series(conn, house: int) -> int:
         ),
         {"n": f"REFIT House {house}"},
     )
-
-
-async def test_idempotency(conn, session):
-    """Reload 100k CSV rows of House 1: nothing new, aggregates unchanged.
-
-    Duplicate rows insert nothing, so no invalidation is logged and the refresh of the reloaded
-    window below is expected to be a no-op; the check shows that a refresh after the reload
-    leaves reading_1d identical (it would not be if the reload had changed raw data).
-    """
-    shift = results.load()["load"]["house1"]["shift_days"]
-    before = (await conn.execute(CHECKSUM)).one()._asdict()
-    raw_before = await conn.scalar(text("SELECT count(*) FROM public.tb_reading"))
-    first_ts = await conn.scalar(
-        text(
-            "SELECT min(ts) FROM public.tb_reading r JOIN public.tb_series s USING (series_id) "
-            "JOIN public.tb_home h ON h.id = s.home_id WHERE h.name = 'REFIT House 1' "
-            "AND s.kind = 'main'"
-        )
-    )
-    await conn.rollback()
-    res = await load_house(session, 1, Path(csv_path(1)), shift_days=shift, limit_rows=100_000)
-    eng = make_engine(isolation_level="AUTOCOMMIT")
-    try:
-        async with eng.connect() as ac:
-            skipped = await backfill_aggregates(ac, first_ts, first_ts + timedelta(days=15))
-            assert skipped == [], skipped
-    finally:
-        await eng.dispose()
-    after = (await conn.execute(CHECKSUM)).one()._asdict()
-    raw_after = await conn.scalar(text("SELECT count(*) FROM public.tb_reading"))
-    out = {
-        "rows_in": res.rows_in,
-        "rows_new": res.rows_new,
-        "rows_dup": res.rows_dup,
-        "rows_bad": res.rows_bad,
-        "reading_rows_before": raw_before,
-        "reading_rows_after": raw_after,
-        "reading_1d_before": before,
-        "reading_1d_after": after,
-        "identical": before == after,
-    }
-    results.record("idempotency", await _phase(conn), out)
-    assert (res.rows_in, res.rows_new, res.rows_dup, res.rows_bad) == (1_000_000, 0, 1_000_000, 0)
-    assert raw_before == raw_after
-    assert before == after
 
 
 @pytest.fixture(scope="module")

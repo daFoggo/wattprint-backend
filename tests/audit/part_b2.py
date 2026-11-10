@@ -398,7 +398,7 @@ def extrapolate(data: dict) -> dict:
         home_years * 9
     )  # the 3 measured houses each have 9 estimate series
     ratio_est = data.get("cagg_compression", {}).get("device_estimate_1m", {}).get("ratio")
-    measured_rate = data["load"]["house1"]["readings_per_s"]
+    measured_rate = data.get("load", {}).get("house1", {}).get("readings_per_s")  # legacy runs only
 
     def scenario(channels: int, cadence_s: float, estimates: int = 0) -> dict:
         per_day = channels * 86400 / cadence_s
@@ -427,7 +427,9 @@ def extrapolate(data: dict) -> dict:
             "measured_bulk_load_rows_per_second_single_stream": measured_rate,
             "average_rate_as_fraction_of_bulk_load_figure": round(
                 homes * per_day / 86400 / measured_rate, 2
-            ),
+            )
+            if measured_rate
+            else None,
             "raw_gb_per_home_year": round(raw_year / 1e9, 4),
             "agg_1m_uncompressed_gb_per_home_year": round(one_m_year / 1e9, 4),
             "agg_1m_compressed_gb_per_home_year": round(one_m_year / ratio / 1e9, 4)
