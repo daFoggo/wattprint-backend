@@ -20,8 +20,8 @@ các chỉnh sửa tay trong Excalidraw, nên sau khi bắt đầu chỉnh tay t
 
 ## 1. Service nghiệp vụ (4) và phần mềm có sẵn
 
-Lời gọi đồng bộ chỉ đi một chiều **copilot → insight → core → nilm**. Thông tin đi ngược lên chỉ bằng sự kiện
-qua RabbitMQ, nên không có vòng phụ thuộc và một service chết chỉ ảnh hưởng tầng ngay trên.
+Lời gọi đồng bộ chỉ đi một chiều **copilot → insight → core → nilm**. Dữ liệu đi ngược lên bằng sự kiện qua
+RabbitMQ (core → insight → copilot; nilm trả kết quả ngay trong response), nên không có vòng phụ thuộc và một service chết chỉ ảnh hưởng tầng ngay trên.
 
 | Service | Trách nhiệm | Dữ liệu riêng | Gọi tới |
 |---|---|---|---|
