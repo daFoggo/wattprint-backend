@@ -40,7 +40,7 @@ số đo và ước lượng (rất lớn), nhà và thiết bị, tiền điệ
 | | `tb_bill`, `tb_bill_item` | Hóa đơn theo chu kỳ và phần chia theo thiết bị |
 | `insight` | `tb_device_cycle` *(hypertable)* | Mỗi lần thiết bị chạy: bắt đầu, kết thúc, Wh, công suất đỉnh |
 | | `tb_alert`, `tb_forecast_snapshot`, `tb_cohort_stat` | Cảnh báo, dự báo cuối tháng, so sánh với nhà tương tự |
-| `copilot` | `tb_conversation`, `tb_message`, `tb_tool_call` | Hội thoại và truy vết mỗi con số (SQL, đơn vị) |
+| `ai` | `ai.ai_conversation`, `ai.ai_message`, `ai.ai_tool_call` | Hội thoại và truy vết mỗi con số (SQL, đơn vị) |
 | | `tb_suggestion`, `tb_suggestion_feedback`, `tb_savings_measure` | Gợi ý chủ động, phản hồi, đo tiết kiệm trước/sau |
 | | `tb_scope_token` | Token 5 phút cho biết Copilot được đọc home nào |
 | `copilot_ro` | 15 view + `current_home()` | Lớp đọc duy nhất của Copilot |
@@ -101,7 +101,7 @@ số đo và ước lượng (rất lớn), nhà và thiết bị, tiền điệ
 | Thời gian UTC | Mọi cột là `timestamptz`; ngày cắt theo giờ Việt Nam; `home.timezone` có CHECK = `Asia/Ho_Chi_Minh` | Tránh lệch ngày khi tính hóa đơn |
 | Kiểu dữ liệu theo vai trò | Tiền `numeric`; công suất `real` (W); năng lượng suy ra `double precision` | Không dùng float cho tiền |
 | Ghi một đường duy nhất | Mọi nguồn đi qua `ingest_readings`, kể cả REFIT | Có idempotency, checkpoint, audit ở một nơi |
-| Con số do code tính | kWh, VND, đơn vị tính bằng SQL/service; Copilot chỉ đọc và giải thích; mỗi `tb_tool_call` lưu SQL và đơn vị | Kiểm toán được từng số |
+| Con số do code tính | kWh, VND, đơn vị tính bằng SQL/service; Copilot chỉ đọc và giải thích; mỗi `ai.ai_tool_call` lưu SQL và đơn vị | Kiểm toán được từng số |
 | Thiếu dữ liệu thì nói thiếu | Phút thiếu tính 0 Wh, không lấp; `covered_minutes`; hóa đơn có coverage < 95% là `partial` | Không âm thầm tính thiếu |
 | Riêng tư | Mã mời và mã ghép cặp chỉ lưu hash; `tb_cohort_stat` CHECK `n_homes >= 10` | Không lộ danh tính nhóm nhỏ |
 | Có thể dựng lại | Mọi thay đổi là một revision Alembic viết tay; dựng được từ volume rỗng không cần bước tay | Không có drift giữa môi trường |
@@ -163,7 +163,7 @@ SQL của Copilot phải có login riêng và validator SELECT-only trên parse 
 - **`public.tb_home` là trung tâm.** Bảng nào có `home_id` đều `ON DELETE CASCADE` về đây (riêng `tb_meter.home_id`
   không cascade, `public.tb_ingest_batch.home_id` là `SET NULL`).
 - **`tb_users` 1—1 `tb_home_member` N—1 `tb_home`** (`UNIQUE (user_id)`: một tài khoản, một home; nới ra sau này
-  chỉ là bỏ một ràng buộc). `tb_users` còn là chủ của `tb_home_invite.used_by`, `tb_conversation`,
+  chỉ là bỏ một ràng buộc). `tb_users` còn là chủ của `tb_home_invite.used_by`, `ai.ai_conversation`,
   `tb_suggestion_feedback`.
 - **Đo lường:** `tb_meter` và `tb_device` cùng sinh ra `tb_series`; `tb_series` 1—N `tb_reading` / `tb_device_estimate` bằng
   liên kết mềm (nét đứt, không FK). `tb_device_estimate.run_id` cũng là liên kết mềm tới `tb_inference_run`.
@@ -172,7 +172,7 @@ SQL của Copilot phải có login riêng và validator SELECT-only trên parse 
   là `SET NULL` khi xóa thiết bị.
 - **Thiết bị:** `tb_device.merged_into_id` tự trỏ vào `tb_device` (gộp thiết bị); `tb_device_cycle`, `tb_alert`,
   `tb_suggestion`, `tb_device_alert_rule`, `tb_series`, `tb_bill_item` đều có `device_id`.
-- **Copilot:** `tb_conversation` → `tb_message` → `tb_tool_call`; `tb_suggestion` → `tb_suggestion_feedback`,
+- **Copilot:** `ai.ai_conversation` → `ai.ai_message` → `ai.ai_tool_call`; `tb_suggestion` → `tb_suggestion_feedback`,
   `tb_savings_measure`; `tb_suggestion.alert_id` → `public.tb_alert`.
 - **Chưa có ràng buộc chặn chéo home:** `tb_series.device_id`, `tb_bill_item.device_id`, `tb_suggestion.alert_id` có
   thể trỏ sang id của home khác (chỉ lộ số ID, join sang view không ra dòng nào).
@@ -280,9 +280,9 @@ tắc chính thức chưa có.
 | Bảng | Cột | Ghi chú |
 |---|---|---|
 | `tb_scope_token` | `token uuid` PK, `home_id integer` FK, `expires_at` (mặc định `now() + 5 phút`), `created_at` | Chỉ `wattprint_app` đọc/ghi; **không có job dọn**, backend tự xóa token hết hạn |
-| `tb_conversation` | `id`, `home_id`, `user_id`, `title`, `created_at` | |
-| `tb_message` | `id`, `conversation_id`, `role`, `content`, `created_at` | `role` ∈ user/assistant/tool/system |
-| `tb_tool_call` | `id`, `message_id`, `tool`, `input jsonb`, `sql_text`, `unit`, `duration_ms`, `ok` | Truy vết mỗi con số về truy vấn và đơn vị |
+| `ai.ai_conversation` | `id`, `home_id`, `user_id`, `title`, `created_at` | |
+| `ai.ai_message` | `id`, `conversation_id`, `role`, `content`, `created_at` | `role` ∈ user/assistant/tool/system |
+| `ai.ai_tool_call` | `id`, `message_id`, `tool`, `input jsonb`, `sql_text`, `unit`, `duration_ms`, `ok` | Truy vết mỗi con số về truy vấn và đơn vị |
 | `tb_suggestion` | `id`, `home_id`, `device_id`, `alert_id`, `kind`, `title`, `body`, `expected_kwh`, `expected_amount`, `status`, `created_at` | `status` ∈ proposed/shown/accepted/dismissed/done |
 | `tb_suggestion_feedback` | `id`, `suggestion_id`, `user_id`, `action`, `at`, `note` | `action` ∈ accept/ignore/done/dislike |
 | `tb_savings_measure` | `suggestion_id` PK, `baseline_kwh`, `actual_kwh`, `weather_adjusted_kwh` *null*, `method` (mặc định `M&V`), `measured_at` | Bản ghi đo tiết kiệm trước/sau |

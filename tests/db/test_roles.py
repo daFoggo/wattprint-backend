@@ -463,7 +463,7 @@ COPILOT_DENIED_READS = (
     "public.tb_users",
     "public.tb_bill",
     "public.tb_bill_item",
-    "public.tb_message",
+    "ai.ai_message",
     "public.tb_scope_token",
     "public.tb_suggestion",
     "public.tb_alert",
@@ -713,9 +713,6 @@ def expected_app(rel: str) -> set[str]:
         "public.tb_alert",
         "public.tb_forecast_snapshot",
         "public.tb_cohort_stat",
-        "public.tb_conversation",
-        "public.tb_message",
-        "public.tb_tool_call",
         "public.tb_suggestion",
         "public.tb_suggestion_feedback",
         "public.tb_savings_measure",
@@ -726,6 +723,13 @@ def expected_app(rel: str) -> set[str]:
         "public.tb_series",
         "public.tb_inference_run",
         "public.tb_weather_hourly",
+        "ai.ai_conversation",
+        "ai.ai_message",
+        "ai.ai_tool_call",
+        "ai.dim_home",
+        "ai.dim_device",
+        "ai.dim_tariff_plan",
+        "ai.metric_definition",
     }:
         return DML
     if rel in {
@@ -768,7 +772,7 @@ def expected_copilot(rel: str) -> set[str]:
 
 EXPECTED = {APP: expected_app, INGEST: expected_ingest, COPILOT: expected_copilot}
 EXPECTED_USAGE = {
-    APP: {"public"},
+    APP: {"public", "ai"},
     INGEST: {"public"},
     COPILOT: {"copilot_ro", "public"},
 }
@@ -776,8 +780,14 @@ EXPECTED_SEQUENCES = {
     "public.tb_series_series_id_seq",
     "public.tb_inference_run_run_id_seq",
     "public.tb_chunk_id_seq",
+    "ai.ai_conversation_id_seq",
+    "ai.ai_message_id_seq",
+    "ai.ai_tool_call_id_seq",
+    "ai.dim_home_home_key_seq",
+    "ai.dim_device_device_key_seq",
+    "ai.dim_tariff_plan_tariff_plan_key_seq",
 }
-ALL_SCHEMAS = ("public", "copilot_ro")
+ALL_SCHEMAS = ("public", "copilot_ro", "ai")
 
 
 async def relations(c) -> list[str]:
@@ -918,9 +928,6 @@ async def test_matrix_covers_all_domain_tables(conn):
             "public.tb_alert",
             "public.tb_forecast_snapshot",
             "public.tb_cohort_stat",
-            "public.tb_conversation",
-            "public.tb_message",
-            "public.tb_tool_call",
             "public.tb_suggestion",
             "public.tb_suggestion_feedback",
             "public.tb_savings_measure",

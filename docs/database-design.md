@@ -55,7 +55,7 @@ Foreign key có ở mọi nơi trừ chiều đi vào hypertable (tính toàn v�
 | `energy` | `series`, `reading` (hypertable), `device_estimate` (hypertable), `inference_run`, `weather_hourly`; continuous aggregate `reading_1m` → `reading_1h` → `reading_1d` và `device_estimate_1m` → `device_estimate_1h` → `device_estimate_1d` |
 | `billing` | `tariff_plan`, `tariff_version`, `tariff_tier`, `bill`, `bill_item` |
 | `insight` | `device_cycle` (hypertable), `alert`, `forecast_snapshot`, `cohort_stat` |
-| `copilot` | `conversation`, `message`, `tool_call`, `suggestion`, `suggestion_feedback`, `savings_measure`, `scope_token` |
+| `ai` | `ai_conversation`, `ai_message`, `ai_tool_call` |
 | `copilot_ro` | 15 view chỉ đọc cho Copilot: `home`, `device`, `series`, `bill`, `bill_item`, `alert`, `device_cycle`, `suggestion`, `forecast_snapshot` và 6 view bọc các aggregate; hàm `current_home()` |
 | `knowledge` | `document`, `chunk` (pgvector HNSW + GIN full-text với `unaccent`) |
 | `ops` | `ingest_batch`, `ingest_checkpoint`, view `series_daily_coverage`, `stale_series`; hàm `set_policies` |
@@ -250,7 +250,7 @@ Keycloak cũng dùng một database trên server này thay cho container `keyclo
 | `core_db` | core | `public.tb_users`; `public.tb_home`, `home_member`, `home_invite`, `meter`, `device`; `public.*`; `public.tb_series`, `reading`, `device_estimate` và 6 continuous aggregate; `public.*`; `public.*`; thêm `outbox` | TimescaleDB |
 | `nilm_db` | nilm | `public.tb_inference_run`; thêm danh mục phiên bản model và tham số hiệu chỉnh theo hộ | |
 | `insight_db` | insight | `public.tb_device_cycle`, `alert`, `forecast_snapshot`, `cohort_stat`; `public.tb_savings_measure`; `public.tb_weather_hourly`; `public.tb_device_alert_rule`; thêm read model tiêu thụ theo giờ (hypertable), bản sao danh mục thiết bị, view cho truy vấn an toàn, `inbox`, `outbox` | TimescaleDB |
-| `copilot_db` | copilot | `public.tb_conversation`, `message`, `tool_call`, `suggestion`, `suggestion_feedback`; `public.*`; thêm bảng saga, `inbox`, `outbox` | pgvector, unaccent, pg_trgm |
+| `copilot_db` | copilot | `ai.ai_conversation`, `ai.ai_message`, `ai.ai_tool_call`; `public.tb_suggestion`, `public.tb_suggestion_feedback`; thêm bảng saga, `inbox`, `outbox` | pgvector, unaccent, pg_trgm |
 | `keycloak_db` | Keycloak | Do Keycloak tự quản | |
 
 Bỏ hẳn: schema `copilot_ro`, `public.tb_scope_token`, role `wattprint_copilot_ro`.

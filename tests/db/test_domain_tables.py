@@ -346,13 +346,13 @@ async def test_message_role_check(conn):
     h = await mk_home(conn)
     u = await mk_user(conn)
     cid = await conn.scalar(
-        text("INSERT INTO public.tb_conversation (home_id, user_id) VALUES (:h, :u) RETURNING id"),
+        text("INSERT INTO ai.ai_conversation (home_id, user_id) VALUES (:h, :u) RETURNING id"),
         {"h": h, "u": u},
     )
-    sql = "INSERT INTO public.tb_message (conversation_id, role, content) VALUES (:c, :r, 'x')"
+    sql = "INSERT INTO ai.ai_message (conversation_id, role, content) VALUES (:c, :r, 'x')"
     for role in ("user", "assistant", "tool", "system"):
         await conn.execute(text(sql), {"c": cid, "r": role})
-    await rejected(conn, sql, "ck_message_role", c=cid, r="bot")
+    await rejected(conn, sql, "ck_ai_message_role", c=cid, r="bot")
 
 
 async def test_suggestion_status_check(conn):
@@ -429,18 +429,18 @@ async def test_delete_home_cascades(conn):
     u = await mk_user(conn)
     a = await mk_alert(conn, h)
     cid = await conn.scalar(
-        text("INSERT INTO public.tb_conversation (home_id, user_id) VALUES (:h, :u) RETURNING id"),
+        text("INSERT INTO ai.ai_conversation (home_id, user_id) VALUES (:h, :u) RETURNING id"),
         {"h": h, "u": u},
     )
     mid = await conn.scalar(
         text(
-            "INSERT INTO public.tb_message (conversation_id, role, content) "
+            "INSERT INTO ai.ai_message (conversation_id, role, content) "
             "VALUES (:c, 'user', 'x') RETURNING id"
         ),
         {"c": cid},
     )
     await conn.execute(
-        text("INSERT INTO public.tb_tool_call (message_id, tool, ok) VALUES (:m, 't', true)"),
+        text("INSERT INTO ai.ai_tool_call (message_id, tool, ok) VALUES (:m, 't', true)"),
         {"m": mid},
     )
     sid = await mk_suggestion(conn, h, alert_id=a)
@@ -461,9 +461,9 @@ async def test_delete_home_cascades(conn):
     await conn.execute(text("DELETE FROM public.tb_home WHERE id = :h"), {"h": h})
     for table in (
         "public.tb_alert",
-        "public.tb_conversation",
-        "public.tb_message",
-        "public.tb_tool_call",
+        "ai.ai_conversation",
+        "ai.ai_message",
+        "ai.ai_tool_call",
         "public.tb_suggestion",
         "public.tb_suggestion_feedback",
         "public.tb_savings_measure",
@@ -477,7 +477,7 @@ async def test_delete_user_cascades_conversation_and_feedback(conn):
     u = await mk_user(conn)
     sid = await mk_suggestion(conn, h)
     await conn.execute(
-        text("INSERT INTO public.tb_conversation (home_id, user_id) VALUES (:h, :u)"),
+        text("INSERT INTO ai.ai_conversation (home_id, user_id) VALUES (:h, :u)"),
         {"h": h, "u": u},
     )
     await conn.execute(
@@ -488,7 +488,7 @@ async def test_delete_user_cascades_conversation_and_feedback(conn):
         {"s": sid, "u": u},
     )
     await conn.execute(text("DELETE FROM public.tb_users WHERE id = :u"), {"u": u})
-    assert await count(conn, "public.tb_conversation") == 0
+    assert await count(conn, "ai.ai_conversation") == 0
     assert await count(conn, "public.tb_suggestion_feedback") == 0
     assert await count(conn, "public.tb_suggestion") == 1
 
@@ -634,9 +634,9 @@ def test_metadata_sorted_tables_resolve():
         "public.tb_alert",
         "public.tb_forecast_snapshot",
         "public.tb_cohort_stat",
-        "public.tb_conversation",
-        "public.tb_message",
-        "public.tb_tool_call",
+        "ai.ai_conversation",
+        "ai.ai_message",
+        "ai.ai_tool_call",
         "public.tb_suggestion",
         "public.tb_suggestion_feedback",
         "public.tb_savings_measure",

@@ -122,9 +122,6 @@ DOMAIN_TABLES = {
     "billing": ("tb_tariff_plan", "tb_tariff_version", "tb_tariff_tier", "tb_bill", "tb_bill_item"),
     "insight": ("tb_device_cycle", "tb_alert", "tb_forecast_snapshot", "tb_cohort_stat"),
     "copilot": (
-        "tb_conversation",
-        "tb_message",
-        "tb_tool_call",
         "tb_suggestion",
         "tb_suggestion_feedback",
         "tb_savings_measure",

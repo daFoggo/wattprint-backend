@@ -129,7 +129,9 @@ class Device(Base):
     show_on_timeline: Mapped[bool] = mapped_column(default=True, server_default=text("true"))
     active_from: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=_NOW)
     active_to: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    merged_into_id: Mapped[int | None] = mapped_column(ForeignKey("public.tb_device.id"), index=True)
+    merged_into_id: Mapped[int | None] = mapped_column(
+        ForeignKey("public.tb_device.id"), index=True
+    )
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=_NOW)
 

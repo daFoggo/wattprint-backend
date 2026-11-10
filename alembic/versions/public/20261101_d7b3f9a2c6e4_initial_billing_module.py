@@ -177,5 +177,11 @@ def downgrade() -> None:
     op.drop_constraint(
         "fk_home_tariff_plan_code_tariff_plan", "tb_home", schema="public", type_="foreignkey"
     )
-    for table in ("tb_bill_item", "tb_bill", "tb_tariff_tier", "tb_tariff_version", "tb_tariff_plan"):
+    for table in (
+        "tb_bill_item",
+        "tb_bill",
+        "tb_tariff_tier",
+        "tb_tariff_version",
+        "tb_tariff_plan",
+    ):
         op.drop_table(table, schema="public")

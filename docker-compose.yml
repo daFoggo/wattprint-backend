@@ -82,6 +82,7 @@ services:
       APP_DB_PASSWORD: ${APP_DB_PASSWORD:-}
       INGEST_DB_PASSWORD: ${INGEST_DB_PASSWORD:-}
       COPILOT_DB_PASSWORD: ${COPILOT_DB_PASSWORD:-}
+      AI_DB_PASSWORD: ${AI_DB_PASSWORD:-}
     ports:
       - "${API_PORT:-11093}:11093"
     depends_on:

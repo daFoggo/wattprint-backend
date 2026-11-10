@@ -88,21 +88,6 @@ def upgrade() -> None:
     )
     op.create_index("ix_public_tb_alert_device_id", "tb_alert", ["device_id"], schema="public")
     op.create_index(
-        "ix_public_tb_conversation_home_id", "tb_conversation", ["home_id"], schema="public"
-    )
-    op.create_index(
-        "ix_public_tb_conversation_user_id", "tb_conversation", ["user_id"], schema="public"
-    )
-    op.create_index(
-        "ix_public_tb_message_conversation_id",
-        "tb_message",
-        ["conversation_id"],
-        schema="public",
-    )
-    op.create_index(
-        "ix_public_tb_tool_call_message_id", "tb_tool_call", ["message_id"], schema="public"
-    )
-    op.create_index(
         "ix_public_tb_suggestion_home_id", "tb_suggestion", ["home_id"], schema="public"
     )
     op.create_index(
@@ -172,10 +157,6 @@ def downgrade() -> None:
         ("ix_public_tb_suggestion_alert_id", "tb_suggestion"),
         ("ix_public_tb_suggestion_device_id", "tb_suggestion"),
         ("ix_public_tb_suggestion_home_id", "tb_suggestion"),
-        ("ix_public_tb_tool_call_message_id", "tb_tool_call"),
-        ("ix_public_tb_message_conversation_id", "tb_message"),
-        ("ix_public_tb_conversation_user_id", "tb_conversation"),
-        ("ix_public_tb_conversation_home_id", "tb_conversation"),
         ("ix_public_tb_alert_device_id", "tb_alert"),
         ("ix_alert_home_ts", "tb_alert"),
         ("ix_device_cycle_home_start", "tb_device_cycle"),

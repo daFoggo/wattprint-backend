@@ -49,8 +49,8 @@ class ScopeToken(Base):
 
 
 class Conversation(Base):
-    __tablename__ = "tb_conversation"
-    __table_args__ = {"schema": "public"}
+    __tablename__ = "ai_conversation"
+    __table_args__ = {"schema": "ai"}
 
     id: Mapped[int] = mapped_column(Integer, Identity(always=False), primary_key=True)
     home_id: Mapped[int] = mapped_column(
@@ -64,15 +64,15 @@ class Conversation(Base):
 
 
 class Message(Base):
-    __tablename__ = "tb_message"
+    __tablename__ = "ai_message"
     __table_args__ = (
         CheckConstraint("role IN ('user','assistant','tool','system')", name="role"),
-        {"schema": "public"},
+        {"schema": "ai"},
     )
 
     id: Mapped[int] = mapped_column(Integer, Identity(always=False), primary_key=True)
     conversation_id: Mapped[int] = mapped_column(
-        ForeignKey("public.tb_conversation.id", ondelete="CASCADE"), index=True
+        ForeignKey("ai.ai_conversation.id", ondelete="CASCADE"), index=True
     )
     role: Mapped[str] = mapped_column(String(16))
     content: Mapped[str] = mapped_column(Text)
@@ -80,12 +80,12 @@ class Message(Base):
 
 
 class ToolCall(Base):
-    __tablename__ = "tb_tool_call"
-    __table_args__ = {"schema": "public"}
+    __tablename__ = "ai_tool_call"
+    __table_args__ = {"schema": "ai"}
 
     id: Mapped[int] = mapped_column(Integer, Identity(always=False), primary_key=True)
     message_id: Mapped[int] = mapped_column(
-        ForeignKey("public.tb_message.id", ondelete="CASCADE"), index=True
+        ForeignKey("ai.ai_message.id", ondelete="CASCADE"), index=True
     )
     tool: Mapped[str] = mapped_column(Text)
     input: Mapped[dict[str, Any]] = mapped_column(

@@ -144,7 +144,10 @@ def upgrade() -> None:
         sa.Column("joined_at", sa.DateTime(timezone=True), nullable=False, server_default=NOW),
         sa.PrimaryKeyConstraint("home_id", "user_id", name="pk_home_member"),
         sa.ForeignKeyConstraint(
-            ["home_id"], ["public.tb_home.id"], name="fk_home_member_home_id_home", ondelete="CASCADE"
+            ["home_id"],
+            ["public.tb_home.id"],
+            name="fk_home_member_home_id_home",
+            ondelete="CASCADE",
         ),
         sa.ForeignKeyConstraint(
             ["user_id"],
@@ -167,7 +170,10 @@ def upgrade() -> None:
         sa.Column("used_at", sa.DateTime(timezone=True), nullable=True),
         sa.PrimaryKeyConstraint("id", name="pk_home_invite"),
         sa.ForeignKeyConstraint(
-            ["home_id"], ["public.tb_home.id"], name="fk_home_invite_home_id_home", ondelete="CASCADE"
+            ["home_id"],
+            ["public.tb_home.id"],
+            name="fk_home_invite_home_id_home",
+            ondelete="CASCADE",
         ),
         sa.ForeignKeyConstraint(
             ["used_by"], ["public.tb_users.id"], name="fk_home_invite_used_by_users"

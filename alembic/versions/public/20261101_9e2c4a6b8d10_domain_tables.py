@@ -33,46 +33,6 @@ def _fk(col: str, target: str, ondelete: str) -> sa.ForeignKeyConstraint:
 
 def _copilot() -> None:
     op.create_table(
-        "tb_conversation",
-        _int_pk(),
-        sa.Column("home_id", sa.Integer, nullable=False),
-        sa.Column("user_id", sa.Integer, nullable=False),
-        sa.Column("title", sa.Text),
-        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=NOW),
-        _fk("home_id", "public.tb_home.id", "CASCADE"),
-        _fk("user_id", "public.tb_users.id", "CASCADE"),
-        schema="public",
-    )
-    op.create_table(
-        "tb_message",
-        _int_pk(),
-        sa.Column("conversation_id", sa.Integer, nullable=False),
-        sa.Column("role", sa.String(16), nullable=False),
-        sa.Column("content", sa.Text, nullable=False),
-        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=NOW),
-        _fk("conversation_id", "public.tb_conversation.id", "CASCADE"),
-        sa.CheckConstraint("role IN ('user','assistant','tool','system')", name="role"),
-        schema="public",
-    )
-    op.create_table(
-        "tb_tool_call",
-        _int_pk(),
-        sa.Column("message_id", sa.Integer, nullable=False),
-        sa.Column("tool", sa.Text, nullable=False),
-        sa.Column(
-            "input",
-            sa.dialects.postgresql.JSONB,
-            nullable=False,
-            server_default=sa.text("'{}'::jsonb"),
-        ),
-        sa.Column("sql_text", sa.Text),
-        sa.Column("unit", sa.Text),
-        sa.Column("duration_ms", sa.Integer),
-        sa.Column("ok", sa.Boolean, nullable=False),
-        _fk("message_id", "public.tb_message.id", "CASCADE"),
-        schema="public",
-    )
-    op.create_table(
         "tb_suggestion",
         _int_pk(),
         sa.Column("home_id", sa.Integer, nullable=False),
@@ -170,8 +130,5 @@ def downgrade() -> None:
         "tb_savings_measure",
         "tb_suggestion_feedback",
         "tb_suggestion",
-        "tb_tool_call",
-        "tb_message",
-        "tb_conversation",
     ):
         op.drop_table(table, schema="public")
