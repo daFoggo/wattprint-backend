@@ -17,6 +17,7 @@ ROOT = Path(__file__).resolve().parents[2]
 
 def run_alembic(dsn: str, *args: str, **extra_env: str) -> None:
     env = {k: v for k, v in os.environ.items() if not k.endswith("_DB_PASSWORD")}
+    env["SEED_REFIT"] = "0"  # skip the REFIT seed revision: tests start from an empty database
     env.update(extra_env)
     env["DATABASE_URL"] = dsn
     proc = subprocess.run(
