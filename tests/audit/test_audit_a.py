@@ -24,15 +24,18 @@ SAMPLE_DAYS = 30
 CHECKSUM = text(
     "SELECT count(*) AS n, sum(energy_wh) AS wh, sum(n) AS samples, sum(covered_minutes) AS cov, "
     "md5(string_agg(series_id || '|' || bucket || '|' || energy_wh || '|' || n || '|' || "
-    "covered_minutes, ',' ORDER BY series_id, bucket)) AS digest FROM energy.reading_1d"
+    "covered_minutes, ',' ORDER BY series_id, bucket)) AS digest FROM public.reading_1d"
 )
 
 
 async def _phase(conn) -> str:
     """post_compress when the DB holds compressed raw chunks (not what the JSON claims)."""
     n = await conn.scalar(
-        text("SELECT count(*) FROM timescaledb_information.chunks "
-             "WHERE hypertable_schema = 'energy' AND hypertable_name = 'reading' AND is_compressed")
+        text(
+            "SELECT count(*) FROM timescaledb_information.chunks "
+            "WHERE hypertable_schema = 'public' AND hypertable_name = 'tb_reading' "
+            "AND is_compressed"
+        )
     )
     return "post_compress" if n else "pre_compress"
 
@@ -45,8 +48,10 @@ async def phase(engine):
 
 async def _main_series(conn, house: int) -> int:
     return await conn.scalar(
-        text("SELECT s.series_id FROM energy.series s JOIN core.home h ON h.id = s.home_id "
-             "WHERE h.name = :n AND s.kind = 'main'"),
+        text(
+            "SELECT s.series_id FROM public.tb_series s JOIN public.tb_home h ON h.id = s.home_id "
+            "WHERE h.name = :n AND s.kind = 'main'"
+        ),
         {"n": f"REFIT House {house}"},
     )
 
@@ -60,11 +65,13 @@ async def test_idempotency(conn, session):
     """
     shift = results.load()["load"]["house1"]["shift_days"]
     before = (await conn.execute(CHECKSUM)).one()._asdict()
-    raw_before = await conn.scalar(text("SELECT count(*) FROM energy.reading"))
+    raw_before = await conn.scalar(text("SELECT count(*) FROM public.tb_reading"))
     first_ts = await conn.scalar(
-        text("SELECT min(ts) FROM energy.reading r JOIN energy.series s USING (series_id) "
-             "JOIN core.home h ON h.id = s.home_id WHERE h.name = 'REFIT House 1' "
-             "AND s.kind = 'main'")
+        text(
+            "SELECT min(ts) FROM public.tb_reading r JOIN public.tb_series s USING (series_id) "
+            "JOIN public.tb_home h ON h.id = s.home_id WHERE h.name = 'REFIT House 1' "
+            "AND s.kind = 'main'"
+        )
     )
     await conn.rollback()
     res = await load_house(session, 1, Path(csv_path(1)), shift_days=shift, limit_rows=100_000)
@@ -76,11 +83,16 @@ async def test_idempotency(conn, session):
     finally:
         await eng.dispose()
     after = (await conn.execute(CHECKSUM)).one()._asdict()
-    raw_after = await conn.scalar(text("SELECT count(*) FROM energy.reading"))
+    raw_after = await conn.scalar(text("SELECT count(*) FROM public.tb_reading"))
     out = {
-        "rows_in": res.rows_in, "rows_new": res.rows_new, "rows_dup": res.rows_dup,
-        "rows_bad": res.rows_bad, "reading_rows_before": raw_before,
-        "reading_rows_after": raw_after, "reading_1d_before": before, "reading_1d_after": after,
+        "rows_in": res.rows_in,
+        "rows_new": res.rows_new,
+        "rows_dup": res.rows_dup,
+        "rows_bad": res.rows_bad,
+        "reading_rows_before": raw_before,
+        "reading_rows_after": raw_after,
+        "reading_1d_before": before,
+        "reading_1d_after": after,
         "identical": before == after,
     }
     results.record("idempotency", await _phase(conn), out)
@@ -102,9 +114,11 @@ async def energy_numbers(engine):
             view = await view_days(conn, sid)
             variants = {
                 "hold_across_flagged": await exact_days(
-                    conn, sid, cadence, hold_across_flagged=True),
+                    conn, sid, cadence, hold_across_flagged=True
+                ),
                 "hold_across_flagged_cap_120s": await exact_days(
-                    conn, sid, cadence, hold_across_flagged=True, cap_s=120.0),
+                    conn, sid, cadence, hold_across_flagged=True, cap_s=120.0
+                ),
             }
             await conn.rollback()
             out[house] = (sid, cadence, exact, view, variants)
@@ -156,19 +170,25 @@ async def test_energy_gate_one_percent(energy_numbers):
     for house, (_sid, _cad, exact, view, variants) in energy_numbers.items():
         full = compare(variants[GATE_REFERENCE], view)["full_coverage"]
         measured[f"house{house}"] = {
-            "days": full["days"], "days_over_gate": full["days_over_gate"],
-            "err_pct_max": full["err_pct_max"], "err_pct_p95": full["err_pct_p95"],
+            "days": full["days"],
+            "days_over_gate": full["days_over_gate"],
+            "err_pct_max": full["err_pct_max"],
+            "err_pct_p95": full["err_pct_p95"],
         }
         orig = compare(exact, view)["full_coverage"]
-        original[f"house{house}"] = {"days_over_gate": orig["days_over_gate"],
-                                     "err_pct_max": orig["err_pct_max"]}
+        original[f"house{house}"] = {
+            "days_over_gate": orig["days_over_gate"],
+            "err_pct_max": orig["err_pct_max"],
+        }
     if all(m["days_over_gate"] == 0 for m in measured.values()):
         return
     assert base, "gate failing and no energy_gate_baseline recorded"
     assert all(b.get("reference") == GATE_REFERENCE for b in base.values()), (
-        "energy_gate_baseline was recorded for another reference")
+        "energy_gate_baseline was recorded for another reference"
+    )
     worse = {
-        h: (m, base[h]) for h, m in measured.items()
+        h: (m, base[h])
+        for h, m in measured.items()
         if m["days_over_gate"] > base[h]["days_over_gate"]
         or m["err_pct_max"] > base[h]["err_pct_max"] * (1 + 1e-6)
         or m["err_pct_p95"] > base[h]["err_pct_p95"] * (1 + 1e-6)
@@ -177,7 +197,8 @@ async def test_energy_gate_one_percent(energy_numbers):
     pytest.xfail(
         f"1% gate fails against the restated reference ({GATE_REFERENCE}), as recorded "
         f"(docs/database-audit.md, Verdicts): {measured}; original reference (diagnostic): "
-        f"{original}")
+        f"{original}"
+    )
 
 
 async def test_energy_after_compression(energy_numbers, phase):

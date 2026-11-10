@@ -22,8 +22,9 @@ from tests.audit.part_b import ROOT, log, summarize_ms
 from tests.audit.support import create_scratch, drop_scratch, make_engine, scratch_url
 
 
-async def copy_slices(scratch_dsn: str, slices: list[tuple[datetime, datetime]],
-                      with_estimates: bool) -> dict:
+async def copy_slices(
+    scratch_dsn: str, slices: list[tuple[datetime, datetime]], with_estimates: bool
+) -> dict:
     """Copy House 1's rows of the given [from, to) slices into a scratch database.
 
     Every copied series becomes the `main` series of its own scratch home (same series_id), which
@@ -34,32 +35,47 @@ async def copy_slices(scratch_dsn: str, slices: list[tuple[datetime, datetime]],
     counts: dict = {}
     try:
         async with src.connect() as sc, dst.connect() as dc:
-            sids = [r[0] for r in await sc.execute(text(
-                "SELECT s.series_id FROM energy.series s JOIN core.home h ON h.id = s.home_id "
-                "WHERE h.name = 'REFIT House 1' ORDER BY 1"))]
+            sids = [
+                r[0]
+                for r in await sc.execute(
+                    text(
+                        "SELECT s.series_id FROM public.tb_series s JOIN public.tb_home h ON h.id = s.home_id "
+                        "WHERE h.name = 'REFIT House 1' ORDER BY 1"
+                    )
+                )
+            ]
             for sid in sids:
-                await dc.execute(text(
-                    "WITH h AS (INSERT INTO core.home (name) VALUES ('scratch') RETURNING id) "
-                    "INSERT INTO energy.series (series_id, home_id, kind, metric, unit) "
-                    "OVERRIDING SYSTEM VALUE SELECT :s, id, 'main', 'power_w', 'W' FROM h"),
-                    {"s": sid})
+                await dc.execute(
+                    text(
+                        "WITH h AS (INSERT INTO public.tb_home (name) VALUES ('scratch') RETURNING id) "
+                        "INSERT INTO public.tb_series (series_id, home_id, kind, metric, unit) "
+                        "OVERRIDING SYSTEM VALUE SELECT :s, id, 'main', 'power_w', 'W' FROM h"
+                    ),
+                    {"s": sid},
+                )
             await dc.commit()
             raw_src = (await sc.get_raw_connection()).driver_connection
             raw_dst = (await dc.get_raw_connection()).driver_connection
-            for table, cols in (("reading", ["ts", "series_id", "value", "quality"]),
-                                ("device_estimate", ["ts", "series_id", "value", "run_id"])):
+            for table, cols in (
+                ("reading", ["ts", "series_id", "value", "quality"]),
+                ("device_estimate", ["ts", "series_id", "value", "run_id"]),
+            ):
                 if table == "device_estimate" and not with_estimates:
                     continue
                 total = 0
                 for a, b in slices:
                     rows = await raw_src.fetch(
-                        f"SELECT {', '.join(cols)} FROM energy.{table} "
-                        "WHERE ts >= $1 AND ts < $2 AND series_id = ANY($3::int[])", a, b, sids)
+                        f"SELECT {', '.join(cols)} FROM public.{table} "
+                        "WHERE ts >= $1 AND ts < $2 AND series_id = ANY($3::int[])",
+                        a,
+                        b,
+                        sids,
+                    )
                     if table == "device_estimate":
                         rows = [(r[0], r[1], r[2], None) for r in rows]
                     await raw_dst.copy_records_to_table(
-                        table, records=[tuple(r) for r in rows], columns=cols,
-                        schema_name="energy")
+                        table, records=[tuple(r) for r in rows], columns=cols, schema_name="public"
+                    )
                     total += len(rows)
                 counts[table] = total
             await dc.commit()
@@ -74,10 +90,14 @@ async def _size(c, name: str) -> int:
 
 
 async def _mat_table(c, view: str) -> str:
-    return await c.scalar(text(
-        "SELECT format('%I.%I', materialization_hypertable_schema, "
-        "materialization_hypertable_name) FROM timescaledb_information.continuous_aggregates "
-        "WHERE view_name = :v"), {"v": view})
+    return await c.scalar(
+        text(
+            "SELECT format('%I.%I', materialization_hypertable_schema, "
+            "materialization_hypertable_name) FROM timescaledb_information.continuous_aggregates "
+            "WHERE view_name = :v"
+        ),
+        {"v": view},
+    )
 
 
 async def timed_backfill(eng, a: datetime, b: datetime) -> dict:
@@ -119,43 +139,62 @@ async def stage_cagg_compression(args) -> None:
         out["backfill_seconds_per_view"] = await timed_backfill(eng, *month)
         out["backfill_seconds"] = round(time.perf_counter() - t0, 1)
         for fam in ("reading", "device_estimate"):
-            view = f"energy.{fam}_1m"
+            view = f"public.{fam}_1m"
             mat = await _mat_table(c, f"{fam}_1m")
             rows = await c.scalar(text(f"SELECT count(*) FROM {view}"))
             before = await _size(c, mat)
-            await c.execute(text(
-                f"ALTER MATERIALIZED VIEW {view} SET (timescaledb.compress = true, "
-                "timescaledb.compress_segmentby = 'series_id', "
-                "timescaledb.compress_orderby = 'bucket DESC')"))
+            await c.execute(
+                text(
+                    f"ALTER MATERIALIZED VIEW {view} SET (timescaledb.compress = true, "
+                    "timescaledb.compress_segmentby = 'series_id', "
+                    "timescaledb.compress_orderby = 'bucket DESC')"
+                )
+            )
             t1 = time.perf_counter()
-            chunks = [r[0] for r in await c.execute(text(
-                "SELECT format('%I.%I', chunk_schema, chunk_name) "
-                "FROM timescaledb_information.chunks WHERE hypertable_schema = "
-                "split_part(:m, '.', 1) AND hypertable_name = split_part(:m, '.', 2) "
-                "AND NOT is_compressed"), {"m": mat})]
+            chunks = [
+                r[0]
+                for r in await c.execute(
+                    text(
+                        "SELECT format('%I.%I', chunk_schema, chunk_name) "
+                        "FROM timescaledb_information.chunks WHERE hypertable_schema = "
+                        "split_part(:m, '.', 1) AND hypertable_name = split_part(:m, '.', 2) "
+                        "AND NOT is_compressed"
+                    ),
+                    {"m": mat},
+                )
+            ]
             for ch in chunks:
                 await c.execute(text("SELECT compress_chunk(CAST(:c AS regclass))"), {"c": ch})
             after = await _size(c, mat)
             same = await c.scalar(text(f"SELECT count(*) FROM {view}"))
             out[f"{fam}_1m"] = {
-                "rows": rows, "chunks_compressed": len(chunks), "bytes_before": before,
-                "bytes_after": after, "ratio": round(before / after, 2),
+                "rows": rows,
+                "chunks_compressed": len(chunks),
+                "bytes_before": before,
+                "bytes_after": after,
+                "ratio": round(before / after, 2),
                 "bytes_per_row_before": round(before / rows, 1),
                 "bytes_per_row_after": round(after / rows, 1),
                 "compress_seconds": round(time.perf_counter() - t1, 1),
                 "row_count_unchanged": same == rows,
             }
             log(f"{fam}_1m: {out[f'{fam}_1m']}")
-        sid = await c.scalar(text("SELECT min(series_id) FROM energy.series"))
+        sid = await c.scalar(text("SELECT min(series_id) FROM public.tb_series"))
         lat = {}
         for label, sql in (
-            ("5m_over_1d", "SELECT time_bucket('5 minutes', bucket) b, avg(avg_w), min(min_w), "
-             "max(max_w), sum(energy_wh) FROM energy.reading_1m WHERE series_id = :s AND "
-             "bucket >= '2026-09-20 17:00+00' AND bucket < '2026-09-21 17:00+00' GROUP BY 1 "
-             "ORDER BY 1"),
-            ("latest_minute", "SELECT bucket, last_w FROM energy.reading_1m WHERE series_id = :s "
-             "AND bucket >= '2026-09-24 00:00+00' AND bucket < '2026-09-30 00:00+00' "
-             "ORDER BY bucket DESC LIMIT 1"),
+            (
+                "5m_over_1d",
+                "SELECT time_bucket('5 minutes', bucket) b, avg(avg_w), min(min_w), "
+                "max(max_w), sum(energy_wh) FROM public.reading_1m WHERE series_id = :s AND "
+                "bucket >= '2026-09-20 17:00+00' AND bucket < '2026-09-21 17:00+00' GROUP BY 1 "
+                "ORDER BY 1",
+            ),
+            (
+                "latest_minute",
+                "SELECT bucket, last_w FROM public.reading_1m WHERE series_id = :s "
+                "AND bucket >= '2026-09-24 00:00+00' AND bucket < '2026-09-30 00:00+00' "
+                "ORDER BY bucket DESC LIMIT 1",
+            ),
         ):
             ts = []
             for _ in range(31):
@@ -172,43 +211,58 @@ async def stage_cagg_compression(args) -> None:
 
 # ------------------------------------------------------------------ F
 PAUSED_POLICIES = (
-    "DO $$ BEGIN PERFORM ops.set_policies(true); "
+    "DO $$ BEGIN PERFORM public.set_policies(true); "
     "PERFORM alter_job(job_id, scheduled => false) FROM timescaledb_information.jobs "
     "WHERE hypertable_name IS NOT NULL; END $$"
 )
 
 
 async def _job(c, proc: str, table: str) -> int:
-    return await c.scalar(text(
-        "SELECT job_id FROM timescaledb_information.jobs WHERE proc_name = :p AND "
-        "hypertable_name = :t"), {"p": proc, "t": table})
+    return await c.scalar(
+        text(
+            "SELECT job_id FROM timescaledb_information.jobs WHERE proc_name = :p AND "
+            "hypertable_name = :t"
+        ),
+        {"p": proc, "t": table},
+    )
 
 
 async def _view_counts(c, a: datetime, b: datetime) -> dict:
-    return {v: await c.scalar(text(f"SELECT count(*) FROM energy.reading_{v} "
-                                   "WHERE bucket >= :a AND bucket < :b"), {"a": a, "b": b})
-            for v in ("1m", "1h", "1d")}
+    return {
+        v: await c.scalar(
+            text(f"SELECT count(*) FROM public.reading_{v} WHERE bucket >= :a AND bucket < :b"),
+            {"a": a, "b": b},
+        )
+        for v in ("1m", "1h", "1d")
+    }
 
 
 async def _mat_counts(c, a: datetime, b: datetime) -> dict:
     out = {}
     for v in ("1m", "1h", "1d"):
         mat = await _mat_table(c, f"reading_{v}")
-        out[v] = await c.scalar(text(f"SELECT count(*) FROM {mat} WHERE bucket >= :a "
-                                     "AND bucket < :b"), {"a": a, "b": b})
+        out[v] = await c.scalar(
+            text(f"SELECT count(*) FROM {mat} WHERE bucket >= :a AND bucket < :b"), {"a": a, "b": b}
+        )
     return out
 
 
 async def _raw_count(c, a: datetime, b: datetime) -> int:
-    return await c.scalar(text("SELECT count(*) FROM energy.reading WHERE ts >= :a AND ts < :b"),
-                          {"a": a, "b": b})
+    return await c.scalar(
+        text("SELECT count(*) FROM public.tb_reading WHERE ts >= :a AND ts < :b"), {"a": a, "b": b}
+    )
 
 
 async def _chunk_state(c) -> dict:
-    row = (await c.execute(text(
-        "SELECT count(*) AS total, count(*) FILTER (WHERE is_compressed) AS compressed "
-        "FROM timescaledb_information.chunks WHERE hypertable_schema='energy' "
-        "AND hypertable_name='reading'"))).one()
+    row = (
+        await c.execute(
+            text(
+                "SELECT count(*) AS total, count(*) FILTER (WHERE is_compressed) AS compressed "
+                "FROM timescaledb_information.chunks WHERE hypertable_schema = 'public' "
+                "AND hypertable_name='tb_reading'"
+            )
+        )
+    ).one()
     return {"total": row.total, "compressed": row.compressed}
 
 
@@ -220,61 +274,93 @@ async def stage_policy_drill(args) -> None:
     recent = (datetime(2026, 10, 25, tzinfo=UTC), datetime(2026, 11, 1, tzinfo=UTC))
     counts = await copy_slices(dsn, [old, mid, recent], with_estimates=False)
     eng = create_async_engine(dsn, isolation_level="AUTOCOMMIT")
-    out: dict = {"copied_rows": counts, "run_at": datetime.now(UTC).isoformat(),
-                 "slices": {"old": [str(x) for x in old], "mid": [str(x) for x in mid],
-                            "recent": [str(x) for x in recent]}}
+    out: dict = {
+        "copied_rows": counts,
+        "run_at": datetime.now(UTC).isoformat(),
+        "slices": {
+            "old": [str(x) for x in old],
+            "mid": [str(x) for x in mid],
+            "recent": [str(x) for x in recent],
+        },
+    }
     async with eng.connect() as c:
         for a, b in (old, mid, recent):
             assert await backfill_aggregates(c, a, b) == []
         out["aggregate_rows_before_policies"] = {
-            v: await c.scalar(text(f"SELECT count(*) FROM energy.reading_{v}"))
-            for v in ("1m", "1h", "1d")}
+            v: await c.scalar(text(f"SELECT count(*) FROM public.reading_{v}"))
+            for v in ("1m", "1h", "1d")
+        }
         out["raw_chunks_before"] = await _chunk_state(c)
         mid_raw, recent_raw = await _raw_count(c, *mid), await _raw_count(c, *recent)
         # new jobs start at once on the background scheduler: create and pause them in ONE
         # transaction (a DO block), then run them by hand
         await c.execute(text(PAUSED_POLICIES))
         out["jobs_paused_for_deterministic_drill"] = True
-        jobs = (await c.execute(text(
-            "SELECT job_id, proc_name, hypertable_name, schedule_interval::text, config::text "
-            "FROM timescaledb_information.jobs WHERE hypertable_name IS NOT NULL "
-            "ORDER BY hypertable_name, proc_name"))).all()
+        jobs = (
+            await c.execute(
+                text(
+                    "SELECT job_id, proc_name, hypertable_name, schedule_interval::text, config::text "
+                    "FROM timescaledb_information.jobs WHERE hypertable_name IS NOT NULL "
+                    "ORDER BY hypertable_name, proc_name"
+                )
+            )
+        ).all()
         out["jobs_after_set_policies_true"] = [
-            {"job_id": j[0], "proc": j[1], "hypertable": j[2], "schedule": j[3],
-             "config": json.loads(j[4])} for j in jobs]
-        await c.execute(text("CALL run_job(:j)"),
-                        {"j": await _job(c, "policy_compression", "reading")})
+            {
+                "job_id": j[0],
+                "proc": j[1],
+                "hypertable": j[2],
+                "schedule": j[3],
+                "config": json.loads(j[4]),
+            }
+            for j in jobs
+        ]
+        await c.execute(
+            text("CALL run_job(:j)"), {"j": await _job(c, "policy_compression", "reading")}
+        )
         out["raw_chunks_after_compression_policy"] = await _chunk_state(c)
         old_raw = await _raw_count(c, *old)
         agg_before = await _view_counts(c, *old)
         mat_before = await _mat_counts(c, *old)
-        await c.execute(text("CALL run_job(:j)"),
-                        {"j": await _job(c, "policy_retention", "reading")})
+        await c.execute(
+            text("CALL run_job(:j)"), {"j": await _job(c, "policy_retention", "reading")}
+        )
         out["raw_chunks_after_raw_retention"] = await _chunk_state(c)
         old_info = {
-            "raw_rows_before": old_raw, "raw_rows_after": await _raw_count(c, *old),
-            "view_rows_before": agg_before, "materialized_rows_before": mat_before,
+            "raw_rows_before": old_raw,
+            "raw_rows_after": await _raw_count(c, *old),
+            "view_rows_before": agg_before,
+            "materialized_rows_before": mat_before,
             "view_rows_after_raw_retention": await _view_counts(c, *old),
             "materialized_rows_after_raw_retention": await _mat_counts(c, *old),
         }
         refresh_jobs = {}
         for v in ("1m", "1h", "1d"):
-            refresh_jobs[v] = await c.scalar(text(
-                "SELECT job_id FROM timescaledb_information.jobs WHERE proc_name = "
-                "'policy_refresh_continuous_aggregate' AND hypertable_name = :t"),
-                {"t": f"reading_{v}"})
+            refresh_jobs[v] = await c.scalar(
+                text(
+                    "SELECT job_id FROM timescaledb_information.jobs WHERE proc_name = "
+                    "'policy_refresh_continuous_aggregate' AND hypertable_name = :t"
+                ),
+                {"t": f"reading_{v}"},
+            )
         for v in ("1m", "1h", "1d"):
             await c.execute(text("CALL run_job(:j)"), {"j": refresh_jobs[v]})
         old_info["view_rows_after_refresh_policies"] = await _view_counts(c, *old)
         old_info["materialized_rows_after_refresh_policies"] = await _mat_counts(c, *old)
         out["refresh_policy_jobs_found"] = {k: v is not None for k, v in refresh_jobs.items()}
         # retention policy on the 1m aggregate (400 d): drops old materialization chunks
-        r1m = await c.scalar(text(
-            "SELECT job_id FROM timescaledb_information.jobs WHERE proc_name = "
-            "'policy_retention' AND hypertable_name = :t"), {"t": "reading_1m"})
+        r1m = await c.scalar(
+            text(
+                "SELECT job_id FROM timescaledb_information.jobs WHERE proc_name = "
+                "'policy_retention' AND hypertable_name = :t"
+            ),
+            {"t": "reading_1m"},
+        )
         out["retention_policy_jobs"] = sorted(
-            j["hypertable"] for j in out["jobs_after_set_policies_true"]
-            if j["proc"] == "policy_retention")
+            j["hypertable"]
+            for j in out["jobs_after_set_policies_true"]
+            if j["proc"] == "policy_retention"
+        )
         if r1m:
             await c.execute(text("CALL run_job(:j)"), {"j": r1m})
             old_info["materialized_rows_after_1m_retention_job"] = await _mat_counts(c, *old)
@@ -285,8 +371,7 @@ async def stage_policy_drill(args) -> None:
         old_info["view_rows_after_default_guarded_backfill"] = await _view_counts(c, *old)
         await backfill_aggregates(c, *old, allow_missing_raw=True)  # the destructive opt-in
         old_info["view_rows_after_backfill_over_dropped_range"] = await _view_counts(c, *old)
-        old_info["materialized_rows_after_backfill_over_dropped_range"] = \
-            await _mat_counts(c, *old)
+        old_info["materialized_rows_after_backfill_over_dropped_range"] = await _mat_counts(c, *old)
         out["old_slice"] = old_info
         out["mid_slice_raw_rows_intact"] = await _raw_count(c, *mid) == mid_raw
         out["recent_slice_raw_rows_intact"] = await _raw_count(c, *recent) == recent_raw
@@ -310,7 +395,8 @@ def extrapolate(data: dict) -> dict:
     est_bpr = st["bytes_per_device_estimate_raw"]
     est_1m_bpr = agg["device_estimate_1m"] / st["rows"]["aggregates"]["device_estimate_1m"]
     est_small_per_series_year = (agg["device_estimate_1h"] + agg["device_estimate_1d"]) / (
-        home_years * 9)  # the 3 measured houses each have 9 estimate series
+        home_years * 9
+    )  # the 3 measured houses each have 9 estimate series
     ratio_est = data.get("cagg_compression", {}).get("device_estimate_1m", {}).get("ratio")
     measured_rate = data["load"]["house1"]["readings_per_s"]
 
@@ -323,27 +409,38 @@ def extrapolate(data: dict) -> dict:
         # device_estimate aggregates: one 1 m row per estimate series per minute, plus 1 h / 1 d
         est_agg_1m = estimates * 525_600 * est_1m_bpr
         est_agg_small = estimates * est_small_per_series_year
-        unc = (raw_year + one_m_year + small_year + est_year + est_agg_1m + est_agg_small)
-        comp = (raw_year + (one_m_year / ratio if ratio else one_m_year) + small_year + est_year
-                + (est_agg_1m / ratio_est if ratio_est else est_agg_1m) + est_agg_small)
+        unc = raw_year + one_m_year + small_year + est_year + est_agg_1m + est_agg_small
+        comp = (
+            raw_year
+            + (one_m_year / ratio if ratio else one_m_year)
+            + small_year
+            + est_year
+            + (est_agg_1m / ratio_est if ratio_est else est_agg_1m)
+            + est_agg_small
+        )
         return {
             "assumption": f"{channels} series per home, one reading per {cadence_s:g} s each"
-                          + (f", {estimates} device_estimate series" if estimates else ""),
+            + (f", {estimates} device_estimate series" if estimates else ""),
             "readings_per_home_day": round(per_day),
             "daily_ingest_rows_10k_homes": round(homes * per_day),
             "required_avg_rows_per_second": round(homes * per_day / 86400),
             "measured_bulk_load_rows_per_second_single_stream": measured_rate,
             "average_rate_as_fraction_of_bulk_load_figure": round(
-                homes * per_day / 86400 / measured_rate, 2),
+                homes * per_day / 86400 / measured_rate, 2
+            ),
             "raw_gb_per_home_year": round(raw_year / 1e9, 4),
             "agg_1m_uncompressed_gb_per_home_year": round(one_m_year / 1e9, 4),
             "agg_1m_compressed_gb_per_home_year": round(one_m_year / ratio / 1e9, 4)
-            if ratio else None,
+            if ratio
+            else None,
             "agg_1h_1d_gb_per_home_year": round(small_year / 1e9, 5),
             "device_estimate_gb_per_home_year": round(est_year / 1e9, 4),
             "device_estimate_agg_1m_uncompressed_gb_per_home_year": round(est_agg_1m / 1e9, 4),
             "device_estimate_agg_1m_compressed_gb_per_home_year": round(
-                est_agg_1m / ratio_est / 1e9, 4) if ratio_est else None,
+                est_agg_1m / ratio_est / 1e9, 4
+            )
+            if ratio_est
+            else None,
             "device_estimate_agg_1h_1d_gb_per_home_year": round(est_agg_small / 1e9, 5),
             "tb_per_year_10k_homes_1m_uncompressed": round(homes * unc / 1e12, 2),
             "tb_per_year_10k_homes_1m_compressed": round(homes * comp / 1e12, 2),
@@ -389,8 +486,13 @@ def _run_module(db: str, results_file: Path, *argv: str) -> str:
     env = dict(os.environ)
     env["DATABASE_URL"] = make_url(scratch_url(db)).render_as_string(hide_password=False)
     env["AUDIT_RESULTS"] = str(results_file)
-    proc = subprocess.run([sys.executable, "-m", "tests.audit.run", *argv], cwd=ROOT, env=env,
-                          capture_output=True, text=True)
+    proc = subprocess.run(
+        [sys.executable, "-m", "tests.audit.run", *argv],
+        cwd=ROOT,
+        env=env,
+        capture_output=True,
+        text=True,
+    )
     if proc.returncode != 0:
         raise RuntimeError(f"{argv} failed:\n{proc.stdout}\n{proc.stderr}")
     return proc.stdout
@@ -406,20 +508,25 @@ async def stage_harness_check(args) -> None:
     _run_module(name, tmp, "backfill")
     _run_module(name, tmp, "compress", "--workers", "2")
     data = results.load(tmp)
-    views = {f"energy.{f}_{r}" for f in ("reading", "device_estimate") for r in ("1m", "1h", "1d")}
+    views = {f"public.{f}_{r}" for f in ("reading", "device_estimate") for r in ("1m", "1h", "1d")}
     timed = set(data["backfill"]["refresh_seconds_per_view"])
     st = data["compress"]["stats"]["reading"]
     dst = create_async_engine(scratch_url(name))
     async with dst.connect() as c:
-        n_comp = await c.scalar(text(
-            "SELECT count(*) FROM timescaledb_information.chunks WHERE "
-            "hypertable_name='reading' AND hypertable_schema='energy' AND is_compressed"))
+        n_comp = await c.scalar(
+            text(
+                "SELECT count(*) FROM timescaledb_information.chunks WHERE "
+                "hypertable_name='tb_reading' AND hypertable_schema = 'public' AND is_compressed"
+            )
+        )
     await dst.dispose()
     out = {
-        "scratch_db": name, "csv_rows_loaded": 200000,
+        "scratch_db": name,
+        "csv_rows_loaded": 200000,
         "backfill_timed_view_keys": sorted(timed),
         "backfill_keys_are_view_names": bool(timed) and timed <= views,
-        "compress_stats_reading": st, "db_compressed_chunks": n_comp,
+        "compress_stats_reading": st,
+        "db_compressed_chunks": n_comp,
         "compressed_chunks_matches_db": st["compressed_chunks"] == n_comp,
         "ratio_is_number": isinstance(st["ratio_compressed_chunks"], int | float),
     }
@@ -451,21 +558,29 @@ async def stage_refresh_cost_scratch(args) -> None:
         if mat_only:
             async with eng.connect() as c0:
                 for v in ("reading_1m", "reading_1h"):
-                    await c0.execute(text(
-                        f"ALTER MATERIALIZED VIEW energy.{v} SET (timescaledb.materialized_only = true)"))
+                    await c0.execute(
+                        text(
+                            f"ALTER MATERIALIZED VIEW public.{v} SET (timescaledb.materialized_only = true)"
+                        )
+                    )
         per_view = await timed_backfill(eng, *a)
         async with eng.connect() as c:
             await c.execute(text("SET work_mem = '256MB'"))
-            q = ("SELECT time_bucket('1 day', bucket, 'Asia/Ho_Chi_Minh') b, series_id, "
-                 "sum(avg_w * n) / sum(n), sum(n), sum(energy_wh), sum(covered_minutes) "
-                 "FROM energy.reading_1h WHERE bucket >= '2026-05-01 17:00+00' "
-                 "AND bucket < '2026-05-31 17:00+00' GROUP BY 1, 2")
+            q = (
+                "SELECT time_bucket('1 day', bucket, 'Asia/Ho_Chi_Minh') b, series_id, "
+                "sum(avg_w * n) / sum(n), sum(n), sum(energy_wh), sum(covered_minutes) "
+                "FROM public.reading_1h WHERE bucket >= '2026-05-01 17:00+00' "
+                "AND bucket < '2026-05-31 17:00+00' GROUP BY 1, 2"
+            )
             raw = (await c.get_raw_connection()).driver_connection
             rows = await raw.fetch("EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON) " + q)
             plan = json.loads(rows[0][0]) if isinstance(rows[0][0], str) else rows[0][0]
         await eng.dispose()
-        out[label] = {"copied_rows": counts, "backfill_seconds_per_view": per_view,
-                      "plan_of_1d_source_query_over_reading_1h": trim_plan(plan)}
+        out[label] = {
+            "copied_rows": counts,
+            "backfill_seconds_per_view": per_view,
+            "plan_of_1d_source_query_over_reading_1h": trim_plan(plan),
+        }
         log(f"{label}: {per_view}")
     await drop_scratch(name)
     results.record("refresh_cost", "scratch_comparison", out)

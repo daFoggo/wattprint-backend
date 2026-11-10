@@ -1,4 +1,4 @@
-"""catalog and core tables, seeded reference data
+"""initial home module: catalog and home tables
 
 Revision ID: 7a91e4d2b6c8
 Revises: 5f0b3c8a1d47
@@ -14,7 +14,6 @@ down_revision = "5f0b3c8a1d47"
 branch_labels = None
 depends_on = None
 
-UUID_PK = dict(server_default=sa.text("gen_random_uuid()"))
 NOW = sa.text("now()")
 
 METRICS = [
@@ -85,42 +84,41 @@ def _lit(v) -> str:
 def _seed(table: str, cols: tuple[str, ...], pk: str, rows) -> None:
     values = ", ".join("(" + ", ".join(_lit(v) for v in r) + ")" for r in rows)
     op.execute(
-        f"INSERT INTO {table} ({', '.join(cols)}) VALUES {values} "
-        f"ON CONFLICT ({pk}) DO NOTHING"
+        f"INSERT INTO {table} ({', '.join(cols)}) VALUES {values} ON CONFLICT ({pk}) DO NOTHING"
     )
 
 
 def upgrade() -> None:
     op.create_table(
-        "metric",
+        "cat_metric",
         sa.Column("event_type", sa.String(64), nullable=False),
         sa.Column("unit", sa.String(16), nullable=False),
         sa.Column("aggregation", sa.String(16), nullable=False),
         sa.PrimaryKeyConstraint("event_type", name="pk_metric"),
         sa.CheckConstraint("aggregation IN ('mean','max','energy')", name="ck_metric_aggregation"),
-        schema="catalog",
+        schema="public",
     )
     op.create_table(
-        "device_type",
+        "cat_device_type",
         sa.Column("code", sa.String(64), nullable=False),
         sa.Column("label_vi", sa.String(128), nullable=False),
         sa.Column("label_en", sa.String(128), nullable=False),
         sa.Column("typical_watts", sa.Integer(), nullable=True),
         sa.Column("tip_text", sa.Text(), nullable=True),
         sa.PrimaryKeyConstraint("code", name="pk_device_type"),
-        schema="catalog",
+        schema="public",
     )
-    _seed("catalog.metric", ("event_type", "unit", "aggregation"), "event_type", METRICS)
+    _seed("public.cat_metric", ("event_type", "unit", "aggregation"), "event_type", METRICS)
     _seed(
-        "catalog.device_type",
+        "public.cat_device_type",
         ("code", "label_vi", "label_en", "typical_watts", "tip_text"),
         "code",
         DEVICE_TYPES,
     )
 
     op.create_table(
-        "home",
-        sa.Column("id", sa.Uuid(), nullable=False, **UUID_PK),
+        "tb_home",
+        sa.Column("id", sa.Integer(), sa.Identity(always=False), nullable=False),
         sa.Column("name", sa.String(255), nullable=False),
         sa.Column("postal_code", sa.String(16), nullable=True),
         sa.Column("province_code", sa.String(16), nullable=True),
@@ -136,85 +134,68 @@ def upgrade() -> None:
         sa.CheckConstraint("home_type IN ('apartment','house','other')", name="ck_home_home_type"),
         sa.CheckConstraint("billing_cycle_day BETWEEN 1 AND 28", name="ck_home_billing_cycle_day"),
         sa.CheckConstraint("timezone = 'Asia/Ho_Chi_Minh'", name="ck_home_timezone"),
-        schema="core",
+        schema="public",
     )
     op.create_table(
-        "home_member",
-        sa.Column("home_id", sa.Uuid(), nullable=False),
-        sa.Column("user_id", sa.Uuid(), nullable=False),
+        "tb_home_member",
+        sa.Column("home_id", sa.Integer(), nullable=False),
+        sa.Column("user_id", sa.Integer(), nullable=False),
         sa.Column("role", sa.String(16), nullable=False, server_default="member"),
         sa.Column("joined_at", sa.DateTime(timezone=True), nullable=False, server_default=NOW),
         sa.PrimaryKeyConstraint("home_id", "user_id", name="pk_home_member"),
         sa.ForeignKeyConstraint(
-            ["home_id"], ["core.home.id"], name="fk_home_member_home_id_home", ondelete="CASCADE"
+            ["home_id"], ["public.tb_home.id"], name="fk_home_member_home_id_home", ondelete="CASCADE"
         ),
         sa.ForeignKeyConstraint(
             ["user_id"],
-            ["public.users.id"],
+            ["public.tb_users.id"],
             name="fk_home_member_user_id_users",
             ondelete="CASCADE",
         ),
         sa.UniqueConstraint("user_id", name="uq_home_member_user_id"),
         sa.CheckConstraint("role IN ('owner','member')", name="ck_home_member_role"),
-        schema="core",
+        schema="public",
     )
     op.create_table(
-        "home_invite",
-        sa.Column("id", sa.Uuid(), nullable=False, **UUID_PK),
-        sa.Column("home_id", sa.Uuid(), nullable=False),
+        "tb_home_invite",
+        sa.Column("id", sa.Integer(), sa.Identity(always=False), nullable=False),
+        sa.Column("home_id", sa.Integer(), nullable=False),
         sa.Column("code_hash", sa.String(128), nullable=False),
         sa.Column("role", sa.String(16), nullable=False, server_default="member"),
         sa.Column("expires_at", sa.DateTime(timezone=True), nullable=False),
-        sa.Column("used_by", sa.Uuid(), nullable=True),
+        sa.Column("used_by", sa.Integer(), nullable=True),
         sa.Column("used_at", sa.DateTime(timezone=True), nullable=True),
         sa.PrimaryKeyConstraint("id", name="pk_home_invite"),
         sa.ForeignKeyConstraint(
-            ["home_id"], ["core.home.id"], name="fk_home_invite_home_id_home", ondelete="CASCADE"
+            ["home_id"], ["public.tb_home.id"], name="fk_home_invite_home_id_home", ondelete="CASCADE"
         ),
         sa.ForeignKeyConstraint(
-            ["used_by"], ["public.users.id"], name="fk_home_invite_used_by_users"
+            ["used_by"], ["public.tb_users.id"], name="fk_home_invite_used_by_users"
         ),
+        sa.UniqueConstraint("code_hash", name="uq_home_invite_code_hash"),
         sa.CheckConstraint("role IN ('owner','member')", name="ck_home_invite_role"),
-        schema="core",
-    )
-    op.create_index("ix_home_invite_home_id", "home_invite", ["home_id"], schema="core")
-    op.create_index("ix_home_invite_used_by", "home_invite", ["used_by"], schema="core")
-    op.create_index(
-        "ix_home_invite_code_hash",
-        "home_invite",
-        ["code_hash"],
-        schema="core",
-        unique=True,
+        schema="public",
     )
     op.create_table(
-        "meter",
-        sa.Column("id", sa.Uuid(), nullable=False, **UUID_PK),
+        "tb_meter",
+        sa.Column("id", sa.Integer(), sa.Identity(always=False), nullable=False),
         sa.Column("serial", sa.String(64), nullable=False),
-        sa.Column("home_id", sa.Uuid(), nullable=True),
+        sa.Column("home_id", sa.Integer(), nullable=True),
         sa.Column("claim_code_hash", sa.String(128), nullable=True),
         sa.Column("claimed_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("firmware", sa.String(64), nullable=True),
         sa.Column("last_seen_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("status", sa.String(16), nullable=False, server_default="new"),
         sa.PrimaryKeyConstraint("id", name="pk_meter"),
-        sa.ForeignKeyConstraint(["home_id"], ["core.home.id"], name="fk_meter_home_id_home"),
+        sa.ForeignKeyConstraint(["home_id"], ["public.tb_home.id"], name="fk_meter_home_id_home"),
         sa.UniqueConstraint("serial", name="uq_meter_serial"),
         sa.CheckConstraint("status IN ('new','active','retired')", name="ck_meter_status"),
-        schema="core",
-    )
-    op.create_index("ix_meter_home_id", "meter", ["home_id"], schema="core")
-    op.create_index(
-        "ix_meter_claim_code_hash",
-        "meter",
-        ["claim_code_hash"],
-        unique=True,
-        schema="core",
-        postgresql_where=sa.text("claim_code_hash IS NOT NULL"),
+        schema="public",
     )
     op.create_table(
-        "device",
-        sa.Column("id", sa.Uuid(), nullable=False, **UUID_PK),
-        sa.Column("home_id", sa.Uuid(), nullable=False),
+        "tb_device",
+        sa.Column("id", sa.Integer(), sa.Identity(always=False), nullable=False),
+        sa.Column("home_id", sa.Integer(), nullable=False),
         sa.Column("device_type_code", sa.String(64), nullable=False),
         sa.Column("name", sa.String(255), nullable=False),
         sa.Column("room", sa.String(128), nullable=True),
@@ -222,33 +203,31 @@ def upgrade() -> None:
         sa.Column("show_on_timeline", sa.Boolean(), nullable=False, server_default=sa.text("true")),
         sa.Column("active_from", sa.DateTime(timezone=True), nullable=False, server_default=NOW),
         sa.Column("active_to", sa.DateTime(timezone=True), nullable=True),
-        sa.Column("merged_into_id", sa.Uuid(), nullable=True),
+        sa.Column("merged_into_id", sa.Integer(), nullable=True),
         sa.Column("deleted_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=NOW),
         sa.PrimaryKeyConstraint("id", name="pk_device"),
         sa.ForeignKeyConstraint(
-            ["home_id"], ["core.home.id"], name="fk_device_home_id_home", ondelete="CASCADE"
+            ["home_id"], ["public.tb_home.id"], name="fk_device_home_id_home", ondelete="CASCADE"
         ),
         sa.ForeignKeyConstraint(
             ["device_type_code"],
-            ["catalog.device_type.code"],
+            ["public.cat_device_type.code"],
             name="fk_device_device_type_code_device_type",
         ),
         sa.ForeignKeyConstraint(
-            ["merged_into_id"], ["core.device.id"], name="fk_device_merged_into_id_device"
+            ["merged_into_id"], ["public.tb_device.id"], name="fk_device_merged_into_id_device"
         ),
         sa.CheckConstraint("origin IN ('nilm','plug','manual')", name="ck_device_origin"),
         sa.CheckConstraint(
             "active_to IS NULL OR active_to > active_from", name="ck_device_validity_range"
         ),
-        schema="core",
+        schema="public",
     )
-    op.create_index("ix_device_home_id", "device", ["home_id"], schema="core")
-    op.create_index("ix_device_merged_into_id", "device", ["merged_into_id"], schema="core")
     op.create_table(
-        "device_alert_rule",
-        sa.Column("id", sa.Uuid(), nullable=False, **UUID_PK),
-        sa.Column("device_id", sa.Uuid(), nullable=False),
+        "tb_device_alert_rule",
+        sa.Column("id", sa.Integer(), sa.Identity(always=False), nullable=False),
+        sa.Column("device_id", sa.Integer(), nullable=False),
         sa.Column("kind", sa.String(16), nullable=False),
         sa.Column(
             "params",
@@ -260,27 +239,21 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("id", name="pk_device_alert_rule"),
         sa.ForeignKeyConstraint(
             ["device_id"],
-            ["core.device.id"],
+            ["public.tb_device.id"],
             name="fk_device_alert_rule_device_id_device",
             ondelete="CASCADE",
         ),
         sa.CheckConstraint("kind IN ('on','off','custom')", name="ck_device_alert_rule_kind"),
-        schema="core",
-    )
-    op.create_index(
-        "ix_device_alert_rule_device_id",
-        "device_alert_rule",
-        ["device_id"],
-        schema="core",
+        schema="public",
     )
 
 
 def downgrade() -> None:
-    op.drop_table("device_alert_rule", schema="core")
-    op.drop_table("device", schema="core")
-    op.drop_table("meter", schema="core")
-    op.drop_table("home_invite", schema="core")
-    op.drop_table("home_member", schema="core")
-    op.drop_table("home", schema="core")
-    op.drop_table("device_type", schema="catalog")
-    op.drop_table("metric", schema="catalog")
+    op.drop_table("tb_device_alert_rule", schema="public")
+    op.drop_table("tb_device", schema="public")
+    op.drop_table("tb_meter", schema="public")
+    op.drop_table("tb_home_invite", schema="public")
+    op.drop_table("tb_home_member", schema="public")
+    op.drop_table("tb_home", schema="public")
+    op.drop_table("cat_device_type", schema="public")
+    op.drop_table("cat_metric", schema="public")

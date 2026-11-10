@@ -25,19 +25,20 @@ def at(minutes: int) -> datetime:
 @pytest.fixture
 async def rig(session):
     """A home with one meter and two mapped series (channels 'p' and 'v'); rolled back after."""
-    hid, serial = uuid.uuid4(), f"SN-{uuid.uuid4().hex[:10]}"
-    await session.execute(
-        text("INSERT INTO core.home (id, name) VALUES (:i, 'Ingest')"), {"i": hid}
+    hid = await session.scalar(
+        text("INSERT INTO public.tb_home (name) VALUES ('Ingest') RETURNING id")
     )
+    serial = f"SN-{uuid.uuid4().hex[:10]}"
     mid = await session.scalar(
-        text("INSERT INTO core.meter (serial, home_id) VALUES (:s, :h) RETURNING id"),
+        text("INSERT INTO public.tb_meter (serial, home_id) VALUES (:s, :h) RETURNING id"),
         {"s": serial, "h": hid},
     )
     sids = {}
     for channel, metric, unit in (("p", "power_w", "W"), ("v", "voltage_v", "V")):
         sids[channel] = await session.scalar(
             text(
-                "INSERT INTO energy.series (home_id, kind, metric, unit, meter_id, source_channel) "
+                "INSERT INTO public.tb_series "
+                "(home_id, kind, metric, unit, meter_id, source_channel) "
                 "VALUES (:h, 'main', :m, :u, :mid, :c) RETURNING series_id"
             ),
             {"h": hid, "m": metric, "u": unit, "mid": mid, "c": channel},
@@ -47,7 +48,7 @@ async def rig(session):
 
 async def stored(session, sid):
     r = await session.execute(
-        text("SELECT ts, value, quality FROM energy.reading WHERE series_id = :s ORDER BY ts"),
+        text("SELECT ts, value, quality FROM public.tb_reading WHERE series_id = :s ORDER BY ts"),
         {"s": sid},
     )
     return r.all()
@@ -55,7 +56,7 @@ async def stored(session, sid):
 
 async def checkpoint(session, sid):
     return await session.scalar(
-        text("SELECT last_ts FROM ops.ingest_checkpoint WHERE source = :src AND series_id = :s"),
+        text("SELECT last_ts FROM public.tb_ingest_checkpoint WHERE source = :src AND series_id = :s"),
         {"src": SOURCE, "s": sid},
     )
 
@@ -84,7 +85,9 @@ async def test_second_identical_batch_is_all_dup(session, rig):
 
 async def test_unknown_channel_counted_bad(session, rig):
     res = await ingest_readings(
-        session, rig["serial"], [ReadingRow(at(0), "zzz", 1.0), ReadingRow(at(0), "p", 1.0)],
+        session,
+        rig["serial"],
+        [ReadingRow(at(0), "zzz", 1.0), ReadingRow(at(0), "p", 1.0)],
         SOURCE,
     )
     assert (res.rows_new, res.rows_bad) == (1, 1)
@@ -154,7 +157,7 @@ async def test_checkpoint_advances_to_max_ts_and_never_goes_back(session, rig):
     # no checkpoint for a series that got no valid row, and none for another source
     assert await checkpoint(session, rig["sids"]["v"]) is None
     other = await session.scalar(
-        text("SELECT count(*) FROM ops.ingest_checkpoint WHERE source <> :s AND series_id = :i"),
+        text("SELECT count(*) FROM public.tb_ingest_checkpoint WHERE source <> :s AND series_id = :i"),
         {"s": SOURCE, "i": sid},
     )
     assert other == 0
@@ -165,7 +168,7 @@ async def test_batch_row_is_recorded_ok_with_counts(session, rig):
     res = await ingest_readings(session, rig["serial"], rows, SOURCE)
     b = (
         await session.execute(
-            text("SELECT * FROM ops.ingest_batch WHERE id = :i"), {"i": res.batch_id}
+            text("SELECT * FROM public.tb_ingest_batch WHERE id = :i"), {"i": res.batch_id}
         )
     ).one()
     assert b.status == "ok" and b.source == SOURCE and b.home_id == rig["home"]
@@ -185,7 +188,7 @@ async def test_failed_write_marks_batch_failed_and_reraises(session, rig, monkey
         await ingest_readings(session, rig["serial"], [ReadingRow(at(0), "p", 1.0)], SOURCE)
     b = (
         await session.execute(
-            text("SELECT status, note, finished_at FROM ops.ingest_batch WHERE source = :s"),
+            text("SELECT status, note, finished_at FROM public.tb_ingest_batch WHERE source = :s"),
             {"s": SOURCE},
         )
     ).one()
@@ -205,7 +208,7 @@ async def test_db_error_note_is_dbapi_text(session, rig, monkeypatch):
     with pytest.raises(Exception, match="division by zero"):
         await ingest_readings(session, rig["serial"], [ReadingRow(at(0), "p", 1.0)], SOURCE)
     note = await session.scalar(
-        text("SELECT note FROM ops.ingest_batch WHERE source = :s"), {"s": SOURCE}
+        text("SELECT note FROM public.tb_ingest_batch WHERE source = :s"), {"s": SOURCE}
     )
     assert "division by zero" in note and "SELECT" not in note
 
@@ -239,14 +242,14 @@ async def test_unknown_meter_raises_and_writes_no_batch(session, rig):
         await ingest_readings(session, "no-such-serial", [ReadingRow(at(0), "p", 1.0)], SOURCE)
     assert isinstance(MeterNotFound("x"), LookupError)
     n = await session.scalar(
-        text("SELECT count(*) FROM ops.ingest_batch WHERE source = :s"), {"s": SOURCE}
+        text("SELECT count(*) FROM public.tb_ingest_batch WHERE source = :s"), {"s": SOURCE}
     )
     assert n == 0
 
 
 async def test_meter_without_home_is_allowed_all_rows_bad(session):
     serial = f"SN-{uuid.uuid4().hex[:10]}"
-    await session.execute(text("INSERT INTO core.meter (serial) VALUES (:s)"), {"s": serial})
+    await session.execute(text("INSERT INTO public.tb_meter (serial) VALUES (:s)"), {"s": serial})
     res = await ingest_readings(session, serial, [ReadingRow(at(0), "p", 1.0)], SOURCE)
     assert (res.rows_in, res.rows_new, res.rows_bad) == (1, 0, 1)
 
@@ -259,14 +262,14 @@ async def test_empty_batch(session, rig):
 async def _est_series(session, rig):
     dev = await session.scalar(
         text(
-            "INSERT INTO core.device (home_id, device_type_code, name, origin) "
+            "INSERT INTO public.tb_device (home_id, device_type_code, name, origin) "
             "VALUES (:h, 'fridge', 'Fridge', 'nilm') RETURNING id"
         ),
         {"h": rig["home"]},
     )
     return await session.scalar(
         text(
-            "INSERT INTO energy.series (home_id, kind, device_id, metric, unit) "
+            "INSERT INTO public.tb_series (home_id, kind, device_id, metric, unit) "
             "VALUES (:h, 'device', :d, 'power_w', 'W') RETURNING series_id"
         ),
         {"h": rig["home"], "d": dev},
@@ -280,8 +283,10 @@ async def test_estimates_upsert_latest_run_wins(session, rig):
     assert (n1, n2) == (2, 2)
     got = (
         await session.execute(
-            text("SELECT ts, value, run_id FROM energy.device_estimate WHERE series_id = :s "
-                 "ORDER BY ts"),
+            text(
+                "SELECT ts, value, run_id FROM public.tb_device_estimate WHERE series_id = :s "
+                "ORDER BY ts"
+            ),
             {"s": sid},
         )
     ).all()
@@ -308,10 +313,7 @@ async def test_two_batches_in_one_transaction(session, rig):
     b = await ingest_readings(session, rig["serial"], [ReadingRow(at(1), "p", 2.0)], "other")
     assert a.batch_id != b.batch_id
     assert (a.rows_new, b.rows_new) == (1, 1)
-    t = {
-        r.id: r
-        for r in (await session.execute(text("SELECT * FROM ops.ingest_batch"))).all()
-    }
+    t = {r.id: r for r in (await session.execute(text("SELECT * FROM public.tb_ingest_batch"))).all()}
     ba, bb = t[a.batch_id], t[b.batch_id]
     assert ba.started_at < bb.started_at
     assert ba.finished_at >= ba.started_at and bb.finished_at >= bb.started_at
@@ -335,7 +337,7 @@ async def test_ingest_runs_with_ingest_role_privileges(session, rig):
     await session.execute(text("RESET ROLE"))
     assert await checkpoint(session, rig["sids"]["p"]) == at(5)
     run = await session.scalar(
-        text("SELECT run_id FROM energy.device_estimate WHERE series_id = :s"), {"s": sid}
+        text("SELECT run_id FROM public.tb_device_estimate WHERE series_id = :s"), {"s": sid}
     )
     assert run == 2
 
@@ -363,7 +365,7 @@ async def test_throughput_100k_rows(session, rig, monkeypatch):
     assert (res.rows_in, res.rows_new, res.rows_dup, res.rows_bad) == (n, n, 0, 0)
     b = (
         await session.execute(
-            text("SELECT finished_at - started_at AS d FROM ops.ingest_batch WHERE id = :i"),
+            text("SELECT finished_at - started_at AS d FROM public.tb_ingest_batch WHERE id = :i"),
             {"i": res.batch_id},
         )
     ).one()

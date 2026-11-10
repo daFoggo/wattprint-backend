@@ -21,7 +21,10 @@ def run_alembic(dsn: str, *args: str, **extra_env: str) -> None:
     env["DATABASE_URL"] = dsn
     proc = subprocess.run(
         [sys.executable, "-m", "alembic", *args],
-        cwd=ROOT, env=env, capture_output=True, text=True,
+        cwd=ROOT,
+        env=env,
+        capture_output=True,
+        text=True,
     )
     if proc.returncode != 0:
         cmd = " ".join(args)

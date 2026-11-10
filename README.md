@@ -67,8 +67,9 @@ which the compose `db` user is).
   is on (`revokeRefreshToken=true`, `refreshTokenMaxReuse=0`, RFC 9700): see `docs/keycloak-auth.md`. Login and admin events are kept 7 days.
 - The app signs users in with Keycloak and sends `Authorization: Bearer <access_token>`. The API verifies it locally with the
   realm's JWKS (RS256; `iss`, `aud=wattprint-api`, `azp=wattprint-mobile`, `exp`). No Keycloak call per request.
-- `users` is a local profile: the first valid request creates the row with `id` = token `sub`, so business tables keep their
-  foreign keys. A user whose email already exists under another id gets 409. Roles come from `realm_access.roles`.
+- `tb_users` is a local profile with an integer identity `id`; the first valid request stores the token's external `sub` in
+  `keycloak_sub`. Business tables use the local integer ID for foreign keys. A user whose email already exists under
+  another account gets 409. Roles come from `realm_access.roles`.
 - `GET /api/v1/users/me` returns the profile and roles; `GET /api/v1/users` needs the `admin` role (403 otherwise).
 - Issuer: `KEYCLOAK_ISSUER` must equal the URL clients use (`KEYCLOAK_PUBLIC_URL`); the API itself reaches Keycloak as
   `http://keycloak:11095` (`KEYCLOAK_JWKS_URL`). A phone with `adb reverse tcp:11095 tcp:11095` uses `localhost`. On a LAN phone set

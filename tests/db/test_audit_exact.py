@@ -1,4 +1,3 @@
-import uuid
 from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import text
@@ -9,11 +8,10 @@ D0 = datetime(2026, 3, 1, 17, tzinfo=UTC)  # local midnight of 2026-03-02
 
 
 async def _series(conn):
-    home = uuid.uuid4()
-    await conn.execute(text("INSERT INTO core.home (id, name) VALUES (:i, 'X')"), {"i": home})
+    home = await conn.scalar(text("INSERT INTO public.tb_home (name) VALUES ('X') RETURNING id"))
     return await conn.scalar(
         text(
-            "INSERT INTO energy.series (home_id, kind, metric, unit) "
+            "INSERT INTO public.tb_series (home_id, kind, metric, unit) "
             "VALUES (:h, 'main', 'power_w', 'W') RETURNING series_id"
         ),
         {"h": home},
@@ -23,7 +21,9 @@ async def _series(conn):
 async def _put(conn, sid, rows):
     for ts, value, q in rows:
         await conn.execute(
-            text("INSERT INTO energy.reading (ts, series_id, value, quality) VALUES (:t,:s,:v,:q)"),
+            text(
+                "INSERT INTO public.tb_reading (ts, series_id, value, quality) VALUES (:t,:s,:v,:q)"
+            ),
             {"t": ts, "s": sid, "v": value, "q": q},
         )
 

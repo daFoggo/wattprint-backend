@@ -13,40 +13,38 @@ from app.models.energy import device_estimate_table, reading_table
 POLICY_PROCS = ("policy_compression", "policy_retention")
 JOBS_SQL = text(
     "SELECT proc_name, hypertable_name FROM timescaledb_information.jobs "
-    "WHERE hypertable_schema = 'energy' AND hypertable_name IN ('reading', 'device_estimate') "
+    "WHERE hypertable_schema = 'public' AND hypertable_name IN ('tb_reading', 'tb_device_estimate') "
     "AND proc_name = ANY(:p) ORDER BY 1, 2"
 )
 
 
-async def _home(conn) -> uuid.UUID:
-    hid = uuid.uuid4()
-    await conn.execute(
-        text("INSERT INTO core.home (id, name) VALUES (:i, 'Home')"), {"i": hid}
-    )
-    return hid
+async def _home(conn) -> int:
+    return await conn.scalar(text("INSERT INTO public.tb_home (name) VALUES ('Home') RETURNING id"))
 
 
-async def _device(conn, home_id) -> uuid.UUID:
-    did = uuid.uuid4()
-    await conn.execute(
+async def _device(conn, home_id) -> int:
+    return await conn.scalar(
         text(
-            "INSERT INTO core.device (id, home_id, device_type_code, name, origin) "
-            "VALUES (:i, :h, 'ac', 'AC', 'manual')"
+            "INSERT INTO public.tb_device (home_id, device_type_code, name, origin) "
+            "VALUES (:h, 'ac', 'AC', 'manual') RETURNING id"
         ),
-        {"i": did, "h": home_id},
+        {"h": home_id},
     )
-    return did
 
 
 async def _series(conn, home_id, kind="main", device_id=None, metric="power_w", **extra) -> int:
     cols = {
-        "home_id": home_id, "kind": kind, "device_id": device_id,
-        "metric": metric, "unit": "W", **extra,
+        "home_id": home_id,
+        "kind": kind,
+        "device_id": device_id,
+        "metric": metric,
+        "unit": "W",
+        **extra,
     }
     names = ", ".join(cols)
     params = ", ".join(f":{k}" for k in cols)
     return await conn.scalar(
-        text(f"INSERT INTO energy.series ({names}) VALUES ({params}) RETURNING series_id"), cols
+        text(f"INSERT INTO public.tb_series ({names}) VALUES ({params}) RETURNING series_id"), cols
     )
 
 
@@ -55,7 +53,7 @@ async def test_reading_is_hypertable_with_one_day_chunks(conn):
         interval = await conn.scalar(
             text(
                 "SELECT d.time_interval FROM timescaledb_information.dimensions d "
-                "WHERE d.hypertable_schema = 'energy' AND d.hypertable_name = :t"
+                "WHERE d.hypertable_schema = 'public' AND d.hypertable_name = :t"
             ),
             {"t": table},
         )
@@ -106,10 +104,9 @@ async def test_series_device_kinds_accept_device(conn):
 
 async def test_series_meter_channel_unique_when_both_set(conn):
     home = await _home(conn)
-    meter = uuid.uuid4()
-    await conn.execute(
-        text("INSERT INTO core.meter (id, serial) VALUES (:i, :s)"),
-        {"i": meter, "s": f"sn-{meter}"},
+    meter = await conn.scalar(
+        text("INSERT INTO public.tb_meter (serial) VALUES (:s) RETURNING id"),
+        {"s": f"sn-{uuid.uuid4()}"},
     )
     await _series(conn, home, meter_id=meter, source_channel="ch1")
     with pytest.raises(IntegrityError):
@@ -118,10 +115,9 @@ async def test_series_meter_channel_unique_when_both_set(conn):
 
 async def test_series_meter_channel_unique_ignores_nulls(conn):
     home = await _home(conn)
-    meter = uuid.uuid4()
-    await conn.execute(
-        text("INSERT INTO core.meter (id, serial) VALUES (:i, :s)"),
-        {"i": meter, "s": f"sn-{meter}"},
+    meter = await conn.scalar(
+        text("INSERT INTO public.tb_meter (serial) VALUES (:s) RETURNING id"),
+        {"s": f"sn-{uuid.uuid4()}"},
     )
     # same meter, channel NULL: allowed (partial index only covers non-null pairs)
     await _series(conn, home, metric="power_w", meter_id=meter)
@@ -129,8 +125,7 @@ async def test_series_meter_channel_unique_ignores_nulls(conn):
     # same non-null pair: rejected
     await _series(conn, home, metric="current_a", meter_id=meter, source_channel="ch1")
     with pytest.raises(IntegrityError):
-        await _series(conn, home, metric="reactive_power_var", meter_id=meter,
-                      source_channel="ch1")
+        await _series(conn, home, metric="reactive_power_var", meter_id=meter, source_channel="ch1")
 
 
 async def test_series_unknown_metric_rejected(conn):
@@ -142,37 +137,45 @@ async def test_series_unknown_metric_rejected(conn):
 async def test_series_cascade_on_home_delete(conn):
     home = await _home(conn)
     sid = await _series(conn, home)
-    await conn.execute(text("DELETE FROM core.home WHERE id = :i"), {"i": home})
-    assert await conn.scalar(
-        text("SELECT count(*) FROM energy.series WHERE series_id = :s"), {"s": sid}
-    ) == 0
+    await conn.execute(text("DELETE FROM public.tb_home WHERE id = :i"), {"i": home})
+    assert (
+        await conn.scalar(
+            text("SELECT count(*) FROM public.tb_series WHERE series_id = :s"), {"s": sid}
+        )
+        == 0
+    )
 
 
 async def test_series_device_cascade_and_meter_set_null(conn):
     home = await _home(conn)
     device = await _device(conn, home)
-    meter = uuid.uuid4()
-    await conn.execute(
-        text("INSERT INTO core.meter (id, serial) VALUES (:i, :s)"),
-        {"i": meter, "s": f"sn-{meter}"},
+    meter = await conn.scalar(
+        text("INSERT INTO public.tb_meter (serial) VALUES (:s) RETURNING id"),
+        {"s": f"sn-{uuid.uuid4()}"},
     )
     s_main = await _series(conn, home, meter_id=meter, source_channel="ch1")
     s_dev = await _series(conn, home, kind="device", device_id=device)
-    await conn.execute(text("DELETE FROM core.meter WHERE id = :i"), {"i": meter})
-    assert await conn.scalar(
-        text("SELECT meter_id FROM energy.series WHERE series_id = :s"), {"s": s_main}
-    ) is None
-    await conn.execute(text("DELETE FROM core.device WHERE id = :i"), {"i": device})
-    assert await conn.scalar(
-        text("SELECT count(*) FROM energy.series WHERE series_id = :s"), {"s": s_dev}
-    ) == 0
+    await conn.execute(text("DELETE FROM public.tb_meter WHERE id = :i"), {"i": meter})
+    assert (
+        await conn.scalar(
+            text("SELECT meter_id FROM public.tb_series WHERE series_id = :s"), {"s": s_main}
+        )
+        is None
+    )
+    await conn.execute(text("DELETE FROM public.tb_device WHERE id = :i"), {"i": device})
+    assert (
+        await conn.scalar(
+            text("SELECT count(*) FROM public.tb_series WHERE series_id = :s"), {"s": s_dev}
+        )
+        == 0
+    )
 
 
 async def test_inference_run_status_check_and_defaults(conn):
     home = await _home(conn)
     now = datetime.now(UTC)
     sql = text(
-        "INSERT INTO energy.inference_run (home_id, model_name, model_version, "
+        "INSERT INTO public.tb_inference_run (home_id, model_name, model_version, "
         "window_start, window_end, status) VALUES (:h, 'm', '1', :a, :b, :s) RETURNING run_id"
     )
     with pytest.raises(IntegrityError):
@@ -182,7 +185,7 @@ async def test_inference_run_status_check_and_defaults(conn):
     assert rid is not None
     default = await conn.scalar(
         text(
-            "INSERT INTO energy.inference_run (home_id, model_name, model_version, "
+            "INSERT INTO public.tb_inference_run (home_id, model_name, model_version, "
             "window_start, window_end) VALUES (:h, 'm', '1', :a, :b) RETURNING status"
         ),
         {"h": home, "a": now, "b": now},
@@ -196,7 +199,7 @@ async def test_compress_settings(conn):
             text(
                 "SELECT hypertable_name, attname, segmentby_column_index, orderby_column_index, "
                 "orderby_asc FROM timescaledb_information.compression_settings "
-                "WHERE hypertable_schema = 'energy' AND "
+                "WHERE hypertable_schema = 'public' AND "
                 "hypertable_name IN ('reading','device_estimate')"
             )
         )
@@ -209,7 +212,7 @@ async def test_compress_settings(conn):
     enabled = await conn.scalar(
         text(
             "SELECT count(*) FROM timescaledb_information.hypertables "
-            "WHERE hypertable_schema = 'energy' AND compression_enabled"
+            "WHERE hypertable_schema = 'public' AND compression_enabled"
         )
     )
     assert enabled == 2
@@ -222,23 +225,32 @@ async def test_on_conflict_do_nothing_on_compressed_chunk(conn):
     row = {"ts": ts, "series_id": sid, "value": 1.5, "quality": 0}
     await conn.execute(insert(reading_table).values(row))
     await conn.execute(
-        text(
-            "SELECT compress_chunk(c, true) FROM show_chunks('energy.reading') c"
-        )
+        text("SELECT compress_chunk(c, true) FROM show_chunks('public.tb_reading') c")
     )
-    assert await conn.scalar(
-        text("SELECT count(*) FROM timescaledb_information.chunks "
-             "WHERE hypertable_schema = 'energy' AND hypertable_name = 'reading' "
-             "AND is_compressed")
-    ) == 1
+    assert (
+        await conn.scalar(
+            text(
+                "SELECT count(*) FROM timescaledb_information.chunks "
+                "WHERE hypertable_schema = 'public' AND hypertable_name = 'tb_reading' "
+                "AND is_compressed"
+            )
+        )
+        == 1
+    )
     dup = pg_insert(reading_table).values({**row, "value": 9.0}).on_conflict_do_nothing()
     await conn.execute(dup)
-    assert await conn.scalar(
-        text("SELECT count(*) FROM energy.reading WHERE series_id = :s"), {"s": sid}
-    ) == 1
-    assert await conn.scalar(
-        text("SELECT value FROM energy.reading WHERE series_id = :s"), {"s": sid}
-    ) == 1.5
+    assert (
+        await conn.scalar(
+            text("SELECT count(*) FROM public.tb_reading WHERE series_id = :s"), {"s": sid}
+        )
+        == 1
+    )
+    assert (
+        await conn.scalar(
+            text("SELECT value FROM public.tb_reading WHERE series_id = :s"), {"s": sid}
+        )
+        == 1.5
+    )
 
 
 async def test_device_estimate_insert(conn):
@@ -250,17 +262,20 @@ async def test_device_estimate_insert(conn):
             ts=datetime(2020, 1, 1, tzinfo=UTC), series_id=sid, value=2.0, run_id=None
         )
     )
-    assert await conn.scalar(
-        text("SELECT count(*) FROM energy.device_estimate WHERE series_id = :s"), {"s": sid}
-    ) == 1
+    assert (
+        await conn.scalar(
+            text("SELECT count(*) FROM public.tb_device_estimate WHERE series_id = :s"), {"s": sid}
+        )
+        == 1
+    )
 
 
 async def test_set_policies_toggle(autocommit_conn):
     c = autocommit_conn
     p = {"p": list(POLICY_PROCS)}
     try:
-        await c.execute(text("SELECT ops.set_policies(true)"))
-        await c.execute(text("SELECT ops.set_policies(true)"))  # idempotent
+        await c.execute(text("SELECT public.set_policies(true)"))
+        await c.execute(text("SELECT public.set_policies(true)"))  # idempotent
         rows = (await c.execute(JOBS_SQL, p)).all()
         assert rows == [
             ("policy_compression", "device_estimate"),
@@ -268,11 +283,11 @@ async def test_set_policies_toggle(autocommit_conn):
             ("policy_retention", "device_estimate"),
             ("policy_retention", "reading"),
         ]
-        await c.execute(text("SELECT ops.set_policies(false)"))
-        await c.execute(text("SELECT ops.set_policies(false)"))  # idempotent
+        await c.execute(text("SELECT public.set_policies(false)"))
+        await c.execute(text("SELECT public.set_policies(false)"))  # idempotent
         assert (await c.execute(JOBS_SQL, p)).all() == []
     finally:
-        await c.execute(text("SELECT ops.set_policies(true)"))
+        await c.execute(text("SELECT public.set_policies(true)"))
     assert len((await c.execute(JOBS_SQL, p)).all()) == 4
 
 
@@ -281,8 +296,8 @@ async def test_policy_intervals(autocommit_conn):
         await autocommit_conn.execute(
             text(
                 "SELECT proc_name, config->>'compress_after' AS ca, config->>'drop_after' AS da "
-                "FROM timescaledb_information.jobs WHERE hypertable_schema = 'energy' "
-                "AND hypertable_name = 'reading' AND proc_name = ANY(:p)"
+                "FROM timescaledb_information.jobs WHERE hypertable_schema = 'public' "
+                "AND hypertable_name = 'tb_reading' AND proc_name = ANY(:p)"
             ),
             {"p": list(POLICY_PROCS)},
         )
@@ -299,8 +314,12 @@ async def test_orm_round_trip(session):
     run = InferenceRun(
         home_id=hid, model_name="m", model_version="1", window_start=now, window_end=now
     )
-    w = WeatherHourly(province_code="HN", ts=now.replace(minute=0, second=0, microsecond=0),
-                      temp_c=30.5, humidity_pct=70.0)
+    w = WeatherHourly(
+        province_code="HN",
+        ts=now.replace(minute=0, second=0, microsecond=0),
+        temp_c=30.5,
+        humidity_pct=70.0,
+    )
     session.add_all([s, run, w])
     await session.flush()
     assert s.series_id is not None and run.run_id is not None
@@ -313,8 +332,11 @@ async def test_orm_round_trip(session):
 def test_metadata_resolves():
     names = {t.fullname for t in Base.metadata.sorted_tables}
     assert {
-        "energy.series", "energy.inference_run", "energy.weather_hourly",
-        "energy.reading", "energy.device_estimate",
+        "public.tb_series",
+        "public.tb_inference_run",
+        "public.tb_weather_hourly",
+        "public.tb_reading",
+        "public.tb_device_estimate",
     } <= names
 
 
@@ -325,10 +347,12 @@ async def test_energy_downgrade_upgrade(throwaway_dsn):
 
     q = text(
         "SELECT count(*) FROM information_schema.tables "
-        "WHERE table_schema = 'energy' AND table_type = 'BASE TABLE'"
+        "WHERE table_schema = 'public' AND table_type = 'BASE TABLE'"
     )
-    fn = text("SELECT count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace "
-              "WHERE n.nspname = 'ops' AND p.proname = 'set_policies'")
+    fn = text(
+        "SELECT count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace "
+        "WHERE n.nspname = 'public' AND p.proname = 'set_policies'"
+    )
     engine = create_async_engine(throwaway_dsn, isolation_level="AUTOCOMMIT")
     try:
         async with engine.connect() as c:
@@ -357,7 +381,7 @@ async def test_device_estimate_upsert_on_compressed_chunk_latest_run_wins(conn):
         runs.append(
             await conn.scalar(
                 text(
-                    "INSERT INTO energy.inference_run (home_id, model_name, model_version, "
+                    "INSERT INTO public.tb_inference_run (home_id, model_name, model_version, "
                     "window_start, window_end) VALUES (:h, 'm', '1', :a, :a) RETURNING run_id"
                 ),
                 {"h": home, "a": now},
@@ -367,7 +391,7 @@ async def test_device_estimate_upsert_on_compressed_chunk_latest_run_wins(conn):
         insert(device_estimate_table).values(ts=ts, series_id=sid, value=1.0, run_id=runs[0])
     )
     await conn.execute(
-        text("SELECT compress_chunk(c, true) FROM show_chunks('energy.device_estimate') c")
+        text("SELECT compress_chunk(c, true) FROM show_chunks('public.tb_device_estimate') c")
     )
     stmt = pg_insert(device_estimate_table).values(ts=ts, series_id=sid, value=2.0, run_id=runs[1])
     await conn.execute(
@@ -378,7 +402,7 @@ async def test_device_estimate_upsert_on_compressed_chunk_latest_run_wins(conn):
     )
     row = (
         await conn.execute(
-            text("SELECT value, run_id FROM energy.device_estimate WHERE series_id = :s"),
+            text("SELECT value, run_id FROM public.tb_device_estimate WHERE series_id = :s"),
             {"s": sid},
         )
     ).one()
@@ -390,7 +414,7 @@ async def test_column_types_match_models(conn):
         await conn.execute(
             text(
                 "SELECT table_name, column_name, data_type, character_maximum_length "
-                "FROM information_schema.columns WHERE table_schema = 'energy' "
+                "FROM information_schema.columns WHERE table_schema = 'public' "
                 "AND table_name IN ('series')"
             )
         )
@@ -406,7 +430,7 @@ async def test_hypertable_pk_names_and_meter_index(conn):
             await conn.execute(
                 text(
                     "SELECT conname FROM pg_constraint WHERE contype = 'p' AND conrelid IN "
-                    "('energy.reading'::regclass, 'energy.device_estimate'::regclass)"
+                    "('public.tb_reading'::regclass, 'public.tb_device_estimate'::regclass)"
                 )
             )
         ).scalars()
@@ -417,7 +441,7 @@ async def test_hypertable_pk_names_and_meter_index(conn):
             await conn.execute(
                 text(
                     "SELECT pg_get_indexdef(indexrelid) FROM pg_index "
-                    "WHERE indrelid = 'energy.series'::regclass AND NOT indisunique"
+                    "WHERE indrelid = 'public.tb_series'::regclass AND NOT indisunique"
                 )
             )
         ).scalars()
@@ -429,7 +453,7 @@ async def test_set_policies_pins_search_path(conn):
     cfg = await conn.scalar(
         text(
             "SELECT proconfig::text FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace "
-            "WHERE n.nspname = 'ops' AND p.proname = 'set_policies'"
+            "WHERE n.nspname = 'public' AND p.proname = 'set_policies'"
         )
     )
     assert cfg is not None and "search_path=public, pg_catalog" in cfg

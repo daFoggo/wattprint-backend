@@ -2,17 +2,16 @@ import uuid
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime
-from uuid import UUID
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-QUALITY_MAX = 32767  # energy.reading.quality is a smallint bit field, never negative
-REAL_MAX = 3.4028234e38  # largest finite float4; energy.reading.value is REAL
+QUALITY_MAX = 32767  # public.tb_reading.quality is a smallint bit field, never negative
+REAL_MAX = 3.4028234e38  # largest finite float4; public.tb_reading.value is REAL
 
 
 class MeterNotFound(LookupError):  # noqa: N818 - name fixed by the task contract
-    """No core.meter row has the given serial."""
+    """No public.tb_meter row has the given serial."""
 
 
 @dataclass
@@ -25,7 +24,7 @@ class ReadingRow:
 
 @dataclass
 class IngestResult:
-    batch_id: UUID
+    batch_id: int
     rows_in: int
     rows_new: int
     rows_dup: int
@@ -68,17 +67,17 @@ async def _write_readings(session: AsyncSession, valid: list[tuple], source: str
     )
     new = await session.scalar(
         text(
-            "WITH ins AS (INSERT INTO energy.reading (ts, series_id, value, quality) "
+            "WITH ins AS (INSERT INTO public.tb_reading (ts, series_id, value, quality) "
             f"SELECT ts, series_id, value::real, quality FROM {stage} ORDER BY series_id, ts "
             "ON CONFLICT (series_id, ts) DO NOTHING RETURNING 1) SELECT count(*) FROM ins"
         )
     )
     await session.execute(
         text(
-            "INSERT INTO ops.ingest_checkpoint (source, series_id, last_ts) "
+            "INSERT INTO public.tb_ingest_checkpoint (source, series_id, last_ts) "
             f"SELECT :src, series_id, max(ts) FROM {stage} GROUP BY series_id ORDER BY series_id "
             "ON CONFLICT (source, series_id) DO UPDATE SET "
-            "last_ts = GREATEST(ops.ingest_checkpoint.last_ts, EXCLUDED.last_ts), "
+            "last_ts = GREATEST(public.tb_ingest_checkpoint.last_ts, EXCLUDED.last_ts), "
             "updated_at = now()"
         ),
         {"src": source},
@@ -111,7 +110,7 @@ async def ingest_readings(
     """
     meter = (
         await session.execute(
-            text("SELECT id, home_id FROM core.meter WHERE serial = :s"), {"s": meter_serial}
+            text("SELECT id, home_id FROM public.tb_meter WHERE serial = :s"), {"s": meter_serial}
         )
     ).first()
     if meter is None:
@@ -120,7 +119,7 @@ async def ingest_readings(
         (
             await session.execute(
                 text(
-                    "SELECT source_channel, series_id FROM energy.series "
+                    "SELECT source_channel, series_id FROM public.tb_series "
                     "WHERE meter_id = :m AND source_channel IS NOT NULL"
                 ),
                 {"m": meter.id},
@@ -130,7 +129,7 @@ async def ingest_readings(
 
     batch_id = await session.scalar(
         text(
-            "INSERT INTO ops.ingest_batch (source, home_id, status, started_at) "
+            "INSERT INTO public.tb_ingest_batch (source, home_id, status, started_at) "
             "VALUES (:src, :h, 'running', clock_timestamp()) RETURNING id"
         ),
         {"src": source, "h": meter.home_id},
@@ -169,7 +168,8 @@ async def ingest_readings(
     except Exception as exc:
         await session.execute(
             text(
-                "UPDATE ops.ingest_batch SET status = 'failed', finished_at = clock_timestamp(), "
+                "UPDATE public.tb_ingest_batch SET status = 'failed', "
+                "finished_at = clock_timestamp(), "
                 "note = :n WHERE id = :i"
             ),
             {"n": _error_text(exc), "i": batch_id},
@@ -180,7 +180,7 @@ async def ingest_readings(
     dup += len(valid) - new  # already stored
     await session.execute(
         text(
-            "UPDATE ops.ingest_batch SET status = 'ok', finished_at = clock_timestamp(), "
+            "UPDATE public.tb_ingest_batch SET status = 'ok', finished_at = clock_timestamp(), "
             "rows_in = :i, "
             "rows_new = :n, rows_dup = :d, rows_bad = :b WHERE id = :id"
         ),
@@ -216,7 +216,7 @@ async def ingest_estimates(
     )
     written = await session.scalar(
         text(
-            "WITH up AS (INSERT INTO energy.device_estimate (ts, series_id, value, run_id) "
+            "WITH up AS (INSERT INTO public.tb_device_estimate (ts, series_id, value, run_id) "
             f"SELECT ts, series_id, value::real, run_id FROM {stage} ORDER BY series_id, ts "
             "ON CONFLICT (series_id, ts) DO UPDATE SET value = EXCLUDED.value, "
             "run_id = EXCLUDED.run_id RETURNING 1) SELECT count(*) FROM up"

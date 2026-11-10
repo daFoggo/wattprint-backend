@@ -1,4 +1,4 @@
-"""foundation: extensions, schemas, roles
+"""foundation: extensions and roles
 
 Revision ID: 5f0b3c8a1d47
 Revises: d4f6b8c0e2a1
@@ -14,7 +14,7 @@ branch_labels = None
 depends_on = None
 
 EXTENSIONS = ("timescaledb", "vector", "unaccent", "pg_trgm")
-SCHEMAS = ("core", "catalog", "energy", "billing", "insight", "copilot", "knowledge", "ops")
+SCHEMAS: tuple[str, ...] = ()
 # role name -> env var holding its password
 ROLES = {
     "wattprint_app": "APP_DB_PASSWORD",

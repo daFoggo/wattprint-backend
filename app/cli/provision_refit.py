@@ -3,7 +3,6 @@
 import json
 import re
 from pathlib import Path
-from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -43,7 +42,7 @@ _DEVICE_TYPE_RULES: tuple[tuple[re.Pattern[str], str], ...] = tuple(
 
 
 def device_type_for(name: str) -> str:
-    """Map a REFIT appliance name to a seeded catalog.device_type code ('other' if unmapped)."""
+    """Map a REFIT appliance name to a seeded public.cat_device_type code ('other' if unmapped)."""
     for pattern, code in _DEVICE_TYPE_RULES:
         if pattern.search(name):
             return code
@@ -84,7 +83,7 @@ def _year_built(construction: str | None) -> int | None:
     return int(m.group(1)) if m else None
 
 
-async def provision_house(session: AsyncSession, house: int, owner_email: str) -> UUID:
+async def provision_house(session: AsyncSession, house: int, owner_email: str) -> int:
     """Create (or complete) the user, home, meter, devices and series of a REFIT house.
 
     Idempotent: existing rows are reused, so a second call changes nothing and returns the same
@@ -154,8 +153,12 @@ async def provision_house(session: AsyncSession, house: int, owner_email: str) -
         if channel == "Aggregate":
             session.add(
                 Series(
-                    home_id=home_id, kind="main", metric="power_w", unit="W",
-                    meter_id=meter.id, source_channel=channel,
+                    home_id=home_id,
+                    kind="main",
+                    metric="power_w",
+                    unit="W",
+                    meter_id=meter.id,
+                    source_channel=channel,
                 )
             )
             continue
@@ -167,8 +170,13 @@ async def provision_house(session: AsyncSession, house: int, owner_email: str) -
         await session.flush()
         session.add(
             Series(
-                home_id=home_id, kind="plug", device_id=device.id, metric="power_w", unit="W",
-                meter_id=meter.id, source_channel=channel,
+                home_id=home_id,
+                kind="plug",
+                device_id=device.id,
+                metric="power_w",
+                unit="W",
+                meter_id=meter.id,
+                source_channel=channel,
             )
         )
     await session.flush()

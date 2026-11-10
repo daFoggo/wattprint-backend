@@ -1,4 +1,3 @@
-import uuid
 from datetime import date, datetime
 from decimal import Decimal
 
@@ -8,6 +7,8 @@ from sqlalchemy import (
     Date,
     DateTime,
     ForeignKey,
+    Identity,
+    Integer,
     Numeric,
     SmallInteger,
     String,
@@ -19,13 +20,12 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from ..database import Base
 
-_UUID_DEFAULT = text("gen_random_uuid()")
 _NOW = text("now()")
 
 
 class TariffPlan(Base):
-    __tablename__ = "tariff_plan"
-    __table_args__ = {"schema": "billing"}
+    __tablename__ = "tb_tariff_plan"
+    __table_args__ = {"schema": "public"}
 
     code: Mapped[str] = mapped_column(String(64), primary_key=True)
     name: Mapped[str] = mapped_column(Text)
@@ -33,18 +33,16 @@ class TariffPlan(Base):
 
 
 class TariffVersion(Base):
-    __tablename__ = "tariff_version"
+    __tablename__ = "tb_tariff_version"
     __table_args__ = (
         CheckConstraint("valid_to IS NULL OR valid_to >= valid_from", name="validity_range"),
         UniqueConstraint("plan_code", "valid_from"),
-        {"schema": "billing"},
+        {"schema": "public"},
     )
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        primary_key=True, default=uuid.uuid4, server_default=_UUID_DEFAULT
-    )
+    id: Mapped[int] = mapped_column(Integer, Identity(always=False), primary_key=True)
     plan_code: Mapped[str] = mapped_column(
-        String(64), ForeignKey("billing.tariff_plan.code"), index=True
+        String(64), ForeignKey("public.tb_tariff_plan.code"), index=True
     )
     valid_from: Mapped[date] = mapped_column(Date)
     valid_to: Mapped[date | None] = mapped_column(Date)
@@ -55,14 +53,14 @@ class TariffVersion(Base):
 class TariffTier(Base):
     """A tier covers kWh in the interval (from_kwh, to_kwh]; the last tier has to_kwh NULL."""
 
-    __tablename__ = "tariff_tier"
+    __tablename__ = "tb_tariff_tier"
     __table_args__ = (
         CheckConstraint("to_kwh IS NULL OR to_kwh > from_kwh", name="range"),
-        {"schema": "billing"},
+        {"schema": "public"},
     )
 
-    version_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("billing.tariff_version.id", ondelete="CASCADE"), primary_key=True
+    version_id: Mapped[int] = mapped_column(
+        ForeignKey("public.tb_tariff_version.id", ondelete="CASCADE"), primary_key=True
     )
     tier_no: Mapped[int] = mapped_column(SmallInteger, primary_key=True)
     from_kwh: Mapped[Decimal] = mapped_column(Numeric(10, 2))
@@ -71,24 +69,20 @@ class TariffTier(Base):
 
 
 class Bill(Base):
-    __tablename__ = "bill"
+    __tablename__ = "tb_bill"
     __table_args__ = (
         CheckConstraint("status IN ('open','partial','closed')", name="status"),
         UniqueConstraint("home_id", "period_start"),
-        {"schema": "billing"},
+        {"schema": "public"},
     )
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        primary_key=True, default=uuid.uuid4, server_default=_UUID_DEFAULT
-    )
-    home_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("core.home.id", ondelete="CASCADE"), index=True
+    id: Mapped[int] = mapped_column(Integer, Identity(always=False), primary_key=True)
+    home_id: Mapped[int] = mapped_column(
+        ForeignKey("public.tb_home.id", ondelete="CASCADE"), index=True
     )
     period_start: Mapped[date] = mapped_column(Date)
     period_end: Mapped[date] = mapped_column(Date)
-    version_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("billing.tariff_version.id"), index=True
-    )
+    version_id: Mapped[int] = mapped_column(ForeignKey("public.tb_tariff_version.id"), index=True)
     kwh_total: Mapped[Decimal] = mapped_column(Numeric(12, 3))
     amount_before_vat: Mapped[Decimal] = mapped_column(Numeric(14, 2))
     vat_amount: Mapped[Decimal] = mapped_column(Numeric(14, 2))
@@ -102,17 +96,15 @@ class Bill(Base):
 
 
 class BillItem(Base):
-    __tablename__ = "bill_item"
-    __table_args__ = {"schema": "billing"}
+    __tablename__ = "tb_bill_item"
+    __table_args__ = {"schema": "public"}
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        primary_key=True, default=uuid.uuid4, server_default=_UUID_DEFAULT
+    id: Mapped[int] = mapped_column(Integer, Identity(always=False), primary_key=True)
+    bill_id: Mapped[int] = mapped_column(
+        ForeignKey("public.tb_bill.id", ondelete="CASCADE"), index=True
     )
-    bill_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("billing.bill.id", ondelete="CASCADE"), index=True
-    )
-    device_id: Mapped[uuid.UUID | None] = mapped_column(
-        ForeignKey("core.device.id", ondelete="SET NULL"), index=True
+    device_id: Mapped[int | None] = mapped_column(
+        ForeignKey("public.tb_device.id", ondelete="SET NULL"), index=True
     )
     label: Mapped[str] = mapped_column(Text)
     kwh: Mapped[Decimal] = mapped_column(Numeric(12, 3))

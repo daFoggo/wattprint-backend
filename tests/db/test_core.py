@@ -6,41 +6,41 @@ from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 
 
-async def _user(conn) -> uuid.UUID:
-    uid = uuid.uuid4()
-    await conn.execute(
-        text("INSERT INTO public.users (id, email) VALUES (:i, :e)"),
-        {"i": uid, "e": f"{uid}@example.com"},
+async def _user(conn) -> int:
+    return await conn.scalar(
+        text("INSERT INTO public.tb_users (email) VALUES (:e) RETURNING id"),
+        {"e": f"{uuid.uuid4()}@example.com"},
     )
-    return uid
 
 
-async def _home(conn, **overrides) -> uuid.UUID:
-    hid = uuid.uuid4()
-    cols = {"id": hid, "name": "Home", **overrides}
+async def _home(conn, **overrides) -> int:
+    cols = {"name": "Home", **overrides}
     names = ", ".join(cols)
     params = ", ".join(f":{k}" for k in cols)
-    await conn.execute(text(f"INSERT INTO core.home ({names}) VALUES ({params})"), cols)
-    return hid
+    return await conn.scalar(
+        text(f"INSERT INTO public.tb_home ({names}) VALUES ({params}) RETURNING id"), cols
+    )
 
 
 async def test_user_can_join_only_one_home(conn):
     uid = await _user(conn)
     h1, h2 = await _home(conn), await _home(conn)
     await conn.execute(
-        text("INSERT INTO core.home_member (home_id, user_id, role) VALUES (:h, :u, 'owner')"),
+        text("INSERT INTO public.tb_home_member (home_id, user_id, role) VALUES (:h, :u, 'owner')"),
         {"h": h1, "u": uid},
     )
     with pytest.raises(IntegrityError):
         await conn.execute(
-            text("INSERT INTO core.home_member (home_id, user_id, role) VALUES (:h, :u, 'member')"),
+            text(
+                "INSERT INTO public.tb_home_member (home_id, user_id, role) VALUES (:h, :u, 'member')"
+            ),
             {"h": h2, "u": uid},
         )
 
 
 async def test_home_timezone_check(conn):
     hid = await _home(conn)
-    tz = await conn.scalar(text("SELECT timezone FROM core.home WHERE id = :i"), {"i": hid})
+    tz = await conn.scalar(text("SELECT timezone FROM public.tb_home WHERE id = :i"), {"i": hid})
     assert tz == "Asia/Ho_Chi_Minh"
     with pytest.raises(IntegrityError):
         await _home(conn, timezone="UTC")
@@ -61,7 +61,7 @@ async def test_invite_stores_hash_only(conn):
     rows = await conn.execute(
         text(
             "SELECT column_name FROM information_schema.columns "
-            "WHERE table_schema = 'core' AND table_name = 'home_invite'"
+            "WHERE table_schema = 'public' AND table_name = 'tb_home_invite'"
         )
     )
     cols = {r[0] for r in rows}
@@ -70,7 +70,7 @@ async def test_invite_stores_hash_only(conn):
 
 
 async def test_meter_serial_unique(conn):
-    q = text("INSERT INTO core.meter (serial, status) VALUES ('SN-1', 'new')")
+    q = text("INSERT INTO public.tb_meter (serial, status) VALUES ('SN-1', 'new')")
     await conn.execute(q)
     with pytest.raises(IntegrityError):
         await conn.execute(q)
@@ -79,7 +79,8 @@ async def test_meter_serial_unique(conn):
 async def test_device_validity_range_check(conn):
     hid = await _home(conn)
     q = text(
-        "INSERT INTO core.device (home_id, device_type_code, name, origin, active_from, active_to)"
+        "INSERT INTO public.tb_device "
+        "(home_id, device_type_code, name, origin, active_from, active_to)"
         " VALUES (:h, 'fridge', 'Fridge', 'manual', :f, :t)"
     )
     f = datetime(2026, 1, 2, tzinfo=UTC)
@@ -95,7 +96,7 @@ async def test_device_type_fk(conn):
     with pytest.raises(IntegrityError):
         await conn.execute(
             text(
-                "INSERT INTO core.device (home_id, device_type_code, name, origin)"
+                "INSERT INTO public.tb_device (home_id, device_type_code, name, origin)"
                 " VALUES (:h, 'nope', 'X', 'manual')"
             ),
             {"h": hid},
@@ -103,7 +104,7 @@ async def test_device_type_fk(conn):
 
 
 async def test_metric_seed_has_power_w(conn):
-    rows = await conn.execute(text("SELECT event_type, unit, aggregation FROM catalog.metric"))
+    rows = await conn.execute(text("SELECT event_type, unit, aggregation FROM public.cat_metric"))
     metrics = {r[0]: (r[1], r[2]) for r in rows}
     assert metrics["power_w"] == ("W", "mean")
     assert metrics["energy_wh"] == ("Wh", "energy")
@@ -111,15 +112,33 @@ async def test_metric_seed_has_power_w(conn):
 
 
 async def test_device_type_seed(conn):
-    codes = {r[0] for r in await conn.execute(text("SELECT code FROM catalog.device_type"))}
+    codes = {r[0] for r in await conn.execute(text("SELECT code FROM public.cat_device_type"))}
     assert codes >= {
-        "ac", "fridge", "freezer", "fridge_freezer", "washing_machine", "washer_dryer",
-        "tumble_dryer", "dishwasher", "television", "computer", "microwave", "kettle",
-        "toaster", "hifi", "electric_heater", "router", "water_heater", "electric_car",
-        "lights", "oven", "always_on", "other",
+        "ac",
+        "fridge",
+        "freezer",
+        "fridge_freezer",
+        "washing_machine",
+        "washer_dryer",
+        "tumble_dryer",
+        "dishwasher",
+        "television",
+        "computer",
+        "microwave",
+        "kettle",
+        "toaster",
+        "hifi",
+        "electric_heater",
+        "router",
+        "water_heater",
+        "electric_car",
+        "lights",
+        "oven",
+        "always_on",
+        "other",
     }
     missing = await conn.scalar(
-        text("SELECT count(*) FROM catalog.device_type WHERE label_vi = '' OR label_en = ''")
+        text("SELECT count(*) FROM public.cat_device_type WHERE label_vi = '' OR label_en = ''")
     )
     assert missing == 0
 
@@ -131,7 +150,13 @@ def test_metadata_sorted_tables_resolves():
     from app.database import Base
 
     names = {t.fullname for t in Base.metadata.sorted_tables}
-    assert {"users", "core.home", "core.home_member", "core.device", "catalog.metric"} <= names
+    assert {
+        "users",
+        "public.tb_home",
+        "public.tb_home_member",
+        "public.tb_device",
+        "public.cat_metric",
+    } <= names
 
 
 async def test_orm_round_trip(session):
@@ -186,10 +211,8 @@ async def test_orm_round_trip(session):
 # --- CHECK vocabularies ---
 
 
-async def _device(conn, home_id, **overrides) -> uuid.UUID:
-    did = uuid.uuid4()
+async def _device(conn, home_id, **overrides) -> int:
     cols = {
-        "id": did,
         "home_id": home_id,
         "device_type_code": "fridge",
         "name": "D",
@@ -198,8 +221,9 @@ async def _device(conn, home_id, **overrides) -> uuid.UUID:
     }
     names = ", ".join(cols)
     params = ", ".join(f":{k}" for k in cols)
-    await conn.execute(text(f"INSERT INTO core.device ({names}) VALUES ({params})"), cols)
-    return did
+    return await conn.scalar(
+        text(f"INSERT INTO public.tb_device ({names}) VALUES ({params}) RETURNING id"), cols
+    )
 
 
 async def _rejects(conn, sql, params=None):
@@ -218,17 +242,17 @@ async def test_home_type_check(conn):
 async def test_member_and_invite_role_check(conn):
     uid, hid = await _user(conn), await _home(conn)
     await conn.execute(
-        text("INSERT INTO core.home_member (home_id, user_id, role) VALUES (:h, :u, 'member')"),
+        text("INSERT INTO public.tb_home_member (home_id, user_id, role) VALUES (:h, :u, 'member')"),
         {"h": hid, "u": uid},
     )
     uid2 = await _user(conn)
     await _rejects(
         conn,
-        "INSERT INTO core.home_member (home_id, user_id, role) VALUES (:h, :u, 'admin')",
+        "INSERT INTO public.tb_home_member (home_id, user_id, role) VALUES (:h, :u, 'admin')",
         {"h": hid, "u": uid2},
     )
     ins = (
-        "INSERT INTO core.home_invite (home_id, code_hash, role, expires_at)"
+        "INSERT INTO public.tb_home_invite (home_id, code_hash, role, expires_at)"
         " VALUES (:h, :c, :r, now())"
     )
     await conn.execute(text(ins), {"h": hid, "c": "a", "r": "owner"})
@@ -237,7 +261,7 @@ async def test_member_and_invite_role_check(conn):
 
 async def test_invite_code_hash_unique(conn):
     hid = await _home(conn)
-    ins = "INSERT INTO core.home_invite (home_id, code_hash, expires_at) VALUES (:h, 'x', now())"
+    ins = "INSERT INTO public.tb_home_invite (home_id, code_hash, expires_at) VALUES (:h, 'x', now())"
     await conn.execute(text(ins), {"h": hid})
     await _rejects(conn, ins, {"h": hid})
 
@@ -252,25 +276,25 @@ async def test_device_origin_check(conn):
 
 async def test_alert_rule_kind_check(conn):
     did = await _device(conn, await _home(conn))
-    ins = "INSERT INTO core.device_alert_rule (device_id, kind) VALUES (:d, :k)"
+    ins = "INSERT INTO public.tb_device_alert_rule (device_id, kind) VALUES (:d, :k)"
     await conn.execute(text(ins), {"d": did, "k": "custom"})
     await _rejects(conn, ins, {"d": did, "k": "sms"})
 
 
 async def test_meter_status_check(conn):
-    ins = "INSERT INTO core.meter (serial, status) VALUES (:s, :t)"
+    ins = "INSERT INTO public.tb_meter (serial, status) VALUES (:s, :t)"
     await conn.execute(text(ins), {"s": "S1", "t": "active"})
     await _rejects(conn, ins, {"s": "S2", "t": "broken"})
 
 
 async def test_metric_aggregation_check(conn):
-    ins = "INSERT INTO catalog.metric (event_type, unit, aggregation) VALUES (:e, 'W', :a)"
+    ins = "INSERT INTO public.cat_metric (event_type, unit, aggregation) VALUES (:e, 'W', :a)"
     await conn.execute(text(ins), {"e": "t_ok", "a": "max"})
     await _rejects(conn, ins, {"e": "t_bad", "a": "median"})
 
 
 async def test_meter_claim_code_hash_unique_when_set(conn):
-    ins = "INSERT INTO core.meter (serial, claim_code_hash) VALUES (:s, :c)"
+    ins = "INSERT INTO public.tb_meter (serial, claim_code_hash) VALUES (:s, :c)"
     await conn.execute(text(ins), {"s": "A", "c": None})
     await conn.execute(text(ins), {"s": "B", "c": None})  # NULLs may repeat
     await conn.execute(text(ins), {"s": "C", "c": "h"})
@@ -283,42 +307,43 @@ async def test_meter_claim_code_hash_unique_when_set(conn):
 async def test_home_delete_cascades(conn):
     uid, hid = await _user(conn), await _home(conn)
     await conn.execute(
-        text("INSERT INTO core.home_member (home_id, user_id, role) VALUES (:h, :u, 'owner')"),
+        text("INSERT INTO public.tb_home_member (home_id, user_id, role) VALUES (:h, :u, 'owner')"),
         {"h": hid, "u": uid},
     )
     await conn.execute(
         text(
-            "INSERT INTO core.home_invite (home_id, code_hash, expires_at)"
+            "INSERT INTO public.tb_home_invite (home_id, code_hash, expires_at)"
             " VALUES (:h, 'k', now())"
         ),
         {"h": hid},
     )
     did = await _device(conn, hid)
     await conn.execute(
-        text("INSERT INTO core.device_alert_rule (device_id, kind) VALUES (:d, 'on')"), {"d": did}
+        text("INSERT INTO public.tb_device_alert_rule (device_id, kind) VALUES (:d, 'on')"),
+        {"d": did},
     )
-    await conn.execute(text("DELETE FROM core.home WHERE id = :h"), {"h": hid})
+    await conn.execute(text("DELETE FROM public.tb_home WHERE id = :h"), {"h": hid})
     for table in ("home_member", "home_invite", "device", "device_alert_rule"):
-        n = await conn.scalar(text(f"SELECT count(*) FROM core.{table}"))
+        n = await conn.scalar(text(f"SELECT count(*) FROM public.{table}"))
         assert n == 0, table
-    assert await conn.scalar(text("SELECT count(*) FROM public.users WHERE id = :u"), {"u": uid})
+    assert await conn.scalar(text("SELECT count(*) FROM public.tb_users WHERE id = :u"), {"u": uid})
 
 
 async def test_meter_fk_to_home_blocks_delete(conn):
     hid = await _home(conn)
     await conn.execute(
-        text("INSERT INTO core.meter (serial, home_id) VALUES ('SN-FK', :h)"), {"h": hid}
+        text("INSERT INTO public.tb_meter (serial, home_id) VALUES ('SN-FK', :h)"), {"h": hid}
     )
-    await _rejects(conn, "DELETE FROM core.home WHERE id = :h", {"h": hid})
+    await _rejects(conn, "DELETE FROM public.tb_home WHERE id = :h", {"h": hid})
     await _rejects(
         conn,
-        "INSERT INTO core.meter (serial, home_id) VALUES ('SN-FK2', :h)",
-        {"h": uuid.uuid4()},
+        "INSERT INTO public.tb_meter (serial, home_id) VALUES ('SN-FK2', :h)",
+        {"h": -1},
     )
 
 
 async def test_fk_columns_are_indexed(conn):
-    rows = await conn.execute(text("SELECT indexname FROM pg_indexes WHERE schemaname = 'core'"))
+    rows = await conn.execute(text("SELECT indexname FROM pg_indexes WHERE schemaname = 'public'"))
     names = {r[0] for r in rows}
     assert {
         "ix_device_home_id",
@@ -341,7 +366,7 @@ async def test_catalog_core_downgrade_upgrade(throwaway_dsn):
     from tests.db.conftest import run_alembic
 
     q = text(
-        "SELECT count(*) FROM information_schema.tables WHERE table_schema IN ('core','catalog')"
+        "SELECT count(*) FROM information_schema.tables WHERE table_schema = 'public'"
     )
     engine = create_async_engine(throwaway_dsn, isolation_level="AUTOCOMMIT")
     try:
@@ -353,6 +378,6 @@ async def test_catalog_core_downgrade_upgrade(throwaway_dsn):
         run_alembic(throwaway_dsn, "upgrade", "head")
         async with engine.connect() as c:
             assert await c.scalar(q) == 8
-            assert await c.scalar(text("SELECT count(*) FROM catalog.device_type")) == 22
+            assert await c.scalar(text("SELECT count(*) FROM public.cat_device_type")) == 22
     finally:
         await engine.dispose()

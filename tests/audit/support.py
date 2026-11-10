@@ -67,7 +67,7 @@ async def ensure_database() -> str:
         eng = create_async_engine(dsn, isolation_level="AUTOCOMMIT")
         try:
             async with eng.connect() as c:
-                await c.execute(text("SELECT ops.set_policies(false)"))
+                await c.execute(text("SELECT public.set_policies(false)"))
         finally:
             await eng.dispose()
     return dsn
@@ -102,7 +102,7 @@ async def create_scratch(name: str, migrate: bool = True, policies_off: bool = T
             eng = create_async_engine(dsn, isolation_level="AUTOCOMMIT")
             try:
                 async with eng.connect() as c:
-                    await c.execute(text("SELECT ops.set_policies(false)"))
+                    await c.execute(text("SELECT public.set_policies(false)"))
             finally:
                 await eng.dispose()
     return dsn

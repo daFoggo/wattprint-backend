@@ -7,7 +7,8 @@
   `http://localhost:11092|3000/auth/callback`), `wattprint-api` (bearer-only; audience mapper puts it in `aud`).
 - Sign-in is Google only: IdP `google`, flow `browser-google` redirects straight to it, `kc_idp_hint=google`.
 - FastAPI is a resource server: verifies RS256 JWT via JWKS (`iss`, `aud`, `exp`, `sub`, `typ=Bearer`, `azp` in
-  `KEYCLOAK_CLIENT_IDS`), creates the `users` row on first request (`id` = `sub`), roles from `realm_access.roles`.
+  `KEYCLOAK_CLIENT_IDS`), creates the `tb_users` row on first request with an integer local `id` and stores `sub` in
+  `keycloak_sub`; roles come from `realm_access.roles`.
   JWKS down -> 503, bad token -> 401, inactive user -> 403, email under another id -> 409.
 - Future AI service: another resource server with its own audience; it verifies the same JWKS.
 
@@ -20,7 +21,7 @@
 - `docker compose up -d`; phone: `adb reverse tcp:11094 tcp:11094`, `tcp:11093`, `tcp:11095`.
 - Env: see `.env.example` (admin password >= 12 chars, `WATTPRINT_WEB_CLIENT_SECRET`, `GOOGLE_CLIENT_ID/SECRET`).
 - Re-import the realm: `docker compose rm -sfv keycloak keycloak-db`, `docker volume rm wattprint_wattprint_keycloak_pg18data`,
-  `docker compose up -d`. New realm = new user `sub`: delete stale `users` rows or they answer 409.
+  `docker compose up -d`. New realm = new user `sub`: delete stale `tb_users` rows or they answer 409.
 - Google consent screen is in Testing mode: only listed test users can sign in.
 
 ## Verified

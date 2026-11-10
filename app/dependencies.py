@@ -44,7 +44,7 @@ Claims = Annotated[dict[str, Any], Depends(get_claims)]
 async def get_current_user(claims: Claims, db: DbSession) -> User:
     try:
         user = await provision_user(db, claims)
-    except (KeyError, ValueError, AttributeError):  # no usable `email`, or a `sub` not a UUID
+    except (KeyError, ValueError, AttributeError):  # no usable `email` or Keycloak `sub`
         raise _UNAUTHORIZED from None
     except EmailTakenError:
         raise HTTPException(status.HTTP_409_CONFLICT, "Email belongs to another account") from None

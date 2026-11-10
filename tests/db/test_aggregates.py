@@ -1,5 +1,4 @@
 import asyncio
-import uuid
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime, timedelta
 
@@ -12,7 +11,7 @@ from tests.db.conftest import _create_migrated_db, run_alembic
 
 RAW_JOBS = text(
     "SELECT proc_name, hypertable_name FROM timescaledb_information.jobs "
-    "WHERE hypertable_schema = 'energy' AND hypertable_name IN ('reading', 'device_estimate') "
+    "WHERE hypertable_schema = 'public' AND hypertable_name IN ('reading', 'device_estimate') "
     "AND proc_name IN ('policy_compression', 'policy_retention') ORDER BY 1, 2"
 )
 
@@ -28,7 +27,7 @@ async def agg_conn():
     engine = create_async_engine(dsn, isolation_level="AUTOCOMMIT")
     try:
         async with engine.connect() as c:
-            await c.execute(text("SELECT ops.set_policies(false)"))
+            await c.execute(text("SELECT public.set_policies(false)"))
             yield c
     finally:
         await engine.dispose()
@@ -38,11 +37,10 @@ async def agg_conn():
 @asynccontextmanager
 async def series(c, table="reading"):
     """A committed home + main series; raw rows, series and home are removed afterwards."""
-    home = uuid.uuid4()
-    await c.execute(text("INSERT INTO core.home (id, name) VALUES (:i, 'Agg')"), {"i": home})
+    home = await c.scalar(text("INSERT INTO public.tb_home (name) VALUES ('Agg') RETURNING id"))
     sid = await c.scalar(
         text(
-            "INSERT INTO energy.series (home_id, kind, metric, unit) "
+            "INSERT INTO public.tb_series (home_id, kind, metric, unit) "
             "VALUES (:h, 'main', 'power_w', 'W') RETURNING series_id"
         ),
         {"h": home},
@@ -51,28 +49,28 @@ async def series(c, table="reading"):
         yield sid
     finally:
         for t in ("reading", "device_estimate"):
-            await c.execute(text(f"DELETE FROM energy.{t} WHERE series_id = :s"), {"s": sid})
-        await c.execute(text("DELETE FROM energy.series WHERE series_id = :s"), {"s": sid})
-        await c.execute(text("DELETE FROM core.home WHERE id = :i"), {"i": home})
+            await c.execute(text(f"DELETE FROM public.{t} WHERE series_id = :s"), {"s": sid})
+        await c.execute(text("DELETE FROM public.tb_series WHERE series_id = :s"), {"s": sid})
+        await c.execute(text("DELETE FROM public.tb_home WHERE id = :i"), {"i": home})
 
 
 async def put(c, sid, ts, value, quality=0):
     await c.execute(
-        text("INSERT INTO energy.reading (ts, series_id, value, quality) VALUES (:t,:s,:v,:q)"),
+        text("INSERT INTO public.tb_reading (ts, series_id, value, quality) VALUES (:t,:s,:v,:q)"),
         {"t": ts, "s": sid, "v": value, "q": quality},
     )
 
 
 async def put_est(c, sid, ts, value):
     await c.execute(
-        text("INSERT INTO energy.device_estimate (ts, series_id, value) VALUES (:t,:s,:v)"),
+        text("INSERT INTO public.tb_device_estimate (ts, series_id, value) VALUES (:t,:s,:v)"),
         {"t": ts, "s": sid, "v": value},
     )
 
 
 async def rows(c, view, sid):
     res = await c.execute(
-        text(f"SELECT * FROM energy.{view} WHERE series_id = :s ORDER BY bucket"), {"s": sid}
+        text(f"SELECT * FROM public.{view} WHERE series_id = :s ORDER BY bucket"), {"s": sid}
     )
     return res.mappings().all()
 
@@ -102,12 +100,19 @@ async def test_1h_avg_is_sample_weighted(agg_conn):
         (r,) = await rows(c, "reading_1h", sid)
         (d,) = await rows(c, "reading_1d", sid)
     assert (d["avg_w"], d["min_w"], d["max_w"], d["last_w"]) == (
-        pytest.approx(250), 100, 400, 300,
+        pytest.approx(250),
+        100,
+        400,
+        300,
     )
     assert (d["n"], d["covered_minutes"]) == (4, 2)
     assert r["avg_w"] == pytest.approx((100 * 1 + 300 * 3) / 4)  # not the mean of means (200)
     assert (r["min_w"], r["max_w"], r["last_w"], r["n"], r["covered_minutes"]) == (
-        100, 400, 300, 4, 2,
+        100,
+        400,
+        300,
+        4,
+        2,
     )
     assert r["energy_wh"] == pytest.approx((100 + 300) * 60 / 3600)
 
@@ -162,7 +167,7 @@ async def test_device_estimate_not_filtered_by_quality(agg_conn):
         for i, v in enumerate((100, 200, 300)):
             await put_est(c, sid, t0 + timedelta(seconds=10 * i), v)
         inserted = await c.scalar(
-            text("SELECT count(*) FROM energy.device_estimate WHERE series_id = :s"), {"s": sid}
+            text("SELECT count(*) FROM public.tb_device_estimate WHERE series_id = :s"), {"s": sid}
         )
         await backfill(c, t0 - timedelta(days=1), t0 + timedelta(days=1))
         (m,) = await rows(c, "device_estimate_1m", sid)
@@ -186,7 +191,7 @@ async def test_realtime_aggregation_on(agg_conn):
             text(
                 "SELECT bool_and(materialized_only) "
                 "FROM timescaledb_information.continuous_aggregates "
-                "WHERE view_schema = 'energy'"
+                "WHERE view_schema = 'public'"
             )
         )
     assert r["bucket"] == now and r["avg_w"] == pytest.approx(500)
@@ -239,8 +244,10 @@ async def test_backfill_to_now_keeps_current_buckets_realtime(agg_conn):
                 ),
                 {"v": view},
             )
-            assert await c.scalar(text(f"SELECT count(*) FROM {mat} WHERE series_id = :s"),
-                                  {"s": sid}) == 0
+            assert (
+                await c.scalar(text(f"SELECT count(*) FROM {mat} WHERE series_id = :s"), {"s": sid})
+                == 0
+            )
 
 
 async def test_backfill_rejects_naive_datetimes_and_transactional_connection(agg_conn, conn):
@@ -259,8 +266,8 @@ async def test_set_policies_adds_aggregate_policies_and_removes_them(conn):
     retention = text(
         "SELECT count(*) FROM timescaledb_information.jobs WHERE proc_name = 'policy_retention'"
     )
-    await conn.execute(text("SELECT ops.set_policies(true)"))
-    await conn.execute(text("SELECT ops.set_policies(true)"))  # idempotent
+    await conn.execute(text("SELECT public.set_policies(true)"))
+    await conn.execute(text("SELECT public.set_policies(true)"))  # idempotent
     got = {tuple(r[:3]): r[3] for r in (await conn.execute(refresh)).all()}
     assert got == {
         ("7 days", "00:01:00", "00:01:00"): 2,
@@ -268,11 +275,11 @@ async def test_set_policies_adds_aggregate_policies_and_removes_them(conn):
         ("60 days", "01:00:00", "01:00:00"): 2,
     }
     assert await conn.scalar(retention) == 4  # 2 raw + 2 one-minute aggregates
-    await conn.execute(text("SELECT ops.set_policies(false)"))
-    await conn.execute(text("SELECT ops.set_policies(false)"))
+    await conn.execute(text("SELECT public.set_policies(false)"))
+    await conn.execute(text("SELECT public.set_policies(false)"))
     assert (await conn.execute(refresh)).all() == []
     assert await conn.scalar(retention) == 0
-    await conn.execute(text("SELECT ops.set_policies(true)"))
+    await conn.execute(text("SELECT public.set_policies(true)"))
     assert await conn.scalar(retention) == 4
 
 
@@ -280,7 +287,7 @@ async def test_search_path_pin_survives_replace(conn):
     cfg = await conn.scalar(
         text(
             "SELECT proconfig::text FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace "
-            "WHERE n.nspname = 'ops' AND p.proname = 'set_policies'"
+            "WHERE n.nspname = 'public' AND p.proname = 'set_policies'"
         )
     )
     assert cfg is not None and "search_path=public, pg_catalog" in cfg
@@ -289,7 +296,7 @@ async def test_search_path_pin_survives_replace(conn):
 async def test_aggregates_downgrade_upgrade(throwaway_dsn):
     views = text(
         "SELECT count(*) FROM timescaledb_information.continuous_aggregates "
-        "WHERE view_schema = 'energy'"
+        "WHERE view_schema = 'public'"
     )
     engine = create_async_engine(throwaway_dsn, isolation_level="AUTOCOMMIT")
     try:
@@ -303,7 +310,7 @@ async def test_aggregates_downgrade_upgrade(throwaway_dsn):
                     text(
                         "SELECT proconfig::text, prosrc FROM pg_proc p "
                         "JOIN pg_namespace n ON n.oid = p.pronamespace "
-                        "WHERE n.nspname = 'ops' AND p.proname = 'set_policies'"
+                        "WHERE n.nspname = 'public' AND p.proname = 'set_policies'"
                     )
                 )
             ).one()
@@ -316,7 +323,7 @@ async def test_aggregates_downgrade_upgrade(throwaway_dsn):
                 ("policy_retention", "device_estimate"),
                 ("policy_retention", "reading"),
             ]
-            await c.execute(text("SELECT ops.set_policies(true)"))
+            await c.execute(text("SELECT public.set_policies(true)"))
             assert len((await c.execute(RAW_JOBS)).all()) == 4
         run_alembic(throwaway_dsn, "upgrade", "head")
         async with engine.connect() as c:

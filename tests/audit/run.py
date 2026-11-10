@@ -68,9 +68,18 @@ async def stage_env(args) -> None:
                 text("SELECT extversion FROM pg_extension WHERE extname='timescaledb'")
             ),
         }
-        for k in ("shared_buffers", "max_wal_size", "effective_cache_size", "work_mem",
-                  "maintenance_work_mem", "checkpoint_timeout", "max_connections",
-                  "wal_compression", "synchronous_commit", "fsync"):
+        for k in (
+            "shared_buffers",
+            "max_wal_size",
+            "effective_cache_size",
+            "work_mem",
+            "maintenance_work_mem",
+            "checkpoint_timeout",
+            "max_connections",
+            "wal_compression",
+            "synchronous_commit",
+            "fsync",
+        ):
             pg[k] = await c.scalar(text(f"SHOW {k}"))
     await eng.dispose()
     mem_kb = int(re.search(r"MemTotal:\s+(\d+)", Path("/proc/meminfo").read_text()).group(1))
@@ -89,7 +98,7 @@ async def stage_policies_off(args) -> None:
     await ensure_database()
     eng = make_engine(isolation_level="AUTOCOMMIT")
     async with eng.connect() as c:
-        await c.execute(text("SELECT ops.set_policies(false)"))
+        await c.execute(text("SELECT public.set_policies(false)"))
         left = (
             await c.execute(
                 text(
@@ -108,8 +117,15 @@ async def stage_policies_off(args) -> None:
 
 # ------------------------------------------------------------------ load
 async def _run_loader(house: int, shift: int, tag: str, limit_rows: int | None = None) -> dict:
-    cmd = [sys.executable, "-m", "app.cli.load_refit", "--house", str(house),
-           "--shift-days", str(shift)]
+    cmd = [
+        sys.executable,
+        "-m",
+        "app.cli.load_refit",
+        "--house",
+        str(house),
+        "--shift-days",
+        str(shift),
+    ]
     if limit_rows:
         cmd += ["--limit-rows", str(limit_rows)]
     started = time.perf_counter()
@@ -125,9 +141,15 @@ async def _run_loader(house: int, shift: int, tag: str, limit_rows: int | None =
     rows_in, rows_new, rows_dup, rows_bad = (int(m.group(i)) for i in range(1, 5))
     secs = float(m.group(5))
     return {
-        "shift_days": shift, "rows_in": rows_in, "rows_new": rows_new, "rows_dup": rows_dup,
-        "rows_bad": rows_bad, "csv_rows": rows_in // 10, "load_seconds": round(secs, 1),
-        "process_wall_seconds": round(wall, 1), "readings_per_s": round(rows_in / secs),
+        "shift_days": shift,
+        "rows_in": rows_in,
+        "rows_new": rows_new,
+        "rows_dup": rows_dup,
+        "rows_bad": rows_bad,
+        "csv_rows": rows_in // 10,
+        "load_seconds": round(secs, 1),
+        "process_wall_seconds": round(wall, 1),
+        "readings_per_s": round(rows_in / secs),
     }
 
 
@@ -157,7 +179,10 @@ async def stage_load(args) -> None:
         total = sum(r["rows_in"] for r in out)
         mode = "parallel" if args.parallel else "sequential"
         batch = {
-            "houses": todo, "mode": mode, "wall_seconds": round(wall, 1), "readings": total,
+            "houses": todo,
+            "mode": mode,
+            "wall_seconds": round(wall, 1),
+            "readings": total,
             "aggregate_readings_per_s": round(total / wall),
             "mean_per_stream_readings_per_s": round(
                 sum(r["readings_per_s"] for r in out) / len(out)
@@ -178,42 +203,50 @@ async def stage_estimates(args) -> None:
         await c.execute(text("SET work_mem = '256MB'"))
         for h in houses:
             home_id = await c.scalar(
-                text("SELECT id FROM core.home WHERE name = :n"), {"n": f"REFIT House {h}"}
+                text("SELECT id FROM public.tb_home WHERE name = :n"), {"n": f"REFIT House {h}"}
             )
             if home_id is None:
                 raise SystemExit(f"house {h} not provisioned")
             plugs = (
                 await c.execute(
-                    text("SELECT series_id, device_id FROM energy.series "
-                         "WHERE home_id=:h AND kind='plug' ORDER BY series_id"),
+                    text(
+                        "SELECT series_id, device_id FROM public.tb_series "
+                        "WHERE home_id=:h AND kind='plug' ORDER BY series_id"
+                    ),
                     {"h": home_id},
                 )
             ).all()
             run_id = await c.scalar(
-                text("SELECT run_id FROM energy.inference_run "
-                     "WHERE home_id=:h AND model_name='audit-standin' ORDER BY run_id LIMIT 1"),
+                text(
+                    "SELECT run_id FROM public.tb_inference_run "
+                    "WHERE home_id=:h AND model_name='audit-standin' ORDER BY run_id LIMIT 1"
+                ),
                 {"h": home_id},
             )
             if run_id is None:
                 run_id = await c.scalar(
-                    text("INSERT INTO energy.inference_run (home_id, model_name, model_version, "
-                         "window_start, window_end, status) "
-                         "SELECT :h, 'audit-standin', 'plug-copy', min(ts), max(ts), 'running' "
-                         "FROM energy.reading WHERE series_id = ANY(:ids) RETURNING run_id"),
+                    text(
+                        "INSERT INTO public.tb_inference_run (home_id, model_name, model_version, "
+                        "window_start, window_end, status) "
+                        "SELECT :h, 'audit-standin', 'plug-copy', min(ts), max(ts), 'running' "
+                        "FROM public.tb_reading WHERE series_id = ANY(:ids) RETURNING run_id"
+                    ),
                     {"h": home_id, "ids": [p.series_id for p in plugs]},
                 )
                 await c.commit()
             n_house = 0
             for p in plugs:
                 dev_series = await c.scalar(
-                    text("INSERT INTO energy.series (home_id, kind, device_id, metric, unit) "
-                         "VALUES (:h, 'device', :d, 'power_w', 'W') "
-                         "ON CONFLICT ON CONSTRAINT uq_series_home_kind_device_metric "
-                         "DO UPDATE SET unit = EXCLUDED.unit RETURNING series_id"),
+                    text(
+                        "INSERT INTO public.tb_series (home_id, kind, device_id, metric, unit) "
+                        "VALUES (:h, 'device', :d, 'power_w', 'W') "
+                        "ON CONFLICT ON CONSTRAINT uq_series_home_kind_device_metric "
+                        "DO UPDATE SET unit = EXCLUDED.unit RETURNING series_id"
+                    ),
                     {"h": home_id, "d": p.device_id},
                 )
                 have = await c.scalar(
-                    text("SELECT count(*) FROM energy.device_estimate WHERE series_id = :s"),
+                    text("SELECT count(*) FROM public.tb_device_estimate WHERE series_id = :s"),
                     {"s": dev_series},
                 )
                 if have:
@@ -223,20 +256,26 @@ async def stage_estimates(args) -> None:
                     continue
                 t1 = time.perf_counter()
                 res = await c.execute(
-                    text("INSERT INTO energy.device_estimate (ts, series_id, value, run_id) "
-                         "SELECT ts, :ds, value, :run FROM energy.reading WHERE series_id = :ps "
-                         "ON CONFLICT (series_id, ts) DO UPDATE SET value = EXCLUDED.value, "
-                         "run_id = EXCLUDED.run_id"),
+                    text(
+                        "INSERT INTO public.tb_device_estimate (ts, series_id, value, run_id) "
+                        "SELECT ts, :ds, value, :run FROM public.tb_reading WHERE series_id = :ps "
+                        "ON CONFLICT (series_id, ts) DO UPDATE SET value = EXCLUDED.value, "
+                        "run_id = EXCLUDED.run_id"
+                    ),
                     {"ds": dev_series, "ps": p.series_id, "run": run_id},
                 )
                 await c.commit()
                 totals["series_created"] += 1
                 n_house += res.rowcount
-                log(f"house {h} plug {p.series_id}->{dev_series}: {res.rowcount} rows "
-                    f"in {time.perf_counter() - t1:.1f}s")
+                log(
+                    f"house {h} plug {p.series_id}->{dev_series}: {res.rowcount} rows "
+                    f"in {time.perf_counter() - t1:.1f}s"
+                )
             await c.execute(
-                text("UPDATE energy.inference_run SET status='ok', finished_at=now() "
-                     "WHERE run_id=:r"),
+                text(
+                    "UPDATE public.tb_inference_run SET status='ok', finished_at=now() "
+                    "WHERE run_id=:r"
+                ),
                 {"r": run_id},
             )
             await c.commit()
@@ -253,8 +292,10 @@ async def stage_estimates(args) -> None:
 async def _hypertable_range(c, name: str) -> tuple[datetime, datetime]:
     row = (
         await c.execute(
-            text("SELECT min(range_start), max(range_end) FROM timescaledb_information.chunks "
-                 "WHERE hypertable_schema='energy' AND hypertable_name=:n"),
+            text(
+                "SELECT min(range_start), max(range_end) FROM timescaledb_information.chunks "
+                "WHERE hypertable_schema = 'public' AND hypertable_name=:n"
+            ),
             {"n": name},
         )
     ).one()
@@ -281,8 +322,14 @@ async def stage_backfill(args) -> None:
     skipped_all: list[tuple[str, str, str]] = []
     t0 = time.perf_counter()
     async with eng.connect() as c:
-        ranges = [r for r in (await _hypertable_range(c, "reading"),
-                              await _hypertable_range(c, "device_estimate")) if r[0] is not None]
+        ranges = [
+            r
+            for r in (
+                await _hypertable_range(c, "reading"),
+                await _hypertable_range(c, "device_estimate"),
+            )
+            if r[0] is not None
+        ]
         lo, hi = min(r[0] for r in ranges), max(r[1] for r in ranges)
         log(f"backfill range {lo:%F} .. {hi:%F}")
         start = lo
@@ -291,21 +338,27 @@ async def stage_backfill(args) -> None:
             w0 = time.perf_counter()
             skipped = await backfill_aggregates(c, start, end)
             skipped_all += [(w.view, w.from_ts.isoformat(), w.to_ts.isoformat()) for w in skipped]
-            windows.append({"from": start.isoformat(), "to": end.isoformat(),
-                            "seconds": round(time.perf_counter() - w0, 1)})
+            windows.append(
+                {
+                    "from": start.isoformat(),
+                    "to": end.isoformat(),
+                    "seconds": round(time.perf_counter() - w0, 1),
+                }
+            )
             log(f"window {start:%F}..{end:%F} {windows[-1]['seconds']}s")
             start = end
         counts = {}
         for fam in FAMILIES:
             for res in RESOLUTIONS:
-                counts[f"energy.{fam}_{res}"] = await c.scalar(
-                    text(f"SELECT count(*) FROM energy.{fam}_{res}")
+                counts[f"public.{fam}_{res}"] = await c.scalar(
+                    text(f"SELECT count(*) FROM public.{fam}_{res}")
                 )
     await eng.dispose()
     results.record("backfill", "range", [lo.isoformat(), hi.isoformat()])
     results.record("backfill", "total_seconds", round(time.perf_counter() - t0, 1))
-    results.record("backfill", "refresh_seconds_per_view",
-                   {k: round(v, 1) for k, v in sorted(timings.items())})
+    results.record(
+        "backfill", "refresh_seconds_per_view", {k: round(v, 1) for k, v in sorted(timings.items())}
+    )
     results.record("backfill", "windows", windows)
     results.record("backfill", "skipped_windows", skipped_all)  # [] for a fresh load
     if skipped_all:
@@ -327,8 +380,9 @@ async def _sizes(c) -> dict:
     out = {}
     for t in FAMILIES:
         out[t] = int(
-            await c.scalar(text("SELECT hypertable_size(CAST(:t AS regclass))"),
-                           {"t": f"energy.{t}"})
+            await c.scalar(
+                text("SELECT hypertable_size(CAST(:t AS regclass))"), {"t": f"public.{t}"}
+            )
         )
     return out
 
@@ -343,16 +397,20 @@ async def stage_compress(args) -> None:
         chunks = {}
         for t in FAMILIES:
             rows = await c.execute(
-                text("SELECT format('%I.%I', chunk_schema, chunk_name) "
-                     "FROM timescaledb_information.chunks "
-                     "WHERE hypertable_schema='energy' AND hypertable_name=:t "
-                     "AND NOT is_compressed AND range_end < now() - interval '2 days' "
-                     "ORDER BY range_start"),
+                text(
+                    "SELECT format('%I.%I', chunk_schema, chunk_name) "
+                    "FROM timescaledb_information.chunks "
+                    "WHERE hypertable_schema = 'public' AND hypertable_name=:t "
+                    "AND NOT is_compressed AND range_end < now() - interval '2 days' "
+                    "ORDER BY range_start"
+                ),
                 {"t": t},
             )
             chunks[t] = [r[0] for r in rows]
-    log(f"compressing {sum(map(len, chunks.values()))} chunks, {args.workers} workers; "
-        f"before={before}")
+    log(
+        f"compressing {sum(map(len, chunks.values()))} chunks, {args.workers} workers; "
+        f"before={before}"
+    )
     done = 0
     for names in chunks.values():
         tasks = [asyncio.create_task(_compress_one(eng, n, sem)) for n in names]
@@ -367,16 +425,22 @@ async def stage_compress(args) -> None:
         for t in FAMILIES:
             r = (
                 await c.execute(
-                    text("SELECT total_chunks, number_compressed_chunks, "
-                         "before_compression_total_bytes AS b, after_compression_total_bytes AS a "
-                         "FROM hypertable_compression_stats(CAST(:t AS regclass))"),
-                    {"t": f"energy.{t}"},
+                    text(
+                        "SELECT total_chunks, number_compressed_chunks, "
+                        "before_compression_total_bytes AS b, after_compression_total_bytes AS a "
+                        "FROM hypertable_compression_stats(CAST(:t AS regclass))"
+                    ),
+                    {"t": f"public.{t}"},
                 )
             ).first()  # no row at all when the hypertable has no compressed chunk
             if r is None:
-                stats[t] = {"compressed_chunks": 0, "total_chunks": 0,
-                            "compressed_before_bytes": 0, "compressed_after_bytes": 0,
-                            "ratio_compressed_chunks": None}
+                stats[t] = {
+                    "compressed_chunks": 0,
+                    "total_chunks": 0,
+                    "compressed_before_bytes": 0,
+                    "compressed_after_bytes": 0,
+                    "ratio_compressed_chunks": None,
+                }
                 continue
             stats[t] = {
                 "compressed_chunks": int(r.number_compressed_chunks),
@@ -389,8 +453,11 @@ async def stage_compress(args) -> None:
     results.record("compress", "hypertable_size_before_bytes", before)
     results.record("compress", "hypertable_size_after_bytes", after)
     results.record("compress", "stats", stats)
-    results.record("compress", "ratio_hypertable_size",
-                   {t: round(before[t] / after[t], 2) for t in before if after[t]})
+    results.record(
+        "compress",
+        "ratio_hypertable_size",
+        {t: round(before[t] / after[t], 2) for t in before if after[t]},
+    )
     results.record("compress", "chunks_compressed_this_run", done)
     results.record("compress", "duration_seconds", round(time.perf_counter() - t0, 1))
     results.record("compress", "workers", args.workers)
@@ -405,33 +472,37 @@ async def stage_stats(args) -> None:
         agg = {}
         views = (
             await c.execute(
-                text("SELECT view_name, format('%I.%I', materialization_hypertable_schema, "
-                     "materialization_hypertable_name) AS mat "
-                     "FROM timescaledb_information.continuous_aggregates "
-                     "WHERE view_schema='energy' ORDER BY 1")
+                text(
+                    "SELECT view_name, format('%I.%I', materialization_hypertable_schema, "
+                    "materialization_hypertable_name) AS mat "
+                    "FROM timescaledb_information.continuous_aggregates "
+                    "WHERE view_schema = 'public' ORDER BY 1"
+                )
             )
         ).all()
         for v in views:
             agg[v.view_name] = int(
                 await c.scalar(text("SELECT hypertable_size(CAST(:m AS regclass))"), {"m": v.mat})
             )
-        n_reading = int(await c.scalar(text("SELECT count(*) FROM energy.reading")))
-        n_est = int(await c.scalar(text("SELECT count(*) FROM energy.device_estimate")))
+        n_reading = int(await c.scalar(text("SELECT count(*) FROM public.tb_reading")))
+        n_est = int(await c.scalar(text("SELECT count(*) FROM public.tb_device_estimate")))
         rows_agg = {
-            v.view_name: int(await c.scalar(text(f"SELECT count(*) FROM energy.{v.view_name}")))
+            v.view_name: int(await c.scalar(text(f"SELECT count(*) FROM public.{v.view_name}")))
             for v in views
         }
         homes = (
             await c.execute(
-                text("SELECT h.name, s.series_id FROM energy.series s "
-                     "JOIN core.home h ON h.id = s.home_id WHERE s.kind='main' ORDER BY h.name")
+                text(
+                    "SELECT h.name, s.series_id FROM public.tb_series s "
+                    "JOIN public.tb_home h ON h.id = s.home_id WHERE s.kind='main' ORDER BY h.name"
+                )
             )
         ).all()
         spans = {}
         for h in homes:
             lo, hi = (
                 await c.execute(
-                    text("SELECT min(ts), max(ts) FROM energy.reading WHERE series_id=:s"),
+                    text("SELECT min(ts), max(ts) FROM public.tb_reading WHERE series_id=:s"),
                     {"s": h.series_id},
                 )
             ).one()
@@ -445,14 +516,17 @@ async def stage_stats(args) -> None:
         "bytes": {**sizes, "aggregates": agg, "aggregates_total": sum(agg.values())},
         "rows": {"reading": n_reading, "device_estimate": n_est, "aggregates": rows_agg},
         "bytes_per_reading_raw": round(sizes["reading"] / n_reading, 3) if n_reading else None,
-        "bytes_per_device_estimate_raw":
-            round(sizes["device_estimate"] / n_est, 3) if n_est else None,
-        "bytes_per_reading_incl_reading_aggregates":
-            round(raw_plus_agg / n_reading, 3) if n_reading else None,
+        "bytes_per_device_estimate_raw": round(sizes["device_estimate"] / n_est, 3)
+        if n_est
+        else None,
+        "bytes_per_reading_incl_reading_aggregates": round(raw_plus_agg / n_reading, 3)
+        if n_reading
+        else None,
         "home_days_of_data": {k: round(v, 1) for k, v in spans.items()},
         "home_years": round(home_years, 3),
-        "bytes_per_home_year_reading_plus_aggregates":
-            round(raw_plus_agg / home_years) if home_years else None,
+        "bytes_per_home_year_reading_plus_aggregates": round(raw_plus_agg / home_years)
+        if home_years
+        else None,
         "total_database_bytes": sizes["reading"] + sizes["device_estimate"] + sum(agg.values()),
     }
     for k, v in out.items():
@@ -463,10 +537,10 @@ async def stage_stats(args) -> None:
 # ------------------------------------------------------------------ worked examples
 EXAMPLE_SQL = text(
     "WITH a AS (SELECT ts, value, quality,"
-    "  extract(epoch FROM lead(ts) OVER (ORDER BY ts) - ts) AS gap FROM energy.reading"
+    "  extract(epoch FROM lead(ts) OVER (ORDER BY ts) - ts) AS gap FROM public.tb_reading"
     "  WHERE series_id = :sid AND ts >= :d AND ts < :d + interval '1 day' + interval '1 minute'),"
     " b AS (SELECT ts, value, extract(epoch FROM lead(ts) OVER (ORDER BY ts) - ts) AS gap"
-    "  FROM energy.reading WHERE series_id = :sid AND ts >= :d"
+    "  FROM public.tb_reading WHERE series_id = :sid AND ts >= :d"
     "  AND ts < :d + interval '1 day' + interval '1 minute' AND quality & 1 = 0),"
     " day AS (SELECT * FROM a WHERE ts < :d + interval '1 day')"
     " SELECT"
@@ -476,8 +550,8 @@ EXAMPLE_SQL = text(
     "   AND ts < :d + interval '1 day') AS hold_across_flagged_wh,"
     " (SELECT sum(value * least(gap, 120)) / 3600 FROM b WHERE gap IS NOT NULL"
     "   AND ts < :d + interval '1 day') AS hold_across_flagged_cap_120s_wh,"
-    " (SELECT energy_wh FROM energy.reading_1d WHERE series_id = :sid AND bucket = :d) AS view_wh,"
-    " (SELECT covered_minutes FROM energy.reading_1d WHERE series_id = :sid AND bucket = :d)"
+    " (SELECT energy_wh FROM public.reading_1d WHERE series_id = :sid AND bucket = :d) AS view_wh,"
+    " (SELECT covered_minutes FROM public.reading_1d WHERE series_id = :sid AND bucket = :d)"
     "   AS covered_minutes,"
     " (SELECT count(*) FROM day) AS samples,"
     " (SELECT count(*) FROM day WHERE quality & 1 = 1) AS flagged_samples,"
@@ -487,14 +561,19 @@ EXAMPLE_SQL = text(
 )
 # (day start UTC, label, cause). Numbers are generated; the cause text is written by hand.
 EXAMPLE_DAYS = (
-    ("2025-11-22T17:00:00+00:00", "worst day", "irregular cadence: about 62 s logging vs the "
-     "35 s cap (reference) while the view counts a full minute per minute with a sample"),
-    ("2025-08-24T17:00:00+00:00", "flagged samples only",
-     "Issues-flagged samples are missing time in the reference, covered in the view"),
-    ("2025-04-17T17:00:00+00:00", "flagged plus one gap",
-     "flagged samples plus one 194 s gap"),
-    ("2025-08-25T17:00:00+00:00", "control (passes)",
-     "gaps agree between reference and view"),
+    (
+        "2025-11-22T17:00:00+00:00",
+        "worst day",
+        "irregular cadence: about 62 s logging vs the "
+        "35 s cap (reference) while the view counts a full minute per minute with a sample",
+    ),
+    (
+        "2025-08-24T17:00:00+00:00",
+        "flagged samples only",
+        "Issues-flagged samples are missing time in the reference, covered in the view",
+    ),
+    ("2025-04-17T17:00:00+00:00", "flagged plus one gap", "flagged samples plus one 194 s gap"),
+    ("2025-08-25T17:00:00+00:00", "control (passes)", "gaps agree between reference and view"),
 )
 
 
@@ -505,8 +584,11 @@ async def stage_examples(args) -> None:
     out = []
     async with eng.connect() as c:
         sid = await c.scalar(
-            text("SELECT s.series_id FROM energy.series s JOIN core.home h ON h.id = s.home_id "
-                 "WHERE h.name = 'REFIT House 1' AND s.kind = 'main'")
+            text(
+                "SELECT s.series_id FROM public.tb_series s "
+                "JOIN public.tb_home h ON h.id = s.home_id "
+                "WHERE h.name = 'REFIT House 1' AND s.kind = 'main'"
+            )
         )
         await c.execute(text("SET work_mem = '256MB'"))
         for day, label, cause in EXAMPLE_DAYS:
@@ -514,8 +596,15 @@ async def stage_examples(args) -> None:
             row = (await c.execute(EXAMPLE_SQL, {"sid": sid, "d": d})).one()._asdict()
             row = {k: (float(v) if v is not None else None) for k, v in row.items()}
             row["err_pct"] = (row["view_wh"] - row["reference_wh"]) / row["reference_wh"] * 100
-            out.append({"day_start_utc": day, "label": label, "cause_source": "manual",
-                        "cause": cause, **row})
+            out.append(
+                {
+                    "day_start_utc": day,
+                    "label": label,
+                    "cause_source": "manual",
+                    "cause": cause,
+                    **row,
+                }
+            )
             log(f"example {day}: reference {row['reference_wh']:.1f} view {row['view_wh']:.1f}")
     await eng.dispose()
     results.record("energy_examples", "house1_days", out)
@@ -527,14 +616,27 @@ async def stage_examples(args) -> None:
         orig = data["energy_vs_exact_pre_compress"]
         for house in ("house1", "house2", "house3"):
             v = pre[f"{house}.hold_across_flagged_cap_120s"]["full_coverage"]
-            results.record("energy_gate_baseline", house, {
-                "days_over_gate": v["days_over_gate"], "err_pct_max": v["err_pct_max"],
-                "err_pct_p95": v["err_pct_p95"], "reference": "hold_across_flagged_cap_120s",
-                "source": "first measurement, pre-compression"})
+            results.record(
+                "energy_gate_baseline",
+                house,
+                {
+                    "days_over_gate": v["days_over_gate"],
+                    "err_pct_max": v["err_pct_max"],
+                    "err_pct_p95": v["err_pct_p95"],
+                    "reference": "hold_across_flagged_cap_120s",
+                    "source": "first measurement, pre-compression",
+                },
+            )
             o = orig[house]["full_coverage"]
-            results.record("energy_gate_baseline_original_reference", house, {
-                "days_over_gate": o["days_over_gate"], "err_pct_max": o["err_pct_max"],
-                "source": "first measurement, pre-compression"})
+            results.record(
+                "energy_gate_baseline_original_reference",
+                house,
+                {
+                    "days_over_gate": o["days_over_gate"],
+                    "err_pct_max": o["err_pct_max"],
+                    "source": "first measurement, pre-compression",
+                },
+            )
 
 
 # ------------------------------------------------------------------ report
@@ -567,9 +669,13 @@ NOISY = re.compile(
 
 
 def render(data: dict) -> str:
-    lines = ["## Measured results", "",
-             "Generated by `python -m tests.audit.run report` from `docs/audit-results.json`; "
-             "do not edit this block by hand.", ""]
+    lines = [
+        "## Measured results",
+        "",
+        "Generated by `python -m tests.audit.run report` from `docs/audit-results.json`; "
+        "do not edit this block by hand.",
+        "",
+    ]
     for stage in sorted(data):
         rows: list[tuple[str, str]] = []
         _flatten("", data[stage], rows)
@@ -597,13 +703,21 @@ async def stage_report(args) -> None:
 
 
 STAGES = {
-    "env": stage_env, "policies": stage_policies_off, "load": stage_load,
-    "estimates": stage_estimates, "backfill": stage_backfill, "compress": stage_compress,
-    "stats": stage_stats, "examples": stage_examples, "report": stage_report,
-    "latency": part_b.stage_latency, "refresh-cost": part_b.stage_refresh_cost,
+    "env": stage_env,
+    "policies": stage_policies_off,
+    "load": stage_load,
+    "estimates": stage_estimates,
+    "backfill": stage_backfill,
+    "compress": stage_compress,
+    "stats": stage_stats,
+    "examples": stage_examples,
+    "report": stage_report,
+    "latency": part_b.stage_latency,
+    "refresh-cost": part_b.stage_refresh_cost,
     "refresh-cost-scratch": part_b2.stage_refresh_cost_scratch,
     "cagg-compression": part_b2.stage_cagg_compression,
-    "policy-drill": part_b2.stage_policy_drill, "extrapolate": part_b2.stage_extrapolate,
+    "policy-drill": part_b2.stage_policy_drill,
+    "extrapolate": part_b2.stage_extrapolate,
     "harness-check": part_b2.stage_harness_check,
 }
 

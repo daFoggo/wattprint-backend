@@ -34,14 +34,14 @@ async def test_first_request_provisions_user_from_token(client, make_token):
     r = await client.get("/api/v1/users/me", headers=bearer(token))
     assert r.status_code == 200
     body = r.json()
-    assert body["id"] == sub
+    assert isinstance(body["id"], int)
     assert body["email"] == f"new.{tag}@example.com"
     assert body["full_name"] == "Test User"
     assert body["roles"] == ["user"]
     # Second call reuses the same row.
-    assert (await client.get("/api/v1/users/me", headers=bearer(token))).json()["id"] == sub
+    assert (await client.get("/api/v1/users/me", headers=bearer(token))).json()["id"] == body["id"]
     async with SessionLocal() as session:
-        assert await session.scalar(select(User.id).where(User.id == uuid.UUID(sub)))
+        assert await session.scalar(select(User.id).where(User.keycloak_sub == sub)) == body["id"]
 
 
 async def test_concurrent_first_requests_create_one_user(client, make_token):
@@ -60,7 +60,7 @@ async def test_concurrent_first_requests_create_one_user(client, make_token):
         {"aud": "account"},  # minted for another audience
         {"azp": "other-client"},
         {"typ": "ID"},
-        {"sub": "not-a-uuid"},
+        {"sub": ""},
         {"email": ""},  # no usable email
     ],
 )
@@ -96,7 +96,7 @@ async def test_inactive_user_rejected(client, make_token):
     token = make_token(sub=sub)
     assert (await client.get("/api/v1/users/me", headers=bearer(token))).status_code == 200
     async with SessionLocal() as session:
-        await session.execute(update(User).where(User.id == uuid.UUID(sub)).values(is_active=False))
+        await session.execute(update(User).where(User.keycloak_sub == sub).values(is_active=False))
         await session.commit()
     assert (await client.get("/api/v1/users/me", headers=bearer(token))).status_code == 403
 

@@ -9,7 +9,7 @@ from tests.db.conftest import load_revision, run_alembic
 
 foundation = load_revision("20261101_5f0b3c8a1d47")
 
-SCHEMAS = {"core", "catalog", "energy", "billing", "insight", "copilot", "knowledge", "ops"}
+SCHEMAS = {"public", "copilot_ro"}
 ROLES = ("wattprint_app", "wattprint_ingest", "wattprint_copilot_ro")
 
 
@@ -41,7 +41,7 @@ async def test_roles_exist_with_copilot_timeout(conn):
 async def test_ingest_role_cannot_create_table(conn):
     await conn.execute(text("SET LOCAL ROLE wattprint_ingest"))
     with pytest.raises(ProgrammingError, match="permission denied"):
-        await conn.execute(text("CREATE TABLE energy.should_fail (id int)"))
+        await conn.execute(text("CREATE TABLE public.should_fail (id int)"))
 
 
 def _ensure(conn, name, password):
@@ -83,7 +83,7 @@ async def test_downgrade_upgrade_leaves_roles_intact(throwaway_dsn):
         async with admin.connect() as c:
             before = (await c.execute(query, {"n": list(ROLES)})).all()
         assert len(before) == 3
-        run_alembic(throwaway_dsn, "downgrade", "d4f6b8c0e2a1")  # undo catalog_core and foundation
+        run_alembic(throwaway_dsn, "downgrade", "d4f6b8c0e2a1")  # undo modules and foundation
         async with admin.connect() as c:
             assert (await c.execute(query, {"n": list(ROLES)})).all() == before
         run_alembic(throwaway_dsn, "upgrade", "head")

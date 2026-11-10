@@ -8,6 +8,7 @@ from sqlalchemy import (
     CheckConstraint,
     DateTime,
     ForeignKey,
+    Identity,
     Integer,
     Numeric,
     String,
@@ -30,51 +31,48 @@ class ScopeToken(Base):
     a token only through copilot_ro.current_home().
     """
 
-    __tablename__ = "scope_token"
-    __table_args__ = {"schema": "copilot"}
+    __tablename__ = "tb_scope_token"
+    __table_args__ = {"schema": "public"}
 
     token: Mapped[uuid.UUID] = mapped_column(
         primary_key=True, default=uuid.uuid4, server_default=_UUID_DEFAULT
     )
-    home_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("core.home.id", ondelete="CASCADE"), index=True
+    home_id: Mapped[int] = mapped_column(
+        ForeignKey("public.tb_home.id", ondelete="CASCADE"), index=True
     )
     expires_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), index=True,
+        DateTime(timezone=True),
+        index=True,
         server_default=text("now() + interval '5 minutes'"),
     )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=_NOW)
 
 
 class Conversation(Base):
-    __tablename__ = "conversation"
-    __table_args__ = {"schema": "copilot"}
+    __tablename__ = "tb_conversation"
+    __table_args__ = {"schema": "public"}
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        primary_key=True, default=uuid.uuid4, server_default=_UUID_DEFAULT
+    id: Mapped[int] = mapped_column(Integer, Identity(always=False), primary_key=True)
+    home_id: Mapped[int] = mapped_column(
+        ForeignKey("public.tb_home.id", ondelete="CASCADE"), index=True
     )
-    home_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("core.home.id", ondelete="CASCADE"), index=True
-    )
-    user_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("users.id", ondelete="CASCADE"), index=True
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("public.tb_users.id", ondelete="CASCADE"), index=True
     )
     title: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=_NOW)
 
 
 class Message(Base):
-    __tablename__ = "message"
+    __tablename__ = "tb_message"
     __table_args__ = (
         CheckConstraint("role IN ('user','assistant','tool','system')", name="role"),
-        {"schema": "copilot"},
+        {"schema": "public"},
     )
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        primary_key=True, default=uuid.uuid4, server_default=_UUID_DEFAULT
-    )
-    conversation_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("copilot.conversation.id", ondelete="CASCADE"), index=True
+    id: Mapped[int] = mapped_column(Integer, Identity(always=False), primary_key=True)
+    conversation_id: Mapped[int] = mapped_column(
+        ForeignKey("public.tb_conversation.id", ondelete="CASCADE"), index=True
     )
     role: Mapped[str] = mapped_column(String(16))
     content: Mapped[str] = mapped_column(Text)
@@ -82,14 +80,12 @@ class Message(Base):
 
 
 class ToolCall(Base):
-    __tablename__ = "tool_call"
-    __table_args__ = {"schema": "copilot"}
+    __tablename__ = "tb_tool_call"
+    __table_args__ = {"schema": "public"}
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        primary_key=True, default=uuid.uuid4, server_default=_UUID_DEFAULT
-    )
-    message_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("copilot.message.id", ondelete="CASCADE"), index=True
+    id: Mapped[int] = mapped_column(Integer, Identity(always=False), primary_key=True)
+    message_id: Mapped[int] = mapped_column(
+        ForeignKey("public.tb_message.id", ondelete="CASCADE"), index=True
     )
     tool: Mapped[str] = mapped_column(Text)
     input: Mapped[dict[str, Any]] = mapped_column(
@@ -102,25 +98,23 @@ class ToolCall(Base):
 
 
 class Suggestion(Base):
-    __tablename__ = "suggestion"
+    __tablename__ = "tb_suggestion"
     __table_args__ = (
         CheckConstraint(
             "status IN ('proposed','shown','accepted','dismissed','done')", name="status"
         ),
-        {"schema": "copilot"},
+        {"schema": "public"},
     )
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        primary_key=True, default=uuid.uuid4, server_default=_UUID_DEFAULT
+    id: Mapped[int] = mapped_column(Integer, Identity(always=False), primary_key=True)
+    home_id: Mapped[int] = mapped_column(
+        ForeignKey("public.tb_home.id", ondelete="CASCADE"), index=True
     )
-    home_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("core.home.id", ondelete="CASCADE"), index=True
+    device_id: Mapped[int | None] = mapped_column(
+        ForeignKey("public.tb_device.id", ondelete="SET NULL"), index=True
     )
-    device_id: Mapped[uuid.UUID | None] = mapped_column(
-        ForeignKey("core.device.id", ondelete="SET NULL"), index=True
-    )
-    alert_id: Mapped[uuid.UUID | None] = mapped_column(
-        ForeignKey("insight.alert.id", ondelete="SET NULL"), index=True
+    alert_id: Mapped[int | None] = mapped_column(
+        ForeignKey("public.tb_alert.id", ondelete="SET NULL"), index=True
     )
     kind: Mapped[str] = mapped_column(Text)
     title: Mapped[str] = mapped_column(Text)
@@ -132,20 +126,18 @@ class Suggestion(Base):
 
 
 class SuggestionFeedback(Base):
-    __tablename__ = "suggestion_feedback"
+    __tablename__ = "tb_suggestion_feedback"
     __table_args__ = (
         CheckConstraint("action IN ('accept','ignore','done','dislike')", name="action"),
-        {"schema": "copilot"},
+        {"schema": "public"},
     )
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        primary_key=True, default=uuid.uuid4, server_default=_UUID_DEFAULT
+    id: Mapped[int] = mapped_column(Integer, Identity(always=False), primary_key=True)
+    suggestion_id: Mapped[int] = mapped_column(
+        ForeignKey("public.tb_suggestion.id", ondelete="CASCADE"), index=True
     )
-    suggestion_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("copilot.suggestion.id", ondelete="CASCADE"), index=True
-    )
-    user_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("users.id", ondelete="CASCADE"), index=True
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("public.tb_users.id", ondelete="CASCADE"), index=True
     )
     action: Mapped[str] = mapped_column(String(16))
     at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=_NOW)
@@ -153,11 +145,11 @@ class SuggestionFeedback(Base):
 
 
 class SavingsMeasure(Base):
-    __tablename__ = "savings_measure"
-    __table_args__ = {"schema": "copilot"}
+    __tablename__ = "tb_savings_measure"
+    __table_args__ = {"schema": "public"}
 
-    suggestion_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("copilot.suggestion.id", ondelete="CASCADE"), primary_key=True
+    suggestion_id: Mapped[int] = mapped_column(
+        ForeignKey("public.tb_suggestion.id", ondelete="CASCADE"), primary_key=True
     )
     baseline_kwh: Mapped[Decimal] = mapped_column(Numeric(12, 3))
     actual_kwh: Mapped[Decimal] = mapped_column(Numeric(12, 3))

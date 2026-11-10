@@ -1,4 +1,3 @@
-import uuid
 from datetime import date, datetime
 from decimal import Decimal
 from typing import Any
@@ -10,6 +9,7 @@ from sqlalchemy import (
     DateTime,
     Float,
     ForeignKey,
+    Identity,
     Index,
     Integer,
     Numeric,
@@ -23,8 +23,6 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from ..database import Base
 
-_UUID_DEFAULT = text("gen_random_uuid()")
-
 # A cohort smaller than this is never published (percentiles of a handful of homes identify
 # them). Mirrored by the `ck_cohort_stat_min_size` CHECK in the database.
 MIN_COHORT_HOMES = 10
@@ -33,16 +31,16 @@ MIN_COHORT_HOMES = 10
 class DeviceCycle(Base):
     """One on/off cycle of a device. Hypertable on start_ts (30-day chunks)."""
 
-    __tablename__ = "device_cycle"
+    __tablename__ = "tb_device_cycle"
     __table_args__ = (
         CheckConstraint("end_ts > start_ts", name="range"),
         Index("ix_device_cycle_home_start", "home_id", text("start_ts DESC")),
-        {"schema": "insight"},
+        {"schema": "public"},
     )
 
-    home_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("core.home.id", ondelete="CASCADE"))
-    device_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("core.device.id", ondelete="CASCADE"), primary_key=True
+    home_id: Mapped[int] = mapped_column(ForeignKey("public.tb_home.id", ondelete="CASCADE"))
+    device_id: Mapped[int] = mapped_column(
+        ForeignKey("public.tb_device.id", ondelete="CASCADE"), primary_key=True
     )
     start_ts: Mapped[datetime] = mapped_column(DateTime(timezone=True), primary_key=True)
     end_ts: Mapped[datetime] = mapped_column(DateTime(timezone=True))
@@ -51,20 +49,18 @@ class DeviceCycle(Base):
 
 
 class Alert(Base):
-    __tablename__ = "alert"
+    __tablename__ = "tb_alert"
     __table_args__ = (
         CheckConstraint("severity IN ('info','warning','critical')", name="severity"),
         CheckConstraint("status IN ('open','acknowledged','resolved')", name="status"),
         Index("ix_alert_home_ts", "home_id", text("ts DESC")),
-        {"schema": "insight"},
+        {"schema": "public"},
     )
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        primary_key=True, default=uuid.uuid4, server_default=_UUID_DEFAULT
-    )
-    home_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("core.home.id", ondelete="CASCADE"))
-    device_id: Mapped[uuid.UUID | None] = mapped_column(
-        ForeignKey("core.device.id", ondelete="SET NULL"), index=True
+    id: Mapped[int] = mapped_column(Integer, Identity(always=False), primary_key=True)
+    home_id: Mapped[int] = mapped_column(ForeignKey("public.tb_home.id", ondelete="CASCADE"))
+    device_id: Mapped[int | None] = mapped_column(
+        ForeignKey("public.tb_device.id", ondelete="SET NULL"), index=True
     )
     kind: Mapped[str] = mapped_column(Text)
     severity: Mapped[str] = mapped_column(String(16))
@@ -76,16 +72,14 @@ class Alert(Base):
 
 
 class ForecastSnapshot(Base):
-    __tablename__ = "forecast_snapshot"
+    __tablename__ = "tb_forecast_snapshot"
     __table_args__ = (
         UniqueConstraint("home_id", "generated_at", "horizon_date"),
-        {"schema": "insight"},
+        {"schema": "public"},
     )
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        primary_key=True, default=uuid.uuid4, server_default=_UUID_DEFAULT
-    )
-    home_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("core.home.id", ondelete="CASCADE"))
+    id: Mapped[int] = mapped_column(Integer, Identity(always=False), primary_key=True)
+    home_id: Mapped[int] = mapped_column(ForeignKey("public.tb_home.id", ondelete="CASCADE"))
     generated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     horizon_date: Mapped[date] = mapped_column(Date)
     kwh: Mapped[Decimal] = mapped_column(Numeric(12, 3))
@@ -95,10 +89,10 @@ class ForecastSnapshot(Base):
 
 
 class CohortStat(Base):
-    __tablename__ = "cohort_stat"
+    __tablename__ = "tb_cohort_stat"
     __table_args__ = (
         CheckConstraint(f"n_homes >= {MIN_COHORT_HOMES}", name="min_size"),
-        {"schema": "insight"},
+        {"schema": "public"},
     )
 
     cohort_key: Mapped[str] = mapped_column(Text, primary_key=True)

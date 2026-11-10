@@ -28,7 +28,7 @@ async def count(session, sql: str, **params):
 
 async def series_ids(session, home_id):
     rows = await session.execute(
-        text("SELECT source_channel, series_id FROM energy.series WHERE home_id = :h"),
+        text("SELECT source_channel, series_id FROM public.tb_series WHERE home_id = :h"),
         {"h": home_id},
     )
     return dict(rows.all())
@@ -44,28 +44,33 @@ async def test_provision_creates_home_meter_and_ten_series(session):
         await session.execute(
             text(
                 "SELECT name, home_type, occupants, year_built, tariff_plan_code, "
-                "billing_cycle_day, timezone FROM core.home WHERE id = :h"
+                "billing_cycle_day, timezone FROM public.tb_home WHERE id = :h"
             ),
             {"h": hid},
         )
     ).one()
     assert tuple(home) == (
-        "REFIT House 1", "house", 2, 1975, "vn_residential", 1, "Asia/Ho_Chi_Minh",
+        "REFIT House 1",
+        "house",
+        2,
+        1975,
+        "vn_residential",
+        1,
+        "Asia/Ho_Chi_Minh",
     )
     user = (
-        await session.execute(
-            text("SELECT id FROM users WHERE email = :e"), {"e": addr}
-        )
+        await session.execute(text("SELECT id FROM tb_users WHERE email = :e"), {"e": addr})
     ).one()
     role = await count(
         session,
-        "SELECT role FROM core.home_member WHERE home_id = :h AND user_id = :u",
-        h=hid, u=user.id,
+        "SELECT role FROM public.tb_home_member WHERE home_id = :h AND user_id = :u",
+        h=hid,
+        u=user.id,
     )
     assert role == "owner"
     meter = (
         await session.execute(
-            text("SELECT serial, status, home_id FROM core.meter WHERE serial = 'REFIT-H1'")
+            text("SELECT serial, status, home_id FROM public.tb_meter WHERE serial = 'REFIT-H1'")
         )
     ).one()
     assert tuple(meter) == ("REFIT-H1", "active", hid)
@@ -73,7 +78,7 @@ async def test_provision_creates_home_meter_and_ten_series(session):
         await session.execute(
             text(
                 "SELECT source_channel, kind, metric, unit, device_id IS NOT NULL AS has_dev, "
-                "meter_id IS NOT NULL AS has_meter FROM energy.series WHERE home_id = :h"
+                "meter_id IS NOT NULL AS has_meter FROM public.tb_series WHERE home_id = :h"
             ),
             {"h": hid},
         )
@@ -85,11 +90,15 @@ async def test_provision_creates_home_meter_and_ten_series(session):
     for k in range(1, 10):
         r = by[f"Appliance{k}"]
         assert (r.kind, r.metric, r.unit, r.has_dev, r.has_meter) == (
-            "plug", "power_w", "W", True, True,
+            "plug",
+            "power_w",
+            "W",
+            True,
+            True,
         )
     devs = (
         await session.execute(
-            text("SELECT name, origin, device_type_code FROM core.device WHERE home_id = :h"),
+            text("SELECT name, origin, device_type_code FROM public.tb_device WHERE home_id = :h"),
             {"h": hid},
         )
     ).all()
@@ -105,7 +114,13 @@ async def test_provision_creates_home_meter_and_ten_series(session):
 async def test_provision_is_idempotent(session):
     addr = email()
     first = await provision_house(session, 2, addr)
-    tables = ("core.home", "core.meter", "core.device", "energy.series", "core.home_member")
+    tables = (
+        "public.tb_home",
+        "public.tb_meter",
+        "public.tb_device",
+        "public.tb_series",
+        "public.tb_home_member",
+    )
     before = [await count(session, f"SELECT count(*) FROM {t}") for t in tables]
     again = await provision_house(session, 2, addr)
     after = [await count(session, f"SELECT count(*) FROM {t}") for t in tables]
@@ -120,22 +135,28 @@ async def test_provision_unknown_house_raises(session):
 
 
 async def _snapshot(session):
-    tables = ("users", "core.home", "core.meter", "core.device", "energy.series",
-              "core.home_member")
+    tables = (
+        "users",
+        "public.tb_home",
+        "public.tb_meter",
+        "public.tb_device",
+        "public.tb_series",
+        "public.tb_home_member",
+    )
     return [await count(session, f"SELECT count(*) FROM {t}") for t in tables]
 
 
 async def test_provision_refuses_users_real_home(session):
     addr = email()
     uid = await session.scalar(
-        text("INSERT INTO users (id, email) VALUES (gen_random_uuid(), :e) RETURNING id"),
+        text("INSERT INTO tb_users (email) VALUES (:e) RETURNING id"),
         {"e": addr},
     )
     hid = await session.scalar(
-        text("INSERT INTO core.home (name) VALUES ('My real home') RETURNING id")
+        text("INSERT INTO public.tb_home (name) VALUES ('My real home') RETURNING id")
     )
     await session.execute(
-        text("INSERT INTO core.home_member (home_id, user_id, role) VALUES (:h, :u, 'owner')"),
+        text("INSERT INTO public.tb_home_member (home_id, user_id, role) VALUES (:h, :u, 'owner')"),
         {"h": hid, "u": uid},
     )
     before = await _snapshot(session)
@@ -166,7 +187,7 @@ async def test_device_names_unique_per_house(session):
     for h in (1, 4, 7, 16):
         hid = await provision_house(session, h, email())
         rows = await session.scalars(
-            text("SELECT name FROM core.device WHERE home_id = :h"), {"h": hid}
+            text("SELECT name FROM public.tb_device WHERE home_id = :h"), {"h": hid}
         )
         names[h] = sorted(rows)
         assert len(names[h]) == 9 and len(set(names[h])) == 9, names[h]
@@ -178,15 +199,16 @@ async def test_device_names_unique_per_house(session):
 
 
 async def test_provision_all_twenty_houses(session):
-    codes = set(await session.scalars(text("SELECT code FROM catalog.device_type")))
+    codes = set(await session.scalars(text("SELECT code FROM public.cat_device_type")))
     for h in sorted(int(k) for k in METADATA):
         hid = await provision_house(session, h, email())
-        assert await count(
-            session, "SELECT count(*) FROM energy.series WHERE home_id = :h", h=hid
-        ) == 10
+        assert (
+            await count(session, "SELECT count(*) FROM public.tb_series WHERE home_id = :h", h=hid)
+            == 10
+        )
         devs = (
             await session.execute(
-                text("SELECT device_type_code, name FROM core.device WHERE home_id = :h"),
+                text("SELECT device_type_code, name FROM public.tb_device WHERE home_id = :h"),
                 {"h": hid},
             )
         ).all()
@@ -213,7 +235,7 @@ async def test_unmapped_device_goes_to_other(session):
     hid = await provision_house(session, 21, email())  # Food Mixer, Vivarium, Pond Pump
     other = await count(
         session,
-        "SELECT count(*) FROM core.device WHERE home_id = :h AND device_type_code = 'other'",
+        "SELECT count(*) FROM public.tb_device WHERE home_id = :h AND device_type_code = 'other'",
         h=hid,
     )
     expected = sum(
@@ -230,17 +252,20 @@ async def test_unmapped_device_goes_to_other(session):
 @pytest.fixture
 async def home(session):
     await provision_house(session, 1, email())
-    return await session.scalar(text("SELECT home_id FROM core.meter WHERE serial = 'REFIT-H1'"))
+    return await session.scalar(text("SELECT home_id FROM public.tb_meter WHERE serial = 'REFIT-H1'"))
 
 
 async def test_load_sample_counts(session, home):
     res = await load_house(session, 1, SAMPLE)
     assert (res.rows_in, res.rows_new, res.rows_dup, res.rows_bad) == (
-        SAMPLE_ROWS * 10, SAMPLE_ROWS * 10, 0, 0,
+        SAMPLE_ROWS * 10,
+        SAMPLE_ROWS * 10,
+        0,
+        0,
     )
     stored = await count(
         session,
-        "SELECT count(*) FROM energy.reading r JOIN energy.series s USING (series_id) "
+        "SELECT count(*) FROM public.tb_reading r JOIN public.tb_series s USING (series_id) "
         "WHERE s.home_id = :h",
         h=home,
     )
@@ -251,7 +276,10 @@ async def test_reload_sample_is_all_dup(session, home):
     await load_house(session, 1, SAMPLE)
     res = await load_house(session, 1, SAMPLE)
     assert (res.rows_in, res.rows_new, res.rows_dup, res.rows_bad) == (
-        SAMPLE_ROWS * 10, 0, SAMPLE_ROWS * 10, 0,
+        SAMPLE_ROWS * 10,
+        0,
+        SAMPLE_ROWS * 10,
+        0,
     )
 
 
@@ -267,7 +295,7 @@ async def test_issues_flag_sets_quality_bit(session, home):
     for ch in CHANNELS:
         rows = (
             await session.execute(
-                text("SELECT ts, quality FROM energy.reading WHERE series_id = :s"),
+                text("SELECT ts, quality FROM public.tb_reading WHERE series_id = :s"),
                 {"s": sids[ch]},
             )
         ).all()
@@ -279,9 +307,9 @@ async def test_issues_flag_sets_quality_bit(session, home):
 async def test_shift_days_moves_timestamps_not_values(session, home):
     await load_house(session, 1, SAMPLE, limit_rows=5)
     sids = await series_ids(session, home)
-    q = text("SELECT ts, value FROM energy.reading WHERE series_id = :s ORDER BY ts")
+    q = text("SELECT ts, value FROM public.tb_reading WHERE series_id = :s ORDER BY ts")
     base = (await session.execute(q, {"s": sids["Aggregate"]})).all()
-    await session.execute(text("DELETE FROM energy.reading"))
+    await session.execute(text("DELETE FROM public.tb_reading"))
     res = await load_house(session, 1, SAMPLE, shift_days=30, limit_rows=5)
     assert res.rows_new == 50
     shifted = (await session.execute(q, {"s": sids["Aggregate"]})).all()
@@ -295,7 +323,7 @@ async def test_time_is_utc(session, home):
     await load_house(session, 1, SAMPLE, limit_rows=3)
     sids = await series_ids(session, home)
     ts = await count(
-        session, "SELECT min(ts) FROM energy.reading WHERE series_id = :s", s=sids["Aggregate"]
+        session, "SELECT min(ts) FROM public.tb_reading WHERE series_id = :s", s=sids["Aggregate"]
     )
     assert ts == datetime(2013, 10, 9, 13, 6, 17, tzinfo=UTC)
 
@@ -304,7 +332,7 @@ async def test_limit_rows_and_chunks_sum(session, home):
     res = await load_house(session, 1, SAMPLE, batch_rows=7, limit_rows=50)
     assert (res.rows_in, res.rows_new) == (500, 500)
     batches = await count(
-        session, "SELECT count(*) FROM ops.ingest_batch WHERE home_id = :h", h=home
+        session, "SELECT count(*) FROM public.tb_ingest_batch WHERE home_id = :h", h=home
     )
     assert batches == 8  # ceil(50 / 7)
 
@@ -340,7 +368,7 @@ async def committed(throwaway_dsn):
     try:
         # history loads need the retention/compression policies off (see the guard tests below)
         async with engine.connect() as c:
-            await c.execute(text("SELECT ops.set_policies(false)"))
+            await c.execute(text("SELECT public.set_policies(false)"))
             await c.commit()
         yield factory
     finally:
@@ -367,10 +395,10 @@ async def test_commits_per_chunk_so_progress_survives(committed, monkeypatch):
         with pytest.raises(RuntimeError, match="boom inside"):
             await load_house(s, 1, SAMPLE, batch_rows=40)
     async with committed() as s:
-        stored = await count(s, "SELECT count(*) FROM energy.reading")
+        stored = await count(s, "SELECT count(*) FROM public.tb_reading")
         batches = (
             await s.execute(
-                text("SELECT status, rows_new, note FROM ops.ingest_batch ORDER BY started_at")
+                text("SELECT status, rows_new, note FROM public.tb_ingest_batch ORDER BY started_at")
             )
         ).all()
     assert stored == 2 * 40 * 10  # chunks 1 and 2 committed, chunk 3 not stored
@@ -387,13 +415,13 @@ async def test_cli_main_loads_sample(committed, capsys):
     out = capsys.readouterr().out
     assert "3200" in out and "readings/s" in out
     async with committed() as s:
-        assert await count(s, "SELECT count(*) FROM energy.reading") == SAMPLE_ROWS * 10
-        assert await count(s, "SELECT count(*) FROM users WHERE email = :e", e=addr) == 1
+        assert await count(s, "SELECT count(*) FROM public.tb_reading") == SAMPLE_ROWS * 10
+        assert await count(s, "SELECT count(*) FROM tb_users WHERE email = :e", e=addr) == 1
     # a second run provisions nothing new and loads only duplicates
     assert await main(argv, session_factory=committed) == 0
     async with committed() as s:
-        assert await count(s, "SELECT count(*) FROM core.home WHERE name = 'REFIT House 1'") == 1
-        assert await count(s, "SELECT count(*) FROM energy.reading") == SAMPLE_ROWS * 10
+        assert await count(s, "SELECT count(*) FROM public.tb_home WHERE name = 'REFIT House 1'") == 1
+        assert await count(s, "SELECT count(*) FROM public.tb_reading") == SAMPLE_ROWS * 10
 
 
 async def test_cli_missing_csv_returns_error(committed, tmp_path):
@@ -410,7 +438,7 @@ async def test_loaded_main_series_reads_back_through_reading_1m(throwaway_dsn):
         async with factory() as s:
             await provision_house(s, 1, email())
             await load_house(s, 1, SAMPLE, limit_rows=300)
-            sid = await count(s, "SELECT series_id FROM energy.series WHERE kind = 'main'")
+            sid = await count(s, "SELECT series_id FROM public.tb_series WHERE kind = 'main'")
     finally:
         await engine.dispose()
     auto = create_async_engine(throwaway_dsn, isolation_level="AUTOCOMMIT")
@@ -422,7 +450,7 @@ async def test_loaded_main_series_reads_back_through_reading_1m(throwaway_dsn):
             rows = (
                 await c.execute(
                     text(
-                        "SELECT bucket, avg_w, n FROM energy.reading_1m "
+                        "SELECT bucket, avg_w, n FROM public.reading_1m "
                         "WHERE series_id = :s ORDER BY bucket"
                     ),
                     {"s": sid},
@@ -445,8 +473,13 @@ async def test_cli_rejects_unknown_house_before_path_check(committed, tmp_path, 
 
 @pytest.mark.parametrize(
     "bad",
-    [["--limit-rows", "0"], ["--batch-rows", "0"], ["--batch-rows", "-5"],
-     ["--limit-rows", "-1"], ["--shift-days", "99999999999"]],
+    [
+        ["--limit-rows", "0"],
+        ["--batch-rows", "0"],
+        ["--batch-rows", "-5"],
+        ["--limit-rows", "-1"],
+        ["--shift-days", "99999999999"],
+    ],
 )
 async def test_cli_rejects_meaningless_numbers(bad):
     with pytest.raises(SystemExit) as exc:
@@ -459,7 +492,7 @@ async def test_cli_rejects_meaningless_numbers(bad):
 
 async def policies_on(factory):
     async with factory() as s:
-        await s.execute(text("SELECT ops.set_policies(true)"))
+        await s.execute(text("SELECT public.set_policies(true)"))
         await s.commit()
 
 
@@ -474,7 +507,7 @@ async def test_cli_refuses_old_data_while_retention_policy_is_active(committed, 
     assert "retention policy" in err and "--shift-days" in err and "set_policies(false)" in err
     assert "--allow-active-policies" in err
     async with committed() as s:
-        assert await count(s, "SELECT count(*) FROM energy.reading") == 0
+        assert await count(s, "SELECT count(*) FROM public.tb_reading") == 0
 
 
 async def test_cli_refuses_data_the_compression_policy_would_compress(committed, capsys):
@@ -492,14 +525,14 @@ async def test_cli_loads_recent_data_with_policies_on(committed):
     shift = (datetime.now(UTC) - timedelta(hours=6) - first).days  # first row < 1 day old
     assert await main(args_for("--shift-days", str(shift)), session_factory=committed) == 0
     async with committed() as s:
-        assert await count(s, "SELECT count(*) FROM energy.reading") == SAMPLE_ROWS * 10
+        assert await count(s, "SELECT count(*) FROM public.tb_reading") == SAMPLE_ROWS * 10
 
 
 async def test_cli_override_loads_despite_active_policies(committed):
     await policies_on(committed)
     assert await main(args_for("--allow-active-policies"), session_factory=committed) == 0
     async with committed() as s:
-        assert await count(s, "SELECT count(*) FROM energy.reading") == SAMPLE_ROWS * 10
+        assert await count(s, "SELECT count(*) FROM public.tb_reading") == SAMPLE_ROWS * 10
 
 
 async def test_cli_loads_old_data_when_policies_are_off(committed):
@@ -509,8 +542,12 @@ async def test_cli_loads_old_data_when_policies_are_off(committed):
 async def test_paused_policy_jobs_do_not_block_the_load(committed):
     await policies_on(committed)
     async with committed() as s:
-        await s.execute(text("SELECT alter_job(job_id, scheduled => false) FROM "
-                             "timescaledb_information.jobs WHERE hypertable_name IS NOT NULL"))
+        await s.execute(
+            text(
+                "SELECT alter_job(job_id, scheduled => false) FROM "
+                "timescaledb_information.jobs WHERE hypertable_name IS NOT NULL"
+            )
+        )
         await s.commit()
     assert await main(args_for(), session_factory=committed) == 0
 

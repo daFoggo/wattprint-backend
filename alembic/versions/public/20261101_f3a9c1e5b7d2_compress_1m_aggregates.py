@@ -31,49 +31,51 @@ FAMILIES = ("reading", "device_estimate")
 
 # Task 4 body (c8a4e1f7b295), restored on downgrade.
 SET_POLICIES_V2 = """
-CREATE OR REPLACE FUNCTION ops.set_policies(enabled boolean) RETURNS void
+CREATE OR REPLACE FUNCTION public.set_policies(enabled boolean) RETURNS void
 LANGUAGE plpgsql
 SET search_path = public, pg_catalog AS $$
 DECLARE
     fam text;
 BEGIN
     IF enabled THEN
-        PERFORM add_compression_policy('energy.reading', INTERVAL '2 days', if_not_exists => true);
-        PERFORM add_compression_policy('energy.device_estimate', INTERVAL '2 days',
+        PERFORM add_compression_policy('public.tb_reading', INTERVAL '2 days',
                                        if_not_exists => true);
-        PERFORM add_retention_policy('energy.reading', INTERVAL '400 days', if_not_exists => true);
-        PERFORM add_retention_policy('energy.device_estimate', INTERVAL '400 days',
+        PERFORM add_compression_policy('public.tb_device_estimate', INTERVAL '2 days',
+                                       if_not_exists => true);
+        PERFORM add_retention_policy('public.tb_reading', INTERVAL '400 days',
+                                     if_not_exists => true);
+        PERFORM add_retention_policy('public.tb_device_estimate', INTERVAL '400 days',
                                      if_not_exists => true);
         FOREACH fam IN ARRAY ARRAY['reading', 'device_estimate'] LOOP
             PERFORM add_continuous_aggregate_policy(
-                format('energy.%s_1m', fam), start_offset => INTERVAL '7 days',
+                format('public.%s_1m', fam), start_offset => INTERVAL '7 days',
                 end_offset => INTERVAL '1 minute', schedule_interval => INTERVAL '1 minute',
                 if_not_exists => true);
             PERFORM add_continuous_aggregate_policy(
-                format('energy.%s_1h', fam), start_offset => INTERVAL '30 days',
+                format('public.%s_1h', fam), start_offset => INTERVAL '30 days',
                 end_offset => INTERVAL '1 hour', schedule_interval => INTERVAL '1 hour',
                 if_not_exists => true);
             PERFORM add_continuous_aggregate_policy(
-                format('energy.%s_1d', fam), start_offset => INTERVAL '60 days',
+                format('public.%s_1d', fam), start_offset => INTERVAL '60 days',
                 end_offset => INTERVAL '1 hour', schedule_interval => INTERVAL '1 hour',
                 if_not_exists => true);
-            PERFORM add_retention_policy(format('energy.%s_1m', fam), INTERVAL '400 days',
+            PERFORM add_retention_policy(format('public.%s_1m', fam), INTERVAL '400 days',
                                          if_not_exists => true);
         END LOOP;
     ELSE
         FOREACH fam IN ARRAY ARRAY['reading', 'device_estimate'] LOOP
-            PERFORM remove_retention_policy(format('energy.%s_1m', fam), if_exists => true);
-            PERFORM remove_continuous_aggregate_policy(format('energy.%s_1d', fam),
+            PERFORM remove_retention_policy(format('public.%s_1m', fam), if_exists => true);
+            PERFORM remove_continuous_aggregate_policy(format('public.%s_1d', fam),
                                                        if_exists => true);
-            PERFORM remove_continuous_aggregate_policy(format('energy.%s_1h', fam),
+            PERFORM remove_continuous_aggregate_policy(format('public.%s_1h', fam),
                                                        if_exists => true);
-            PERFORM remove_continuous_aggregate_policy(format('energy.%s_1m', fam),
+            PERFORM remove_continuous_aggregate_policy(format('public.%s_1m', fam),
                                                        if_exists => true);
         END LOOP;
-        PERFORM remove_compression_policy('energy.reading', if_exists => true);
-        PERFORM remove_compression_policy('energy.device_estimate', if_exists => true);
-        PERFORM remove_retention_policy('energy.reading', if_exists => true);
-        PERFORM remove_retention_policy('energy.device_estimate', if_exists => true);
+        PERFORM remove_compression_policy('public.tb_reading', if_exists => true);
+        PERFORM remove_compression_policy('public.tb_device_estimate', if_exists => true);
+        PERFORM remove_retention_policy('public.tb_reading', if_exists => true);
+        PERFORM remove_retention_policy('public.tb_device_estimate', if_exists => true);
     END IF;
 END
 $$
@@ -81,52 +83,54 @@ $$
 
 # V2 plus a compression policy on each 1 m aggregate (compress_after > refresh start_offset).
 SET_POLICIES_V3 = """
-CREATE OR REPLACE FUNCTION ops.set_policies(enabled boolean) RETURNS void
+CREATE OR REPLACE FUNCTION public.set_policies(enabled boolean) RETURNS void
 LANGUAGE plpgsql
 SET search_path = public, pg_catalog AS $$
 DECLARE
     fam text;
 BEGIN
     IF enabled THEN
-        PERFORM add_compression_policy('energy.reading', INTERVAL '2 days', if_not_exists => true);
-        PERFORM add_compression_policy('energy.device_estimate', INTERVAL '2 days',
+        PERFORM add_compression_policy('public.tb_reading', INTERVAL '2 days',
                                        if_not_exists => true);
-        PERFORM add_retention_policy('energy.reading', INTERVAL '400 days', if_not_exists => true);
-        PERFORM add_retention_policy('energy.device_estimate', INTERVAL '400 days',
+        PERFORM add_compression_policy('public.tb_device_estimate', INTERVAL '2 days',
+                                       if_not_exists => true);
+        PERFORM add_retention_policy('public.tb_reading', INTERVAL '400 days',
+                                     if_not_exists => true);
+        PERFORM add_retention_policy('public.tb_device_estimate', INTERVAL '400 days',
                                      if_not_exists => true);
         FOREACH fam IN ARRAY ARRAY['reading', 'device_estimate'] LOOP
             PERFORM add_continuous_aggregate_policy(
-                format('energy.%s_1m', fam), start_offset => INTERVAL '7 days',
+                format('public.%s_1m', fam), start_offset => INTERVAL '7 days',
                 end_offset => INTERVAL '1 minute', schedule_interval => INTERVAL '1 minute',
                 if_not_exists => true);
             PERFORM add_continuous_aggregate_policy(
-                format('energy.%s_1h', fam), start_offset => INTERVAL '30 days',
+                format('public.%s_1h', fam), start_offset => INTERVAL '30 days',
                 end_offset => INTERVAL '1 hour', schedule_interval => INTERVAL '1 hour',
                 if_not_exists => true);
             PERFORM add_continuous_aggregate_policy(
-                format('energy.%s_1d', fam), start_offset => INTERVAL '60 days',
+                format('public.%s_1d', fam), start_offset => INTERVAL '60 days',
                 end_offset => INTERVAL '1 hour', schedule_interval => INTERVAL '1 hour',
                 if_not_exists => true);
-            PERFORM add_compression_policy(format('energy.%s_1m', fam), INTERVAL '14 days',
+            PERFORM add_compression_policy(format('public.%s_1m', fam), INTERVAL '14 days',
                                            if_not_exists => true);
-            PERFORM add_retention_policy(format('energy.%s_1m', fam), INTERVAL '400 days',
+            PERFORM add_retention_policy(format('public.%s_1m', fam), INTERVAL '400 days',
                                          if_not_exists => true);
         END LOOP;
     ELSE
         FOREACH fam IN ARRAY ARRAY['reading', 'device_estimate'] LOOP
-            PERFORM remove_retention_policy(format('energy.%s_1m', fam), if_exists => true);
-            PERFORM remove_compression_policy(format('energy.%s_1m', fam), if_exists => true);
-            PERFORM remove_continuous_aggregate_policy(format('energy.%s_1d', fam),
+            PERFORM remove_retention_policy(format('public.%s_1m', fam), if_exists => true);
+            PERFORM remove_compression_policy(format('public.%s_1m', fam), if_exists => true);
+            PERFORM remove_continuous_aggregate_policy(format('public.%s_1d', fam),
                                                        if_exists => true);
-            PERFORM remove_continuous_aggregate_policy(format('energy.%s_1h', fam),
+            PERFORM remove_continuous_aggregate_policy(format('public.%s_1h', fam),
                                                        if_exists => true);
-            PERFORM remove_continuous_aggregate_policy(format('energy.%s_1m', fam),
+            PERFORM remove_continuous_aggregate_policy(format('public.%s_1m', fam),
                                                        if_exists => true);
         END LOOP;
-        PERFORM remove_compression_policy('energy.reading', if_exists => true);
-        PERFORM remove_compression_policy('energy.device_estimate', if_exists => true);
-        PERFORM remove_retention_policy('energy.reading', if_exists => true);
-        PERFORM remove_retention_policy('energy.device_estimate', if_exists => true);
+        PERFORM remove_compression_policy('public.tb_reading', if_exists => true);
+        PERFORM remove_compression_policy('public.tb_device_estimate', if_exists => true);
+        PERFORM remove_retention_policy('public.tb_reading', if_exists => true);
+        PERFORM remove_retention_policy('public.tb_device_estimate', if_exists => true);
     END IF;
 END
 $$
@@ -136,7 +140,7 @@ $$
 def upgrade() -> None:
     for fam in FAMILIES:
         op.execute(
-            f"ALTER MATERIALIZED VIEW energy.{fam}_1m SET (timescaledb.compress = true, "
+            f"ALTER MATERIALIZED VIEW public.{fam}_1m SET (timescaledb.compress = true, "
             "timescaledb.compress_segmentby = 'series_id', "
             "timescaledb.compress_orderby = 'bucket DESC')"
         )
@@ -144,14 +148,14 @@ def upgrade() -> None:
     # Policies that exist (set_policies(true) was run) get the new compression policies at once.
     op.execute(
         "DO $$ BEGIN IF EXISTS (SELECT 1 FROM timescaledb_information.jobs "
-        "WHERE proc_name = 'policy_compression' AND hypertable_name = 'reading') THEN "
-        "PERFORM ops.set_policies(true); END IF; END $$"
+        "WHERE proc_name = 'policy_compression' AND hypertable_name = 'tb_reading') THEN "
+        "PERFORM public.set_policies(true); END IF; END $$"
     )
 
 
 def downgrade() -> None:
     for fam in FAMILIES:
-        op.execute(f"SELECT remove_compression_policy('energy.{fam}_1m', if_exists => true)")
+        op.execute(f"SELECT remove_compression_policy('public.{fam}_1m', if_exists => true)")
     # Decompress every compressed chunk of the two aggregates, then switch compression off.
     op.execute(
         """
@@ -164,7 +168,7 @@ def downgrade() -> None:
                 JOIN timescaledb_information.continuous_aggregates a
                   ON a.materialization_hypertable_schema = c.hypertable_schema
                  AND a.materialization_hypertable_name = c.hypertable_name
-                WHERE a.view_schema = 'energy'
+                WHERE a.view_schema = 'public'
                   AND a.view_name IN ('reading_1m', 'device_estimate_1m')
                   AND c.is_compressed
             LOOP
@@ -174,5 +178,5 @@ def downgrade() -> None:
         """
     )
     for fam in FAMILIES:
-        op.execute(f"ALTER MATERIALIZED VIEW energy.{fam}_1m SET (timescaledb.compress = false)")
+        op.execute(f"ALTER MATERIALIZED VIEW public.{fam}_1m SET (timescaledb.compress = false)")
     op.execute(SET_POLICIES_V2)

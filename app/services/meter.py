@@ -1,13 +1,12 @@
-"""Read model of the energy schema: meter series, latest power and per-device energy.
+"""Read model of the energy schema: meter series, latest power and per-device public.
 
-Everything here reads the continuous aggregates (`energy.reading_1m|_1h|_1d`,
-`energy.device_estimate_1h|_1d`), never the raw hypertables.
+Everything here reads the continuous aggregates (`public.reading_1m|_1h|_1d`,
+`public.device_estimate_1h|_1d`), never the raw hypertables.
 """
 
 import math
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
-from uuid import UUID
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -59,7 +58,7 @@ class LatestPower:
 
 @dataclass
 class DeviceEnergy:
-    device_id: UUID
+    device_id: int
     kwh: float
     share: float
 
@@ -109,10 +108,10 @@ def _minute(now: datetime | None) -> datetime:
     return now.replace(second=0, microsecond=0)
 
 
-async def _main_series(session: AsyncSession, home_id: UUID) -> int | None:
+async def _main_series(session: AsyncSession, home_id: int) -> int | None:
     return await session.scalar(
         text(
-            "SELECT series_id FROM energy.series "
+            "SELECT series_id FROM public.tb_series "
             "WHERE home_id = :h AND kind = 'main' AND metric = 'power_w'"
         ),
         {"h": home_id},
@@ -121,7 +120,7 @@ async def _main_series(session: AsyncSession, home_id: UUID) -> int | None:
 
 async def meter_series(
     session: AsyncSession,
-    home_id: UUID,
+    home_id: int,
     since: datetime,
     until: datetime,
     max_points: int = 600,
@@ -161,14 +160,14 @@ async def meter_series(
             "origin => CAST(:origin AS timestamptz)) AS ts, "
             "sum(CAST(avg_w AS double precision) * n) / NULLIF(sum(n), 0) AS avg_w, "
             "min(min_w) AS min_w, max(max_w) AS max_w, sum(energy_wh) AS energy_wh "
-            f"FROM energy.{view} "
+            f"FROM public.{view} "
             "WHERE series_id = :sid AND bucket >= :lo AND bucket < :hi GROUP BY 1 ORDER BY 1"
         )
         params |= {"step": _STEP[step], "origin": ORIGIN}
     else:
         sql = (
             "SELECT bucket AS ts, avg_w, min_w, max_w, energy_wh "
-            f"FROM energy.{view} "
+            f"FROM public.{view} "
             "WHERE series_id = :sid AND bucket >= :lo AND bucket < :hi ORDER BY bucket"
         )
     rows = await session.execute(text(sql), params)
@@ -181,7 +180,7 @@ async def meter_series(
 def _latest_statement(series_id: int, now: datetime | None) -> tuple[str, dict]:
     hi = _minute(now)
     sql = (
-        "SELECT bucket, last_w FROM energy.reading_1m "
+        "SELECT bucket, last_w FROM public.reading_1m "
         "WHERE series_id = :sid AND bucket >= :lo AND bucket < :hi "
         "ORDER BY bucket DESC LIMIT 1"
     )
@@ -189,7 +188,7 @@ def _latest_statement(series_id: int, now: datetime | None) -> tuple[str, dict]:
 
 
 async def latest_power(
-    session: AsyncSession, home_id: UUID, now: datetime | None = None
+    session: AsyncSession, home_id: int, now: datetime | None = None
 ) -> LatestPower | None:
     """The newest closed 1-minute bucket of the main series within the last 7 days."""
     series_id = await _main_series(session, home_id)
@@ -201,7 +200,7 @@ async def latest_power(
 
 
 async def device_breakdown(
-    session: AsyncSession, home_id: UUID, since: datetime, until: datetime
+    session: AsyncSession, home_id: int, since: datetime, until: datetime
 ) -> list[DeviceEnergy]:
     """Energy per device of a home over the window, largest first.
 
@@ -215,7 +214,7 @@ async def device_breakdown(
     series = (
         await session.execute(
             text(
-                "SELECT series_id, device_id FROM energy.series "
+                "SELECT series_id, device_id FROM public.tb_series "
                 "WHERE home_id = :h AND kind = 'device' AND metric = 'power_w'"
             ),
             {"h": home_id},
@@ -230,12 +229,12 @@ async def device_breakdown(
     by_series = {s.series_id: s.device_id for s in series}
     rows = await session.execute(
         text(
-            f"SELECT series_id, sum(energy_wh) AS wh FROM energy.{view} "
+            f"SELECT series_id, sum(energy_wh) AS wh FROM public.{view} "
             "WHERE series_id = ANY(:ids) AND bucket >= :lo AND bucket < :hi GROUP BY series_id"
         ),
         {"ids": list(by_series), "lo": lo, "hi": _ceil(until, bucket)},
     )
-    kwh: dict[UUID, float] = {}
+    kwh: dict[int, float] = {}
     for r in rows:
         device = by_series[r.series_id]
         kwh[device] = kwh.get(device, 0.0) + float(r.wh) / 1000

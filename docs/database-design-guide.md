@@ -8,9 +8,9 @@ Tài liệu cho người mới: database lưu gì, dữ liệu chảy qua đâu,
 
 | Đã có và chạy được | Mới có bảng, chưa có code |
 |---|---|
-| Schema đầy đủ qua 12 migration; ingest; aggregate + backfill; read model Meter; tính hóa đơn; loader REFIT | **Mô hình NILM**; endpoint cho công tơ thật; ghi `insight.*`, `copilot.*`, `knowledge.*`; API cho các màn hình |
+| Schema đầy đủ qua 12 migration; ingest; aggregate + backfill; read model Meter; tính hóa đơn; loader REFIT | **Mô hình NILM**; endpoint cho công tơ thật; ghi `public.*`, `public.*`, `public.*`; API cho các màn hình |
 
-Dữ liệu `device_estimate` hiện có là **giả lập**: harness audit copy các kênh `Appliance1-9` của REFIT thành
+Dữ liệu `tb_device_estimate` hiện có là **giả lập**: harness audit copy các kênh `Appliance1-9` của REFIT thành
 series `kind = 'device'` để đo khối lượng. Loader REFIT không làm việc này.
 
 ---
@@ -22,30 +22,30 @@ số đo và ước lượng (rất lớn), nhà và thiết bị, tiền điệ
 
 | Schema | Bảng | Mục đích |
 |---|---|---|
-| `public` | `users`, `refresh_tokens` | Tài khoản và phiên đăng nhập (có từ trước) |
-| `core` | `home` | Hộ gia đình: biểu giá áp dụng, ngày chốt hóa đơn |
-| | `home_member` | Tài khoản ↔ home, mỗi tài khoản đúng một home |
-| | `home_invite` | Mã mời thành viên (chỉ lưu hash) |
-| | `meter` | Công tơ/cảm biến vật lý, mã ghép cặp dùng một lần |
-| | `device` | Thiết bị trong nhà (đổi tên, gộp, xóa mềm) |
-| | `device_alert_rule` | Luật cảnh báo bật/tắt theo thiết bị |
-| `catalog` | `metric`, `device_type` | Dữ liệu tham chiếu có seed: 5 metric, 22 loại thiết bị kèm mẹo tiết kiệm |
-| `energy` | `series` | Một dòng cho mỗi (home, kênh, metric); **mọi số đo trỏ vào đây** |
-| | `reading` *(hypertable)* | Công suất đo thật (W) |
-| | `device_estimate` *(hypertable)* | Công suất từng thiết bị do NILM ước lượng (W) |
-| | `inference_run` | Nhật ký mỗi lần chạy mô hình |
-| | `weather_hourly` | Nhiệt độ, độ ẩm theo tỉnh (cho M&V) |
+| `public` | `tb_users` | Tài khoản và phiên đăng nhập (có từ trước) |
+| `core` | `tb_home` | Hộ gia đình: biểu giá áp dụng, ngày chốt hóa đơn |
+| | `tb_home_member` | Tài khoản ↔ home, mỗi tài khoản đúng một home |
+| | `tb_home_invite` | Mã mời thành viên (chỉ lưu hash) |
+| | `tb_meter` | Công tơ/cảm biến vật lý, mã ghép cặp dùng một lần |
+| | `tb_device` | Thiết bị trong nhà (đổi tên, gộp, xóa mềm) |
+| | `tb_device_alert_rule` | Luật cảnh báo bật/tắt theo thiết bị |
+| `catalog` | `cat_metric`, `cat_device_type` | Dữ liệu tham chiếu có seed: 5 metric, 22 loại thiết bị kèm mẹo tiết kiệm |
+| `energy` | `tb_series` | Một dòng cho mỗi (home, kênh, metric); **mọi số đo trỏ vào đây** |
+| | `tb_reading` *(hypertable)* | Công suất đo thật (W) |
+| | `tb_device_estimate` *(hypertable)* | Công suất từng thiết bị do NILM ước lượng (W) |
+| | `tb_inference_run` | Nhật ký mỗi lần chạy mô hình |
+| | `tb_weather_hourly` | Nhiệt độ, độ ẩm theo tỉnh (cho M&V) |
 | | `reading_1m/1h/1d`, `device_estimate_1m/1h/1d` | 6 continuous aggregate: **mọi màn hình đọc từ đây** |
-| `billing` | `tariff_plan`, `tariff_version`, `tariff_tier` | Biểu giá điện bậc thang, có version theo ngày hiệu lực |
-| | `bill`, `bill_item` | Hóa đơn theo chu kỳ và phần chia theo thiết bị |
-| `insight` | `device_cycle` *(hypertable)* | Mỗi lần thiết bị chạy: bắt đầu, kết thúc, Wh, công suất đỉnh |
-| | `alert`, `forecast_snapshot`, `cohort_stat` | Cảnh báo, dự báo cuối tháng, so sánh với nhà tương tự |
-| `copilot` | `conversation`, `message`, `tool_call` | Hội thoại và truy vết mỗi con số (SQL, đơn vị) |
-| | `suggestion`, `suggestion_feedback`, `savings_measure` | Gợi ý chủ động, phản hồi, đo tiết kiệm trước/sau |
-| | `scope_token` | Token 5 phút cho biết Copilot được đọc home nào |
+| `billing` | `tb_tariff_plan`, `tb_tariff_version`, `tb_tariff_tier` | Biểu giá điện bậc thang, có version theo ngày hiệu lực |
+| | `tb_bill`, `tb_bill_item` | Hóa đơn theo chu kỳ và phần chia theo thiết bị |
+| `insight` | `tb_device_cycle` *(hypertable)* | Mỗi lần thiết bị chạy: bắt đầu, kết thúc, Wh, công suất đỉnh |
+| | `tb_alert`, `tb_forecast_snapshot`, `tb_cohort_stat` | Cảnh báo, dự báo cuối tháng, so sánh với nhà tương tự |
+| `copilot` | `tb_conversation`, `tb_message`, `tb_tool_call` | Hội thoại và truy vết mỗi con số (SQL, đơn vị) |
+| | `tb_suggestion`, `tb_suggestion_feedback`, `tb_savings_measure` | Gợi ý chủ động, phản hồi, đo tiết kiệm trước/sau |
+| | `tb_scope_token` | Token 5 phút cho biết Copilot được đọc home nào |
 | `copilot_ro` | 15 view + `current_home()` | Lớp đọc duy nhất của Copilot |
-| `knowledge` | `document`, `chunk` | Kho tri thức cho RAG (vector + full-text) |
-| `ops` | `ingest_batch`, `ingest_checkpoint` | Nhật ký và điểm đã nạp tới đâu của từng series |
+| `knowledge` | `tb_document`, `tb_chunk` | Kho tri thức cho RAG (vector + full-text) |
+| `ops` | `tb_ingest_batch`, `tb_ingest_checkpoint` | Nhật ký và điểm đã nạp tới đâu của từng series |
 | | `series_daily_coverage`, `stale_series` | View chất lượng dữ liệu; hàm `set_policies(bool)` |
 
 ---
@@ -62,11 +62,11 @@ số đo và ước lượng (rất lớn), nhà và thiết bị, tiền điệ
 2. **Ingest** (`app/services/ingest.py::ingest_readings`) là cửa vào duy nhất. Hàm tra `series_id` từ
    `(meter, kênh)`, nạp vào bảng tạm bằng COPY rồi `INSERT … ON CONFLICT (series_id, ts) DO NOTHING`.
    Dòng sai (kênh lạ, NaN, ngoài miền `real`, `ts` không có múi giờ) được đếm vào `rows_bad`, không ghi.
-   Mỗi lần gọi ghi một dòng `ops.ingest_batch` với `rows_in = rows_new + rows_dup + rows_bad`, và cập
-   nhật `ops.ingest_checkpoint` theo từng series. Nạp lại cùng file không đổi dữ liệu.
-3. **`energy.reading`** giữ số đo thật: series `main` (công tơ tổng) và `plug` (ổ cắm đo riêng).
-4. **NILM** *(chưa có code)*. Thiết kế: mô hình đọc series `main`, tạo một dòng `energy.inference_run`, rồi
-   gọi `ingest_estimates()` để **upsert** vào `energy.device_estimate` (series `kind = 'device'`, kèm
+   Mỗi lần gọi ghi một dòng `public.tb_ingest_batch` với `rows_in = rows_new + rows_dup + rows_bad`, và cập
+   nhật `public.tb_ingest_checkpoint` theo từng series. Nạp lại cùng file không đổi dữ liệu.
+3. **`public.tb_reading`** giữ số đo thật: series `main` (công tơ tổng) và `plug` (ổ cắm đo riêng).
+4. **NILM** *(chưa có code)*. Thiết kế: mô hình đọc series `main`, tạo một dòng `public.tb_inference_run`, rồi
+   gọi `ingest_estimates()` để **upsert** vào `public.tb_device_estimate` (series `kind = 'device'`, kèm
    `run_id`). Chạy lại mô hình thì ghi đè: lần chạy mới nhất thắng, không tích lũy phiên bản.
 5. **Continuous aggregate** xếp tầng `1m → 1h → 1d` cho cả hai họ. Mỗi tầng có `avg_w, min_w, max_w,
    last_w, n, energy_wh`; tầng 1h và 1d có thêm `covered_minutes`. Ngày được cắt theo
@@ -75,7 +75,7 @@ số đo và ước lượng (rất lớn), nhà và thiết bị, tiền điệ
    - *Meter* (`services/meter.py`): `meter_series` chọn bước nhỏ nhất trong `1m, 5m, 15m, 30m, 1h, 3h,
      6h, 1d` sao cho không quá `max_points` (tối đa 2000, cửa sổ tối đa 90 ngày); `latest_power` lấy
      bucket 1 phút đã đóng mới nhất trong 7 ngày.
-   - *Hóa đơn* (`services/billing.py::compute_bill`): kWh tổng từ `reading_1d` series `main`, áp bậc
+   - *Hóa đơn* (`services/public.py::compute_bill`): kWh tổng từ `reading_1d` series `main`, áp bậc
      giá của version hiệu lực tại `period_start`; chia theo thiết bị từ `device_estimate_1d`, phần
      không giải thích được thành item `other`. Idempotent theo `(home, period_start)`.
    - *Màn hình thiết bị*: `device_breakdown` đọc `device_estimate_1h` (≤ 3 ngày) hoặc `_1d`.
@@ -85,7 +85,7 @@ số đo và ước lượng (rất lớn), nhà và thiết bị, tiền điệ
 
 - `reading_1m` chỉ tính mẫu tốt (`quality & 1 = 0`), còn `device_estimate_1m` không lọc gì. Vì vậy tổng
   kWh các thiết bị có thể lớn hơn kWh công tơ; `compute_bill` chuẩn hóa và không tạo item `other` khi đó.
-- Màn hình thiết bị và `bill_item` chỉ đọc series `kind = 'device'`. Loader REFIT chỉ tạo `main` và
+- Màn hình thiết bị và `tb_bill_item` chỉ đọc series `kind = 'device'`. Loader REFIT chỉ tạo `main` và
   `plug` (device có `origin = 'plug'`), nên một nhà chỉ có `plug` sẽ ra danh sách thiết bị **rỗng** cho
   tới khi có NILM hoặc một quyết định đọc cả `plug`.
 
@@ -101,21 +101,21 @@ số đo và ước lượng (rất lớn), nhà và thiết bị, tiền điệ
 | Thời gian UTC | Mọi cột là `timestamptz`; ngày cắt theo giờ Việt Nam; `home.timezone` có CHECK = `Asia/Ho_Chi_Minh` | Tránh lệch ngày khi tính hóa đơn |
 | Kiểu dữ liệu theo vai trò | Tiền `numeric`; công suất `real` (W); năng lượng suy ra `double precision` | Không dùng float cho tiền |
 | Ghi một đường duy nhất | Mọi nguồn đi qua `ingest_readings`, kể cả REFIT | Có idempotency, checkpoint, audit ở một nơi |
-| Con số do code tính | kWh, VND, đơn vị tính bằng SQL/service; Copilot chỉ đọc và giải thích; mỗi `tool_call` lưu SQL và đơn vị | Kiểm toán được từng số |
+| Con số do code tính | kWh, VND, đơn vị tính bằng SQL/service; Copilot chỉ đọc và giải thích; mỗi `tb_tool_call` lưu SQL và đơn vị | Kiểm toán được từng số |
 | Thiếu dữ liệu thì nói thiếu | Phút thiếu tính 0 Wh, không lấp; `covered_minutes`; hóa đơn có coverage < 95% là `partial` | Không âm thầm tính thiếu |
-| Riêng tư | Mã mời và mã ghép cặp chỉ lưu hash; `cohort_stat` CHECK `n_homes >= 10` | Không lộ danh tính nhóm nhỏ |
+| Riêng tư | Mã mời và mã ghép cặp chỉ lưu hash; `tb_cohort_stat` CHECK `n_homes >= 10` | Không lộ danh tính nhóm nhỏ |
 | Có thể dựng lại | Mọi thay đổi là một revision Alembic viết tay; dựng được từ volume rỗng không cần bước tay | Không có drift giữa môi trường |
 
 ### 3.2 Yêu cầu và quy tắc cho hypertable
 
 | Quy tắc | Cụ thể |
 |---|---|
-| Hypertable là **nơi ghi**, continuous aggregate là **nơi đọc** | Màn hình không bao giờ quét `reading` thô; raw chỉ để ingest, audit, cửa sổ ngắn |
-| Khóa chính phải chứa cột thời gian | `PRIMARY KEY (series_id, ts)`; `device_cycle` là `(device_id, start_ts)` |
-| Khóa nhỏ | Hypertable chỉ mang `series_id integer`, không lặp home hay device; bảng quan hệ dùng `uuid` |
-| Không FK vào hai bảng lớn | `reading`, `device_estimate` không có FK; toàn vẹn của `series_id` do ingest bảo đảm (tra từ `energy.series`) |
+| Hypertable là **nơi ghi**, continuous aggregate là **nơi đọc** | Màn hình không bao giờ quét `tb_reading` thô; raw chỉ để ingest, audit, cửa sổ ngắn |
+| Khóa chính phải chứa cột thời gian | `PRIMARY KEY (series_id, ts)`; `tb_device_cycle` là `(device_id, start_ts)` |
+| Khóa nhỏ | Hypertable chỉ mang `series_id integer`, không lặp home hay device; ID và FK của bảng quan hệ dùng integer identity/integer |
+| Không FK vào hai bảng lớn | `tb_reading`, `tb_device_estimate` không có FK; toàn vẹn của `series_id` do ingest bảo đảm (tra từ `public.tb_series`) |
 | Không index phụ | Chỉ có khóa chính, trừ khi một truy vấn đo được cần |
-| Chunk | 1 ngày cho `reading`, `device_estimate`; 30 ngày cho `device_cycle` (ít dòng hơn nhiều) |
+| Chunk | 1 ngày cho `tb_reading`, `tb_device_estimate`; 30 ngày cho `tb_device_cycle` (ít dòng hơn nhiều) |
 | Nén | `segmentby series_id`, `orderby ts DESC`; `ON CONFLICT` vẫn chạy trên chunk đã nén (đã kiểm chứng) |
 | Retention là policy | `drop_chunks` qua job, không `DELETE` từng dòng |
 | Aggregate tạo `WITH NO DATA` | Trong transaction migration không được `WITH DATA` hay refresh; refresh chạy trong `autocommit_block()` |
@@ -129,7 +129,7 @@ số đo và ước lượng (rất lớn), nhà và thiết bị, tiền điệ
 ### 3.3 Quy tắc vận hành cần nhớ
 
 - **`alembic upgrade head` bật cả 14 policy job.** Trước khi nạp lịch sử cũ hơn 400 ngày phải chạy
-  `SELECT ops.set_policies(false)`, nếu không retention xóa chính dữ liệu vừa nạp; nạp xong, backfill rồi
+  `SELECT public.set_policies(false)`, nếu không retention xóa chính dữ liệu vừa nạp; nạp xong, backfill rồi
   `set_policies(true)`. CLI REFIT từ chối chạy (mã thoát 2) khi policy sẽ đụng dữ liệu; `--shift-days`
   dời ngày vào cửa sổ, `--allow-active-policies` để ép.
 - **Không backfill cửa sổ cũ hơn retention của raw:** refresh trên vùng raw đã bị drop sẽ xóa bucket
@@ -144,8 +144,8 @@ số đo và ước lượng (rất lớn), nhà và thiết bị, tiền điệ
 | Role | Quyền |
 |---|---|
 | Login owner (`POSTGRES_USER`) | Chạy migration; sở hữu các view `copilot_ro` |
-| `wattprint_app` | DML trên bảng của API; phát và xóa `scope_token`; đọc aggregate |
-| `wattprint_ingest` | Đọc `meter`, `series`; INSERT `reading`; INSERT/UPDATE `device_estimate`, `ops.ingest_*` |
+| `wattprint_app` | DML trên bảng của API; phát và xóa `tb_scope_token`; đọc aggregate |
+| `wattprint_ingest` | Đọc `tb_meter`, `tb_series`; INSERT `tb_reading`; INSERT/UPDATE `tb_device_estimate`, `public.ingest_*` |
 | `wattprint_copilot_ro` | SELECT trên view `copilot_ro` + `knowledge`, `catalog`, bảng tariff; `statement_timeout = 5s` |
 
 Grant theo từng object, không bao giờ `ALL TABLES`. Copilot không đọc bảng mà đọc 15 view
@@ -160,64 +160,65 @@ SQL của Copilot phải có login riêng và validator SELECT-only trên parse 
 
 ![Quan hệ giữa các bảng](diagrams/er-diagram.svg)
 
-- **`core.home` là trung tâm.** Bảng nào có `home_id` đều `ON DELETE CASCADE` về đây (riêng `meter.home_id`
-  không cascade, `ops.ingest_batch.home_id` là `SET NULL`).
-- **`users` 1—1 `home_member` N—1 `home`** (`UNIQUE (user_id)`: một tài khoản, một home; nới ra sau này
-  chỉ là bỏ một ràng buộc). `users` còn là chủ của `home_invite.used_by`, `conversation`,
-  `suggestion_feedback`.
-- **Đo lường:** `meter` và `device` cùng sinh ra `series`; `series` 1—N `reading` / `device_estimate` bằng
-  liên kết mềm (nét đứt, không FK). `device_estimate.run_id` cũng là liên kết mềm tới `inference_run`.
-- **Billing:** `home.tariff_plan_code` → `tariff_plan.code`; `tariff_plan` 1—N `tariff_version` 1—N
-  `tariff_tier`; `bill.version_id` ghi version đã dùng; `bill` 1—N `bill_item`; `bill_item.device_id`
+- **`public.tb_home` là trung tâm.** Bảng nào có `home_id` đều `ON DELETE CASCADE` về đây (riêng `tb_meter.home_id`
+  không cascade, `public.tb_ingest_batch.home_id` là `SET NULL`).
+- **`tb_users` 1—1 `tb_home_member` N—1 `tb_home`** (`UNIQUE (user_id)`: một tài khoản, một home; nới ra sau này
+  chỉ là bỏ một ràng buộc). `tb_users` còn là chủ của `tb_home_invite.used_by`, `tb_conversation`,
+  `tb_suggestion_feedback`.
+- **Đo lường:** `tb_meter` và `tb_device` cùng sinh ra `tb_series`; `tb_series` 1—N `tb_reading` / `tb_device_estimate` bằng
+  liên kết mềm (nét đứt, không FK). `tb_device_estimate.run_id` cũng là liên kết mềm tới `tb_inference_run`.
+- **Billing:** `tb_home.tariff_plan_code` → `tb_tariff_plan.code`; `tb_tariff_plan` 1—N `tb_tariff_version` 1—N
+  `tb_tariff_tier`; `tb_bill.version_id` ghi version đã dùng; `tb_bill` 1—N `tb_bill_item`; `tb_bill_item.device_id`
   là `SET NULL` khi xóa thiết bị.
-- **Thiết bị:** `device.merged_into_id` tự trỏ vào `device` (gộp thiết bị); `device_cycle`, `alert`,
-  `suggestion`, `device_alert_rule`, `series`, `bill_item` đều có `device_id`.
-- **Copilot:** `conversation` → `message` → `tool_call`; `suggestion` → `suggestion_feedback`,
-  `savings_measure`; `suggestion.alert_id` → `insight.alert`.
-- **Chưa có ràng buộc chặn chéo home:** `series.device_id`, `bill_item.device_id`, `suggestion.alert_id` có
-  thể trỏ sang id của home khác (chỉ lộ UUID, join sang view không ra dòng nào).
+- **Thiết bị:** `tb_device.merged_into_id` tự trỏ vào `tb_device` (gộp thiết bị); `tb_device_cycle`, `tb_alert`,
+  `tb_suggestion`, `tb_device_alert_rule`, `tb_series`, `tb_bill_item` đều có `device_id`.
+- **Copilot:** `tb_conversation` → `tb_message` → `tb_tool_call`; `tb_suggestion` → `tb_suggestion_feedback`,
+  `tb_savings_measure`; `tb_suggestion.alert_id` → `public.tb_alert`.
+- **Chưa có ràng buộc chặn chéo home:** `tb_series.device_id`, `tb_bill_item.device_id`, `tb_suggestion.alert_id` có
+  thể trỏ sang id của home khác (chỉ lộ số ID, join sang view không ra dòng nào).
 
 ---
 
 ## 5. Chi tiết từng bảng
 
-Quy ước: `PK` khóa chính, `FK` khóa ngoại, *null* là cho phép NULL. Cột `id` mặc định `uuid` với
-`gen_random_uuid()`; `created_at` mặc định `now()`.
+Quy ước: `PK` khóa chính, `FK` khóa ngoại, *null* là cho phép NULL. Cột ID dùng `integer identity`,
+các FK tương ứng dùng `integer`; `created_at` mặc định `now()`. `public.tb_scope_token.token` vẫn là UUID
+ngẫu nhiên vì đó là bearer token, không phải ID bản ghi.
 
 ### 5.1 `core`
 
 | Bảng | Cột | Ràng buộc và ghi chú |
 |---|---|---|
-| `home` | `id`, `name`, `postal_code`, `province_code`, `home_type`, `floor_area_m2 numeric(8,2)`, `year_built`, `occupants`, `timezone`, `tariff_plan_code`, `billing_cycle_day`, `created_at` | `home_type` ∈ apartment/house/other; `billing_cycle_day` 1-28 (mặc định 1); `timezone` CHECK = `Asia/Ho_Chi_Minh` (cột có sẵn để sau này hỗ trợ đa múi giờ); `tariff_plan_code` FK `ON UPDATE CASCADE ON DELETE SET NULL` |
-| `home_member` | `home_id`, `user_id`, `role`, `joined_at` | PK `(home_id, user_id)`; `UNIQUE (user_id)`; `role` ∈ owner/member |
-| `home_invite` | `id`, `home_id`, `code_hash`, `role`, `expires_at`, `used_by`, `used_at` | `code_hash` UNIQUE (chỉ lưu hash) |
-| `meter` | `id`, `serial`, `home_id` *null*, `claim_code_hash` *null*, `claimed_at`, `firmware`, `last_seen_at`, `status` | `serial` UNIQUE; `claim_code_hash` UNIQUE khi khác NULL; `status` ∈ new/active/retired. Meter xuất xưởng với mã ghép cặp dùng một lần, lần claim đầu gắn nó vào home |
-| `device` | `id`, `home_id`, `device_type_code`, `name`, `room`, `origin`, `show_on_timeline`, `active_from`, `active_to`, `merged_into_id`, `deleted_at`, `created_at` | `origin` ∈ nilm/plug/manual; CHECK `active_to > active_from`. Kênh REFIT bị đổi tên giữa chừng thành device mới có khoảng hiệu lực riêng |
-| `device_alert_rule` | `id`, `device_id`, `kind`, `params jsonb`, `enabled` | `kind` ∈ on/off/custom |
+| `tb_home` | `id`, `name`, `postal_code`, `province_code`, `home_type`, `floor_area_m2 numeric(8,2)`, `year_built`, `occupants`, `timezone`, `tariff_plan_code`, `billing_cycle_day`, `created_at` | `home_type` ∈ apartment/house/other; `billing_cycle_day` 1-28 (mặc định 1); `timezone` CHECK = `Asia/Ho_Chi_Minh` (cột có sẵn để sau này hỗ trợ đa múi giờ); `tariff_plan_code` FK `ON UPDATE CASCADE ON DELETE SET NULL` |
+| `tb_home_member` | `home_id`, `user_id`, `role`, `joined_at` | PK `(home_id, user_id)`; `UNIQUE (user_id)`; `role` ∈ owner/member |
+| `tb_home_invite` | `id`, `home_id`, `code_hash`, `role`, `expires_at`, `used_by`, `used_at` | `code_hash` UNIQUE (chỉ lưu hash) |
+| `tb_meter` | `id`, `serial`, `home_id` *null*, `claim_code_hash` *null*, `claimed_at`, `firmware`, `last_seen_at`, `status` | `serial` UNIQUE; `claim_code_hash` UNIQUE khi khác NULL; `status` ∈ new/active/retired. Meter xuất xưởng với mã ghép cặp dùng một lần, lần claim đầu gắn nó vào home |
+| `tb_device` | `id`, `home_id`, `device_type_code`, `name`, `room`, `origin`, `show_on_timeline`, `active_from`, `active_to`, `merged_into_id`, `deleted_at`, `created_at` | `origin` ∈ nilm/plug/manual; CHECK `active_to > active_from`. Kênh REFIT bị đổi tên giữa chừng thành device mới có khoảng hiệu lực riêng |
+| `tb_device_alert_rule` | `id`, `device_id`, `kind`, `params jsonb`, `enabled` | `kind` ∈ on/off/custom |
 
 ### 5.2 `catalog`
 
 | Bảng | Cột | Ghi chú |
 |---|---|---|
-| `metric` | `event_type` PK, `unit`, `aggregation` | `aggregation` ∈ mean/max/energy. Seed: `power_w` (W), `energy_wh` (Wh), `reactive_power_var`, `voltage_v`, `current_a` |
-| `device_type` | `code` PK, `label_vi`, `label_en`, `typical_watts` *null*, `tip_text` | Seed 22 loại (ac, fridge, washing_machine, … `always_on`, `other`); nuôi thẻ "About" và gợi ý Copilot |
+| `cat_metric` | `event_type` PK, `unit`, `aggregation` | `aggregation` ∈ mean/max/public. Seed: `power_w` (W), `energy_wh` (Wh), `reactive_power_var`, `voltage_v`, `current_a` |
+| `cat_device_type` | `code` PK, `label_vi`, `label_en`, `typical_watts` *null*, `tip_text` | Seed 22 loại (ac, fridge, washing_machine, … `always_on`, `other`); nuôi thẻ "About" và gợi ý Copilot |
 
 ### 5.3 `energy`
 
-**`series`**: cầu nối duy nhất giữa số đo và thế giới quan hệ.
+**`tb_series`**: cầu nối duy nhất giữa số đo và thế giới quan hệ.
 
 | Cột | Kiểu | Ghi chú |
 |---|---|---|
 | `series_id` | `integer` identity PK | Là thứ duy nhất hypertable mang theo |
-| `home_id` | `uuid` FK | cascade |
-| `kind` | `varchar(16)` | `main` công tơ tổng · `plug` ổ cắm đo riêng (kênh Appliance của REFIT) · `device` kết quả NILM |
-| `device_id` | `uuid` *null* FK | cascade |
-| `meter_id` | `uuid` *null* FK | `SET NULL`: thay meter thì series và lịch sử còn nguyên |
+| `home_id` | `integer` FK | cascade |
+| `kind` | `varchar(16)` | `main` công tơ tổng · `plug` ổ cắm đo riêng (kênh Appliance của REFIT) · `tb_device` kết quả NILM |
+| `device_id` | `integer` *null* FK | cascade |
+| `meter_id` | `integer` *null* FK | `SET NULL`: thay meter thì series và lịch sử còn nguyên |
 | `source_channel` | `text` *null* | Tên kênh nguồn, ví dụ `Appliance3` |
-| `metric` | `varchar(64)` FK | → `catalog.metric` |
+| `metric` | `varchar(64)` FK | → `public.cat_metric` |
 | `unit` | `text` | |
 
-Ràng buộc: `main` thì `device_id` phải NULL; `plug` và `device` thì `device_id` bắt buộc;
+Ràng buộc: `main` thì `device_id` phải NULL; `plug` và `tb_device` thì `device_id` bắt buộc;
 `UNIQUE (home_id, kind, device_id, metric) NULLS NOT DISTINCT` nên một nhà chỉ có đúng một `main` mỗi
 metric; index unique `(meter_id, source_channel)` khi cả hai khác NULL, là chỗ ingest đổi "meter X, kênh
 Appliance3" thành `series_id`.
@@ -226,8 +227,8 @@ Appliance3" thành `series_id`.
 
 | Bảng | Cột | Ghi chú |
 |---|---|---|
-| `reading` | `ts timestamptz`, `series_id int`, `value real` (W), `quality smallint` (mặc định 0) | PK `(series_id, ts)`. `quality` là bit cờ: bit 1 (giá trị 1) = nguồn báo lỗi (REFIT `Issues`), bị loại khỏi aggregate; ingest chấp nhận 0..32767 |
-| `device_estimate` | `ts`, `series_id`, `value real` (W), `run_id int` *null* | PK `(series_id, ts)`; ghi bằng upsert, lần chạy mới nhất thắng |
+| `tb_reading` | `ts timestamptz`, `series_id int`, `value real` (W), `quality smallint` (mặc định 0) | PK `(series_id, ts)`. `quality` là bit cờ: bit 1 (giá trị 1) = nguồn báo lỗi (REFIT `Issues`), bị loại khỏi aggregate; ingest chấp nhận 0..32767 |
+| `tb_device_estimate` | `ts`, `series_id`, `value real` (W), `run_id int` *null* | PK `(series_id, ts)`; ghi bằng upsert, lần chạy mới nhất thắng |
 
 **Sáu aggregate** (`reading_*` và `device_estimate_*`, real-time aggregation bật):
 
@@ -246,18 +247,18 @@ ngày và nén sau 14 ngày; 1h, 1d giữ vô hạn, không nén.
 
 | Bảng | Cột | Ghi chú |
 |---|---|---|
-| `inference_run` | `run_id` identity PK, `home_id` FK, `model_name`, `model_version`, `window_start`, `window_end`, `started_at`, `finished_at` *null*, `status` | `status` ∈ running/ok/failed. Ai đã tạo ước lượng nào |
-| `weather_hourly` | `province_code`, `ts`, `temp_c real`, `humidity_pct real` | PK `(province_code, ts)`; bảng thường |
+| `tb_inference_run` | `run_id` identity PK, `home_id` FK, `model_name`, `model_version`, `window_start`, `window_end`, `started_at`, `finished_at` *null*, `status` | `status` ∈ running/ok/failed. Ai đã tạo ước lượng nào |
+| `tb_weather_hourly` | `province_code`, `ts`, `temp_c real`, `humidity_pct real` | PK `(province_code, ts)`; bảng thường |
 
 ### 5.4 `billing`
 
 | Bảng | Cột | Ràng buộc và ghi chú |
 |---|---|---|
-| `tariff_plan` | `code` PK, `name`, `currency` (mặc định VND) | Home trỏ vào **mã** plan |
-| `tariff_version` | `id`, `plan_code`, `valid_from`, `valid_to` *null*, `vat_rate numeric(5,4)`, `source_doc` | `UNIQUE (plan_code, valid_from)`. EVN đổi giá thì thêm một version, không sửa home nào. Chưa có ràng buộc chống chồng lấn ngày hiệu lực |
-| `tariff_tier` | `version_id`, `tier_no`, `from_kwh`, `to_kwh` *null*, `price_per_kwh numeric(12,2)` | PK `(version_id, tier_no)`. Bậc phủ khoảng `(from_kwh, to_kwh]`; bậc cuối `to_kwh` NULL |
-| `bill` | `id`, `home_id`, `period_start`, `period_end`, `version_id`, `kwh_total numeric(12,3)`, `amount_before_vat`, `vat_amount`, `amount_total`, `coverage numeric(5,4)`, `tariff_straddle`, `status`, `computed_at` | `UNIQUE (home_id, period_start)`; `status` ∈ open/partial/closed |
-| `bill_item` | `id`, `bill_id`, `device_id` *null*, `label`, `kwh`, `share numeric(7,6)`, `amount` | Chi phí thiết bị = tỉ lệ kWh × tiền trước VAT; `label = 'other'` cho phần chưa giải thích |
+| `tb_tariff_plan` | `code` PK, `name`, `currency` (mặc định VND) | Home trỏ vào **mã** plan |
+| `tb_tariff_version` | `id`, `plan_code`, `valid_from`, `valid_to` *null*, `vat_rate numeric(5,4)`, `source_doc` | `UNIQUE (plan_code, valid_from)`. EVN đổi giá thì thêm một version, không sửa home nào. Chưa có ràng buộc chống chồng lấn ngày hiệu lực |
+| `tb_tariff_tier` | `version_id`, `tier_no`, `from_kwh`, `to_kwh` *null*, `price_per_kwh numeric(12,2)` | PK `(version_id, tier_no)`. Bậc phủ khoảng `(from_kwh, to_kwh]`; bậc cuối `to_kwh` NULL |
+| `tb_bill` | `id`, `home_id`, `period_start`, `period_end`, `version_id`, `kwh_total numeric(12,3)`, `amount_before_vat`, `vat_amount`, `amount_total`, `coverage numeric(5,4)`, `tariff_straddle`, `status`, `computed_at` | `UNIQUE (home_id, period_start)`; `status` ∈ open/partial/closed |
+| `tb_bill_item` | `id`, `bill_id`, `device_id` *null*, `label`, `kwh`, `share numeric(7,6)`, `amount` | Chi phí thiết bị = tỉ lệ kWh × tiền trước VAT; `label = 'other'` cho phần chưa giải thích |
 
 Seed: plan `vn_residential` với hai version: **1279/QĐ-BCT** (từ 2025-05-10, 6 bậc: 1.984 · 2.050 · 2.380 ·
 2.998 · 3.350 · 3.460 đồng/kWh) và **2892** (từ 2026-11-01, 5 bậc: 1.901 · 2.289 · 2.894 · 3.456 ·
@@ -269,39 +270,39 @@ tắc chính thức chưa có.
 
 | Bảng | Cột | Ghi chú |
 |---|---|---|
-| `device_cycle` *(hypertable theo `start_ts`, chunk 30 ngày)* | `home_id`, `device_id`, `start_ts`, `end_ts`, `energy_wh double`, `peak_w real` | PK `(device_id, start_ts)`; CHECK `end_ts > start_ts`; index `(home_id, start_ts DESC)`. Dựng timeline "máy lạnh bật 13 phút" |
-| `alert` | `id`, `home_id`, `device_id` *null*, `kind`, `severity`, `ts`, `payload jsonb`, `status` | `severity` ∈ info/warning/critical; `status` ∈ open/acknowledged/resolved |
-| `forecast_snapshot` | `id`, `home_id`, `generated_at`, `horizon_date`, `kwh`, `amount`, `tier_cross_date` *null*, `model_version` | `UNIQUE (home_id, generated_at, horizon_date)` |
-| `cohort_stat` | `cohort_key`, `period`, `p10_w`, `p33_w`, `p66_w`, `p90_w`, `n_homes` | PK `(cohort_key, period)`; CHECK `n_homes >= 10` |
+| `tb_device_cycle` *(hypertable theo `start_ts`, chunk 30 ngày)* | `home_id`, `device_id`, `start_ts`, `end_ts`, `energy_wh double`, `peak_w real` | PK `(device_id, start_ts)`; CHECK `end_ts > start_ts`; index `(home_id, start_ts DESC)`. Dựng timeline "máy lạnh bật 13 phút" |
+| `tb_alert` | `id`, `home_id`, `device_id` *null*, `kind`, `severity`, `ts`, `payload jsonb`, `status` | `severity` ∈ info/warning/critical; `status` ∈ open/acknowledged/resolved |
+| `tb_forecast_snapshot` | `id`, `home_id`, `generated_at`, `horizon_date`, `kwh`, `amount`, `tier_cross_date` *null*, `model_version` | `UNIQUE (home_id, generated_at, horizon_date)` |
+| `tb_cohort_stat` | `cohort_key`, `period`, `p10_w`, `p33_w`, `p66_w`, `p90_w`, `n_homes` | PK `(cohort_key, period)`; CHECK `n_homes >= 10` |
 
 ### 5.6 `copilot`
 
 | Bảng | Cột | Ghi chú |
 |---|---|---|
-| `scope_token` | `token uuid` PK, `home_id`, `expires_at` (mặc định `now() + 5 phút`), `created_at` | Chỉ `wattprint_app` đọc/ghi; **không có job dọn**, backend tự xóa token hết hạn |
-| `conversation` | `id`, `home_id`, `user_id`, `title`, `created_at` | |
-| `message` | `id`, `conversation_id`, `role`, `content`, `created_at` | `role` ∈ user/assistant/tool/system |
-| `tool_call` | `id`, `message_id`, `tool`, `input jsonb`, `sql_text`, `unit`, `duration_ms`, `ok` | Truy vết mỗi con số về truy vấn và đơn vị |
-| `suggestion` | `id`, `home_id`, `device_id`, `alert_id`, `kind`, `title`, `body`, `expected_kwh`, `expected_amount`, `status`, `created_at` | `status` ∈ proposed/shown/accepted/dismissed/done |
-| `suggestion_feedback` | `id`, `suggestion_id`, `user_id`, `action`, `at`, `note` | `action` ∈ accept/ignore/done/dislike |
-| `savings_measure` | `suggestion_id` PK, `baseline_kwh`, `actual_kwh`, `weather_adjusted_kwh` *null*, `method` (mặc định `M&V`), `measured_at` | Bản ghi đo tiết kiệm trước/sau |
+| `tb_scope_token` | `token uuid` PK, `home_id integer` FK, `expires_at` (mặc định `now() + 5 phút`), `created_at` | Chỉ `wattprint_app` đọc/ghi; **không có job dọn**, backend tự xóa token hết hạn |
+| `tb_conversation` | `id`, `home_id`, `user_id`, `title`, `created_at` | |
+| `tb_message` | `id`, `conversation_id`, `role`, `content`, `created_at` | `role` ∈ user/assistant/tool/system |
+| `tb_tool_call` | `id`, `message_id`, `tool`, `input jsonb`, `sql_text`, `unit`, `duration_ms`, `ok` | Truy vết mỗi con số về truy vấn và đơn vị |
+| `tb_suggestion` | `id`, `home_id`, `device_id`, `alert_id`, `kind`, `title`, `body`, `expected_kwh`, `expected_amount`, `status`, `created_at` | `status` ∈ proposed/shown/accepted/dismissed/done |
+| `tb_suggestion_feedback` | `id`, `suggestion_id`, `user_id`, `action`, `at`, `note` | `action` ∈ accept/ignore/done/dislike |
+| `tb_savings_measure` | `suggestion_id` PK, `baseline_kwh`, `actual_kwh`, `weather_adjusted_kwh` *null*, `method` (mặc định `M&V`), `measured_at` | Bản ghi đo tiết kiệm trước/sau |
 
 `copilot_ro`: 9 view bọc bảng (`home`, `device`, `series`, `bill`, `bill_item`, `alert`, `device_cycle`,
 `suggestion`, `forecast_snapshot`) và 6 view bọc aggregate (`reading_1m/1h/1d`,
-`device_estimate_1m/1h/1d`). Mọi view lọc theo `current_home()`, và đi qua `series` / `device` / `home` chứ
+`device_estimate_1m/1h/1d`). Mọi view lọc theo `current_home()`, và đi qua `tb_series` / `tb_device` / `tb_home` chứ
 không tin `home_id` phi chuẩn hóa.
 
 ### 5.7 `knowledge` và `ops`
 
 | Bảng | Cột | Ghi chú |
 |---|---|---|
-| `knowledge.document` | `id`, `title`, `doc_type`, `lang` (mặc định vi), `source_url`, `version`, `license_note`, `published_at` | `doc_type` ∈ standard/guide/tariff/expert_rule/other |
-| `knowledge.chunk` | `id bigint` identity, `document_id`, `ord`, `body`, `tsv`, `embedding vector(1024)`, `embedding_model`, `token_count` | `UNIQUE (document_id, ord)`; `tsv` là cột sinh sẵn `to_tsvector('simple', immutable_unaccent(body))` (bỏ dấu tiếng Việt); index GIN trên `tsv`, HNSW cosine (`m = 16`, `ef_construction = 64`) trên `embedding`; tên model lưu theo từng dòng để phát hiện đổi model |
-| `ops.ingest_batch` | `id`, `source`, `home_id` *null*, `started_at`, `finished_at`, `rows_in/new/dup/bad`, `status`, `note` | `status` ∈ running/ok/failed; dòng `failed` mang nội dung lỗi |
-| `ops.ingest_checkpoint` | `source`, `series_id`, `last_ts`, `updated_at` | PK `(source, series_id)`; `last_ts` không bao giờ lùi |
-| `ops.series_daily_coverage` | view | Mỗi series mỗi ngày địa phương: `covered_minutes`, `coverage` trên 1440 phút. Series chưa có reading nào thì không xuất hiện |
-| `ops.stale_series` | view | Series có checkpoint mới nhất cũ hơn 60 phút. Series chưa bao giờ báo dữ liệu thì không xuất hiện |
-| `ops.set_policies(bool)` | hàm | Bật/tắt idempotent toàn bộ 14 policy job |
+| `public.tb_document` | `id`, `title`, `doc_type`, `lang` (mặc định vi), `source_url`, `version`, `license_note`, `published_at` | `doc_type` ∈ standard/guide/tariff/expert_rule/other |
+| `public.tb_chunk` | `id bigint` identity, `document_id`, `ord`, `body`, `tsv`, `embedding vector(1024)`, `embedding_model`, `token_count` | `UNIQUE (document_id, ord)`; `tsv` là cột sinh sẵn `to_tsvector('simple', immutable_unaccent(body))` (bỏ dấu tiếng Việt); index GIN trên `tsv`, HNSW cosine (`m = 16`, `ef_construction = 64`) trên `embedding`; tên model lưu theo từng dòng để phát hiện đổi model |
+| `public.tb_ingest_batch` | `id`, `source`, `home_id` *null*, `started_at`, `finished_at`, `rows_in/new/dup/bad`, `status`, `note` | `status` ∈ running/ok/failed; dòng `failed` mang nội dung lỗi |
+| `public.tb_ingest_checkpoint` | `source`, `series_id`, `last_ts`, `updated_at` | PK `(source, series_id)`; `last_ts` không bao giờ lùi |
+| `public.series_daily_coverage` | view | Mỗi series mỗi ngày địa phương: `covered_minutes`, `coverage` trên 1440 phút. Series chưa có reading nào thì không xuất hiện |
+| `public.stale_series` | view | Series có checkpoint mới nhất cũ hơn 60 phút. Series chưa bao giờ báo dữ liệu thì không xuất hiện |
+| `public.set_policies(bool)` | hàm | Bật/tắt idempotent toàn bộ 14 policy job |
 
 ---
 
@@ -310,7 +311,7 @@ không tin `home_id` phi chuẩn hóa.
 ### 6.1 Cách kiểm
 
 - **Audit với dữ liệu thật:** REFIT nhà 1-3 nạp qua đúng đường ingest production, **196,881,280 reading**
-  và **177,193,152 dòng `device_estimate` giả lập** (khoảng 5.1 home-year), ngày được dời để kết thúc
+  và **177,193,152 dòng `tb_device_estimate` giả lập** (khoảng 5.1 home-year), ngày được dời để kết thúc
   vào 2026-10-31, policy tắt lúc nạp. Máy: PostgreSQL 17.11 (trước khi lên PG18), TimescaleDB 2.31.0, 16 CPU, `shared_buffers`
   3 GB. Harness ở `tests/audit`, số liệu gốc `docs/audit-results.json`.
 - **Test tự động:** 254 hàm test trong `tests/db` (foundation, bảng, ingest, aggregate, backfill guard,
@@ -323,7 +324,7 @@ không tin `home_id` phi chuẩn hóa.
 | 1 | Idempotency | **PASS** | Nạp lại 1,000,000 reading: 0 mới, 1,000,000 trùng; số dòng và checksum `reading_1d` không đổi, kể cả chunk đã nén |
 | 2 | Đúng năng lượng, 1% mỗi home-day | **FAIL** | Xem 6.3 |
 | 3 | Độ trễ đọc | **PASS** | p95 (ms, warm / đổi cửa sổ): series 1d/90 ngày 4.0 / 3.7 · 6h/90 ngày 6.3 / 5.3 · Week (15m/7 ngày) 11.6 / 52.3 · `latest_power` 2.5 / 4.3 · thiết bị 30 ngày 3.9 / 3.4 · `compute_bill` 16.3 / 17.0. Mục tiêu 100 ms, `latest_power` 20 ms |
-| 4 | Tốc độ nạp và tăng trưởng | Đã đo trên 3 nhà | 49,583 reading/s một luồng (bulk, batch 30k dòng CSV, policy tắt); 81,141/s tổng với hai luồng; nén 17x (`reading` 18.8 GB → 1.1 GB, 5.6 byte/reading); 0.88 GB mỗi home-year (chưa nén, chỉ `reading` + aggregate của nó) |
+| 4 | Tốc độ nạp và tăng trưởng | Đã đo trên 3 nhà | 49,583 reading/s một luồng (bulk, batch 30k dòng CSV, policy tắt); 81,141/s tổng với hai luồng; nén 17x (`tb_reading` 18.8 GB → 1.1 GB, 5.6 byte/reading); 0.88 GB mỗi home-year (chưa nén, chỉ `tb_reading` + aggregate của nó) |
 | 5 | Kịch bản lỗi | **PASS** 5/5 | Batch trùng · dữ liệu trễ/sai thứ tự · khoảng trống 90 phút · dòng `Issues` · job refresh dừng |
 | 6 | Cô lập | **PASS** | 2 home, 15 view, 4 biến thể token xấu, không truy cập bảng trực tiếp, không ghi được |
 | 7 | Dựng lại từ DB rỗng | **PASS** | Rỗng → `alembic upgrade head` → nạp 100,000 reading, không bước tay; 14 policy job sau migration |
@@ -348,7 +349,7 @@ Kiểm chứng thêm:
    meter REFIT thường log ~62 s một lần trong khi `energy_wh` tính trọn phút. Cần chủ spec chọn giữ gate
    1% mọi ngày hay chấp nhận cách phát biểu "p95 ≈ 1%, max 4.4%". Test
    `test_energy_gate_one_percent` hiện là xfail mang số đo.
-2. **Đọc `plug` hay dựng `device` từ `plug`:** màn hình thiết bị và `bill_item` chỉ đọc `kind = 'device'`.
+2. **Đọc `plug` hay dựng `tb_device` từ `plug`:** màn hình thiết bị và `tb_bill_item` chỉ đọc `kind = 'device'`.
 3. **Ingest đồng thời chưa test:** mới đo bulk một/hai luồng; ingest batch nhỏ từ nhiều meter cùng nén và
    refresh chưa đo. Ngoại suy cho 10,000 nhà (**không phải số đo**): 1.8-3.1 TB/năm nếu nén aggregate 1m,
    tùy tần số lấy mẫu (chỉ công tơ tổng 1 Hz, hay 10 series mỗi 7 s như REFIT).
@@ -357,6 +358,6 @@ Kiểm chứng thêm:
    `PUBLIC`; executor SQL của Copilot cần login riêng và validator.
 5. **Chưa xác nhận:** VAT 8% trên cả hai version biểu giá; nhà 4-20 của REFIT chưa nạp.
 6. **Việc nhỏ đã hoãn:** `alembic check` không dùng được (tên index model và migration lệch nhau);
-   `device_breakdown` vẫn trả thiết bị đã xóa/gộp (lọc ở tầng API); chưa có `bill_item` cho `always_on`;
+   `device_breakdown` vẫn trả thiết bị đã xóa/gộp (lọc ở tầng API); chưa có `tb_bill_item` cho `always_on`;
    chưa có view "khoảng trống dài hơn N phút"; migration nén aggregate dùng tên option
    `timescaledb.compress*` cũ, cần xem lại khi nâng image.

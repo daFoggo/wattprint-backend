@@ -5,10 +5,10 @@ from ..database import Base
 
 
 class Metric(Base):
-    __tablename__ = "metric"
+    __tablename__ = "cat_metric"
     __table_args__ = (
         CheckConstraint("aggregation IN ('mean','max','energy')", name="aggregation"),
-        {"schema": "catalog"},
+        {"schema": "public"},
     )
 
     event_type: Mapped[str] = mapped_column(String(64), primary_key=True)
@@ -17,8 +17,8 @@ class Metric(Base):
 
 
 class DeviceType(Base):
-    __tablename__ = "device_type"
-    __table_args__ = {"schema": "catalog"}
+    __tablename__ = "cat_device_type"
+    __table_args__ = {"schema": "public"}
 
     code: Mapped[str] = mapped_column(String(64), primary_key=True)
     label_vi: Mapped[str] = mapped_column(String(128))

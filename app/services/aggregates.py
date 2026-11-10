@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncConnection
 # Dependency order: each hierarchical view reads the one before it. The step is the bucket width;
 # the daily buckets are cut at 17:00 UTC (local midnight, Asia/Ho_Chi_Minh).
 AGGREGATES = tuple(
-    (f"energy.{family}_{res}", step)
+    (f"public.{family}_{res}", step)
     for family in ("reading", "device_estimate")
     for res, step in (
         ("1m", timedelta(minutes=1)),
@@ -48,9 +48,11 @@ async def _raw_row_counts(
     (readings: quality bit 1 clear, estimates: all)."""
     good = " FILTER (WHERE quality & 1 = 0)" if family == "reading" else ""
     res = await conn.execute(
-        text("SELECT time_bucket('1 day', ts, origin => CAST(:o AS timestamptz)) AS d, series_id, "
-             f"count(*){good} AS n FROM energy.{family} WHERE ts >= :lo AND ts < :hi "
-             "GROUP BY 1, 2"),
+        text(
+            "SELECT time_bucket('1 day', ts, origin => CAST(:o AS timestamptz)) AS d, series_id, "
+            f"count(*){good} AS n FROM public.{family} WHERE ts >= :lo AND ts < :hi "
+            "GROUP BY 1, 2"
+        ),
         {"o": _DAY_ORIGIN, "lo": lo, "hi": hi},
     )
     return {(r.d, r.series_id): int(r.n) for r in res}
@@ -65,18 +67,22 @@ async def _materialized_row_counts(
     schema, name = view.split(".")
     mat = (
         await conn.execute(
-            text("SELECT materialization_hypertable_schema AS s, "
-                 "materialization_hypertable_name AS n "
-                 "FROM timescaledb_information.continuous_aggregates "
-                 "WHERE view_schema = :s AND view_name = :n"),
+            text(
+                "SELECT materialization_hypertable_schema AS s, "
+                "materialization_hypertable_name AS n "
+                "FROM timescaledb_information.continuous_aggregates "
+                "WHERE view_schema = :s AND view_name = :n"
+            ),
             {"s": schema, "n": name},
         )
     ).one()
     res = await conn.execute(
-        text("SELECT time_bucket('1 day', bucket, origin => CAST(:o AS timestamptz)) AS d, "
-             f'series_id, sum(n) AS n FROM "{mat.s}"."{mat.n}" '
-             "WHERE bucket >= :lo AND bucket < :hi "
-             "AND series_id IN (SELECT series_id FROM energy.series) GROUP BY 1, 2"),
+        text(
+            "SELECT time_bucket('1 day', bucket, origin => CAST(:o AS timestamptz)) AS d, "
+            f'series_id, sum(n) AS n FROM "{mat.s}"."{mat.n}" '
+            "WHERE bucket >= :lo AND bucket < :hi "
+            "AND series_id IN (SELECT series_id FROM public.tb_series) GROUP BY 1, 2"
+        ),
         {"o": _DAY_ORIGIN, "lo": lo, "hi": hi},
     )
     return {(r.d, r.series_id): int(r.n) for r in res}
@@ -165,8 +171,10 @@ async def backfill_aggregates(
             skipped += [SkippedWindow(view, a, b, SKIP_REASON) for a, b in bad]
         for a, b in pieces:
             await conn.execute(
-                text("CALL refresh_continuous_aggregate(CAST(:v AS regclass), "
-                     "CAST(:f AS timestamptz), CAST(:t AS timestamptz))"),
+                text(
+                    "CALL refresh_continuous_aggregate(CAST(:v AS regclass), "
+                    "CAST(:f AS timestamptz), CAST(:t AS timestamptz))"
+                ),
                 {"v": view, "f": a, "t": b},
             )
     for w in skipped:

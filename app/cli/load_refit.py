@@ -1,10 +1,10 @@
-"""Load a REFIT CLEAN_House<N>.csv into energy.reading.
+"""Load a REFIT CLEAN_House<N>.csv into public.tb_reading.
 
     python -m app.cli.load_refit --house N [--csv PATH] [--shift-days D] [--limit-rows R]
                                  [--batch-rows B] [--owner-email E] [--allow-active-policies]
 
-Loading history needs the retention and compression policies of energy.reading OFF
-(`SELECT ops.set_policies(false)`) or dates shifted into their windows (`--shift-days`): the
+Loading history needs the retention and compression policies of public.tb_reading OFF
+(`SELECT public.set_policies(false)`) or dates shifted into their windows (`--shift-days`): the
 migrated database has them ON, the retention job would delete REFIT data older than its window
 and the compression job would compress chunks while they are being loaded. The CLI refuses
 otherwise; `--allow-active-policies` overrides.
@@ -48,7 +48,7 @@ def first_timestamp(csv_path: Path, shift: timedelta) -> datetime | None:
 
 
 async def policy_conflict(session: AsyncSession, first_ts: datetime | None) -> str | None:
-    """Why loading data starting at first_ts would fight an active policy of energy.reading.
+    """Why loading data starting at first_ts would fight an active policy of public.tb_reading.
 
     A scheduled retention job deletes data older than its drop_after window and a scheduled
     compression job compresses chunks older than compress_after while the load is running.
@@ -58,13 +58,15 @@ async def policy_conflict(session: AsyncSession, first_ts: datetime | None) -> s
         return None
     jobs = (
         await session.execute(
-            text("SELECT proc_name, config->>'drop_after' AS drop_after, "
-                 "config->>'compress_after' AS compress_after, "
-                 "now() - CAST(coalesce(config->>'drop_after', config->>'compress_after') "
-                 "AS interval) AS cutoff "
-                 "FROM timescaledb_information.jobs WHERE hypertable_schema = 'energy' "
-                 "AND hypertable_name = 'reading' AND scheduled "
-                 "AND proc_name IN ('policy_retention', 'policy_compression') ORDER BY proc_name")
+            text(
+                "SELECT proc_name, config->>'drop_after' AS drop_after, "
+                "config->>'compress_after' AS compress_after, "
+                "now() - CAST(coalesce(config->>'drop_after', config->>'compress_after') "
+                "AS interval) AS cutoff "
+                "FROM timescaledb_information.jobs WHERE hypertable_schema = 'public' "
+                "AND hypertable_name = 'tb_reading' AND scheduled "
+                "AND proc_name IN ('policy_retention', 'policy_compression') ORDER BY proc_name"
+            )
         )
     ).all()
     problems = []
@@ -73,18 +75,22 @@ async def policy_conflict(session: AsyncSession, first_ts: datetime | None) -> s
             continue
         if j.proc_name == "policy_retention":
             problems.append(
-                f"the retention policy of energy.reading (drop_after {j.drop_after}) deletes data "
-                f"older than {j.cutoff:%Y-%m-%d}")
+                f"the retention policy of public.tb_reading "
+                f"(drop_after {j.drop_after}) deletes data "
+                f"older than {j.cutoff:%Y-%m-%d}"
+            )
         else:
             problems.append(
-                f"the compression policy of energy.reading (compress_after {j.compress_after}) "
-                f"compresses chunks older than {j.cutoff:%Y-%m-%d} while they are loaded")
+                f"the compression policy of public.tb_reading (compress_after {j.compress_after}) "
+                f"compresses chunks older than {j.cutoff:%Y-%m-%d} while they are loaded"
+            )
     if not problems:
         return None
     return (
-        f"the data starts at {first_ts:%Y-%m-%d}, but " + " and ".join(problems)
+        f"the data starts at {first_ts:%Y-%m-%d}, but "
+        + " and ".join(problems)
         + ". Move the dates into the window with --shift-days, or run "
-        "SELECT ops.set_policies(false) before loading history "
+        "SELECT public.set_policies(false) before loading history "
         "(--allow-active-policies overrides this check)."
     )
 
@@ -186,8 +192,11 @@ def _parser() -> argparse.ArgumentParser:
     p.add_argument("--limit-rows", type=_positive)
     p.add_argument("--batch-rows", type=_positive, default=30_000)
     p.add_argument("--owner-email")
-    p.add_argument("--allow-active-policies", action="store_true",
-                   help="load even if an active retention/compression policy would touch the data")
+    p.add_argument(
+        "--allow-active-policies",
+        action="store_true",
+        help="load even if an active retention/compression policy would touch the data",
+    )
     return p
 
 

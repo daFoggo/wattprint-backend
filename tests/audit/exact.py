@@ -18,8 +18,9 @@ CADENCE_FACTOR = 5
 _MEDIAN = text(
     "SELECT percentile_cont(0.5) WITHIN GROUP (ORDER BY dt) FROM ("
     " SELECT extract(epoch FROM ts - lag(ts) OVER (ORDER BY ts)) AS dt"
-    " FROM energy.reading WHERE series_id = :sid) x WHERE dt IS NOT NULL"
+    " FROM public.tb_reading WHERE series_id = :sid) x WHERE dt IS NOT NULL"
 )
+
 
 def _exact_sql(drop_flagged: bool) -> str:
     # Primary reference: the window runs over ALL raw samples and flagged ones are filtered out
@@ -33,7 +34,7 @@ def _exact_sql(drop_flagged: bool) -> str:
         " FROM ("
         "  SELECT ts, value, quality,"
         "         least(extract(epoch FROM lead(ts) OVER (ORDER BY ts) - ts), :cap) AS dt"
-        f"  FROM energy.reading WHERE {inner_where}) q"
+        f"  FROM public.tb_reading WHERE {inner_where}) q"
         " WHERE quality & 1 = 0 AND dt IS NOT NULL"
         " GROUP BY 1 ORDER BY 1"
     )
@@ -43,7 +44,7 @@ _EXACT = text(_exact_sql(False))
 _EXACT_HOLD_FLAGGED = text(_exact_sql(True))
 
 _VIEW = text(
-    "SELECT bucket AS day, energy_wh, covered_minutes, n FROM energy.reading_1d"
+    "SELECT bucket AS day, energy_wh, covered_minutes, n FROM public.reading_1d"
     " WHERE series_id = :sid ORDER BY bucket"
 )
 
@@ -53,7 +54,11 @@ async def median_cadence(conn, series_id: int) -> float:
 
 
 async def exact_days(
-    conn, series_id: int, cadence_s: float, *, hold_across_flagged: bool = False,
+    conn,
+    series_id: int,
+    cadence_s: float,
+    *,
+    hold_across_flagged: bool = False,
     cap_s: float | None = None,
 ) -> dict[datetime, tuple[float, int]]:
     """day -> (exact_wh, minutes holding at least one good sample).
@@ -68,7 +73,7 @@ async def exact_days(
 
 
 async def view_days(conn, series_id: int) -> dict[datetime, tuple[float, int, int]]:
-    """day -> (energy_wh, covered_minutes, n) from energy.reading_1d."""
+    """day -> (energy_wh, covered_minutes, n) from public.reading_1d."""
     rows = await conn.execute(_VIEW, {"sid": series_id})
     return {r.day: (float(r.energy_wh), int(r.covered_minutes), int(r.n)) for r in rows}
 
@@ -126,9 +131,7 @@ def compare(exact: dict, view: dict, gate_pct: float = 1.0, min_coverage: float 
         "full_coverage": stats(hi),
         "low_coverage": stats(lo),
         "covered_minutes_mismatch_days": minute_mismatch,
-        "view_days_without_exact": sorted(
-            d.isoformat() for d in view if d not in exact
-        )[:10],
+        "view_days_without_exact": sorted(d.isoformat() for d in view if d not in exact)[:10],
         "exact_days_without_view_count": sum(1 for d in exact if d not in view),
         "exact_days_without_view": sorted(d.isoformat() for d in exact if d not in view)[:10],
     }

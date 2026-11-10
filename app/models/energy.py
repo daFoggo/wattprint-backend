@@ -1,4 +1,3 @@
-import uuid
 from datetime import datetime
 
 import sqlalchemy as sa
@@ -24,7 +23,7 @@ _NOW = text("now()")
 
 
 class Series(Base):
-    __tablename__ = "series"
+    __tablename__ = "tb_series"
     __table_args__ = (
         CheckConstraint("kind IN ('main','plug','device')", name="kind"),
         CheckConstraint("kind <> 'main' OR device_id IS NULL", name="main_has_no_device"),
@@ -33,7 +32,10 @@ class Series(Base):
             name="device_kinds_need_device",
         ),
         UniqueConstraint(
-            "home_id", "kind", "device_id", "metric",
+            "home_id",
+            "kind",
+            "device_id",
+            "metric",
             name="uq_series_home_kind_device_metric",
             postgresql_nulls_not_distinct=True,
         ),
@@ -44,33 +46,33 @@ class Series(Base):
             unique=True,
             postgresql_where=text("meter_id IS NOT NULL AND source_channel IS NOT NULL"),
         ),
-        {"schema": "energy"},
+        {"schema": "public"},
     )
 
     series_id: Mapped[int] = mapped_column(Integer, Identity(always=False), primary_key=True)
-    home_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("core.home.id", ondelete="CASCADE"))
+    home_id: Mapped[int] = mapped_column(ForeignKey("public.tb_home.id", ondelete="CASCADE"))
     kind: Mapped[str] = mapped_column(String(16))
-    device_id: Mapped[uuid.UUID | None] = mapped_column(
-        ForeignKey("core.device.id", ondelete="CASCADE"), index=True
+    device_id: Mapped[int | None] = mapped_column(
+        ForeignKey("public.tb_device.id", ondelete="CASCADE"), index=True
     )
-    meter_id: Mapped[uuid.UUID | None] = mapped_column(
-        ForeignKey("core.meter.id", ondelete="SET NULL"), index=True
+    meter_id: Mapped[int | None] = mapped_column(
+        ForeignKey("public.tb_meter.id", ondelete="SET NULL"), index=True
     )
     source_channel: Mapped[str | None] = mapped_column(Text)
-    metric: Mapped[str] = mapped_column(String(64), ForeignKey("catalog.metric.event_type"))
+    metric: Mapped[str] = mapped_column(String(64), ForeignKey("public.cat_metric.event_type"))
     unit: Mapped[str] = mapped_column(Text)
 
 
 class InferenceRun(Base):
-    __tablename__ = "inference_run"
+    __tablename__ = "tb_inference_run"
     __table_args__ = (
         CheckConstraint("status IN ('running','ok','failed')", name="status"),
-        {"schema": "energy"},
+        {"schema": "public"},
     )
 
     run_id: Mapped[int] = mapped_column(Integer, Identity(always=False), primary_key=True)
-    home_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("core.home.id", ondelete="CASCADE"), index=True
+    home_id: Mapped[int] = mapped_column(
+        ForeignKey("public.tb_home.id", ondelete="CASCADE"), index=True
     )
     model_name: Mapped[str] = mapped_column(Text)
     model_version: Mapped[str] = mapped_column(Text)
@@ -82,8 +84,8 @@ class InferenceRun(Base):
 
 
 class WeatherHourly(Base):
-    __tablename__ = "weather_hourly"
-    __table_args__ = {"schema": "energy"}
+    __tablename__ = "tb_weather_hourly"
+    __table_args__ = {"schema": "public"}
 
     province_code: Mapped[str] = mapped_column(Text, primary_key=True)
     ts: Mapped[datetime] = mapped_column(DateTime(timezone=True), primary_key=True)
@@ -93,21 +95,21 @@ class WeatherHourly(Base):
 
 # Hypertables: Core inserts only, no ORM classes. No FKs by design (see spec section 5).
 reading_table = sa.Table(
-    "reading",
+    "tb_reading",
     Base.metadata,
     sa.Column("ts", DateTime(timezone=True), nullable=False, primary_key=True),
     sa.Column("series_id", Integer, nullable=False, primary_key=True),
     sa.Column("value", REAL, nullable=False),
     sa.Column("quality", SmallInteger, nullable=False, server_default="0"),
-    schema="energy",
+    schema="public",
 )
 
 device_estimate_table = sa.Table(
-    "device_estimate",
+    "tb_device_estimate",
     Base.metadata,
     sa.Column("ts", DateTime(timezone=True), nullable=False, primary_key=True),
     sa.Column("series_id", Integer, nullable=False, primary_key=True),
     sa.Column("value", REAL, nullable=False),
     sa.Column("run_id", Integer),
-    schema="energy",
+    schema="public",
 )

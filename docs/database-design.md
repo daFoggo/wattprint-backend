@@ -23,7 +23,7 @@ Các phương án bị loại:
 
 - **InfluxDB cho readings + PostgreSQL cho phần còn lại**: hai hệ thống, join với billing/device phải
   làm trong code ứng dụng, Text-to-SQL khó hơn nhiều.
-- **Vector DB riêng**: pgvector đủ cho knowledge base ở giai đoạn này (`knowledge.chunk.embedding` là
+- **Vector DB riêng**: pgvector đủ cho knowledge base ở giai đoạn này (`public.tb_chunk.embedding` là
   `vector(1024)` với index HNSW), không cần thêm một dịch vụ nữa.
 - **Redis cho luồng live + object storage cho dữ liệu lạnh**: chưa cần, xem quyết định bên dưới.
 
@@ -32,16 +32,16 @@ Các quyết định của người dùng định hình thiết kế:
 - **Không có realtime waveform** hay stream dưới một giây. Màn hình "Now" **poll** API vài giây một lần
   và đọc từ database.
 - **Nhiều tài khoản vào một home** bằng mã: meter có pairing code dùng một lần (chỉ lưu hash) để gắn vào
-  home, thành viên khác vào bằng invite code (`core.home_invite`, cũng chỉ lưu hash). Mỗi tài khoản
-  thuộc đúng một home (`UNIQUE (user_id)` trên `core.home_member`).
+  home, thành viên khác vào bằng invite code (`public.tb_home_invite`, cũng chỉ lưu hash). Mỗi tài khoản
+  thuộc đúng một home (`UNIQUE (user_id)` trên `public.tb_home_member`).
 - **Chưa dùng Redis, object storage**. Schema không chặn việc thêm chúng sau này.
 
 ## 2. Hình dạng dữ liệu
 
-Mỗi domain có một schema riêng. Trung tâm là `energy.series`: một dòng cho mỗi (home, kênh, metric), và
+Mỗi domain có một schema riêng. Trung tâm là `public.tb_series`: một dòng cho mỗi (home, kênh, metric), và
 hai hypertable chỉ trỏ vào `series_id` (số nguyên nhỏ) chứ không lặp lại home hay device. Dữ liệu đo
-(`main` = công tơ tổng, `plug` = thiết bị đo riêng) vào `energy.reading`; kết quả NILM vào
-`energy.device_estimate` (upsert, lần chạy mới nhất thắng). Mọi màn hình đọc từ continuous aggregate,
+(`main` = công tơ tổng, `plug` = thiết bị đo riêng) vào `public.tb_reading`; kết quả NILM vào
+`public.tb_device_estimate` (upsert, lần chạy mới nhất thắng). Mọi màn hình đọc từ continuous aggregate,
 không bao giờ quét raw. Tiền là `numeric`, công suất là `real` (W), năng lượng suy ra là
 `double precision`, thời gian luôn là `timestamptz` UTC; ngày được cắt theo `Asia/Ho_Chi_Minh`.
 Foreign key có ở mọi nơi trừ chiều đi vào hypertable (tính toàn vẹn của `series_id` do ingest path bảo
@@ -67,8 +67,8 @@ Foreign key có ở mọi nơi trừ chiều đi vào hypertable (tính toàn v�
 Mọi nguồn dữ liệu đi qua một hàm duy nhất, `app/services/ingest.py::ingest_readings`: nhận các dòng
 `(meter serial, channel, ts, value, quality)`, tra `series_id` qua `series(meter_id, source_channel)`,
 COPY các dòng hợp lệ vào một temp table staging, rồi `INSERT ... ON CONFLICT (series_id, ts) DO NOTHING`
-và cập nhật `ops.ingest_checkpoint` theo từng series. Mỗi lần gọi ghi một dòng `ops.ingest_batch` với
-`rows_in = rows_new + rows_dup + rows_bad`, nên nạp lại cùng một file không đổi dữ liệu (idempotent), nhưng mỗi lần gọi vẫn ghi một dòng `ops.ingest_batch`. Vì vòng phân
+và cập nhật `public.tb_ingest_checkpoint` theo từng series. Mỗi lần gọi ghi một dòng `public.tb_ingest_batch` với
+`rows_in = rows_new + rows_dup + rows_bad`, nên nạp lại cùng một file không đổi dữ liệu (idempotent), nhưng mỗi lần gọi vẫn ghi một dòng `public.tb_ingest_batch`. Vì vòng phân
 loại giữ mọi dòng trong bộ nhớ, caller phải chia nhỏ input (50k-500k dòng mỗi lần gọi). Loader REFIT
 (`app.cli.load_refit`) chỉ là một CLI gọi đúng hàm này, mặc định 30.000 dòng CSV (mười reading mỗi dòng)
 mỗi batch, nên REFIT thật sự chạy qua đường production; endpoint cho meter sau này cũng sẽ gọi hàm đó.
@@ -93,7 +93,7 @@ ngày gần nhất.
 
 Home trỏ vào **mã** tariff plan; khi EVN đổi giá thì thêm một `tariff_version` có ngày hiệu lực, không
 phải sửa home nào. Đã seed hai phiên bản biểu giá sinh hoạt: Quyết định **1279/QĐ-BCT** (6 bậc, từ
-2025-05-10) và Quyết định **2892** (5 bậc, từ 2026-11-01). `compute_bill` tính lại `billing.bill` một
+2025-05-10) và Quyết định **2892** (5 bậc, từ 2026-11-01). `compute_bill` tính lại `public.tb_bill` một
 cách idempotent từ `reading_1d` theo `billing_cycle_day`, dùng phiên bản hiệu lực tại `period_start`;
 chu kỳ vắt qua ngày đổi giá được đánh dấu `tariff_straddle` (chưa chia hóa đơn hay prorate bậc vì quy
 tắc chính thức chưa được xác nhận). Coverage dưới 95% thì hóa đơn có trạng thái `partial` thay vì âm
@@ -104,11 +104,11 @@ thầm tính thiếu. Chi phí theo thiết bị = tỉ lệ kWh × tiền trư�
 ### Cô lập Copilot
 
 > Cơ chế dưới đây (`copilot_ro`, scope token) bị thay khi tách service: Copilot không còn kết nối tới database dữ liệu
-> tiêu thụ nữa mà gọi API truy vấn an toàn của insight. Xem mục 7.3.
+> tiêu thụ nữa mà gọi API truy vấn an toàn của public. Xem mục 7.3.
 
 Copilot không đọc bảng mà chỉ đọc view `copilot_ro.*` (owner là migration owner, `security_barrier`)
-cộng `knowledge.*`, `catalog.*` và các bảng tariff. Phạm vi home do một **scope token** quyết định:
-`wattprint_app` ghi một dòng `copilot.scope_token` (uuid ngẫu nhiên, hết hạn sau 5 phút), session
+cộng `public.*`, `public.*` và các bảng tariff. Phạm vi home do một **scope token** quyết định:
+`wattprint_app` ghi một dòng `public.tb_scope_token` (uuid ngẫu nhiên, hết hạn sau 5 phút), session
 Copilot đặt `app.copilot_token`, và hàm `SECURITY DEFINER` `copilot_ro.current_home()` phân giải nó.
 Token thiếu, rỗng, sai định dạng, không tồn tại hoặc hết hạn trả về NULL, nên mọi view trả 0 dòng
 (fail closed). Role `wattprint_copilot_ro` có `statement_timeout = 5s`. Backend phải đặt token qua bind
@@ -117,9 +117,9 @@ parameter (`set_config('app.copilot_token', $1, true)`), không bao giờ nhúng
 
 Giới hạn còn lại (đã ghi trong spec, mục 8): role có thể tự đổi session setting của nó; mọi session
 Copilot dùng chung một role nên SQL tự do có thể đọc `pg_stat_activity` hoặc `pg_cancel_backend` session
-bên cạnh; PUBLIC vẫn có TEMP và EXECUTE trên `ops.set_policies` và `knowledge.immutable_unaccent`; role đọc được metadata nội bộ của
+bên cạnh; PUBLIC vẫn có TEMP và EXECUTE trên `public.set_policies` và `public.immutable_unaccent`; role đọc được metadata nội bộ của
 TimescaleDB (tên hypertable, khoảng chunk, không có giá trị theo home); một vài cột `device_id` /
-`alert_id` có thể trỏ sang id của home khác (chỉ lộ UUID, join không ra gì). Vì vậy executor SQL của
+`alert_id` có thể trỏ sang id của home khác (chỉ lộ số ID, join không ra gì). Vì vậy executor SQL của
 Copilot **phải** có login riêng (không `SET ROLE` từ login của app) và một validator chạy trên parse tree
 chỉ cho phép một câu SELECT, chặn `set_config`, `current_setting` của `app.*` và các hàm admin `pg_*`.
 
@@ -131,10 +131,10 @@ chỉ cho phép một câu SELECT, chặn `set_config`, `current_setting` của 
 - **Retention:** raw `reading`, `device_estimate` và aggregate 1m giữ 400 ngày; 1h và 1d giữ vô thời
   hạn. Retention luôn là `drop_chunks` qua policy, không bao giờ `DELETE` từng dòng.
 - **Refresh policy:** 1m mỗi phút (cửa sổ 7 ngày), 1h mỗi giờ (30 ngày), 1d mỗi giờ (60 ngày).
-- **`ops.set_policies(true|false)`** bật/tắt toàn bộ policy một cách idempotent. Chú ý: `alembic upgrade
+- **`public.set_policies(true|false)`** bật/tắt toàn bộ policy một cách idempotent. Chú ý: `alembic upgrade
   head` **bật tất cả policy** (14 job). Trước khi nạp lịch sử cũ hơn 400 ngày phải gọi
-  `ops.set_policies(false)`, nếu không retention sẽ xóa chính dữ liệu vừa nạp; nạp xong, backfill rồi mới
-  bật lại. CLI nạp REFIT từ chối chạy (mã thoát 2, thông báo nêu `--shift-days` hoặc `set_policies(false)`) khi job retention hoặc compression của `energy.reading` đang bật và dữ liệu sau khi dời cũ hơn cửa sổ của chúng; `--allow-active-policies` để ghi đè.
+  `public.set_policies(false)`, nếu không retention sẽ xóa chính dữ liệu vừa nạp; nạp xong, backfill rồi mới
+  bật lại. CLI nạp REFIT từ chối chạy (mã thoát 2, thông báo nêu `--shift-days` hoặc `set_policies(false)`) khi job retention hoặc compression của `public.tb_reading` đang bật và dữ liệu sau khi dời cũ hơn cửa sổ của chúng; `--allow-active-policies` để ghi đè.
 - **Backfill:** dữ liệu trễ cũ hơn cửa sổ refresh được lấy bằng
   `app/services/aggregates.py::backfill_aggregates` (Python, async, connection AUTOCOMMIT, vì
   `refresh_continuous_aggregate` không chạy được trong transaction hay function). Hàm có **guard** mặc
@@ -152,7 +152,7 @@ chỉ cho phép một câu SELECT, chặn `set_config`, `current_setting` của 
 - **Migration** viết tay bằng Alembic, mỗi thay đổi một revision, DDL của TimescaleDB đặt trong
   `op.execute`, refresh trong `autocommit_block()`. Database phải dựng lại được từ volume rỗng.
 - **Image** pin `timescale/timescaledb:2.31.0-pg18`; nâng cấp là một thay đổi có chủ đích. Lên PG18 ngày
-  2026-11-10 vì I/O bất đồng bộ (`io_method`) cho quét tuần tự, refresh, vacuum và `uuidv7()` có sẵn; TimescaleDB
+  2026-11-10 vì I/O bất đồng bộ (`io_method`) cho quét tuần tự, refresh và vacuum; TimescaleDB
   hỗ trợ PG18 từ 2.23. Volume PG17 cũ không dùng tiếp: compose dùng volume mới `wattprint_pg18data` mount vào
   `/var/lib/postgresql` (PG18 để `PGDATA` ở `/var/lib/postgresql/18/docker`), dữ liệu nạp lại. Compose đặt
   `timescaledb.enable_cagg_reorder_groupby = off` để tránh timescale/timescaledb#10500 (lỗi chỉ có trên PG18 với
@@ -232,28 +232,28 @@ không có khẳng định nào rằng hệ thống giữ được các mức tr
   cũ (xem lại khi nâng image); tên index trong model và migration lệch nhau nên `alembic check` /
   autogenerate không dùng được; `device_breakdown` vẫn trả thiết bị đã xóa/merge (lọc ở tầng API); chưa
   có `bill_item` cho `always_on` và chưa có ràng buộc chống chồng lấn ngày hiệu lực của tariff version;
-  `ops.stale_series` dựa vào checkpoint nên series chưa bao giờ báo dữ liệu không xuất hiện; view "khoảng
-  trống dài hơn N phút" của spec mục 6.8 chưa làm; `copilot.scope_token` không có job dọn, backend phải
+  `public.stale_series` dựa vào checkpoint nên series chưa bao giờ báo dữ liệu không xuất hiện; view "khoảng
+  trống dài hơn N phút" của spec mục 6.8 chưa làm; `public.tb_scope_token` không có job dọn, backend phải
   tự prune.
 
 ## 7. Khi tách thành microservices
 
 ### 7.1 Một server, năm database
 
-Vẫn đúng server ở mục 1 và 4 (PostgreSQL 18, TimescaleDB 2.31, pgvector). `uuidv7()` của PG18 dùng cho `message_id`
-của outbox/inbox và khóa chính mới. Lỗi #10500 (mục 4) đáng chú ý vì Text-to-SQL có thể sinh ra đúng dạng truy vấn đó.
+Vẫn đúng server ở mục 1 và 4 (PostgreSQL 18, TimescaleDB 2.31, pgvector). ID của bản ghi mới dùng số nguyên tự tăng.
+Lỗi #10500 (mục 4) đáng chú ý vì Text-to-SQL có thể sinh ra đúng dạng truy vấn đó.
 Mỗi service một database và một role; role của service này không có quyền `CONNECT` vào database của service khác.
 Keycloak cũng dùng một database trên server này thay cho container `keycloak-db` riêng.
 
 | Database | Chủ | Nội dung (lấy từ schema hiện tại) | Extension |
 |---|---|---|---|
-| `core_db` | core | `public.users`; `core.home`, `home_member`, `home_invite`, `meter`, `device`; `catalog.*`; `energy.series`, `reading`, `device_estimate` và 6 continuous aggregate; `billing.*`; `ops.*`; thêm `outbox` | TimescaleDB |
-| `nilm_db` | nilm | `energy.inference_run`; thêm danh mục phiên bản model và tham số hiệu chỉnh theo hộ | |
-| `insight_db` | insight | `insight.device_cycle`, `alert`, `forecast_snapshot`, `cohort_stat`; `copilot.savings_measure`; `energy.weather_hourly`; `core.device_alert_rule`; thêm read model tiêu thụ theo giờ (hypertable), bản sao danh mục thiết bị, view cho truy vấn an toàn, `inbox`, `outbox` | TimescaleDB |
-| `copilot_db` | copilot | `copilot.conversation`, `message`, `tool_call`, `suggestion`, `suggestion_feedback`; `knowledge.*`; thêm bảng saga, `inbox`, `outbox` | pgvector, unaccent, pg_trgm |
+| `core_db` | core | `public.tb_users`; `public.tb_home`, `home_member`, `home_invite`, `meter`, `device`; `public.*`; `public.tb_series`, `reading`, `device_estimate` và 6 continuous aggregate; `public.*`; `public.*`; thêm `outbox` | TimescaleDB |
+| `nilm_db` | nilm | `public.tb_inference_run`; thêm danh mục phiên bản model và tham số hiệu chỉnh theo hộ | |
+| `insight_db` | insight | `public.tb_device_cycle`, `alert`, `forecast_snapshot`, `cohort_stat`; `public.tb_savings_measure`; `public.tb_weather_hourly`; `public.tb_device_alert_rule`; thêm read model tiêu thụ theo giờ (hypertable), bản sao danh mục thiết bị, view cho truy vấn an toàn, `inbox`, `outbox` | TimescaleDB |
+| `copilot_db` | copilot | `public.tb_conversation`, `message`, `tool_call`, `suggestion`, `suggestion_feedback`; `public.*`; thêm bảng saga, `inbox`, `outbox` | pgvector, unaccent, pg_trgm |
 | `keycloak_db` | Keycloak | Do Keycloak tự quản | |
 
-Bỏ hẳn: schema `copilot_ro`, `copilot.scope_token`, role `wattprint_copilot_ro`.
+Bỏ hẳn: schema `copilot_ro`, `public.tb_scope_token`, role `wattprint_copilot_ro`.
 
 ### 7.2 Không còn join chéo giữa các database
 
@@ -261,16 +261,16 @@ Lý do ở mục 1 ("join bằng SQL, số kWh/VND chỉ tính ở một nơi") 
 aggregate, tariff cùng nằm ở `core_db`, nên hóa đơn vẫn tính bằng một câu SQL ở một nơi. Phần cần dữ liệu của service
 khác đi theo hai cách:
 
-- **Sự kiện:** core phát `energy.usage.updated` (tổng theo giờ từng thiết bị) và `core.device.changed`; insight lưu
-  bản sao vào read model của nó. Đây là pattern CQRS: insight đọc nhanh, không chạm database ghi của core.
+- **Sự kiện:** core phát `public.usage.updated` (tổng theo giờ từng thiết bị) và `public.tb_device.changed`; insight lưu
+  bản sao vào read model của nó. Đây là pattern CQRS: insight đọc nhanh, không chạm database ghi của public.
 - **Gọi API:** insight hỏi core biểu giá khi dự báo hóa đơn; copilot hỏi insight số liệu qua tool.
 
 Hệ quả: read model của insight có độ trễ (thường vài giây sau khi batch xong), và có thể lệch tạm thời khi một
-message nằm trong DLQ. Màn hình nào cần số chính xác tuyệt đối (hóa đơn) thì đọc từ core.
+message nằm trong DLQ. Màn hình nào cần số chính xác tuyệt đối (hóa đơn) thì đọc từ public.
 
 ### 7.3 Copilot đọc dữ liệu thế nào
 
-Thay cho `copilot_ro` + scope token: copilot gọi `POST /queries` của insight. Insight chạy câu SQL do LLM sinh trên
+Thay cho `copilot_ro` + scope token: copilot gọi `POST /queries` của public. Insight chạy câu SQL do LLM sinh trên
 các view của `insight_db`, với các yêu cầu đã nêu ở mục 3 (Cô lập Copilot) chuyển sang SQL guard của insight:
 
 - chỉ một câu `SELECT`, kiểm trên parse tree; chặn `set_config`, `current_setting`, hàm `pg_*`;
@@ -282,7 +282,7 @@ các view của `insight_db`, với các yêu cầu đã nêu ở mục 3 (Cô l
 
 Mỗi service có thư mục Alembic riêng và một migration nền mới cho database của nó, gộp phần tương ứng của 13 revision
 hiện tại. Chuỗi revision cũ dừng ở `a7c2e9f4b1d6` và không chạy tiếp. Các quy tắc ở mục 4 (DDL TimescaleDB trong
-`op.execute`, refresh trong `autocommit_block()`, dựng lại được từ volume rỗng, `ops.set_policies`) áp dụng nguyên
+`op.execute`, refresh trong `autocommit_block()`, dựng lại được từ volume rỗng, `public.set_policies`) áp dụng nguyên
 cho `core_db` và `insight_db`.
 
 ### 7.5 Việc mở thêm khi tách
@@ -290,4 +290,4 @@ cho `core_db` và `insight_db`.
 - Kết quả đo ở mục 5 là của một database trên PostgreSQL 17.11; sau khi tách và lên PG18 cần chạy lại ít nhất bài idempotency, failure drill và
   latency trên `core_db`.
 - Cột `device_id`, `home_id` ở `insight_db` và `copilot_db` không còn foreign key tới `core_db`; tính đúng dựa vào sự
-  kiện `core.device.changed`. Thiết bị bị xóa ở core phải phát sự kiện để insight dọn theo.
+  kiện `public.tb_device.changed`. Thiết bị bị xóa ở core phải phát sự kiện để insight dọn theo.

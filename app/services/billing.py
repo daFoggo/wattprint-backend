@@ -1,7 +1,6 @@
 import calendar
 from datetime import UTC, date, datetime, timedelta, timezone
 from decimal import ROUND_HALF_UP, Decimal
-from uuid import UUID
 
 from sqlalchemy import delete, func, select, text
 from sqlalchemy.dialects.postgresql import insert
@@ -10,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..models.billing import Bill, BillItem, TariffTier, TariffVersion
 from ..models.core import Device, Home
 
-# Homes are pinned to Asia/Ho_Chi_Minh (a CHECK on core.home.timezone), which has no DST.
+# Homes are pinned to Asia/Ho_Chi_Minh (a CHECK on public.tb_home.timezone), which has no DST.
 ICT = timezone(timedelta(hours=7))
 PARTIAL_BELOW = Decimal("0.95")
 _ONE = Decimal(1)
@@ -43,7 +42,7 @@ async def _kwh_by_series(session, view, series_ids, lo, hi) -> dict[int, Decimal
         return {}
     rows = await session.execute(
         text(
-            f"SELECT series_id, sum(energy_wh)::numeric AS wh FROM energy.{view} "
+            f"SELECT series_id, sum(energy_wh)::numeric AS wh FROM public.{view} "
             "WHERE series_id = ANY(:ids) AND bucket >= :lo AND bucket < :hi GROUP BY series_id"
         ),
         {"ids": list(series_ids), "lo": lo, "hi": hi},
@@ -51,9 +50,7 @@ async def _kwh_by_series(session, view, series_ids, lo, hi) -> dict[int, Decimal
     return {r.series_id: _round(Decimal(r.wh) / 1000, "0.001") for r in rows}
 
 
-def _split_amount(
-    shares: list[Decimal], before_vat: Decimal, remainder_to: int
-) -> list[Decimal]:
+def _split_amount(shares: list[Decimal], before_vat: Decimal, remainder_to: int) -> list[Decimal]:
     """Amount per item in whole dong; the rounding remainder goes to item `remainder_to`."""
     amounts = [_round(s * before_vat) for s in shares]
     amounts[remainder_to] += before_vat - sum(amounts)
@@ -80,13 +77,11 @@ def _allocate(
     exact = [k / denom for k in kwhs]
     has_other = dev_sum < kwh_total
     amounts = _split_amount(exact, before_vat, len(kwhs) - 1 if has_other else 0)
-    return [
-        (k, _round(e, "0.000001"), a) for k, e, a in zip(kwhs, exact, amounts, strict=True)
-    ]
+    return [(k, _round(e, "0.000001"), a) for k, e, a in zip(kwhs, exact, amounts, strict=True)]
 
 
 async def compute_bill(
-    session: AsyncSession, home_id: UUID, period_start: date, now: datetime | None = None
+    session: AsyncSession, home_id: int, period_start: date, now: datetime | None = None
 ) -> Bill:
     """Compute (or recompute) the bill of one billing cycle; idempotent on (home, period_start).
 
@@ -107,7 +102,8 @@ async def compute_bill(
 
     version = (
         await session.execute(
-            select(TariffVersion).where(
+            select(TariffVersion)
+            .where(
                 TariffVersion.plan_code == home.tariff_plan_code,
                 TariffVersion.valid_from <= period_start,
                 func.coalesce(TariffVersion.valid_to, date.max) >= period_start,
@@ -130,8 +126,9 @@ async def compute_bill(
         )
     ) > 0
     tiers = list(
-        (await session.execute(select(TariffTier).where(TariffTier.version_id == version.id)))
-        .scalars()
+        (
+            await session.execute(select(TariffTier).where(TariffTier.version_id == version.id))
+        ).scalars()
     )
 
     lo = _local_midnight(period_start)
@@ -141,28 +138,28 @@ async def compute_bill(
     series = (
         await session.execute(
             text(
-                "SELECT series_id, kind, device_id FROM energy.series "
+                "SELECT series_id, kind, device_id FROM public.tb_series "
                 "WHERE home_id = :h AND metric = 'power_w' AND kind IN ('main', 'device')"
             ),
             {"h": home_id},
         )
     ).all()
     main_ids = [s.series_id for s in series if s.kind == "main"]
-    kwh_total = sum((await _kwh_by_series(session, "reading_1d", main_ids, lo, hi)).values(),
-                    Decimal(0))
+    kwh_total = sum(
+        (await _kwh_by_series(session, "reading_1d", main_ids, lo, hi)).values(), Decimal(0)
+    )
     covered = 0
     if main_ids:
         covered = await session.scalar(
             text(
-                "SELECT coalesce(sum(covered_minutes), 0) FROM energy.reading_1d "
+                "SELECT coalesce(sum(covered_minutes), 0) FROM public.reading_1d "
                 "WHERE series_id = ANY(:ids) AND bucket >= :lo AND bucket < :hi"
             ),
             {"ids": main_ids, "lo": lo, "hi": hi},
         )
     expected = (min(now, hi) - lo).total_seconds() / 60
     ratio = (
-        min(_ONE, Decimal(int(covered)) / Decimal(round(expected)))
-        if expected >= 1 else Decimal(0)
+        min(_ONE, Decimal(int(covered)) / Decimal(round(expected))) if expected >= 1 else Decimal(0)
     )
     coverage = _round(ratio, "0.0001")  # stored rounded; the status uses the exact ratio
     if ratio < PARTIAL_BELOW:
@@ -176,9 +173,15 @@ async def compute_bill(
     vat = _round(before_vat * version.vat_rate)
 
     values = dict(
-        period_end=period_end, version_id=version.id, kwh_total=kwh_total,
-        amount_before_vat=before_vat, vat_amount=vat, amount_total=before_vat + vat,
-        coverage=coverage, tariff_straddle=straddle, status=status,
+        period_end=period_end,
+        version_id=version.id,
+        kwh_total=kwh_total,
+        amount_before_vat=before_vat,
+        vat_amount=vat,
+        amount_total=before_vat + vat,
+        coverage=coverage,
+        tariff_straddle=straddle,
+        status=status,
     )
     bill_id = await session.scalar(
         insert(Bill)
@@ -192,14 +195,20 @@ async def compute_bill(
 
     if kwh_total > 0:
         dev_series = {s.series_id: s.device_id for s in series if s.kind == "device"}
-        dev_kwh = await _kwh_by_series(
-            session, "device_estimate_1d", list(dev_series), lo, hi
+        dev_kwh = await _kwh_by_series(session, "device_estimate_1d", list(dev_series), lo, hi)
+        names = (
+            dict(
+                (
+                    await session.execute(
+                        select(Device.id, Device.name).where(
+                            Device.id.in_(set(dev_series.values()))
+                        )
+                    )
+                ).all()
+            )
+            if dev_series
+            else {}
         )
-        names = dict(
-            (await session.execute(
-                select(Device.id, Device.name).where(Device.id.in_(set(dev_series.values())))
-            )).all()
-        ) if dev_series else {}
         devs = sorted(
             ((dev_series[sid], names[dev_series[sid]], kwh) for sid, kwh in dev_kwh.items()),
             key=lambda e: -e[2],
