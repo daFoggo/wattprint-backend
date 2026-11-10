@@ -38,7 +38,7 @@ Các quyết định của người dùng định hình thiết kế:
 
 ## 2. Hình dạng dữ liệu
 
-Mỗi domain có một schema riêng. Trung tâm là `public.tb_series`: một dòng cho mỗi (home, kênh, metric), và
+Các bảng nghiệp vụ hiện cùng nằm trong schema `public`; data mart AI và hội thoại nằm trong schema `ai`. Trung tâm là `public.tb_series`: một dòng cho mỗi (home, kênh, metric), và
 hai hypertable chỉ trỏ vào `series_id` (số nguyên nhỏ) chứ không lặp lại home hay device. Dữ liệu đo
 (`main` = công tơ tổng, `plug` = thiết bị đo riêng) vào `public.tb_reading`; kết quả NILM vào
 `public.tb_device_estimate` (upsert, lần chạy mới nhất thắng). Mọi màn hình đọc từ continuous aggregate,
@@ -49,16 +49,9 @@ Foreign key có ở mọi nơi trừ chiều đi vào hypertable (tính toàn v�
 
 | Schema | Bảng / view |
 |---|---|
-| `public` | `users`, `refresh_tokens` (có từ trước), `alembic_version` |
-| `core` | `home`, `home_member`, `home_invite`, `meter`, `device`, `device_alert_rule` |
-| `catalog` | `metric`, `device_type` (dữ liệu tham chiếu, seed sẵn) |
-| `energy` | `series`, `reading` (hypertable), `device_estimate` (hypertable), `inference_run`, `weather_hourly`; continuous aggregate `reading_1m` → `reading_1h` → `reading_1d` và `device_estimate_1m` → `device_estimate_1h` → `device_estimate_1d` |
-| `billing` | `tariff_plan`, `tariff_version`, `tariff_tier`, `bill`, `bill_item` |
-| `insight` | `device_cycle` (hypertable), `alert`, `forecast_snapshot`, `cohort_stat` |
-| `ai` | `ai_conversation`, `ai_message`, `ai_tool_call` |
+| `public` | Các bảng nghiệp vụ `tb_*`, catalog `cat_*`, gồm auth profile, home/device, energy raw và continuous aggregates, billing, insight, ops, knowledge, suggestions và scope token |
+| `ai` | `ai_conversation`, `ai_message`, `ai_tool_call`; `dim_tariff_plan`, `dim_home`, `dim_device`; views `fact_reading_1m`, `fact_estimate_1m`, `fact_energy`; bảng `metric_definition` |
 | `copilot_ro` | 15 view chỉ đọc cho Copilot: `home`, `device`, `series`, `bill`, `bill_item`, `alert`, `device_cycle`, `suggestion`, `forecast_snapshot` và 6 view bọc các aggregate; hàm `current_home()` |
-| `knowledge` | `document`, `chunk` (pgvector HNSW + GIN full-text với `unaccent`) |
-| `ops` | `ingest_batch`, `ingest_checkpoint`, view `series_daily_coverage`, `stale_series`; hàm `set_policies` |
 
 ## 3. Đường ghi và đường đọc
 
@@ -69,9 +62,10 @@ Mọi nguồn dữ liệu đi qua một hàm duy nhất, `app/services/ingest.py
 COPY các dòng hợp lệ vào một temp table staging, rồi `INSERT ... ON CONFLICT (series_id, ts) DO NOTHING`
 và cập nhật `public.tb_ingest_checkpoint` theo từng series. Mỗi lần gọi ghi một dòng `public.tb_ingest_batch` với
 `rows_in = rows_new + rows_dup + rows_bad`, nên nạp lại cùng một file không đổi dữ liệu (idempotent), nhưng mỗi lần gọi vẫn ghi một dòng `public.tb_ingest_batch`. Vì vòng phân
-loại giữ mọi dòng trong bộ nhớ, caller phải chia nhỏ input (50k-500k dòng mỗi lần gọi). Loader REFIT
-(`app.cli.load_refit`) chỉ là một CLI gọi đúng hàm này, mặc định 30.000 dòng CSV (mười reading mỗi dòng)
-mỗi batch, nên REFIT thật sự chạy qua đường production; endpoint cho meter sau này cũng sẽ gọi hàm đó.
+loại giữ mọi dòng trong bộ nhớ, caller phải chia nhỏ input (50k-500k dòng mỗi lần gọi). Endpoint cho
+meter sau này sẽ gọi hàm này. Dữ liệu seed REFIT House 2 thì không đi qua đây: revision Alembic
+`e2b726548f8c` ghi thẳng vào `public.tb_reading` theo batch `INSERT ... SELECT unnest(...) ON CONFLICT DO
+NOTHING` và lưu watermark từng đoạn (test trước, train sau) trong `etl.tb_watermark`.
 
 ### Continuous aggregates
 
@@ -145,10 +139,12 @@ chỉ cho phép một câu SELECT, chặn `set_config`, `current_setting` của 
   thể đưa số raw về bằng hoặc vượt `n` và che mất phần đã mất; qua được guard không chứng minh raw còn
   nguyên. Quy tắc thực tế: không backfill cửa sổ cũ hơn retention của raw. Backfill lịch sử dài nên chạy
   từ mới về cũ (xem mục chi phí refresh 1d bên dưới).
-- **Roles:** migration chạy bằng login owner của database (`POSTGRES_USER`, spec gọi là
-  `wattprint_owner` nhưng migration không tạo role tên đó); ba role do migration tạo: `wattprint_app` (API: DML trên bảng của nó, phát scope
-  token), `wattprint_ingest` (INSERT readings và `ops`), `wattprint_copilot_ro` (SELECT trên whitelist).
-  Grant theo từng object, không bao giờ `ALL TABLES`.
+- **Roles:** migration chạy bằng login owner của database (`POSTGRES_USER`); các role gồm
+  `wattprint_app`, `wattprint_ingest`, `wattprint_copilot_ro` và `wattprint_ai` (login
+  `wattprint_ai_user`). AI chỉ đọc dimensions/facts, đọc/ghi conversation; app cũng có quyền
+  quản lý conversation và dimensions.
+  **Quyền app hiện cần rà soát:** revision `cf93b7d8a102` cấp `ALL PRIVILEGES` và default
+  privileges cho `wattprint_app`; revision ma trận quyền sau đó không thu hồi các grants rộng này.
 - **Migration** viết tay bằng Alembic, mỗi thay đổi một revision, DDL của TimescaleDB đặt trong
   `op.execute`, refresh trong `autocommit_block()`. Database phải dựng lại được từ volume rỗng.
 - **Image** pin `timescale/timescaledb:2.31.0-pg18`; nâng cấp là một thay đổi có chủ đích. Lên PG18 ngày
@@ -280,8 +276,11 @@ các view của `insight_db`, với các yêu cầu đã nêu ở mục 3 (Cô l
 
 ### 7.4 Migration
 
-Mỗi service có thư mục Alembic riêng và một migration nền mới cho database của nó, gộp phần tương ứng của 13 revision
-hiện tại. Chuỗi revision cũ dừng ở `a7c2e9f4b1d6` và không chạy tiếp. Các quy tắc ở mục 4 (DDL TimescaleDB trong
+Mỗi service có thư mục Alembic riêng và một migration nền mới cho database của nó, gộp phần tương ứng của 26 revision
+hiện tại. Hiện tại các revision vẫn chạy thành một chuỗi Alembic tuyến tính chung; `versions/public/` và
+`versions/ai/` phân loại revision tạo đối tượng mới theo schema, còn `versions/updates/` dành cho thay đổi đối tượng
+đã có hoặc luồng chung. Các thư mục này chưa tạo hai nhánh Alembic độc lập. Chuỗi revision cũ dừng ở `a7c2e9f4b1d6`
+và không chạy tiếp. Các quy tắc ở mục 4 (DDL TimescaleDB trong
 `op.execute`, refresh trong `autocommit_block()`, dựng lại được từ volume rỗng, `public.set_policies`) áp dụng nguyên
 cho `core_db` và `insight_db`.
 

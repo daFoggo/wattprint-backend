@@ -38,15 +38,15 @@ app/
   routers/         health, users
   services/        business logic (users: first-login provisioning)
 keycloak/realm/    realm export imported by Keycloak on first start (clients, roles, admin user)
-alembic/           migrations (versions/): users, TimescaleDB extension, legacy schema removal, server defaults, energy time series and continuous aggregates (the 1 m ones compressed), billing, roles, Keycloak identity (drops refresh tokens and passwords)
+alembic/           hand-written revisions in versions/{public,ai,updates}; database-wide bootstrap revisions stay in versions/
 tests/
 pyproject.toml     (uv)
 Dockerfile
 docker-compose.yml
 ```
 
-TimescaleDB: the extension is enabled by the `enable timescaledb` Alembic migration (needs a superuser DB role,
-which the compose `db` user is).
+The database bootstrap enables TimescaleDB and the foundation revision ensures required extensions and database roles.
+Migrations need a database owner with permission to create extensions and roles (the compose `db` user has these permissions).
 
 ## Auth flow (Keycloak)
 
@@ -101,8 +101,15 @@ Known deviations from Keycloak/OAuth best practice, kept on purpose for developm
 
 ## Migrations and tests
 
+Revisions are hand-written (not autogenerate), because hypertables, continuous aggregates, grants and
+cross-schema views need explicit DDL. Put new public business objects in `versions/public/`, new AI
+objects in `versions/ai/`, and changes to existing objects or the shared linear migration flow in
+`versions/updates/`. All three locations feed the same Alembic revision chain.
+
 ```bash
-docker compose exec api alembic revision --autogenerate -m "msg"
+docker compose exec api alembic revision -m "initial module" --version-path alembic/versions/public
+# Use --version-path alembic/versions/ai for AI schema revisions.
+# Use --version-path alembic/versions/updates for changes to existing objects or shared flow.
 docker compose exec api alembic upgrade head
 docker compose exec api pytest
 docker compose exec api ruff check app tests alembic
@@ -112,7 +119,7 @@ Tests run inside the `api` container (database access). Token tests sign with a 
 
 ## TODO
 
-- Social login (Google/Apple) as Keycloak identity providers
+- Apple as an additional Keycloak identity provider (Google is already configured)
 - SMTP in Keycloak (email verification, password reset)
-- Hypertables/continuous aggregates for time-series data
+- AI query execution and validation over `ai.fact_energy`
 - CI

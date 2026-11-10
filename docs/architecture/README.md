@@ -67,7 +67,7 @@ và gửi batch số đo qua HTTPS tới gateway bằng API key của thiết b�
 script Python đọc CSV của bộ dữ liệu REFIT và gửi batch qua gateway y như cảm biến thật (cùng endpoint, cùng API key,
 cùng `Idempotency-Key`), có thể tua nhanh thời gian. Trên sơ đồ chỉ vẽ REFIT replayer, kèm ghi chú nó thay cho cảm biến
 thật và dữ liệu là public dataset.
-`app/cli/load_refit.py` hiện ghi thẳng vào database, nên khi tách service sẽ đổi sang gọi API.
+Dữ liệu REFIT hiện được seed bởi revision Alembic `e2b726548f8c`, ghi thẳng vào database; REFIT replayer gọi API sẽ là một script riêng khi tách service.
 
 ## 2b. Dữ liệu
 

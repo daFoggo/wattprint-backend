@@ -6,9 +6,13 @@ Tài liệu cho người mới: database lưu gì, dữ liệu chảy qua đâu,
 
 **Trạng thái hiện tại, đọc trước để khỏi hiểu nhầm**
 
-| Đã có và chạy được | Mới có bảng, chưa có code |
+| Đã có code/audit trước khi khởi tạo AI data mart | Đã có revision, chưa xác nhận tích hợp trên database mới |
 |---|---|
-| Schema đầy đủ qua 12 migration; ingest; aggregate + backfill; read model Meter; tính hóa đơn; loader REFIT | **Mô hình NILM**; endpoint cho công tơ thật; ghi `public.*`, `public.*`, `public.*`; API cho các màn hình |
+| Ingest, continuous aggregates + backfill, read model Meter, tính hóa đơn và loader REFIT | Schema `ai`: role, dimensions, energy facts, metrics và conversation; cần lượt kiểm chứng tích hợp riêng trước khi gọi là production-ready |
+
+Alembic hiện có một chuỗi tuyến tính 26 revision từ database bootstrap đến AI conversation/indexes. Revision mới cho đối tượng nghiệp vụ đặt trong `versions/public/`; data mart và conversation AI đặt trong `versions/ai/`; thay đổi đối tượng đã có hoặc luồng chung đặt trong `versions/updates/`. Các thư mục này cùng dùng một chuỗi `down_revision`, không tạo nhánh độc lập. Ba revision database-wide cũ nằm trực tiếp trong `versions/`.
+
+Hai điểm cần xử lý trong lần dọn migration tiếp theo: TimescaleDB được bật lặp ở bootstrap, revision `a1c3f5b7d9e2` và `foundation`; revision `cf93b7d8a102` cấp quyền app rộng hơn ma trận quyền phía sau và để lại default privileges rộng. Vì các revision đã được commit lên `main`, thay đổi grants nên được sửa tiến bằng revision mới trong `versions/updates/`, không sửa lịch sử đã commit.
 
 Dữ liệu `tb_device_estimate` hiện có là **giả lập**: harness audit copy các kênh `Appliance1-9` của REFIT thành
 series `kind = 'device'` để đo khối lượng. Loader REFIT không làm việc này.
@@ -22,31 +26,12 @@ số đo và ước lượng (rất lớn), nhà và thiết bị, tiền điệ
 
 | Schema | Bảng | Mục đích |
 |---|---|---|
-| `public` | `tb_users` | Tài khoản và phiên đăng nhập (có từ trước) |
-| `core` | `tb_home` | Hộ gia đình: biểu giá áp dụng, ngày chốt hóa đơn |
-| | `tb_home_member` | Tài khoản ↔ home, mỗi tài khoản đúng một home |
-| | `tb_home_invite` | Mã mời thành viên (chỉ lưu hash) |
-| | `tb_meter` | Công tơ/cảm biến vật lý, mã ghép cặp dùng một lần |
-| | `tb_device` | Thiết bị trong nhà (đổi tên, gộp, xóa mềm) |
-| | `tb_device_alert_rule` | Luật cảnh báo bật/tắt theo thiết bị |
-| `catalog` | `cat_metric`, `cat_device_type` | Dữ liệu tham chiếu có seed: 5 metric, 22 loại thiết bị kèm mẹo tiết kiệm |
-| `energy` | `tb_series` | Một dòng cho mỗi (home, kênh, metric); **mọi số đo trỏ vào đây** |
-| | `tb_reading` *(hypertable)* | Công suất đo thật (W) |
-| | `tb_device_estimate` *(hypertable)* | Công suất từng thiết bị do NILM ước lượng (W) |
-| | `tb_inference_run` | Nhật ký mỗi lần chạy mô hình |
-| | `tb_weather_hourly` | Nhiệt độ, độ ẩm theo tỉnh (cho M&V) |
-| | `reading_1m/1h/1d`, `device_estimate_1m/1h/1d` | 6 continuous aggregate: **mọi màn hình đọc từ đây** |
-| `billing` | `tb_tariff_plan`, `tb_tariff_version`, `tb_tariff_tier` | Biểu giá điện bậc thang, có version theo ngày hiệu lực |
-| | `tb_bill`, `tb_bill_item` | Hóa đơn theo chu kỳ và phần chia theo thiết bị |
-| `insight` | `tb_device_cycle` *(hypertable)* | Mỗi lần thiết bị chạy: bắt đầu, kết thúc, Wh, công suất đỉnh |
-| | `tb_alert`, `tb_forecast_snapshot`, `tb_cohort_stat` | Cảnh báo, dự báo cuối tháng, so sánh với nhà tương tự |
-| `ai` | `ai.ai_conversation`, `ai.ai_message`, `ai.ai_tool_call` | Hội thoại và truy vết mỗi con số (SQL, đơn vị) |
-| | `tb_suggestion`, `tb_suggestion_feedback`, `tb_savings_measure` | Gợi ý chủ động, phản hồi, đo tiết kiệm trước/sau |
-| | `tb_scope_token` | Token 5 phút cho biết Copilot được đọc home nào |
-| `copilot_ro` | 15 view + `current_home()` | Lớp đọc duy nhất của Copilot |
-| `knowledge` | `tb_document`, `tb_chunk` | Kho tri thức cho RAG (vector + full-text) |
-| `ops` | `tb_ingest_batch`, `tb_ingest_checkpoint` | Nhật ký và điểm đã nạp tới đâu của từng series |
-| | `series_daily_coverage`, `stale_series` | View chất lượng dữ liệu; hàm `set_policies(bool)` |
+| `public` | Các bảng nghiệp vụ `tb_*` và catalog `cat_*` | Home, device, hồ sơ người dùng, energy raw/aggregates, billing, insight, ops, knowledge và suggestions |
+| `ai` | `ai_conversation`, `ai_message`, `ai_tool_call` | Hội thoại AI; `wattprint_app` và `wattprint_ai` được đọc/ghi |
+| | `dim_tariff_plan`, `dim_home`, `dim_device` | Dimensions đồng bộ từ nguồn `public`; AI chỉ đọc |
+| | `fact_reading_1m`, `fact_estimate_1m`, `fact_energy` | Views dữ liệu phút, khóa theo dimension; AI chỉ đọc |
+| | `metric_definition` | Metric seed cùng SQL truy vấn fact; AI đọc, app quản lý |
+| `copilot_ro` | 15 view + `current_home()` | Lớp đọc giới hạn theo home của role Copilot cũ; không phải lớp truy cập của `wattprint_ai` |
 
 ---
 
@@ -56,9 +41,12 @@ số đo và ước lượng (rất lớn), nhà và thiết bị, tiền điệ
 
 **Từng bước**
 
-1. **Nguồn.** Công tơ thật gửi số đo (endpoint chưa có). Hiện chỉ có loader REFIT
-   (`python -m app.cli.load_refit`), mỗi dòng CSV 13 cột được tách thành 10 reading (Aggregate và
-   Appliance1-9). Cột `Issues = 1` thành `quality = 1`.
+1. **Nguồn.** Công tơ thật gửi số đo (endpoint chưa có). Hiện chỉ có dữ liệu seed REFIT House 2,
+   nạp bởi revision Alembic `e2b726548f8c` khi `alembic upgrade head`: mỗi dòng CSV 13 cột được tách
+   thành 10 reading (Aggregate và Appliance1-9), cột `Issues = 1` thành `quality = 1`. Revision này
+   ghi thẳng vào `public.tb_reading` (không qua bước Ingest bên dưới), nạp phần test trước rồi phần
+   train, theo dõi tiến độ trong `etl.tb_watermark` để chạy lại tiếp từ chỗ dừng. Đặt `SEED_REFIT=0`
+   để bỏ qua.
 2. **Ingest** (`app/services/ingest.py::ingest_readings`) là cửa vào duy nhất. Hàm tra `series_id` từ
    `(meter, kênh)`, nạp vào bảng tạm bằng COPY rồi `INSERT … ON CONFLICT (series_id, ts) DO NOTHING`.
    Dòng sai (kênh lạ, NaN, ngoài miền `real`, `ts` không có múi giờ) được đếm vào `rows_bad`, không ghi.
@@ -144,11 +132,14 @@ số đo và ước lượng (rất lớn), nhà và thiết bị, tiền điệ
 | Role | Quyền |
 |---|---|
 | Login owner (`POSTGRES_USER`) | Chạy migration; sở hữu các view `copilot_ro` |
-| `wattprint_app` | DML trên bảng của API; phát và xóa `tb_scope_token`; đọc aggregate |
+| `wattprint_app` | DML trên bảng API và AI conversation/dimensions; quản lý `metric_definition`; phát/xóa `tb_scope_token`; đọc aggregate |
 | `wattprint_ingest` | Đọc `tb_meter`, `tb_series`; INSERT `tb_reading`; INSERT/UPDATE `tb_device_estimate`, `public.ingest_*` |
-| `wattprint_copilot_ro` | SELECT trên view `copilot_ro` + `knowledge`, `catalog`, bảng tariff; `statement_timeout = 5s` |
+| `wattprint_copilot_ro` | SELECT trên view `copilot_ro` và whitelist `public` (documents/chunks, catalogs, tariffs); `statement_timeout = 5s` |
+| `wattprint_ai_user` (member của `wattprint_ai`) | DML conversation; SELECT dimensions, facts và metrics; `statement_timeout = 30s` |
 
-Grant theo từng object, không bao giờ `ALL TABLES`. Copilot không đọc bảng mà đọc 15 view
+**Lưu ý cần xử lý trong migration:** revision `cf93b7d8a102` cấp `ALL PRIVILEGES` trên schema/table và default privileges cho `wattprint_app`; revision ma trận quyền sau đó không thu hồi các quyền rộng này. Vì vậy quyền thực tế của `wattprint_app` hiện rộng hơn bảng này mô tả và rộng hơn least privilege. Không xem ma trận dưới đây là đã được xác nhận thực tế cho tới khi sửa và kiểm tra lại grants.
+
+Copilot cũ không đọc bảng mà đọc 15 view
 `copilot_ro` (`security_barrier`). Phạm vi home do `copilot_ro.current_home()` phân giải từ
 `app.copilot_token`; token thiếu, sai định dạng, không tồn tại hoặc quá 5 phút thì trả `NULL` nên mọi
 view trả 0 dòng (fail closed). Backend phải đặt token bằng bind parameter với `is_local = true`. Executor
