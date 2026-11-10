@@ -22,7 +22,7 @@ FACT_COLUMNS = """
     r.max_w,
     r.last_w,
     r.n,
-    r.energy_wh,
+    r.energy_wh
 """
 
 

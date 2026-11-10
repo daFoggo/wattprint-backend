@@ -105,7 +105,7 @@ def _views(family: str) -> list[str]:
                last(value, ts) AS last_w,
                count(*) AS n,
                avg(value) * 60.0 / 3600.0 AS energy_wh
-        FROM public.{family} {quality}
+        FROM public.tb_{family} {quality}
         GROUP BY 1, 2
         WITH NO DATA
         """,
