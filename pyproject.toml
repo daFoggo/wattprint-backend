@@ -11,13 +11,14 @@ dependencies = [
     "alembic>=1.13",
     "pyjwt[crypto]>=2.15",
     "pgvector>=0.5.1",
+    # REFIT seed revision (alembic/versions/updates) reads the CSV with pandas
+    "pandas>=3.1.1",
 ]
 
 [dependency-groups]
 # NILM training/inference only; kept out of the API image (Dockerfile syncs default groups)
 nilm = [
     "ipykernel>=7.4.0",
-    "pandas>=3.1.1",
     "matplotlib>=3.11.2",
     "seaborn>=0.13.2",
     "torch>=2.15.0",
