@@ -1,0 +1,162 @@
+
+[0] H1 CHƯƠNG 1. GIỚI THIỆU
+
+[1] H2 1.1. Bối cảnh
+[2] p: Tiền điện là khoản chi cố định hằng tháng của mỗi hộ gia đình, nhưng người dùng thường chỉ biết tổng số tiền cuối tháng mà không rõ thiết bị nào tiêu thụ bao nhiêu. Một thử nghiệm trên 45.000 hộ tại Việt Nam cho thấy chỉ cần cung cấp ước tính tiền điện theo ngày, các hộ nhận thông tin đã giảm tiêu thụ điện so với nhóm đối chứng [@ta]. Phản hồi kịp thời đủ để thúc đẩy thay đổi thói quen, nhưng muốn biết cần tiết kiệm ở đâu thì người dùng phải nắm được mức tiêu thụ của từng thiết bị. Một nghiên cứu tại Mỹ chỉ ra rằng người tiêu dùng thường ước tính thấp điện năng của thiết bị khoảng 2,8 lần, và sai lệch lớn nhất lại rơi vào những thiết bị ngốn nhiều điện nhất [@attari].
+[3] p: Các công cụ hiện có chưa giải quyết được khoảng trống này. Ứng dụng của EVN mới chỉ hiển thị tổng điện năng theo ngày của cả hộ [@sggp]. Nếu lắp ổ cắm thông minh để đo riêng từng thiết bị, mỗi ổ có giá khoảng 235.000 đồng [@tuya]. Để theo dõi khoảng 10 điểm đo kèm bộ điều khiển trung tâm [@ha], hộ gia đình phải chi từ 4 đến 10 triệu đồng, tự lắp đặt và cấu hình mạng, trong khi ổ cắm rời cũng không đo được thiết bị đấu trực tiếp vào đường dây âm tường như điều hòa hay đèn trần.
+[4] p: Bài toán đặt ra cho dự án là làm sao ước tính điện năng từng thiết bị với chi phí phần cứng thấp hơn nhiều. Nhóm lựa chọn hướng tiếp cận Non-Intrusive Load Monitoring (NILM) do Hart đề xuất năm 1992 [@hart]: chỉ đo tổng công suất tại aptomat chính, sau đó dùng mô hình học máy để tách ra công suất của từng thiết bị.
+
+[5] H2 1.2. Giải pháp WattPrint
+[6] p: WattPrint gồm bốn khối chức năng liên kết nhau, đi từ dữ liệu sensor thô đến khuyến nghị hành động cụ thể:
+[7.0] ol: Khối tách điện năng từng thiết bị (NILM) sử dụng NILMFormer [@nilmformer], mô hình dựa trên Transformer tách tải tốt ngay cả khi tổng công suất biến động mạnh, kết hợp bước hiệu chỉnh (calibration) theo từng hộ.
+[7.1] ol: Khối dashboard và tính hóa đơn hiển thị điện năng từng thiết bị theo giờ, ngày, tuần, tháng và quy đổi mọi số liệu kWh ra tiền điện theo biểu giá sinh hoạt 5 bậc.
+[7.2] ol: Khối phân tích và dự báo cảnh báo thiết bị chạy lâu bất thường, phát hiện điện tiêu thụ ngầm (standby), so sánh với tháng trước và với các hộ tương đồng, kết hợp dự báo hóa đơn cuối tháng và thời điểm chạm bậc giá kế tiếp.
+[7.3] ol: Khối Energy Copilot là trợ lý AI hai chiều, vừa trả lời câu hỏi của người dùng (pull), vừa chủ động gửi gợi ý tiết kiệm (push). Mọi con số đều do các tool tính từ dữ liệu thực của hộ, còn LLM chỉ diễn giải. Copilot cũng hỗ trợ lập kế hoạch tiết kiệm và đối chiếu kết quả trước và sau khi áp dụng.
+[8] p: Về tác động kỳ vọng, các nghiên cứu trước đây cho thấy phản hồi thông tin điện năng giúp hộ gia đình giảm khoảng 2-4% mức tiêu thụ [@buckley], riêng thử nghiệm trên khoảng 1.000 hộ tại Đà Nẵng ghi nhận mức giảm 4-7% [@nguyen]. Đây là kết quả từ các nghiên cứu đi trước để nhóm làm mốc tham chiếu, chưa phải số liệu đo thực tế của WattPrint.
+
+[9] H2 1.3. Phạm vi của bài tập lớn
+[10] p: Trước bài tập lớn này, nhóm đã xây dựng WattPrint dưới dạng monolith (một ứng dụng FastAPI duy nhất) chạy đủ các chức năng trên. Bài tập lớn thực hiện tách bản monolith này thành các microservice độc lập, nên phần phân tích tập trung vào việc xác định ranh giới tách service và cơ chế phối hợp giữa chúng. Phạm vi thực hiện gồm:
+[11.0] ul: Bốn service nghiệp vụ đứng sau API Gateway, tích hợp xác thực, database riêng cho từng service và message broker truyền event. Mỗi service có Dockerfile riêng, môi trường demo được dựng bằng Docker Compose.
+[11.1] ul: Service `nilm` chỉ chạy inference với trọng số NILMFormer đã nạp sẵn. Việc huấn luyện và đánh giá độ chính xác của mô hình nằm ngoài phạm vi bài tập này.
+[11.2] ul: Do không có sensor phần cứng thật, nhóm dùng bộ dữ liệu công khai REFIT [@refit] và phát lại (replay) luồng dữ liệu sensor qua gateway (mục 2.5).
+[11.3] ul: Giữ nguyên hai ứng dụng client sẵn có (mobile app Expo và web Next.js), chỉ cấu hình lại địa chỉ API trỏ về gateway.
+
+[12] H2 1.4. Yêu cầu của đề bài
+[13] p: Đề bài yêu cầu xây dựng hệ thống microservices có API Gateway và đóng gói bằng container. Với nhóm ba người, hệ thống cần tối thiểu ba service nghiệp vụ không tính gateway, mỗi service có mã nguồn và dữ liệu riêng. Mỗi service phải có ít nhất bốn REST endpoint kèm đặc tả OpenAPI, call giữa các service phải cấu hình timeout và retry, và ít nhất một luồng nghiệp vụ đi qua hai service phải xử lý được lỗi xảy ra giữa chừng. Phần kiểm thử yêu cầu Postman collection và thực nghiệm ít nhất hai tình huống lỗi có số liệu đo trước và sau khi áp dụng cơ chế fault tolerance.
+[14] p: Ngoài phần bắt buộc, nhóm triển khai cả bốn mục điểm cộng: truyền event qua RabbitMQ với consumer đảm bảo idempotent và có DLQ, xác thực JWT tại gateway, cài đặt circuit breaker và bulkhead, cùng pipeline CI chạy test tự động. Chương 3 và Chương 4 làm rõ cách từng yêu cầu này định hình kiến trúc hệ thống.
+
+[15] H2 1.5. Cấu trúc báo cáo
+[16] p: Chương 2 phân tích miền nghiệp vụ gồm các tác nhân tương tác, sáu nhóm chức năng, chín quy tắc nghiệp vụ, các yêu cầu phi chức năng và cơ chế phát lại nguồn dữ liệu sensor. Chương 3 trình bày thiết kế kiến trúc theo mô hình C4: tiêu chí tách service, cấu trúc container triển khai, giao tiếp đồng bộ và bất đồng bộ, xử lý luồng đa bước, phân tách dữ liệu, bảo mật tại gateway, lựa chọn công nghệ và các module bên trong từng service. Chương 4 tổng hợp những đánh đổi kiến trúc và rủi ro cần kiểm soát. Phần thiết kế chi tiết API, độ tin cậy có số liệu thực nghiệm, triển khai, kiểm thử và đánh giá sẽ được bổ sung ở các chương tiếp theo khi hoàn tất phần hiện thực.
+
+[17] H1 CHƯƠNG 2. PHÂN TÍCH NGHIỆP VỤ
+
+[18] H2 2.1. Người dùng và các bên liên quan
+[19] p: Hệ thống tương tác với hai nhóm người dùng, một nguồn cấp dữ liệu sensor tự động và năm hệ thống bên ngoài. Bảng 2.1 tóm tắt vai trò của từng tác nhân và luồng tương tác chính với WattPrint.
+[20] TABLE Bảng 2.1. Người dùng, nguồn dữ liệu và hệ thống bên ngoài
+
+[21] H2 2.2. Các nhóm nghiệp vụ
+[22] p: Nghiệp vụ của WattPrint chia thành sáu nhóm, sắp xếp theo đường đi của dữ liệu từ khâu thiết lập hộ gia đình đến khi sinh khuyến nghị tiết kiệm cho người dùng (Bảng 2.2). Luồng dữ liệu này là cơ sở để nhóm xác định ranh giới tách service ở Chương 3.
+[23] TABLE Bảng 2.2. Sáu nhóm nghiệp vụ của WattPrint
+[24] p: Luồng xử lý chính chảy tuần tự từ trên xuống dưới Bảng 2.2. Sensor gửi batch công suất tổng, hệ thống lưu trữ rồi tách thành điện năng từng thiết bị và tính tiền (nhóm 2 đến nhóm 4). Dữ liệu sau khi tách làm đầu vào để phát hiện bất thường và dự báo chi phí (nhóm 5). Ở tầng cuối, Copilot dùng kết quả phân tích để giải đáp câu hỏi và chủ động gửi gợi ý cho người dùng (nhóm 6). Trong chuỗi này, bước chuyển từ ingest dữ liệu sensor sang chạy inference NILM (nhóm 2 gọi nhóm 3) và bước kích hoạt kế hoạch tiết kiệm (nhóm 6 gọi nhóm 5) đi qua nhiều service nên có thể gặp lỗi cục bộ giữa chừng. Nhóm thiết kế cơ chế xử lý riêng cho hai luồng đa bước này ở mục 3.6.
+
+[25] H2 2.3. Quy tắc nghiệp vụ
+[26] p: Nhóm xác định chín quy tắc nghiệp vụ (Bảng 2.3). Một quy tắc chỉ được đưa vào bảng khi kiểm chứng được trực tiếp bằng code: nếu request vi phạm điều kiện, service phải từ chối thực thi (thường trả mã lỗi 4xx kèm lý do) hoặc chuyển nhánh xử lý.
+[27] TABLE Bảng 2.3. Quy tắc nghiệp vụ
+[28] p: Chín quy tắc trên cũng chỉ ra ranh giới sở hữu dữ liệu. BR1 đến BR4 gắn với dữ liệu vận hành gốc (hộ gia đình, công tơ, dữ liệu sensor, hóa đơn) nên cần quản lý tập trung tại một `source of truth` duy nhất. BR5 kiểm soát điều kiện của các thuật toán phân tích, còn BR6 đến BR9 điều chỉnh quyền truy cập và kiểm duyệt của trợ lý AI. Chương 3 dùng chính ranh giới này để tách service.
+
+[29] H2 2.4. Yêu cầu phi chức năng
+[30] p: Năm yêu cầu phi chức năng dưới đây trực tiếp định hình kiến trúc microservices của hệ thống (Bảng 2.4).
+[31] TABLE Bảng 2.4. Yêu cầu phi chức năng và ảnh hưởng đến kiến trúc
+
+[32] H2 2.5. Nguồn dữ liệu sensor và dữ liệu thử
+[33] p: Trong thực tế, mỗi hộ lắp một sensor dòng điện (CT) tại aptomat tổng, chẳng hạn Shelly EM hoặc ESP32 chạy ESPHome. Sensor đo công suất tổng và định kỳ đẩy từng batch dữ liệu sensor qua HTTPS tới API Gateway. Do nhóm không có phần cứng đo thực tế, hệ thống sử dụng công cụ phát lại dữ liệu mang tên REFIT replayer.
+[34] p: REFIT [@refit] là bộ dữ liệu công khai đo điện năng của các hộ gia đình tại Vương quốc Anh liên tục trong khoảng hai năm với chu kỳ 8 giây, gồm cả công suất tổng và công suất từng thiết bị. REFIT replayer là một script Python đọc các tệp CSV của REFIT rồi gửi từng batch qua gateway, sử dụng đúng REST endpoint, API key thiết bị và `Idempotency-Key` như sensor thật, kèm tùy chọn tua nhanh thời gian khi demo. Nhờ vậy các service phía sau gateway xử lý hai nguồn dữ liệu hoàn toàn giống nhau. Trên các sơ đồ kiến trúc, replayer được vẽ như nguồn cấp dữ liệu sensor bên ngoài kèm ghi chú đây là công cụ phát lại từ bộ dữ liệu công khai (public dataset).
+
+[35] H1 CHƯƠNG 3. PHÂN TÍCH VÀ THIẾT KẾ KIẾN TRÚC
+
+[36] H2 3.1. Tổng quan kiến trúc
+[37] p: Nhóm mô tả kiến trúc theo mô hình C4 [@c4] ở ba cấp độ: Context thể hiện ranh giới hệ thống và các tác nhân bên ngoài, Container thể hiện các process hoặc container chạy độc lập, và Component đi sâu vào các module bên trong từng container. Nhóm lược bỏ cấp Code vì chi tiết lớp và hàm đã nằm trong mã nguồn và đặc tả OpenAPI. Hình 3.1 tóm tắt toàn bộ kiến trúc trên một trang.
+[38] p: Ứng dụng người dùng và REFIT replayer gửi request vào cổng duy nhất là API Gateway (Envoy). Sau khi xác thực JWT, gateway định tuyến request tới bốn service nghiệp vụ. Các service gọi đồng bộ theo một chiều `copilot → insight → core → nilm`, và truyền thông tin ngược lại bằng event qua RabbitMQ. Mỗi service sở hữu một database riêng trên cùng một PostgreSQL server dùng chung hạ tầng.
+[39] FIG 00-overview
+
+[40] H2 3.2. Bối cảnh hệ thống
+[41] p: Ở sơ đồ System Context (Hình 3.2), WattPrint được nhìn nhận như một khối duy nhất đặt giữa hai nhóm người dùng, nguồn cấp dữ liệu sensor và các hệ thống ngoài đã nêu ở mục 2.1. Sơ đồ làm rõ hai nguyên tắc bảo mật ở ranh giới hệ thống. Thứ nhất, WattPrint không tự lưu mật khẩu: toàn bộ luồng đăng nhập đi qua Keycloak và liên kết với Google Identity khi người dùng chọn đăng nhập bằng tài khoản Google. Thứ hai, nhà cung cấp LLM nằm ngoài ranh giới tin cậy (`trust boundary`), nên mọi dữ liệu gửi đi đều phải ẩn PII trước theo quy tắc BR9.
+[42] FIG 01-system-context
+
+[43] H2 3.3. Tách hệ thống thành các service
+
+[44] H3 3.3.1. Tiêu chí tách service
+[45] p: Nhóm tách ứng dụng monolith ban đầu thành các service dựa trên ba tiêu chí theo thứ tự ưu tiên:
+[46.0] ol: Tiêu chí đầu tiên là ranh giới dữ liệu và nghiệp vụ. Bốn mảng gồm dữ liệu vận hành gốc (hộ gia đình, dữ liệu sensor, hóa đơn), chạy inference học máy, phân tích thống kê và tương tác trợ lý AI đều làm việc trên các tập bảng riêng. Mảng này chỉ cần đọc kết quả của mảng kia chứ không sửa dữ liệu chéo, bám sát nguyên tắc mỗi microservice tự chủ dữ liệu của mình [@newman].
+[46.1] ol: Tiêu chí thứ hai là đặc thù tiêu thụ tài nguyên. Inference NILMFormer chạy trên PyTorch tiêu tốn nhiều CPU và RAM, trong khi luồng ingest dữ liệu sensor cần phản hồi nhanh và ổn định. Các thuật toán phân tích chạy theo batch và theo lịch định kỳ, còn Copilot dành phần lớn thời gian chờ phản hồi mạng từ LLM bên ngoài.
+[46.2] ol: Tiêu chí thứ ba là khả năng fault isolation. API của LLM bên ngoài có độ trễ cao và dễ gặp lỗi mạng, nên cần tách riêng để không làm nghẽn luồng ingest dữ liệu sensor hay tra cứu dashboard. Tương tự, khi model NILM quá tải thì luồng ingest dữ liệu sensor vẫn phải lưu được dữ liệu mới và đánh dấu batch chờ xử lý sau.
+
+[47] H3 3.3.2. Các phương án đã cân nhắc
+[48] p: Bảng 3.1 so sánh ba phương án với mức độ chia nhỏ khác nhau. Nhóm chọn phương án B.
+[49] TABLE Bảng 3.1. Các phương án tách service
+
+[50] H3 3.3.3. Bốn service sau khi tách
+[51] p: Bảng 3.2 tổng hợp bốn service nghiệp vụ sau khi tách, mỗi service sở hữu một database riêng với trách nhiệm và chiều gọi đồng bộ rõ ràng.
+[52] TABLE Bảng 3.2. Service, trách nhiệm, dữ liệu riêng và đối tượng gọi tới
+[53] p: Từ Bảng 3.2, có ba quyết định phân bổ chức năng cần làm rõ. Thứ nhất, tính hóa đơn chính thức nằm ở `core` vì hóa đơn phải tính trực tiếp từ chuỗi dữ liệu sensor gốc và phiên bản biểu giá để đảm bảo nhất quán với `source of truth`, trong khi dự báo hóa đơn chỉ là ước tính thống kê nên nằm ở `insight`. Thứ hai, `nilm` không gọi sang service nào khác mà chỉ nhận mảng công suất tổng và trả về kết quả tách tải, nên là điểm cuối của chuỗi gọi. Thứ ba, `copilot` không đọc trực tiếp dữ liệu tiêu thụ từ `core` mà đi qua `insight` (lý do trình bày ở mục 3.7).
+[54] p: Mọi call đồng bộ chỉ đi theo một chiều duy nhất: `copilot → insight → core → nilm`. Thiết kế một chiều giúp loại bỏ phụ thuộc vòng (`circular dependency`) và khoanh vùng sự cố: một service ngừng đáp ứng chỉ ảnh hưởng tới các luồng gọi trực tiếp từ tầng ngay phía trên nó.
+
+[55] H2 3.4. Các khối triển khai
+[56] p: Sơ đồ Container ở Hình 3.3 thể hiện các khối triển khai của hệ thống. Ngoài bốn service do nhóm phát triển, hệ thống dùng bốn phần mềm hạ tầng có sẵn: Envoy làm API Gateway, Keycloak quản lý định danh, RabbitMQ làm message broker và PostgreSQL làm hệ quản trị cơ sở dữ liệu. Tổng cộng có tám container chạy trong Docker Compose, chưa kể hai ứng dụng client chạy độc lập bên ngoài. Compose là môi trường demo của bài tập. Vì mỗi service đã có Dockerfile, nhận cấu hình và địa chỉ service phía sau qua biến môi trường, và có sẵn `/health`, `/ready` làm probe, việc đưa từng service lên một orchestrator như Kubernetes và triển khai độc lập không đòi hỏi đổi mã nguồn. Mỗi service nghiệp vụ được đóng gói trong một container duy nhất: các HTTP router, consumer xử lý event, outbox relay và các job định kỳ đều chạy chung trong một process dưới dạng background task. Cách đóng gói này giữ số lượng container vừa đủ để chạy mượt trên máy cá nhân của nhóm, thay vì tách thêm container worker riêng cho từng background job.
+[57] p: Theo quy ước của mô hình C4, mỗi message queue được biểu diễn như một container lưu trữ message, còn RabbitMQ (broker) được xem là chi tiết hạ tầng bên dưới [@c4]. Vì vậy trên Hình 3.3 có bốn khối queue màu vàng gồm `insight.usage`, `copilot.alerts` và hai DLQ `.dlq` đi kèm.
+[58] FIG 02-container
+
+[59] H2 3.5. Giao tiếp giữa các service
+
+[60] H3 3.5.1. Gọi đồng bộ qua REST
+[61] p: Các tác vụ cần nhận kết quả ngay trong luồng xử lý request (`core` gọi `nilm` chạy inference, `insight` gọi `core` lấy biểu giá và thiết bị, `copilot` gọi `insight` lấy số liệu phân tích) sử dụng giao tiếp đồng bộ qua HTTP/REST, kết nối trực tiếp trong mạng nội bộ của Docker Compose mà không vòng qua gateway. Service gọi chuyển tiếp các header định danh người dùng (`X-User-Id`, `X-User-Roles`) cùng mã truy vết `X-Request-ID`, còn địa chỉ của service đích được lấy từ biến môi trường. Phía gọi luôn đặt timeout, retry có giới hạn và phân biệt rõ mã lỗi nghiệp vụ (4xx, giữ nguyên) với lỗi hạ tầng (timeout trả 504, mất kết nối hoặc circuit breaker mở trả 503). Chi tiết các thông số fault tolerance thuộc chương về độ tin cậy.
+
+[62] H3 3.5.2. Sự kiện bất đồng bộ qua RabbitMQ
+[63] p: Ngược lại, có những thông tin cập nhật không nên bắt service gửi phải chờ. Khi `core` lưu xong kết quả tách tải mới, `core` không cần đợi `insight` cập nhật xong read model. Khi `insight` phát hiện cảnh báo bất thường, `insight` cũng không cần chờ `copilot` gọi LLM soạn xong gợi ý. Hai luồng này chuyển sang giao tiếp bất đồng bộ bằng event qua RabbitMQ (Bảng 3.3). Mỗi consumer lắng nghe trên một quorum queue [@rabbit] với giới hạn redelivery `delivery-limit = 3` và một DLQ đi kèm.
+[64] TABLE Bảng 3.3. Các sự kiện trên exchange `wattprint.events` (kiểu topic)
+[65] p: Một sự kiện đi qua chín bước, minh họa ở Hình 3.4 bằng sự kiện `energy.usage.updated` từ `core` tới `insight`:
+[66.0] ol: Service `core` lưu kết quả NILM và ghi một dòng vào bảng `outbox` trong cùng một transaction.
+[66.1] ol: Tiến trình nền `OutboxRelay` trong `core` quét các dòng chưa gửi bằng `SELECT ... FOR UPDATE SKIP LOCKED`, đảm bảo chạy nhiều instance cũng không gửi trùng.
+[66.2] ol: Relay publish message lên exchange `wattprint.events` kèm routing key, đợi broker xác nhận (confirm) rồi mới đánh dấu đã gửi.
+[66.3] ol: Exchange định tuyến message vào mọi queue có binding khớp. Hàng đợi `insight.usage` bind với `energy.usage.*` và `core.device.*`.
+[66.4] ol: RabbitMQ phân phối message tới consumer của `insight`. Nếu xử lý gặp lỗi, consumer trả `nack` để RabbitMQ redeliver.
+[66.5] ol: Consumer tra `message_id` trong bảng `inbox`. Nếu đã có thì bỏ qua ngay, nếu chưa có thì cập nhật read model và ghi `inbox` trong cùng một transaction trước khi trả `ack`.
+[66.6] ol: Message bị redeliver quá ba lần vẫn lỗi sẽ được quorum queue chuyển sang dead-letter exchange `wattprint.dlx`.
+[66.7] ol: Exchange `wattprint.dlx` đẩy message vào `insight.usage.dlq`, lưu giữ message tại đó thay vì làm mất.
+[66.8] ol: Nhóm vận hành kiểm tra DLQ trên giao diện quản trị RabbitMQ, khắc phục nguyên nhân lỗi rồi đẩy message về lại `insight.usage` để chạy lại.
+[67] p: Hai bảng `outbox` và `inbox` khắc phục hai nguy cơ mất nhất quán khác nhau. Ở đầu gửi, nếu lưu database xong rồi mới publish riêng qua mạng, process bị sập giữa hai bước sẽ làm `insight` thiếu dữ liệu. Thao tác ghi event vào bảng `outbox` trong cùng transaction với dữ liệu nghiệp vụ giúp loại bỏ rủi ro đó theo đúng pattern Transactional Outbox [@richardson]. Ở đầu nhận, RabbitMQ vận hành theo cơ chế giao ít nhất một lần (at-least-once), nên một message có thể đến lặp lại. Bảng `inbox` lưu các `message_id` đã xử lý để consumer tự động bỏ qua bản trùng, đảm bảo tính idempotent cho consumer.
+[68] FIG x6-dynamic-messaging-rabbitmq
+
+[69] H2 3.6. Luồng nghiệp vụ nhiều bước và xử lý lỗi giữa chừng
+[70] p: Đề bài yêu cầu ít nhất một luồng nghiệp vụ đi qua hai service và có cơ chế xử lý khi gặp lỗi giữa chừng. WattPrint có hai luồng đa bước như vậy, mỗi luồng áp dụng một hướng xử lý khác nhau tùy thuộc vào việc dữ liệu ở bước đầu có cần rollback hay không.
+
+[71] H3 3.6.1. Ingest dữ liệu sensor và chạy inference NILM
+[72] p: Khi nhận một batch dữ liệu sensor, `core` xác thực API key thiết bị, kiểm tra công tơ thuộc hộ và kiểm tra tính liên tục của batch (BR2, BR3), lưu dữ liệu sensor thô rồi gọi đồng bộ sang `nilm`. Nếu `nilm` phản hồi kịp, `core` lưu công suất ước tính từng thiết bị, ghi event vào `outbox` và trả mã 201 với trạng thái `DONE`. Nếu request gọi `nilm` bị timeout, trả lỗi 5xx hoặc gặp lúc circuit breaker đang mở, `core` chưa có ngay kết quả inference. Lúc này `core` không rollback dữ liệu sensor đã lưu, vì dữ liệu sensor từ sensor là dữ liệu thực tế không được phép mất. Thay vào đó, `core` đánh dấu batch là `PENDING_INFERENCE`, trả mã 202, và giao cho một background task retry yêu cầu theo chu kỳ backoff 1, 2, 4 phút. Quá năm lần retry vẫn lỗi thì batch chuyển sang `FAILED` và phát cảnh báo cho nhóm vận hành (Hình 3.5).
+[73] FIG x2-dynamic-ingest-nilm
+
+[74] H3 3.6.2. Kích hoạt kế hoạch tiết kiệm
+[75] p: Khi người dùng chấp nhận một gợi ý tiết kiệm, `copilot` điều phối một saga qua `insight` gồm hai bước. Bước một tạo `baseline` M&V tại `insight` (cần tối thiểu 14 ngày dữ liệu theo BR5, thiếu thì `insight` trả lỗi 422). Bước hai cập nhật ngân sách tháng theo kế hoạch. Tùy kết quả ở bước hai mà saga rẽ theo ba nhánh (Hình 3.6). Nếu bước hai thành công, kế hoạch chuyển sang `ACTIVE`. Nếu bước hai bị `insight` từ chối bằng lỗi nghiệp vụ 4xx, `copilot` thực hiện bước bù trừ theo thứ tự ngược bằng cách gọi API xóa `baseline` vừa tạo ở bước một, rồi đánh dấu kế hoạch là `CANCELLED` kèm lý do. Nếu bước hai bị timeout (lỗi hạ tầng 504), `copilot` chưa biết `insight` đã lưu ngân sách hay chưa nên giữ kế hoạch ở trạng thái `PENDING`, để background job `reconciler` truy vấn lại `insight` rồi hoàn tất hoặc chạy bù trừ sau.
+[76] p: Luồng saga này dựa trên việc phân biệt rõ hai loại lỗi: lỗi nghiệp vụ 4xx khẳng định chắc chắn bước hai chưa làm thay đổi dữ liệu nên `copilot` gọi bước bù trừ ngay, còn lỗi hạ tầng mang tính bất định nên phải giữ trạng thái chờ và đối soát lại.
+[77] FIG x5-dynamic-saving-plan-saga
+
+[78] H2 3.7. Dữ liệu
+[79] p: Hệ thống sử dụng một PostgreSQL server chứa năm database riêng biệt: `core_db`, `insight_db`, `copilot_db`, `nilm_db` và `keycloak_db`. Mỗi database gắn với một database role riêng và không service nào có quyền truy cập vào database của service khác. Cách bố trí này giữ tổng số container ở mức tám trong khi vẫn đảm bảo cô lập dữ liệu đúng theo pattern Database per Service [@newman]. Khi cần mở rộng, mỗi database tách sang server riêng chỉ bằng cách đổi chuỗi kết nối trong biến môi trường.
+[80] p: Server chạy PostgreSQL 18 với hai extension chuyên dụng. TimescaleDB xử lý chuỗi thời gian trên `core_db` (lưu dữ liệu sensor, tự động tổng hợp theo giờ và ngày, nén dữ liệu cũ, xóa chunk hết hạn lưu trữ) và trên `insight_db` (vận hành read model tiêu thụ). Extension `pgvector` đảm nhận tìm kiếm tương đồng vector cho tính năng RAG trên `copilot_db`.
+[81] p: Vì các service không đọc trực tiếp database của nhau, mọi nhu cầu tra cứu dữ liệu chéo đều đi theo một trong hai cách:
+[82.0] ul: Cách thứ nhất là đồng bộ qua sự kiện theo pattern CQRS [@richardson]. Service `insight` duy trì một read model dữ liệu tiêu thụ đã tổng hợp theo giờ, cập nhật bất đồng bộ từ event của `core`. Trong mô hình này, `core` phụ trách luồng ghi và giữ vai trò `source of truth`, còn `insight` tổ chức dữ liệu theo cấu trúc phù hợp cho truy vấn phân tích.
+[82.1] ul: Cách thứ hai là gọi trực tiếp REST API khi cần dữ liệu mới nhất hoặc dữ liệu cấu hình nhỏ, chẳng hạn `insight` lấy biểu giá và danh mục thiết bị từ `core`.
+[83] p: Thiết kế phân tách này giải quyết trực tiếp bài toán an toàn cho tính năng Text-to-SQL của Copilot. Để trả lời các câu hỏi tự do về điện năng, LLM trong `copilot` tự sinh câu lệnh SQL. Nếu câu SQL đó chạy trực tiếp trên database vận hành gốc của `core`, một câu truy vấn lỗi hoặc bị tấn công prompt injection có thể chạm vào dữ liệu nguồn. Vì vậy, `copilot` gửi câu SQL tới endpoint truy vấn an toàn của `insight`. Endpoint này dùng `SQL guard` kiểm tra cây cú pháp để chỉ cho phép câu lệnh `SELECT` trên các view được cấp quyền, tự động ép điều kiện lọc theo `home_id` của người đang hỏi, đặt timeout 2 giây và chỉ thực thi trên database phân tích `insight_db`. Khi tách service, các bảng trong bản monolith cũ cũng được chuyển về đúng database theo Bảng 3.2: nhóm bảng phân tích và M&V chuyển về `insight_db`, bảng lịch sử chạy inference (`inference_run`) chuyển về `nilm_db`, còn bảng hội thoại và tri thức RAG thuộc về `copilot_db`.
+
+[84] H2 3.8. Gateway và bảo mật
+[85] p: API Gateway của hệ thống là Envoy, cấu hình trong tệp `envoy.yaml`. Theo đúng yêu cầu đề bài, gateway chỉ định tuyến và áp dụng chính sách kỹ thuật ở tầng biên, không chứa logic nghiệp vụ. Toàn bộ chính sách đều dùng các filter dựng sẵn của Envoy:
+[86.0] ul: Định tuyến theo tiền tố `/api/core/`, `/api/insight/`, `/api/copilot/` và `/api/nilm/` (chỉ mở cho admin), mỗi route có cấu hình timeout và retry riêng. Envoy chỉ retry các request `GET` khi gặp lỗi kết nối, không retry `POST` để tránh ghi trùng dữ liệu.
+[86.1] ul: Filter `jwt_authn` xác thực chữ ký RS256, `issuer` và `audience` của JWT bằng tập khóa công khai (JWKS) lấy từ Keycloak [@envoy]. Sau khi xác thực, Envoy gán `sub` và role của token vào header `X-User-Id` và `X-User-Roles`, và xóa các header trùng tên do client tự gửi lên để các service phía sau tin cậy được hai header này.
+[86.2] ul: Áp dụng giới hạn tần suất gọi (rate limit), giới hạn kích thước request body và tự động sinh mã truy vết `x-request-id` để theo dõi log xuyên suốt.
+[86.3] ul: Riêng route ingest dữ liệu sensor từ sensor không yêu cầu JWT vì thiết bị không thực hiện đăng nhập người dùng. Service `core` tự xác thực API key thiết bị và kiểm tra trạng thái ghép nối công tơ (BR2).
+[87] p: Các bước kiểm tra phân quyền theo hộ gia đình, theo gói Pro và theo role admin đều do từng service tự thực hiện vì đó là quy tắc nghiệp vụ. Các container service không mở cổng ra ngoài máy host nên chỉ có gateway và các service trong mạng nội bộ mới gọi tới được.
+
+[88] H2 3.9. Công nghệ sử dụng
+[89] p: Vì nhóm chỉ có ba thành viên, nguyên tắc chọn công nghệ là giữ số lượng công cụ nhỏ và ưu tiên tận dụng cấu hình có sẵn hơn là tự viết code (Bảng 3.4). Toàn bộ backend thống nhất dùng Python, còn hai ứng dụng client dùng TypeScript.
+[90] TABLE Bảng 3.4. Công nghệ sử dụng và lý do chọn
+[91] p: Nhóm chủ động không dùng Prometheus, Grafana, Loki, Jaeger, cũng như không tách container worker riêng hay container database riêng cho Keycloak. Mỗi container xuất log JSON trực tiếp ra `stdout` kèm `request_id`, tra cứu bằng `docker compose logs` là đủ để truy vết một request đi qua các service.
+
+[92] H2 3.10. Thành phần bên trong từng service
+[93] p: Các sơ đồ Component dưới đây thể hiện những module bên trong từng container và điểm giao tiếp ra bên ngoài. Các mũi tên không ghi nhãn là call hàm trong cùng process. Màu sắc tuân theo quy ước chung của các sơ đồ: xanh lá là phần do nhóm viết, tím là phần mềm hạ tầng có sẵn, vàng là queue, xanh ngọc là kho dữ liệu, cam là hệ thống bên ngoài, còn nét đứt là sự kiện bất đồng bộ.
+[94] p: Service **core** (Hình 3.7) gồm ba cụm API là quản lý hộ gia đình và thiết bị, ingest dữ liệu sensor và tính hóa đơn. `IngestService` ghi chuỗi dữ liệu sensor và sự kiện qua `Repositories` trong cùng một transaction. `OutboxRelay` và `PendingRetrier` là hai background task chạy nền: một đẩy sự kiện lên RabbitMQ, một retry các batch đang chờ inference. `NilmClient` là điểm duy nhất trong `core` gọi sang service khác, nên cấu hình timeout, retry và circuit breaker đều tập trung tại đó.
+[95] p: Service **nilm** (Hình 3.8) tách thành API chạy inference và API quản lý phiên bản model (chỉ mở cho admin). `InferenceEngine` thực thi mô hình NILMFormer, `Calibrator` hiệu chỉnh tham số theo từng hộ và `ModelLoader` nạp trọng số một lần rồi giữ cố định trong RAM. Endpoint inference áp dụng cơ chế bulkhead để giới hạn số request xử lý đồng thời, ngăn một đợt tải cao làm tràn bộ nhớ.
+[96] p: Service **insight** (Hình 3.9) nhận sự kiện qua `Usage consumer` để cập nhật read model, sau đó kích hoạt các module `Detectors` kiểm tra phụ tải bất thường, chạm bậc giá và vượt ngân sách rồi phát sự kiện `insight.alert.created` qua `OutboxRelay`. Phía API cung cấp các endpoint phân tích và dự báo, cùng module `SQL guard` bảo vệ endpoint truy vấn SQL an toàn (mục 3.7).
+[97] p: Service **copilot** (Hình 3.10) có hai đường vào. Đường hỏi đáp trực tiếp đi từ `Chat API` qua `Guardrail` (ẩn PII, chặn prompt injection, kiểm tra gói Pro) tới `Orchestrator`, nơi LLM gọi các tool để lấy số liệu từ `insight`, rồi qua bước hậu kiểm của `Verifier` (kiểm tra số liệu, đơn vị và nguồn trích dẫn) trước khi trả lời. Đường gợi ý chủ động đi từ `Alert consumer` qua `Ranker` (xếp hạng theo lịch sử phản hồi, lọc khung giờ nghỉ, chống gửi trùng) tới `Notifier`. Module `Saga orchestrator` điều phối luồng kích hoạt kế hoạch tiết kiệm (mục 3.6.2).
+[98] FIG 03-component-core
+[99] FIG 04-component-nilm
+[100] FIG 05-component-insight
+[101] FIG 06-component-copilot
+
+[102] H1 CHƯƠNG 4. ĐÁNH ĐỔI VÀ RỦI RO CỦA KIẾN TRÚC
+
+[103] H2 4.1. Các quyết định chính và đánh đổi
+[104] p: Mỗi quyết định thiết kế ở Chương 3 đều đi kèm sự đánh đổi giữa tính độc lập, độ tin cậy và chi phí vận hành. Bảng 4.1 tổng hợp những quyết định lớn, lý do lựa chọn và các hạn chế mà nhóm chấp nhận.
+[105] TABLE Bảng 4.1. Quyết định kiến trúc và đánh đổi
+
+[106] H2 4.2. Rủi ro còn lại và hướng xử lý
+[107] p: Bảng 4.2 liệt kê các rủi ro kỹ thuật mà nhóm đã nhận diện ở mức kiến trúc cùng phương án xử lý tương ứng. Cấu hình chi tiết và số liệu thực nghiệm sẽ được trình bày ở các chương về độ tin cậy và đánh giá.
+[108] TABLE Bảng 4.2. Rủi ro và hướng xử lý

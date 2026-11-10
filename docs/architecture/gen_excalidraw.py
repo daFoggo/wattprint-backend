@@ -201,8 +201,8 @@ class Diagram:
             yy += 52
         an = {
             "sync": "Gọi đồng bộ (request)",
-            "reply": "Phản hồi của lời gọi",
-            "async": "Sự kiện bất đồng bộ qua RabbitMQ",
+            "reply": "Phản hồi của call",
+            "async": "Event bất đồng bộ qua RabbitMQ",
         }
         for k in arrows:
             st = ARROW[k]
@@ -236,18 +236,18 @@ def overview():
     d.box("app", 300, 0, 260, 90, "team", "App Expo", **big)
     d.box("web", 680, 0, 260, 90, "team", "Web Next.js", **big)
     d.box("sensor", 1060, 0, 260, 90, "external", "REFIT replayer", desc="public dataset REFIT", **big)
-    d.label("sensor_note", 1340, 10, "Thay cho cảm biến CT ở aptomat\n(Shelly EM, ESP32 + ESPHome)\nvì đồ án không có thiết bị", 16, "#495057")
-    d.box("kc", 1800, 190, 260, 90, "offshelf", "Keycloak", desc="đăng nhập · JWT", **big)
+    d.label("sensor_note", 1340, 10, "Thay cho sensor CT ở aptomat\n(Shelly EM, ESP32 + ESPHome)\nvì đồ án không có thiết bị", 16, "#495057")
+    d.box("kc", 1880, 190, 260, 90, "offshelf", "Keycloak", desc="đăng nhập · JWT", **big)
     d.box("gw", 300, 190, 1400, 90, "offshelf", "API Gateway · Envoy",
           desc="kiểm JWT · định tuyến · rate limit · không chứa nghiệp vụ", **big)
     for k in ("app", "web", "sensor"):
         cx = d.boxes[k]["x"] + 130
         d.arrow("in_" + k, k, "gw", pts=[(cx, 96), (cx, 184)])
-    d.arrow("jwks", "gw", "kc", "JWKS", pts=[(1706, 235), (1794, 235)], lbl_w=80)
+    d.arrow("jwks", "gw", "kc", "JWKS", pts=[(1706, 235), (1874, 235)], lbl_w=80)
 
     svc = [("cop", "copilot", "hỏi đáp · gợi ý · RAG", ("copilot_db", "pgvector")),
            ("ins", "insight", "bất thường · dự báo", ("insight_db", "TimescaleDB")),
-           ("core", "core", "nhà · số đo · hóa đơn", ("core_db", "TimescaleDB")),
+           ("core", "core", "nhà · dữ liệu sensor · hóa đơn", ("core_db", "TimescaleDB")),
            ("nilm", "nilm", "tách điện từng thiết bị", ("nilm_db", "PostgreSQL"))]
     xs = [300, 680, 1060, 1440]
     for (i, n, desc, (db, dbt)), x in zip(svc, xs):
@@ -257,7 +257,8 @@ def overview():
         d.arrow("d_" + i, i, i + "_db", pts=[(x + 130, 516), (x + 130, 594)])
     for (a, _, _, _), (b, _, _, _), x in zip(svc, svc[1:], xs):
         d.arrow(f"s_{a}", a, b, "gọi", pts=[(x + 266, 415), (x + 374, 415)], lbl_w=80)
-        d.arrow(f"e_{a}", b, a, "sự kiện", "async", pts=[(x + 374, 475), (x + 266, 475)], lbl_w=90)
+        if b != "nilm":  # nilm trả kết quả ngay trong response, không phát event
+            d.arrow(f"e_{a}", b, a, "event", "async", pts=[(x + 374, 475), (x + 266, 475)], lbl_w=90)
     d.box("llm", 0, 380, 220, 130, "external", "LLM", desc="API ngoài", **big)
     d.arrow("llm_a", "cop", "llm", pts=[(294, 445), (226, 445)])
     d.box("infra", 300, 750, 1400, 80, "offshelf", "Hạ tầng chung",
@@ -279,11 +280,11 @@ def context():
     d.box("op", 1180, 0, 360, 170, "person", "Nhóm vận hành", "[Person]",
           "Quản trị nhà, công tơ, model; nhận phản hồi người dùng")
     d.box("sys", 660, 400, 640, 250, "system", "WattPrint", "[Software system]",
-          "Tách điện từng thiết bị từ một cảm biến ở aptomat (NILM), tính tiền theo biểu giá 5 bậc, "
+          "Tách điện từng thiết bị từ một sensor ở aptomat (NILM), tính tiền theo biểu giá 5 bậc, "
           "phát hiện bất thường, dự báo hóa đơn, trợ lý năng lượng hai chiều", name_fs=26)
     d.box("meter", 0, 430, 420, 190, "external", "REFIT replayer", "[Công cụ demo: Python]",
-          "Phát lại public dataset REFIT, gửi batch số đo qua gateway giống hệt cảm biến thật")
-    d.label("meter_note", 0, 640, "Ghi chú: ngoài đời là cảm biến CT ở aptomat\n(Shelly EM, ESP32 + ESPHome); đồ án dùng\npublic dataset REFIT vì không có thiết bị.", 16, "#495057")
+          "Phát lại public dataset REFIT, gửi batch dữ liệu sensor qua gateway giống hệt sensor thật")
+    d.label("meter_note", 0, 640, "Ghi chú: ngoài đời là sensor CT ở aptomat\n(Shelly EM, ESP32 + ESPHome); đồ án dùng\npublic dataset REFIT vì không có thiết bị.", 16, "#495057")
     d.box("llm", 1600, 140, 420, 170, "external", "Nhà cung cấp LLM", "[External system]",
           "API tương thích OpenAI: chat, tool calling, embedding")
     d.box("wx", 1600, 440, 420, 170, "external", "Open-Meteo", "[External system]",
@@ -296,7 +297,7 @@ def context():
           "Đăng nhập bằng tài khoản Google (liên kết qua Keycloak)")
     d.arrow("a1", "hh", "sys", "Xem số liệu, hỏi Copilot [app Expo, web Next.js]")
     d.arrow("a2", "op", "sys", "Quản trị, xem log và queue [web, RabbitMQ UI]")
-    d.arrow("a3", "meter", "sys", "Gửi batch số đo công suất [HTTPS/JSON]", lbl_w=200)
+    d.arrow("a3", "meter", "sys", "Gửi batch dữ liệu sensor công suất [HTTPS/JSON]", lbl_w=200)
     d.arrow("a4", "sys", "llm", "Gửi prompt đã ẩn PII [HTTPS]", lbl_w=200)
     d.arrow("a5", "sys", "wx", "Lấy thời tiết theo giờ [HTTPS]", lbl_w=200)
     d.arrow("a6", "sys", "push", "Gửi gợi ý, cảnh báo [HTTPS]", lbl_w=200)
@@ -326,7 +327,7 @@ def container():
           "Dashboard hộ và trang quản trị")
     d.box("meter", 2300, -100, 420, 160, "external", "REFIT replayer", "[Công cụ demo: Python]",
           "Phát lại public dataset REFIT")
-    d.label("meter_note", 2760, -90, "Thay cho cảm biến CT ở aptomat\n(Shelly EM, ESP32 + ESPHome)", 16, "#495057")
+    d.label("meter_note", 2760, -90, "Thay cho sensor CT ở aptomat\n(Shelly EM, ESP32 + ESPHome)", 16, "#495057")
 
     d.box("gw", 500, 620, 2280, 120, "offshelf", "API Gateway", "[Container: Envoy 1.40, bộ lọc jwt_authn]",
           "Điểm vào duy nhất, HTTPS: kiểm JWT (RS256, iss, aud), định tuyến theo prefix, rate limit, x-request-id, timeout và retry. Không chứa luật nghiệp vụ.")
@@ -338,9 +339,9 @@ def container():
     d.box("ins", sx["ins"], SY, SW, SH, "team", "insight", "[Container: Python, FastAPI, FastStream]",
           "Read model tiêu thụ; bất thường, chạy ngầm, dự báo hóa đơn, so sánh nhóm, what-if, M&V; truy vấn an toàn")
     d.box("core", sx["core"], SY, SW, SH, "team", "core", "[Container: Python, FastAPI, FastStream]",
-          "Nhà, công tơ, thiết bị, nhận số đo, biểu giá 5 bậc, hóa đơn. Nguồn sự thật")
+          "Nhà, công tơ, thiết bị, ingest dữ liệu sensor, biểu giá 5 bậc, hóa đơn. Nguồn sự thật")
     d.box("nilm", sx["nilm"], SY, SW, SH, "team", "nilm", "[Container: Python, FastAPI, PyTorch]",
-          "Suy luận NILMFormer, hiệu chỉnh theo hộ, quản lý phiên bản model")
+          "Inference NILMFormer, hiệu chỉnh theo hộ, quản lý phiên bản model")
 
     DY, DH = 1320, 160
     d.box("cop_db", 500, DY, 200, DH, "db", "copilot_db", "[PostgreSQL + pgvector]", name_fs=17)
@@ -367,7 +368,7 @@ def container():
     d.arrow("k2", "web", "kc", "Đăng nhập [OIDC]", pts=[(1420, 314), (1420, 296), (270, 296), (270, 314)], lbl_seg=1)
     d.arrow("g1", "mob", "gw", "Gọi API [HTTPS/JSON, JWT]", pts=[(950, 516), (950, 614)], lbl_w=210)
     d.arrow("g2", "web", "gw", "Gọi API [HTTPS/JSON, JWT]", pts=[(1570, 516), (1570, 614)], lbl_w=210)
-    d.arrow("g3", "meter", "gw", "Gửi batch số đo [HTTPS, API key thiết bị]", pts=[(2510, 66), (2510, 614)], lbl_w=230)
+    d.arrow("g3", "meter", "gw", "Gửi batch dữ liệu sensor [HTTPS, API key thiết bị]", pts=[(2510, 66), (2510, 614)], lbl_w=230)
     d.arrow("g4", "gw", "kc", "Lấy khóa công khai kiểm JWT [JWKS, HTTPS]", pts=[(494, 680), (270, 680), (270, 516)], lbl_seg=1, lbl_w=200)
     for k, path in (("cop", "/api/copilot/*"), ("ins", "/api/insight/*"), ("core", "/api/core/*"), ("nilm", "/api/nilm/* (admin)")):
         cx = sx[k] + SW / 2
@@ -375,7 +376,7 @@ def container():
     # sync chain (top band) and events (bottom band)
     d.arrow("s1", "cop", "ins", "Gọi tool: truy vấn an toàn, dự báo, what-if [REST]", pts=[(926, 980), (1114, 980)], lbl_w=170)
     d.arrow("s2", "ins", "core", "Lấy biểu giá, danh sách thiết bị [REST]", pts=[(1546, 980), (1734, 980)], lbl_w=170)
-    d.arrow("s3", "core", "nilm", "Yêu cầu suy luận [REST, timeout 3s]", pts=[(2166, 980), (2354, 980)], lbl_w=170)
+    d.arrow("s3", "core", "nilm", "Yêu cầu inference [REST, timeout 3s]", pts=[(2166, 980), (2354, 980)], lbl_w=170)
     d.arrow("e1", "core", "q_ins", "gửi [AMQP]", "async", pts=[(2050, 1166), (2050, QY - 6)], lbl_w=100)
     d.arrow("e2", "q_ins", "ins", "nhận [AMQP]", "async", pts=[(1640, QY - 6), (1640, 1100), (1546, 1100)], lbl_seg=0, lbl_w=100)
     d.arrow("e3", "ins", "q_cop", "gửi [AMQP]", "async", pts=[(1114, 1100), (1070, 1100), (1070, QY - 6)], lbl_seg=1, lbl_w=100)
@@ -397,8 +398,8 @@ def container():
             "• Nét đứt là message AMQP. Service gửi lên exchange wattprint.events, exchange chép vào queue theo routing key (README mục 3).\n"
             "• Theo C4, mỗi queue là một container lưu message; RabbitMQ chỉ xuất hiện ở sơ đồ Deployment.\n"
             "• Một PostgreSQL server, mỗi service (và Keycloak) một database, một role; không service nào đọc database của service khác.\n"
-            "• Lời gọi đồng bộ chỉ đi một chiều copilot → insight → core → nilm. Thông tin đi ngược lên chỉ bằng sự kiện.\n"
-            "• Mọi lời gọi giữa service có timeout, retry có giới hạn, circuit breaker; địa chỉ lấy từ biến môi trường.\n"
+            "• Lời gọi đồng bộ chỉ đi một chiều copilot → insight → core → nilm. Dữ liệu đi ngược lên bằng event (core → insight → copilot); nilm trả kết quả ngay trong response.\n"
+            "• Mọi call giữa service có timeout, retry có giới hạn, circuit breaker; địa chỉ lấy từ biến môi trường.\n"
             "• Mỗi service là một container: API, consumer và outbox relay chạy chung process; có /health và /ready.", 16, "#333333")
     return d
 
@@ -506,7 +507,9 @@ def sequence(title, sub, parts, steps, frames=(), col=330, bw=280, row=78, top=0
             d.label(f"st{k}_t", lx, yy + 14, "\n".join(lines), FS, col_c)
     for n, (i0, i1, lbl) in enumerate(frames):
         fy0 = ys[i0][0] - 6
-        fy1 = ys[i1][0] + ys[i1][1] + 4
+        # khung liền kề nhau thì chừa khe, để nhãn khung sau không đè lên viền khung trước
+        adj = n + 1 < len(frames) and frames[n + 1][0] == i1 + 1
+        fy1 = ys[i1][0] + ys[i1][1] + (-14 if adj else 4)
         fx0 = min(xs.values()) - bw / 2 - 20
         fx1 = max(xs.values()) + bw / 2 + 20
         d.add(base(f"fr{n}", "rectangle", fx0, fy0, fx1 - fx0, fy1 - fy0, strokeColor="#7a5c99",
@@ -523,7 +526,7 @@ def sequence(title, sub, parts, steps, frames=(), col=330, bw=280, row=78, top=0
 
 
 def ingest():
-    parts = [("meter", "external", "REFIT replayer", "[thay cảm biến CT]"),
+    parts = [("meter", "external", "REFIT replayer", "[thay sensor CT]"),
              ("gw", "offshelf", "API Gateway", "[Envoy]"),
              ("core", "team", "core", "[FastAPI]"),
              ("cdb", "db", "core_db", "[TimescaleDB]"),
@@ -534,7 +537,7 @@ def ingest():
     steps = [
         ("meter", "gw", "POST /api/core/ingest/batches, Idempotency-Key = batch_id", "sync"),
         ("gw", "core", "Rate limit, gắn x-request-id, chuyển tiếp (route ingest dùng API key, không cần JWT)", "sync"),
-        ("core", "cdb", "Kiểm API key và công tơ thuộc nhà (401/403); batch_id chưa xử lý, số đo liên tục, đủ cửa sổ (409/422)", "sync"),
+        ("core", "cdb", "Kiểm API key và công tơ thuộc nhà (401/403); batch_id chưa xử lý, dữ liệu sensor liên tục, đủ cửa sổ (409/422)", "sync"),
         ("core", "cdb", "Lưu readings, batch = RECEIVED (một transaction)", "sync"),
         ("core", "nilm", "POST /inferences: cửa sổ công suất tổng. Timeout 3s, retry 2 lần, circuit breaker", "sync"),
         ("nilm", "core", "200: công suất từng thiết bị, confidence, model_version", "reply"),
@@ -548,7 +551,7 @@ def ingest():
         ("mq", "ins", "Giao message; insight xử lý idempotent theo message_id", "async"),
     ]
     frames = [(5, 7, "[alt] nilm trả lời kịp"), (8, 10, "[alt] nilm timeout, lỗi 5xx hoặc breaker đang mở")]
-    return sequence("[Dynamic] Nhận số đo và suy luận NILM",
+    return sequence("[Dynamic] Ingest dữ liệu sensor và inference NILM",
                     "Luồng nghiệp vụ bắt buộc qua nhiều service: core → nilm, có trạng thái PENDING khi không biết kết quả.",
                     parts, steps, frames)
 
@@ -573,11 +576,11 @@ def proactive():
         ("cw", "cw", "Xếp hạng: min ΔE − λ·log p̂(người dùng chấp nhận); bỏ giờ yên tĩnh, bỏ gợi ý trùng 7 ngày", "sync"),
         ("cw", "cdb", "Lưu suggestion, nhãn AI tạo, inbox (cùng transaction)", "sync"),
         ("cw", "push", "Gửi thông báo đẩy", "sync"),
-        ("cw", "mq", "Lỗi xử lý → nack; quorum queue giao lại, quá delivery-limit 3 → copilot.alerts.dlq", "async"),
+        ("cw", "mq", "Lỗi xử lý → nack; quorum queue redeliver, quá delivery-limit 3 → copilot.alerts.dlq", "async"),
     ]
     frames = [(11, 11, "[alt] xử lý thất bại")]
     return sequence("[Dynamic] Gợi ý chủ động (vòng push)",
-                    "Luồng phụ bất đồng bộ: consumer idempotent, retry và hàng đợi lỗi (DLQ).",
+                    "Luồng phụ bất đồng bộ: consumer idempotent, retry và DLQ (DLQ).",
                     parts, steps, frames)
 
 
@@ -651,37 +654,48 @@ def saga():
 # =====================================================================
 def messaging():
     d = Diagram()
-    d.title(0, -170, "[Dynamic] Một sự kiện đi qua RabbitMQ: outbox → exchange → queue → consumer → DLQ",
-            "Ví dụ energy.usage.updated từ core tới insight. Số trên mũi tên khớp với danh sách bước bên dưới.")
-    W, H, G = 240, 130, 150
-    row = [("core", "team", "core", "[FastAPI]", "Lưu kết quả NILM"),
-           ("cdb", "db", "core_db", "[bảng outbox]", ""),
-           ("relay", "team", "outbox relay", "[background task trong core]", ""),
-           ("ex", "queue", "wattprint.events", "[Exchange: topic]", ""),
-           ("q", "queue", "insight.usage", "[Queue: quorum, delivery-limit 3]", ""),
-           ("ic", "team", "insight consumer", "[FastStream]", ""),
-           ("idb", "db", "insight_db", "[bảng inbox + read model]", "")]
-    xs = {}
-    for n, (i, kind, name, tech, desc) in enumerate(row):
-        xs[i] = n * (W + G)
-        d.box(i, xs[i], 0, W, H, kind, name, tech, desc, name_fs=20)
-    links = [("core", "cdb", "1", "sync"), ("cdb", "relay", "2", "sync"), ("relay", "ex", "3", "async"),
-             ("ex", "q", "4", "async"), ("q", "ic", "5", "async"), ("ic", "idb", "6", "sync")]
-    for a, b, n, kind in links:
-        y = 40 if (a, b) == ("q", "ic") else 65
-        d.arrow(f"m{n}", a, b, n, kind, pts=[(xs[a] + W + 6, y), (xs[b] - 6, y)], lbl_w=40)
-    d.arrow("nack", "ic", "q", "nack", "async", pts=[(xs["ic"] - 6, 95), (xs["q"] + W + 6, 95)], lbl_w=60)
+    d.title(0, -170, "[Dynamic] Một event đi qua RabbitMQ: outbox → exchange → queue → consumer → DLQ",
+            "Ví dụ energy.usage.updated từ core tới insight. Số trên mũi tên là số thứ tự bước (README mục 3).")
+    W, H, G, RY = 240, 130, 150, 260  # chiều rộng, cao, khe giữa cột, khoảng cách hàng
+    # xếp thành lưới 3 cột để vừa khổ trang dọc
+    grid = {"core": (0, 0, "team", "core", "[FastAPI]", "Lưu kết quả NILM"),
+            "cdb": (1, 0, "db", "core_db", "[bảng outbox]", ""),
+            "relay": (2, 0, "team", "outbox relay", "[background task trong core]", ""),
+            "ex": (0, 1, "queue", "wattprint.events", "[Exchange: topic]", ""),
+            "q": (1, 1, "queue", "insight.usage", "[Queue: quorum, delivery-limit 3]", ""),
+            "ic": (2, 1, "team", "insight consumer", "[FastStream]", ""),
+            "dlq": (0, 2, "queue", "insight.usage.dlq", "[Queue]", "Message nằm chờ, không mất"),
+            "dlx": (1, 2, "queue", "wattprint.dlx", "[Exchange: dead-letter]", ""),
+            "idb": (2, 2, "db", "insight_db", "[bảng inbox + read model]", ""),
+            "op": (0, 3, "person", "Nhóm vận hành", "[RabbitMQ UI :11099]", "")}
+    X = {}
+    Y = {}
+    for i, (c, r, kind, name, tech, desc) in grid.items():
+        X[i], Y[i] = c * (W + G), r * RY
+        d.box(i, X[i], Y[i], W, H, kind, name, tech, desc, name_fs=20)
+    mid = lambda i: (X[i] + W / 2, Y[i] + H / 2)
+    # hàng 1: core → core_db → relay
+    d.arrow("m1", "core", "cdb", "1", "sync", pts=[(X["core"] + W + 6, 65), (X["cdb"] - 6, 65)], lbl_w=40)
+    d.arrow("m2", "cdb", "relay", "2", "sync", pts=[(X["cdb"] + W + 6, 65), (X["relay"] - 6, 65)], lbl_w=40)
+    # 3: relay (cuối hàng 1) xuống exchange (đầu hàng 2)
+    ym = H + (RY - H) / 2
+    d.arrow("m3", "relay", "ex", "3", "async",
+            pts=[(mid("relay")[0], H + 6), (mid("relay")[0], ym), (mid("ex")[0], ym), (mid("ex")[0], RY - 6)], lbl_seg=1, lbl_w=40)
+    # hàng 2: ex → q → ic, nack ngược lại
+    d.arrow("m4", "ex", "q", "4", "async", pts=[(X["ex"] + W + 6, RY + 65), (X["q"] - 6, RY + 65)], lbl_w=40)
+    d.arrow("m5", "q", "ic", "5", "async", pts=[(X["q"] + W + 6, RY + 40), (X["ic"] - 6, RY + 40)], lbl_w=40)
+    d.arrow("nack", "ic", "q", "nack", "async", pts=[(X["ic"] - 6, RY + 95), (X["q"] + W + 6, RY + 95)], lbl_w=60)
+    # 6: consumer ghi inbox + read model (xuống hàng 3)
+    d.arrow("m6", "ic", "idb", "6", "sync", pts=[(mid("ic")[0], RY + H + 6), (mid("ic")[0], 2 * RY - 6)], lbl_w=40)
+    # 7-9: nhánh lỗi
+    d.arrow("m7", "q", "dlx", "7", "async", pts=[(mid("q")[0], RY + H + 6), (mid("q")[0], 2 * RY - 6)], lbl_w=40)
+    d.arrow("m8", "dlx", "dlq", "8", "async", pts=[(X["dlx"] - 6, 2 * RY + 65), (X["dlq"] + W + 6, 2 * RY + 65)], lbl_w=40)
+    d.arrow("m9", "dlq", "op", "9", "sync", pts=[(mid("dlq")[0], 2 * RY + H + 6), (mid("dlq")[0], 3 * RY - 6)], lbl_w=40)
 
-    FY = 330
-    d.box("dlx", xs["q"], FY, W, H, "queue", "wattprint.dlx", "[Exchange: dead-letter]")
-    d.box("dlq", xs["ic"], FY, W, H, "queue", "insight.usage.dlq", "[Queue]", "Message nằm chờ, không mất")
-    d.box("op", xs["idb"], FY, W, H, "person", "Nhóm vận hành", "[RabbitMQ UI :11099]")
-    cx = xs["q"] + W / 2
-    d.arrow("m7", "q", "dlx", "7", "async", pts=[(cx, H + 6), (cx, FY - 6)], lbl_w=40)
-    d.arrow("m8", "dlx", "dlq", "8", "async", pts=[(xs["q"] + W + 6, FY + 65), (xs["ic"] - 6, FY + 65)], lbl_w=40)
-    d.arrow("m9", "dlq", "op", "9", "sync", pts=[(xs["ic"] + W + 6, FY + 65), (xs["idb"] - 6, FY + 65)], lbl_w=40)
+    d.legend(X["dlx"], 3 * RY - 10, ["team", "db", "queue", "person"], ["sync", "async"], w=440)
 
-    d.label("json_t", 0, FY - 4, "Ví dụ message (routing key energy.usage.updated, body JSON)", 16, "#333333")
+    JY = 3 * RY + 640
+    d.label("json_t", 0, JY - 4, "Ví dụ message (routing key energy.usage.updated, body JSON)", 16, "#333333")
     js = ('{\n'
           '  "message_id": "6f1c2b9e-0d4a-4c1e-9a77-2f5e8b1d3c40",\n'
           '  "type": "energy.usage.updated",\n'
@@ -690,28 +704,11 @@ def messaging():
           '  "hour": "2026-11-10T07:00:00Z",\n'
           '  "kwh_by_device": {"fridge": 0.12, "washing_machine": 0.85, "standby": 0.05}\n'
           '}')
-    d.add(base("json_bg", "rectangle", 0, FY + 26, 1400, 230, strokeColor="#1e1e2e", backgroundColor="#1e1e2e",
+    d.add(base("json_bg", "rectangle", 0, JY + 26, 3 * W + 2 * G, 230, strokeColor="#1e1e2e", backgroundColor="#1e1e2e",
                roundness={"type": 3}))
-    t = text("json", 24, FY + 44, js, 17, "#e5e5e5")
+    t = text("json", 24, JY + 44, js, 17, "#e5e5e5")
     t["fontFamily"] = 3
     d.add(t)
-
-    d.label("steps", 0, 640,
-            "Các bước\n"
-            "1. core lưu kết quả NILM và một dòng vào bảng outbox trong cùng một transaction: lưu được cả hai hoặc không gì cả.\n"
-            "2. Outbox relay (vòng lặp nền trong core) đọc các dòng chưa gửi bằng SELECT … FOR UPDATE SKIP LOCKED.\n"
-            "3. Relay publish lên exchange wattprint.events với routing key energy.usage.updated, đợi broker xác nhận rồi mới đánh dấu đã gửi.\n"
-            "4. Exchange kiểu topic chép message vào mọi queue có binding khớp. insight.usage bind energy.usage.* và core.device.*.\n"
-            "5. RabbitMQ giao message cho consumer của insight. Consumer lỗi thì nack, RabbitMQ giao lại.\n"
-            "6. Consumer tra message_id trong bảng inbox: đã có thì bỏ qua; chưa có thì cập nhật read model và ghi inbox cùng một transaction, rồi ack.\n"
-            "7. Giao quá 3 lần vẫn lỗi: queue chuyển message sang dead-letter exchange wattprint.dlx.\n"
-            "8. wattprint.dlx chép message vào insight.usage.dlq.\n"
-            "9. Nhóm vận hành xem DLQ trên RabbitMQ UI, sửa lỗi, rồi chuyển message về insight.usage để chạy lại.", 18, "#1e1e1e")
-    d.label("why", 0, 920,
-            "Vì sao cần outbox: nếu lưu DB xong mà publish lỗi (hoặc publish xong mà transaction rollback), insight sẽ thiếu hoặc thừa dữ liệu.\n"
-            "Vì sao cần inbox: RabbitMQ bảo đảm giao ít nhất một lần, nên cùng một message có thể đến hai lần; inbox làm consumer idempotent.\n"
-            "Luồng insight → copilot (insight.alert.created → copilot.alerts → copilot.alerts.dlq) đi đúng các bước như trên.", 17, "#555555")
-    d.legend(xs["idb"] + W + 60, 0, ["team", "db", "queue", "person"], ["sync", "async"], w=440)
     return d
 
 
@@ -759,7 +756,7 @@ def component(title, sub, cname, ctech, above, rows, below, links, note=""):
 
 def comp_core():
     return component(
-        "[Component] core", "Phạm vi: bên trong container core. Nguồn sự thật: nhà, công tơ, thiết bị, số đo, hóa đơn.",
+        "[Component] core", "Phạm vi: bên trong container core. Nguồn sự thật: nhà, công tơ, thiết bị, dữ liệu sensor, hóa đơn.",
         "core", "[Container: Python, FastAPI, FastStream]",
         above=[(1, "gw", "offshelf", "API Gateway", "[Envoy]"), (3, "ins", "team", "insight", "[Container]")],
         rows=[
@@ -783,7 +780,7 @@ def comp_core():
                ("retrier", "nilm_cli", "", "sync"),
                ("repo", "db", "SQL", "sync"), ("nilm_cli", "nilm", "POST /inferences [REST]", "sync"),
                ("relay", "db", "Đọc outbox [SQL]", "sync"), ("relay", "q", "energy.usage.updated [AMQP]", "async")],
-        note="IngestService ghi số đo và outbox qua Repositories trong cùng một transaction.")
+        note="IngestService ghi dữ liệu sensor và outbox qua Repositories trong cùng một transaction.")
 
 
 def comp_nilm():
@@ -801,7 +798,7 @@ def comp_nilm():
              (1, "loader", "ModelLoader", "[torch.load, cache]", "Nạp trọng số một lần, giữ trong RAM")],
         ],
         below=[(0, "db", "db", "nilm_db", "[PostgreSQL]"), (1, "vol", "db", "Kho model", "[Docker volume, chỉ đọc]")],
-        links=[("gw", "admin_api", "REST", "sync"), ("core", "inf_api", "Yêu cầu suy luận [REST]", "sync"),
+        links=[("gw", "admin_api", "REST", "sync"), ("core", "inf_api", "Yêu cầu inference [REST]", "sync"),
                ("admin_api", "registry", "", "sync"), ("inf_api", "engine", "", "sync"), ("engine", "calib", "", "sync"),
                ("registry", "repo", "", "sync"), ("engine", "loader", "", "sync"), ("calib", "repo", "", "sync"),
                ("repo", "db", "SQL", "sync"), ("loader", "vol", "Đọc file .pt", "sync")])
