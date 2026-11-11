@@ -706,6 +706,7 @@ def expected_app(rel: str) -> set[str]:
         "public.tb_meter",
         "public.tb_device",
         "public.tb_device_alert_rule",
+        "public.tb_tariff_plan",
         "public.tb_tariff_version",
         "public.tb_tariff_tier",
         "public.tb_bill",
@@ -878,18 +879,13 @@ async def privilege_snapshot(c) -> dict:
     return snap
 
 
-def _public_usage(role: str, snap: dict) -> set[str]:
-    # USAGE on schema public comes from PUBLIC, not from a grant of this revision
-    return snap[role]["usage"] - {"public"}
-
-
 async def test_privilege_matrix_is_exactly_the_intended_grants(conn):
     snap = await privilege_snapshot(conn)
     for role in ROLES:
         got = snap[role]
         assert got["create"] == set(), (role, "CREATE on a schema")
         assert got["grantable"] == 0, (role, "WITH GRANT OPTION")
-        assert _public_usage(role, snap) == EXPECTED_USAGE[role], role
+        assert got["usage"] == EXPECTED_USAGE[role], role
         want = {rel: EXPECTED[role](rel) for rel in got["rels"]}
         diffs = {r: (got["rels"][r], want[r]) for r in want if got["rels"][r] != want[r]}
         assert diffs == {}, (role, diffs)
@@ -962,7 +958,7 @@ async def test_revision_downgrade_removes_grants_and_upgrade_restores_them(throw
             await c.scalar(
                 text(
                     "SELECT count(*) FROM pg_class WHERE "
-                    "relname = 'scope_token' AND relnamespace = "
+                    "relname = 'tb_scope_token' AND relnamespace = "
                     "'public'::regnamespace"
                 )
             ),
@@ -972,7 +968,7 @@ async def test_revision_downgrade_removes_grants_and_upgrade_restores_them(throw
     try:
         before, schema_before = await snapshot()
         assert schema_before == 1 and before[COPILOT]["usage"] - {"public"}
-        run_alembic(throwaway_dsn, "downgrade", "9e2c4a6b8d10")  # revision before the roles one
+        run_alembic(throwaway_dsn, "downgrade", "e3a7c9b1d5f2")  # revision before the roles one
         after, schema_after = await snapshot()
         assert schema_after == 0
         for role in ROLES:

@@ -137,7 +137,7 @@ số đo và ước lượng (rất lớn), nhà và thiết bị, tiền điệ
 | `wattprint_copilot_ro` | SELECT trên view `copilot_ro` và whitelist `public` (documents/chunks, catalogs, tariffs); `statement_timeout = 5s` |
 | `wattprint_ai_user` (member của `wattprint_ai`) | DML conversation; SELECT dimensions, facts và metrics; `statement_timeout = 30s` |
 
-**Lưu ý cần xử lý trong migration:** revision `cf93b7d8a102` cấp `ALL PRIVILEGES` trên schema/table và default privileges cho `wattprint_app`; revision ma trận quyền sau đó không thu hồi các quyền rộng này. Vì vậy quyền thực tế của `wattprint_app` hiện rộng hơn bảng này mô tả và rộng hơn least privilege. Không xem ma trận dưới đây là đã được xác nhận thực tế cho tới khi sửa và kiểm tra lại grants.
+Revision `cf93b7d8a102` chỉ tạo role `wattprint_app` (login, `CONNECT`); mọi quyền trên object đến từ ma trận ở `4d7b1e9a3c52` và các revision `ai`, được `tests/db/test_roles.py` kiểm đúng từng quyền.
 
 Copilot cũ không đọc bảng mà đọc 15 view
 `copilot_ro` (`security_barrier`). Phạm vi home do `copilot_ro.current_home()` phân giải từ

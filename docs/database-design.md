@@ -143,8 +143,8 @@ chỉ cho phép một câu SELECT, chặn `set_config`, `current_setting` của 
   `wattprint_app`, `wattprint_ingest`, `wattprint_copilot_ro` và `wattprint_ai` (login
   `wattprint_ai_user`). AI chỉ đọc dimensions/facts, đọc/ghi conversation; app cũng có quyền
   quản lý conversation và dimensions.
-  **Quyền app hiện cần rà soát:** revision `cf93b7d8a102` cấp `ALL PRIVILEGES` và default
-  privileges cho `wattprint_app`; revision ma trận quyền sau đó không thu hồi các grants rộng này.
+  Quyền của `wattprint_app` chỉ đến từ ma trận quyền (`4d7b1e9a3c52`) và các revision `ai`;
+  `cf93b7d8a102` chỉ tạo role, không cấp `ALL PRIVILEGES` hay default privileges.
 - **Migration** viết tay bằng Alembic, mỗi thay đổi một revision, DDL của TimescaleDB đặt trong
   `op.execute`, refresh trong `autocommit_block()`. Database phải dựng lại được từ volume rỗng.
 - **Image** pin `timescale/timescaledb:2.31.0-pg18`; nâng cấp là một thay đổi có chủ đích. Lên PG18 ngày

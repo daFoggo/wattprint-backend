@@ -1,4 +1,4 @@
-"""create the public-schema application user and grants
+"""create the public-schema application user
 
 Revision ID: cf93b7d8a102
 Revises: b58a2d71c409
@@ -40,89 +40,10 @@ def upgrade() -> None:
         f"DO $$ BEGIN EXECUTE format('GRANT CONNECT ON DATABASE %I TO {ROLE}', "
         "current_database()); END $$"
     )
-    op.execute(f"GRANT ALL PRIVILEGES ON SCHEMA public TO {ROLE}")
-    op.execute(
-        f"""
-        DO $$
-        DECLARE obj record;
-        BEGIN
-            FOR obj IN
-                SELECT c.relname, c.relkind
-                FROM pg_class AS c
-                JOIN pg_namespace AS n ON n.oid = c.relnamespace
-                WHERE n.nspname = 'public'
-                  AND c.relname <> 'alembic_version'
-                  AND c.relkind IN ('r', 'p', 'v', 'm', 'f', 'S')
-            LOOP
-                IF obj.relkind = 'S' THEN
-                    EXECUTE format(
-                        'GRANT ALL PRIVILEGES ON SEQUENCE %I.%I TO {ROLE}',
-                        'public', obj.relname
-                    );
-                ELSE
-                    EXECUTE format(
-                        'GRANT ALL PRIVILEGES ON TABLE %I.%I TO {ROLE}',
-                        'public', obj.relname
-                    );
-                END IF;
-            END LOOP;
-        END
-        $$
-        """
-    )
-    op.execute(
-        f"ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL PRIVILEGES ON TABLES TO {ROLE}"
-    )
-    op.execute(
-        f"ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL PRIVILEGES ON SEQUENCES TO {ROLE}"
-    )
-    op.execute(
-        f"ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL PRIVILEGES ON FUNCTIONS TO {ROLE}"
-    )
-    op.execute(f"GRANT ALL PRIVILEGES ON ALL FUNCTIONS IN SCHEMA public TO {ROLE}")
+    # Object grants come from the privilege matrix (4d7b1e9a3c52): least privilege, no ALL.
 
 
 def downgrade() -> None:
-    op.execute(
-        f"""
-        DO $$
-        DECLARE obj record;
-        BEGIN
-            FOR obj IN
-                SELECT c.relname, c.relkind
-                FROM pg_class AS c
-                JOIN pg_namespace AS n ON n.oid = c.relnamespace
-                WHERE n.nspname = 'public'
-                  AND c.relname <> 'alembic_version'
-                  AND c.relkind IN ('r', 'p', 'v', 'm', 'f', 'S')
-            LOOP
-                IF obj.relkind = 'S' THEN
-                    EXECUTE format(
-                        'REVOKE ALL PRIVILEGES ON SEQUENCE %I.%I FROM {ROLE}',
-                        'public', obj.relname
-                    );
-                ELSE
-                    EXECUTE format(
-                        'REVOKE ALL PRIVILEGES ON TABLE %I.%I FROM {ROLE}',
-                        'public', obj.relname
-                    );
-                END IF;
-            END LOOP;
-        END
-        $$
-        """
-    )
-    op.execute(
-        f"ALTER DEFAULT PRIVILEGES IN SCHEMA public REVOKE ALL PRIVILEGES ON FUNCTIONS FROM {ROLE}"
-    )
-    op.execute(f"REVOKE ALL PRIVILEGES ON ALL FUNCTIONS IN SCHEMA public FROM {ROLE}")
-    op.execute(
-        f"ALTER DEFAULT PRIVILEGES IN SCHEMA public REVOKE ALL PRIVILEGES ON SEQUENCES FROM {ROLE}"
-    )
-    op.execute(
-        f"ALTER DEFAULT PRIVILEGES IN SCHEMA public REVOKE ALL PRIVILEGES ON TABLES FROM {ROLE}"
-    )
-    op.execute(f"REVOKE ALL PRIVILEGES ON SCHEMA public FROM {ROLE}")
     op.execute(
         f"DO $$ BEGIN EXECUTE format('REVOKE CONNECT ON DATABASE %I FROM {ROLE}', "
         "current_database()); END $$"
