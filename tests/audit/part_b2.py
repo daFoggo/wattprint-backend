@@ -49,7 +49,7 @@ async def copy_slices(
                     text(
                         "WITH h AS (INSERT INTO public.tb_home (name) VALUES ('scratch') RETURNING id) "
                         "INSERT INTO public.tb_series (series_id, home_id, kind, metric, unit) "
-                        "OVERRIDING SYSTEM VALUE SELECT :s, id, 'main', 'power_w', 'W' FROM h"
+                        "SELECT :s, id, 'main', 'power_w', 'W' FROM h"
                     ),
                     {"s": sid},
                 )
@@ -179,7 +179,7 @@ async def stage_cagg_compression(args) -> None:
                 "row_count_unchanged": same == rows,
             }
             log(f"{fam}_1m: {out[f'{fam}_1m']}")
-        sid = await c.scalar(text("SELECT min(series_id) FROM public.tb_series"))
+        sid = await c.scalar(text("SELECT series_id FROM public.tb_series ORDER BY series_id LIMIT 1"))
         lat = {}
         for label, sql in (
             (
