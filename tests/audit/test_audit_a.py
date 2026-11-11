@@ -4,6 +4,7 @@ Run with `pytest -m audit tests/audit/test_audit_a.py` after the estimates / bac
 """
 
 import math
+import uuid
 
 import pytest
 from sqlalchemy import text
@@ -35,7 +36,7 @@ async def phase(engine):
         return await _phase(conn)
 
 
-async def _main_series(conn, house: int) -> int:
+async def _main_series(conn, house: int) -> uuid.UUID:
     return await conn.scalar(
         text(
             "SELECT s.series_id FROM public.tb_series s JOIN public.tb_home h ON h.id = s.home_id "

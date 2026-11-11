@@ -1,6 +1,7 @@
+import uuid
 from datetime import UTC, datetime
 
-from sqlalchemy import DateTime, Identity, Integer, MetaData, text
+from sqlalchemy import DateTime, MetaData, Uuid, text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 NAMING = {
@@ -24,7 +25,9 @@ class Base(DeclarativeBase):
 
 
 class IdMixin:
-    id: Mapped[int] = mapped_column(Integer, Identity(always=False), primary_key=True)
+    id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, primary_key=True, default=uuid.uuid7, server_default=text("uuidv7()")
+    )
 
 
 class CreatedAtMixin:

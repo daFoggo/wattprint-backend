@@ -1,12 +1,13 @@
+import uuid
 from datetime import datetime
 
 from sqlalchemy import (
     CheckConstraint,
     DateTime,
     ForeignKey,
-    Identity,
-    Integer,
     Text,
+    Uuid,
+    text,
 )
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -20,8 +21,10 @@ class InferenceRun(Base):
         {"schema": "public"},
     )
 
-    run_id: Mapped[int] = mapped_column(Integer, Identity(always=False), primary_key=True)
-    home_id: Mapped[int] = mapped_column(
+    run_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, primary_key=True, default=uuid.uuid7, server_default=text("uuidv7()")
+    )
+    home_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("public.tb_home.id", ondelete="CASCADE"), index=True
     )
     model_name: Mapped[str] = mapped_column(Text)

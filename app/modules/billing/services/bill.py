@@ -1,4 +1,5 @@
 import calendar
+import uuid
 from datetime import UTC, date, datetime, timedelta, timezone
 from decimal import ROUND_HALF_UP, Decimal
 
@@ -38,7 +39,7 @@ def _tier_amount(tiers: list[TariffTier], kwh: Decimal) -> Decimal:
     return total
 
 
-async def _kwh_by_series(session, view, series_ids, lo, hi) -> dict[int, Decimal]:
+async def _kwh_by_series(session, view, series_ids, lo, hi) -> dict[uuid.UUID, Decimal]:
     if not series_ids:
         return {}
     rows = await session.execute(
@@ -82,7 +83,7 @@ def _allocate(
 
 
 async def compute_bill(
-    session: AsyncSession, home_id: int, period_start: date, now: datetime | None = None
+    session: AsyncSession, home_id: uuid.UUID, period_start: date, now: datetime | None = None
 ) -> Bill:
     """Compute (or recompute) the bill of one billing cycle; idempotent on (home, period_start).
 

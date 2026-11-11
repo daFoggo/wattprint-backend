@@ -1,12 +1,13 @@
+import uuid
+
 from sqlalchemy import (
     CheckConstraint,
     ForeignKey,
-    Identity,
     Index,
-    Integer,
     String,
     Text,
     UniqueConstraint,
+    Uuid,
     text,
 )
 from sqlalchemy.orm import Mapped, mapped_column
@@ -41,13 +42,15 @@ class Series(Base):
         {"schema": "public"},
     )
 
-    series_id: Mapped[int] = mapped_column(Integer, Identity(always=False), primary_key=True)
-    home_id: Mapped[int] = mapped_column(ForeignKey("public.tb_home.id", ondelete="CASCADE"))
+    series_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, primary_key=True, default=uuid.uuid7, server_default=text("uuidv7()")
+    )
+    home_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("public.tb_home.id", ondelete="CASCADE"))
     kind: Mapped[str] = mapped_column(String(16))
-    device_id: Mapped[int | None] = mapped_column(
+    device_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("public.tb_device.id", ondelete="CASCADE"), index=True
     )
-    meter_id: Mapped[int | None] = mapped_column(
+    meter_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("public.tb_meter.id", ondelete="SET NULL"), index=True
     )
     source_channel: Mapped[str | None] = mapped_column(Text)

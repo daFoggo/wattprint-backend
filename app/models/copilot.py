@@ -8,11 +8,11 @@ from sqlalchemy import (
     CheckConstraint,
     DateTime,
     ForeignKey,
-    Identity,
     Integer,
     Numeric,
     String,
     Text,
+    Uuid,
     text,
 )
 from sqlalchemy.dialects.postgresql import JSONB
@@ -37,7 +37,7 @@ class ScopeToken(Base):
     token: Mapped[uuid.UUID] = mapped_column(
         primary_key=True, default=uuid.uuid4, server_default=_UUID_DEFAULT
     )
-    home_id: Mapped[int] = mapped_column(
+    home_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("public.tb_home.id", ondelete="CASCADE"), index=True
     )
     expires_at: Mapped[datetime] = mapped_column(
@@ -52,11 +52,13 @@ class Conversation(Base):
     __tablename__ = "ai_conversation"
     __table_args__ = {"schema": "ai"}
 
-    id: Mapped[int] = mapped_column(Integer, Identity(always=False), primary_key=True)
-    home_id: Mapped[int] = mapped_column(
+    id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, primary_key=True, default=uuid.uuid7, server_default=text("uuidv7()")
+    )
+    home_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("public.tb_home.id", ondelete="CASCADE"), index=True
     )
-    user_id: Mapped[int] = mapped_column(
+    user_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("public.tb_users.id", ondelete="CASCADE"), index=True
     )
     title: Mapped[str | None] = mapped_column(Text)
@@ -70,8 +72,10 @@ class Message(Base):
         {"schema": "ai"},
     )
 
-    id: Mapped[int] = mapped_column(Integer, Identity(always=False), primary_key=True)
-    conversation_id: Mapped[int] = mapped_column(
+    id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, primary_key=True, default=uuid.uuid7, server_default=text("uuidv7()")
+    )
+    conversation_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("ai.ai_conversation.id", ondelete="CASCADE"), index=True
     )
     role: Mapped[str] = mapped_column(String(16))
@@ -83,8 +87,10 @@ class ToolCall(Base):
     __tablename__ = "ai_tool_call"
     __table_args__ = {"schema": "ai"}
 
-    id: Mapped[int] = mapped_column(Integer, Identity(always=False), primary_key=True)
-    message_id: Mapped[int] = mapped_column(
+    id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, primary_key=True, default=uuid.uuid7, server_default=text("uuidv7()")
+    )
+    message_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("ai.ai_message.id", ondelete="CASCADE"), index=True
     )
     tool: Mapped[str] = mapped_column(Text)
@@ -106,14 +112,16 @@ class Suggestion(Base):
         {"schema": "public"},
     )
 
-    id: Mapped[int] = mapped_column(Integer, Identity(always=False), primary_key=True)
-    home_id: Mapped[int] = mapped_column(
+    id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, primary_key=True, default=uuid.uuid7, server_default=text("uuidv7()")
+    )
+    home_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("public.tb_home.id", ondelete="CASCADE"), index=True
     )
-    device_id: Mapped[int | None] = mapped_column(
+    device_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("public.tb_device.id", ondelete="SET NULL"), index=True
     )
-    alert_id: Mapped[int | None] = mapped_column(
+    alert_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("public.tb_alert.id", ondelete="SET NULL"), index=True
     )
     kind: Mapped[str] = mapped_column(Text)
@@ -132,11 +140,13 @@ class SuggestionFeedback(Base):
         {"schema": "public"},
     )
 
-    id: Mapped[int] = mapped_column(Integer, Identity(always=False), primary_key=True)
-    suggestion_id: Mapped[int] = mapped_column(
+    id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, primary_key=True, default=uuid.uuid7, server_default=text("uuidv7()")
+    )
+    suggestion_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("public.tb_suggestion.id", ondelete="CASCADE"), index=True
     )
-    user_id: Mapped[int] = mapped_column(
+    user_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("public.tb_users.id", ondelete="CASCADE"), index=True
     )
     action: Mapped[str] = mapped_column(String(16))
@@ -148,7 +158,7 @@ class SavingsMeasure(Base):
     __tablename__ = "tb_savings_measure"
     __table_args__ = {"schema": "public"}
 
-    suggestion_id: Mapped[int] = mapped_column(
+    suggestion_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("public.tb_suggestion.id", ondelete="CASCADE"), primary_key=True
     )
     baseline_kwh: Mapped[Decimal] = mapped_column(Numeric(12, 3))

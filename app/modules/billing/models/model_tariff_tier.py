@@ -1,3 +1,4 @@
+import uuid
 from decimal import Decimal
 
 from sqlalchemy import (
@@ -20,7 +21,7 @@ class TariffTier(Base):
         {"schema": "public"},
     )
 
-    version_id: Mapped[int] = mapped_column(
+    version_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("public.tb_tariff_version.id", ondelete="CASCADE"), primary_key=True
     )
     tier_no: Mapped[int] = mapped_column(SmallInteger, primary_key=True)

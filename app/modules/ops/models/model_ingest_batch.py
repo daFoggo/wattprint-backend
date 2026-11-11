@@ -1,3 +1,4 @@
+import uuid
 from datetime import datetime
 
 from sqlalchemy import (
@@ -24,7 +25,7 @@ class IngestBatch(IdMixin, Base):
     )
 
     source: Mapped[str] = mapped_column(Text)
-    home_id: Mapped[int | None] = mapped_column(
+    home_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("public.tb_home.id", ondelete="SET NULL"), index=True
     )
     started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=NOW)

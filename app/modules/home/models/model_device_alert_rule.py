@@ -1,3 +1,4 @@
+import uuid
 from typing import Any
 
 from sqlalchemy import (
@@ -19,7 +20,7 @@ class DeviceAlertRule(IdMixin, Base):
         {"schema": "public"},
     )
 
-    device_id: Mapped[int] = mapped_column(
+    device_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("public.tb_device.id", ondelete="CASCADE"), index=True
     )
     kind: Mapped[str] = mapped_column(String(16))

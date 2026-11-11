@@ -1,3 +1,4 @@
+import uuid
 from datetime import datetime
 from typing import Any
 
@@ -25,8 +26,8 @@ class Alert(IdMixin, Base):
         {"schema": "public"},
     )
 
-    home_id: Mapped[int] = mapped_column(ForeignKey("public.tb_home.id", ondelete="CASCADE"))
-    device_id: Mapped[int | None] = mapped_column(
+    home_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("public.tb_home.id", ondelete="CASCADE"))
+    device_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("public.tb_device.id", ondelete="SET NULL"), index=True
     )
     kind: Mapped[str] = mapped_column(Text)

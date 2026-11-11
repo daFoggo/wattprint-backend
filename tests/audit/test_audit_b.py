@@ -46,7 +46,7 @@ def rows(start: datetime, minutes: int, value: float = WATTS, quality: int = 0, 
 
 
 # ------------------------------------------------------------------ B: failure drills
-async def _provision(s: AsyncSession) -> int:
+async def _provision(s: AsyncSession) -> uuid.UUID:
     """Owner, home, meter SERIAL and its Aggregate main series; returns the home id."""
     user = await s.scalar(
         text("INSERT INTO public.tb_users (email) VALUES ('drill@example.invalid') RETURNING id")
@@ -376,7 +376,11 @@ async def test_copilot_isolation_on_loaded_data(engine):
         # no direct table access, no writes
         await denied(c, "SELECT count(*) FROM public.tb_reading")
         await denied(c, "SELECT count(*) FROM public.reading_1d")
-        await denied(c, "INSERT INTO public.tb_reading (ts, series_id, value) VALUES (now(), 1, 1)")
+        await denied(
+            c,
+            "INSERT INTO public.tb_reading (ts, series_id, value) "
+            "VALUES (now(), gen_random_uuid(), 1)",
+        )
         await denied(c, "UPDATE public.tb_home SET name = 'x'")
         await denied(c, "DELETE FROM public.tb_home")
         await denied(c, "SELECT token FROM public.tb_scope_token")

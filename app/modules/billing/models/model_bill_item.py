@@ -1,3 +1,4 @@
+import uuid
 from decimal import Decimal
 
 from sqlalchemy import (
@@ -14,10 +15,10 @@ class BillItem(IdMixin, Base):
     __tablename__ = "tb_bill_item"
     __table_args__ = {"schema": "public"}
 
-    bill_id: Mapped[int] = mapped_column(
+    bill_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("public.tb_bill.id", ondelete="CASCADE"), index=True
     )
-    device_id: Mapped[int | None] = mapped_column(
+    device_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("public.tb_device.id", ondelete="SET NULL"), index=True
     )
     label: Mapped[str] = mapped_column(Text)

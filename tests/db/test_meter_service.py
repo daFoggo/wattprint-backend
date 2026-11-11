@@ -1,4 +1,5 @@
 import re
+import uuid
 from datetime import UTC, datetime, timedelta
 
 import pytest
@@ -24,7 +25,7 @@ T0 = utc(2026, 10, 1, 17)  # local midnight (17:00 UTC)
 FAR = utc(2030, 1, 1)  # a "now" well past every test row
 
 
-async def new_home(session) -> tuple[int, int]:
+async def new_home(session) -> tuple[uuid.UUID, uuid.UUID]:
     hid = await session.scalar(
         text("INSERT INTO public.tb_home (name) VALUES ('Meter') RETURNING id")
     )
@@ -38,7 +39,7 @@ async def new_home(session) -> tuple[int, int]:
     return hid, sid
 
 
-async def new_device(session, hid, name="Fridge") -> tuple[int, int]:
+async def new_device(session, hid, name="Fridge") -> tuple[uuid.UUID, uuid.UUID]:
     did = await session.scalar(
         text(
             "INSERT INTO public.tb_device (home_id, device_type_code, name, origin) "
@@ -332,7 +333,7 @@ async def test_meter_series_no_gap_fill(session):
 
 
 async def test_meter_series_unknown_home_is_empty(session):
-    assert await meter_series(session, -1, T0, T0 + timedelta(days=1), 600, FAR) == []
+    assert await meter_series(session, uuid.uuid7(), T0, T0 + timedelta(days=1), 600, FAR) == []
     hid = await session.scalar(
         text("INSERT INTO public.tb_home (name) VALUES ('Empty') RETURNING id")
     )
@@ -342,7 +343,7 @@ async def test_meter_series_unknown_home_is_empty(session):
 
 
 async def test_meter_series_rejects_naive_datetimes(session):
-    hid = -1
+    hid = uuid.uuid7()
     with pytest.raises(ValueError):
         await meter_series(session, hid, datetime(2026, 10, 1), T0 + timedelta(days=1))
     with pytest.raises(ValueError):
@@ -430,7 +431,7 @@ async def test_latest_power(session):
 async def test_latest_power_none_when_old_or_missing(session):
     hid, sid = await new_home(session)
     assert await latest_power(session, hid, T0) is None  # series, no data
-    assert await latest_power(session, -1, T0) is None  # unknown home
+    assert await latest_power(session, uuid.uuid7(), T0) is None  # unknown home
     await put(session, sid, T0, 100)
     now = T0 + timedelta(days=7, minutes=1)
     assert await latest_power(session, hid, now) is None  # older than 7 days
@@ -448,7 +449,7 @@ async def test_latest_power_query_is_bounded(session):
     # exclude chunks and use the primary-key/bucket index instead of reading everything.
     assert "bucket >= :lo" in sql and "bucket < :hi" in sql
     assert params["sid"] == sid and params["hi"] - params["lo"] == timedelta(days=7)
-    assert re.search(rf"series_id = {sid}(?!\d)", plan)  # equality on the series, not a scan of all
+    assert f"series_id = '{sid}'::uuid" in plan  # equality on the series, not a scan of all
     assert re.search(r"^Limit", plan)  # stops at the first (newest) row
 
 
@@ -523,7 +524,7 @@ async def test_device_breakdown_ties_are_ordered_by_device_id(session):
 async def test_device_breakdown_empty_and_zero_energy(session):
     hid, _ = await new_home(session)
     assert await device_breakdown(session, hid, T0, T0 + timedelta(days=1)) == []
-    assert await device_breakdown(session, -1, T0, T0 + timedelta(days=1)) == []
+    assert await device_breakdown(session, uuid.uuid7(), T0, T0 + timedelta(days=1)) == []
     did, sid = await new_device(session, hid)
     assert await device_breakdown(session, hid, T0, T0 + timedelta(days=1)) == []  # no data
     await load(session, sid, T0, 10, 0, "device_estimate")  # data, zero energy
@@ -532,7 +533,7 @@ async def test_device_breakdown_empty_and_zero_energy(session):
 
 
 async def test_device_breakdown_validation(session):
-    hid = -1
+    hid = uuid.uuid7()
     with pytest.raises(ValueError):
         await device_breakdown(session, hid, datetime(2026, 10, 1), T0 + timedelta(days=1))
     with pytest.raises(ValueError):

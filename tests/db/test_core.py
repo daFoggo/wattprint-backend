@@ -6,14 +6,14 @@ from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 
 
-async def _user(conn) -> int:
+async def _user(conn) -> uuid.UUID:
     return await conn.scalar(
         text("INSERT INTO public.tb_users (email) VALUES (:e) RETURNING id"),
         {"e": f"{uuid.uuid4()}@example.com"},
     )
 
 
-async def _home(conn, **overrides) -> int:
+async def _home(conn, **overrides) -> uuid.UUID:
     cols = {"name": "Home", **overrides}
     names = ", ".join(cols)
     params = ", ".join(f":{k}" for k in cols)
@@ -211,7 +211,7 @@ async def test_orm_round_trip(session):
 # --- CHECK vocabularies ---
 
 
-async def _device(conn, home_id, **overrides) -> int:
+async def _device(conn, home_id, **overrides) -> uuid.UUID:
     cols = {
         "home_id": home_id,
         "device_type_code": "fridge",
@@ -242,7 +242,9 @@ async def test_home_type_check(conn):
 async def test_member_and_invite_role_check(conn):
     uid, hid = await _user(conn), await _home(conn)
     await conn.execute(
-        text("INSERT INTO public.tb_home_member (home_id, user_id, role) VALUES (:h, :u, 'member')"),
+        text(
+            "INSERT INTO public.tb_home_member (home_id, user_id, role) VALUES (:h, :u, 'member')"
+        ),
         {"h": hid, "u": uid},
     )
     uid2 = await _user(conn)
@@ -261,7 +263,9 @@ async def test_member_and_invite_role_check(conn):
 
 async def test_invite_code_hash_unique(conn):
     hid = await _home(conn)
-    ins = "INSERT INTO public.tb_home_invite (home_id, code_hash, expires_at) VALUES (:h, 'x', now())"
+    ins = (
+        "INSERT INTO public.tb_home_invite (home_id, code_hash, expires_at) VALUES (:h, 'x', now())"
+    )
     await conn.execute(text(ins), {"h": hid})
     await _rejects(conn, ins, {"h": hid})
 
@@ -338,7 +342,7 @@ async def test_meter_fk_to_home_blocks_delete(conn):
     await _rejects(
         conn,
         "INSERT INTO public.tb_meter (serial, home_id) VALUES ('SN-FK2', :h)",
-        {"h": -1},
+        {"h": uuid.uuid7()},
     )
 
 

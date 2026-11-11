@@ -1,3 +1,4 @@
+import uuid
 from datetime import datetime
 
 from sqlalchemy import (
@@ -24,8 +25,8 @@ class DeviceCycle(Base):
         {"schema": "public"},
     )
 
-    home_id: Mapped[int] = mapped_column(ForeignKey("public.tb_home.id", ondelete="CASCADE"))
-    device_id: Mapped[int] = mapped_column(
+    home_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("public.tb_home.id", ondelete="CASCADE"))
+    device_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("public.tb_device.id", ondelete="CASCADE"), primary_key=True
     )
     start_ts: Mapped[datetime] = mapped_column(DateTime(timezone=True), primary_key=True)

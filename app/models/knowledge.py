@@ -1,3 +1,4 @@
+import uuid
 from datetime import date
 
 from pgvector.sqlalchemy import Vector
@@ -6,12 +7,13 @@ from sqlalchemy import (
     Computed,
     Date,
     ForeignKey,
-    Identity,
     Index,
     Integer,
     String,
     Text,
     UniqueConstraint,
+    Uuid,
+    text,
 )
 from sqlalchemy.dialects.postgresql import TSVECTOR
 from sqlalchemy.orm import Mapped, mapped_column
@@ -30,7 +32,9 @@ class Document(Base):
         {"schema": "public"},
     )
 
-    id: Mapped[int] = mapped_column(Integer, Identity(always=False), primary_key=True)
+    id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, primary_key=True, default=uuid.uuid7, server_default=text("uuidv7()")
+    )
     title: Mapped[str] = mapped_column(Text)
     doc_type: Mapped[str] = mapped_column(String(16))
     lang: Mapped[str] = mapped_column(Text, default="vi", server_default="vi")
@@ -57,8 +61,10 @@ class Chunk(Base):
         {"schema": "public"},
     )
 
-    id: Mapped[int] = mapped_column(Integer, Identity(always=False), primary_key=True)
-    document_id: Mapped[int] = mapped_column(
+    id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, primary_key=True, default=uuid.uuid7, server_default=text("uuidv7()")
+    )
+    document_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("public.tb_document.id", ondelete="CASCADE")
     )
     ord: Mapped[int] = mapped_column(Integer)

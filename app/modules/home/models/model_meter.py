@@ -1,3 +1,4 @@
+import uuid
 from datetime import datetime
 
 from sqlalchemy import (
@@ -27,7 +28,7 @@ class Meter(IdMixin, Base):
     )
 
     serial: Mapped[str] = mapped_column(String(64), unique=True)
-    home_id: Mapped[int | None] = mapped_column(ForeignKey("public.tb_home.id"), index=True)
+    home_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("public.tb_home.id"), index=True)
     claim_code_hash: Mapped[str | None] = mapped_column(String(128))
     claimed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     firmware: Mapped[str | None] = mapped_column(String(64))

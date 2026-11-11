@@ -1,3 +1,4 @@
+import uuid
 from datetime import datetime
 
 from sqlalchemy import (
@@ -20,10 +21,10 @@ class HomeMember(Base):
         {"schema": "public"},
     )
 
-    home_id: Mapped[int] = mapped_column(
+    home_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("public.tb_home.id", ondelete="CASCADE"), primary_key=True
     )
-    user_id: Mapped[int] = mapped_column(
+    user_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("public.tb_users.id", ondelete="CASCADE"), primary_key=True
     )
     role: Mapped[str] = mapped_column(String(16), default="member", server_default="member")

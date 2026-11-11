@@ -69,7 +69,9 @@ EXPECTED_ROWS = {
 
 async def _seed_home(c, name: str) -> dict:
     home = await mk_home(c)
-    await c.execute(text("UPDATE public.tb_home SET name = :n WHERE id = :h"), {"n": name, "h": home})
+    await c.execute(
+        text("UPDATE public.tb_home SET name = :n WHERE id = :h"), {"n": name, "h": home}
+    )
     device = await mk_device(c, home)
     main = await mk_series(c, home)
     dev_series = await c.scalar(
@@ -397,9 +399,7 @@ async def test_app_issues_and_prunes_tokens_others_cannot_read(conn):
         assert await table_denied(conn, role, "public.tb_scope_token")
         await as_role(conn, role)
         await denied(conn, "SELECT * FROM public.tb_scope_token")
-        await denied(
-            conn, "INSERT INTO public.tb_scope_token (home_id) VALUES (gen_random_uuid())"
-        )
+        await denied(conn, "INSERT INTO public.tb_scope_token (home_id) VALUES (gen_random_uuid())")
         await denied(conn, "DELETE FROM public.tb_scope_token")
         await reset(conn)
 
@@ -434,7 +434,7 @@ async def test_copilot_cannot_write(conn):
     a, _, _ = await seed(conn)
     await as_role(conn, COPILOT, a["token"])
     for sql in (
-        "INSERT INTO copilot_ro.home (id, name) VALUES (1, 'x')",
+        "INSERT INTO copilot_ro.home (id, name) VALUES (gen_random_uuid(), 'x')",
         "UPDATE copilot_ro.home SET name = 'x'",
         "DELETE FROM copilot_ro.alert",
         "TRUNCATE public.tb_chunk",
@@ -620,7 +620,7 @@ async def test_ingest_cannot_delete_truncate_or_read_other_tables(conn):
         "UPDATE public.tb_reading SET value = 0",
         "UPDATE public.tb_series SET unit = 'x'",
         "INSERT INTO public.tb_series (home_id, kind, metric, unit) "
-        "VALUES (-1, 'main', 'power_w', 'W')",
+        "VALUES ('00000000-0000-0000-0000-000000000000', 'main', 'power_w', 'W')",
         "SELECT * FROM public.tb_home_member",
         "SELECT * FROM public.tb_home",
         "SELECT * FROM public.tb_users",
@@ -645,7 +645,7 @@ async def test_app_dml_and_aggregate_reads(conn):
     h = await conn.scalar(text("INSERT INTO public.tb_home (name) VALUES ('N') RETURNING id"))
     await conn.execute(text("UPDATE public.tb_home SET name = 'M' WHERE id = :h"), {"h": h})
     await conn.execute(text("DELETE FROM public.tb_home WHERE id = :h"), {"h": h})
-    sid = await conn.scalar(  # identity sequence usable
+    sid = await conn.scalar(  # uuidv7() default works for app_user
         text(
             "INSERT INTO public.tb_series (home_id, kind, metric, unit) "
             "VALUES (:h, 'main', 'voltage_v', 'V') RETURNING series_id"
@@ -671,10 +671,11 @@ async def test_app_cannot_touch_raw_hypertables_or_ops_writes(conn):
     await seed(conn)
     await as_role(conn, APP)
     for sql in (
-        "INSERT INTO public.tb_reading (ts, series_id, value) VALUES (now(), 1, 1)",
+        "INSERT INTO public.tb_reading (ts, series_id, value) VALUES (now(), gen_random_uuid(), 1)",
         "SELECT * FROM public.tb_reading",
         "SELECT * FROM public.tb_device_estimate",
-        "INSERT INTO public.tb_device_estimate (ts, series_id, value) VALUES (now(), 1, 1)",
+        "INSERT INTO public.tb_device_estimate (ts, series_id, value) "
+        "VALUES (now(), gen_random_uuid(), 1)",
         "INSERT INTO public.tb_ingest_batch (source) VALUES ('x')",
         "DELETE FROM public.tb_ingest_checkpoint",
         "INSERT INTO public.cat_metric (event_type, unit, aggregation) VALUES ('x', 'x', 'x')",
@@ -732,14 +733,18 @@ def expected_app(rel: str) -> set[str]:
         "ai.metric_definition",
     }:
         return DML
-    if rel in {
-        "public.cat_metric",
-        "public.cat_device_type",
-        "public.tb_ingest_batch",
-        "public.tb_ingest_checkpoint",
-        "public.series_daily_coverage",
-        "public.stale_series",
-    } or rel in AGGS:
+    if (
+        rel
+        in {
+            "public.cat_metric",
+            "public.cat_device_type",
+            "public.tb_ingest_batch",
+            "public.tb_ingest_checkpoint",
+            "public.series_daily_coverage",
+            "public.stale_series",
+        }
+        or rel in AGGS
+    ):
         return {"SELECT"}
     return set()
 
@@ -776,17 +781,7 @@ EXPECTED_USAGE = {
     INGEST: {"public"},
     COPILOT: {"copilot_ro", "public"},
 }
-EXPECTED_SEQUENCES = {
-    "public.tb_series_series_id_seq",
-    "public.tb_inference_run_run_id_seq",
-    "public.tb_chunk_id_seq",
-    "ai.ai_conversation_id_seq",
-    "ai.ai_message_id_seq",
-    "ai.ai_tool_call_id_seq",
-    "ai.dim_home_home_key_seq",
-    "ai.dim_device_device_key_seq",
-    "ai.dim_tariff_plan_tariff_plan_key_seq",
-}
+EXPECTED_SEQUENCES: set[str] = set()  # UUIDv7 keys: no sequence anywhere
 ALL_SCHEMAS = ("public", "copilot_ro", "ai")
 
 
@@ -901,6 +896,18 @@ async def test_privilege_matrix_is_exactly_the_intended_grants(conn):
     assert snap[APP]["seqs"] == EXPECTED_SEQUENCES
     assert snap[INGEST]["seqs"] == set()
     assert snap[COPILOT]["seqs"] == set()
+
+
+async def test_no_sequences_in_app_schemas(conn):
+    seqs = await conn.execute(
+        text(
+            "SELECT n.nspname || '.' || c.relname FROM pg_class c "
+            "JOIN pg_namespace n ON n.oid = c.relnamespace "
+            "WHERE n.nspname = ANY(:s) AND c.relkind = 'S'"
+        ),
+        {"s": list(ALL_SCHEMAS)},
+    )
+    assert seqs.scalars().all() == []
 
 
 async def test_matrix_covers_all_domain_tables(conn):

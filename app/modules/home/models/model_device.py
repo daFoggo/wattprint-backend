@@ -1,3 +1,4 @@
+import uuid
 from datetime import datetime
 
 from sqlalchemy import (
@@ -20,7 +21,7 @@ class Device(BaseModel):
         {"schema": "public"},
     )
 
-    home_id: Mapped[int] = mapped_column(
+    home_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("public.tb_home.id", ondelete="CASCADE"), index=True
     )
     device_type_code: Mapped[str] = mapped_column(ForeignKey("public.cat_device_type.code"))
@@ -30,7 +31,7 @@ class Device(BaseModel):
     show_on_timeline: Mapped[bool] = mapped_column(default=True, server_default=text("true"))
     active_from: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=NOW)
     active_to: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    merged_into_id: Mapped[int | None] = mapped_column(
+    merged_into_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("public.tb_device.id"), index=True
     )
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

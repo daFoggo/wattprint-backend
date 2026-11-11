@@ -1,5 +1,6 @@
 import logging
 import math
+import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
@@ -43,7 +44,7 @@ def _snap(ts: datetime, step: timedelta) -> tuple[datetime, datetime]:
 
 async def _raw_row_counts(
     conn: AsyncConnection, family: str, lo: datetime, hi: datetime
-) -> dict[tuple[datetime, int], int]:
+) -> dict[tuple[datetime, uuid.UUID], int]:
     """Aggregated raw rows per (local day, series): the rows the aggregates are built from
     (readings: quality bit 1 clear, estimates: all)."""
     good = " FILTER (WHERE quality & 1 = 0)" if family == "reading" else ""
@@ -60,7 +61,7 @@ async def _raw_row_counts(
 
 async def _materialized_row_counts(
     conn: AsyncConnection, view: str, lo: datetime, hi: datetime
-) -> dict[tuple[datetime, int], int]:
+) -> dict[tuple[datetime, uuid.UUID], int]:
     """`n` (rows aggregated) already MATERIALIZED in the view, per (local day, series), for
     series that still exist (rows of deleted series are orphans a refresh cannot hurt). The
     real-time part is excluded: it is computed from raw and a refresh does not destroy it."""
@@ -153,7 +154,7 @@ async def backfill_aggregates(
         raise RuntimeError("backfill_aggregates needs an AUTOCOMMIT connection")
     now = datetime.now(UTC)
     day_lo, day_hi = _snap(from_ts, _DAY)[0], _snap(to_ts, _DAY)[1]
-    raw: dict[str, dict[tuple[datetime, int], int]] = {}
+    raw: dict[str, dict[tuple[datetime, uuid.UUID], int]] = {}
     skipped: list[SkippedWindow] = []
     for view, step in AGGREGATES:
         start = _snap(from_ts, step)[0]

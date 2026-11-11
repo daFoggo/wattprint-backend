@@ -1,3 +1,4 @@
+import uuid
 from datetime import datetime
 
 from sqlalchemy import (
@@ -15,7 +16,7 @@ class IngestCheckpoint(Base):
     __table_args__ = {"schema": "public"}
 
     source: Mapped[str] = mapped_column(Text, primary_key=True)
-    series_id: Mapped[int] = mapped_column(
+    series_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("public.tb_series.series_id", ondelete="CASCADE"), primary_key=True, index=True
     )
     last_ts: Mapped[datetime] = mapped_column(DateTime(timezone=True))

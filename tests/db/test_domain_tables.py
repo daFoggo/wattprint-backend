@@ -45,18 +45,18 @@ def lit(v: list[float]) -> str:
     return "[" + ",".join(str(x) for x in v) + "]"
 
 
-async def mk_home(c) -> int:
+async def mk_home(c) -> uuid.UUID:
     return await c.scalar(text("INSERT INTO public.tb_home (name) VALUES ('H') RETURNING id"))
 
 
-async def mk_user(c) -> int:
+async def mk_user(c) -> uuid.UUID:
     return await c.scalar(
         text("INSERT INTO tb_users (email) VALUES (:e) RETURNING id"),
         {"e": f"{uuid.uuid4().hex}@example.com"},
     )
 
 
-async def mk_device(c, home_id) -> int:
+async def mk_device(c, home_id) -> uuid.UUID:
     return await c.scalar(
         text(
             "INSERT INTO public.tb_device (home_id, device_type_code, name, origin) "
@@ -66,7 +66,7 @@ async def mk_device(c, home_id) -> int:
     )
 
 
-async def mk_series(c, home_id) -> int:
+async def mk_series(c, home_id) -> uuid.UUID:
     return await c.scalar(
         text(
             "INSERT INTO public.tb_series (home_id, kind, metric, unit) "
@@ -76,7 +76,7 @@ async def mk_series(c, home_id) -> int:
     )
 
 
-async def mk_alert(c, home_id, device_id=None) -> int:
+async def mk_alert(c, home_id, device_id=None) -> uuid.UUID:
     return await c.scalar(
         text(
             "INSERT INTO public.tb_alert (home_id, device_id, kind, severity, ts) "
@@ -86,7 +86,7 @@ async def mk_alert(c, home_id, device_id=None) -> int:
     )
 
 
-async def mk_suggestion(c, home_id, device_id=None, alert_id=None) -> int:
+async def mk_suggestion(c, home_id, device_id=None, alert_id=None) -> uuid.UUID:
     return await c.scalar(
         text(
             "INSERT INTO public.tb_suggestion (home_id, device_id, alert_id, kind, title, body) "
@@ -96,15 +96,13 @@ async def mk_suggestion(c, home_id, device_id=None, alert_id=None) -> int:
     )
 
 
-async def mk_document(c) -> int:
+async def mk_document(c) -> uuid.UUID:
     return await c.scalar(
-        text(
-            "INSERT INTO public.tb_document (title, doc_type) VALUES ('D', 'guide') RETURNING id"
-        )
+        text("INSERT INTO public.tb_document (title, doc_type) VALUES ('D', 'guide') RETURNING id")
     )
 
 
-async def mk_chunk(c, doc_id, ord_, body="x", vector=None) -> int:
+async def mk_chunk(c, doc_id, ord_, body="x", vector=None) -> uuid.UUID:
     return await c.scalar(
         text(
             "INSERT INTO public.tb_chunk (document_id, ord, body, embedding, embedding_model) "
@@ -175,9 +173,7 @@ async def test_chunk_fts_matches_unaccented_vietnamese(conn):
     # d-stroke is folded too
     assert await conn.scalar(text("SELECT public.immutable_unaccent('Đđ')")) == "Dd"
     assert await conn.scalar(
-        text(
-            "SELECT tsv @@ plainto_tsquery('simple', 'dieu') FROM public.tb_chunk WHERE ord = 2"
-        )
+        text("SELECT tsv @@ plainto_tsquery('simple', 'dieu') FROM public.tb_chunk WHERE ord = 2")
     )
 
 
@@ -196,9 +192,7 @@ async def test_chunk_hnsw_index_exists_and_nearest_is_correct(conn):
     near = [0.0] * 1024
     near[3], near[4] = 0.9, 0.1
     top = await conn.scalar(
-        text(
-            "SELECT ord FROM public.tb_chunk ORDER BY embedding <=> CAST(:v AS vector) LIMIT 1"
-        ),
+        text("SELECT ord FROM public.tb_chunk ORDER BY embedding <=> CAST(:v AS vector) LIMIT 1"),
         {"v": lit(near)},
     )
     assert top == 3
@@ -270,7 +264,8 @@ async def test_ingest_checkpoint_pk(conn):
     h = await mk_home(conn)
     s = await mk_series(conn, h)
     sql = (
-        "INSERT INTO public.tb_ingest_checkpoint (source, series_id, last_ts) VALUES (:src, :s, now())"
+        "INSERT INTO public.tb_ingest_checkpoint (source, series_id, last_ts) "
+        "VALUES (:src, :s, now())"
     )
     await conn.execute(text(sql), {"src": "csv", "s": s})
     await conn.execute(text(sql), {"src": "mqtt", "s": s})
@@ -282,7 +277,9 @@ async def test_ingest_checkpoint_pk(conn):
 async def test_ingest_batch_defaults_and_home_set_null(conn):
     h = await mk_home(conn)
     bid = await conn.scalar(
-        text("INSERT INTO public.tb_ingest_batch (source, home_id) VALUES ('csv', :h) RETURNING id"),
+        text(
+            "INSERT INTO public.tb_ingest_batch (source, home_id) VALUES ('csv', :h) RETURNING id"
+        ),
         {"h": h},
     )
     row = (
@@ -304,7 +301,9 @@ async def test_ingest_batch_defaults_and_home_set_null(conn):
     assert row.started_at is not None
     await conn.execute(text("DELETE FROM public.tb_home WHERE id = :h"), {"h": h})
     assert (
-        await conn.scalar(text("SELECT home_id FROM public.tb_ingest_batch WHERE id = :i"), {"i": bid})
+        await conn.scalar(
+            text("SELECT home_id FROM public.tb_ingest_batch WHERE id = :i"), {"i": bid}
+        )
         is None
     )
 
@@ -517,9 +516,7 @@ async def test_delete_alert_sets_suggestion_alert_null(conn):
     s = await mk_suggestion(conn, h, alert_id=a)
     await conn.execute(text("DELETE FROM public.tb_alert WHERE id = :a"), {"a": a})
     assert (
-        await conn.scalar(
-            text("SELECT alert_id FROM public.tb_suggestion WHERE id = :s"), {"s": s}
-        )
+        await conn.scalar(text("SELECT alert_id FROM public.tb_suggestion WHERE id = :s"), {"s": s})
         is None
     )
 

@@ -9,6 +9,7 @@ RESTATED reference of spec section 9: `hold_across_flagged=True, cap_s=120` (fla
 dropped before integrating and a hold lasts at most 2 minutes, like the minute rule of energy_wh).
 """
 
+import uuid
 from datetime import datetime
 
 from sqlalchemy import text
@@ -49,13 +50,13 @@ _VIEW = text(
 )
 
 
-async def median_cadence(conn, series_id: int) -> float:
+async def median_cadence(conn, series_id: uuid.UUID) -> float:
     return float(await conn.scalar(_MEDIAN, {"sid": series_id}))
 
 
 async def exact_days(
     conn,
-    series_id: int,
+    series_id: uuid.UUID,
     cadence_s: float,
     *,
     hold_across_flagged: bool = False,
@@ -72,7 +73,7 @@ async def exact_days(
     return {r.day: (float(r.exact_wh), int(r.good_minutes)) for r in rows}
 
 
-async def view_days(conn, series_id: int) -> dict[datetime, tuple[float, int, int]]:
+async def view_days(conn, series_id: uuid.UUID) -> dict[datetime, tuple[float, int, int]]:
     """day -> (energy_wh, covered_minutes, n) from public.reading_1d."""
     rows = await conn.execute(_VIEW, {"sid": series_id})
     return {r.day: (float(r.energy_wh), int(r.covered_minutes), int(r.n)) for r in rows}

@@ -56,7 +56,9 @@ async def stored(session, sid):
 
 async def checkpoint(session, sid):
     return await session.scalar(
-        text("SELECT last_ts FROM public.tb_ingest_checkpoint WHERE source = :src AND series_id = :s"),
+        text(
+            "SELECT last_ts FROM public.tb_ingest_checkpoint WHERE source = :src AND series_id = :s"
+        ),
         {"src": SOURCE, "s": sid},
     )
 
@@ -157,7 +159,9 @@ async def test_checkpoint_advances_to_max_ts_and_never_goes_back(session, rig):
     # no checkpoint for a series that got no valid row, and none for another source
     assert await checkpoint(session, rig["sids"]["v"]) is None
     other = await session.scalar(
-        text("SELECT count(*) FROM public.tb_ingest_checkpoint WHERE source <> :s AND series_id = :i"),
+        text(
+            "SELECT count(*) FROM public.tb_ingest_checkpoint WHERE source <> :s AND series_id = :i"
+        ),
         {"s": SOURCE, "i": sid},
     )
     assert other == 0
@@ -278,8 +282,9 @@ async def _est_series(session, rig):
 
 async def test_estimates_upsert_latest_run_wins(session, rig):
     sid = await _est_series(session, rig)
-    n1 = await ingest_estimates(session, 1, [(at(0), sid, 10.0), (at(1), sid, 20.0)])
-    n2 = await ingest_estimates(session, 2, [(at(1), sid, 25.0), (at(2), sid, 30.0)])
+    r1, r2 = uuid.uuid7(), uuid.uuid7()
+    n1 = await ingest_estimates(session, r1, [(at(0), sid, 10.0), (at(1), sid, 20.0)])
+    n2 = await ingest_estimates(session, r2, [(at(1), sid, 25.0), (at(2), sid, 30.0)])
     assert (n1, n2) == (2, 2)
     got = (
         await session.execute(
@@ -290,16 +295,18 @@ async def test_estimates_upsert_latest_run_wins(session, rig):
             {"s": sid},
         )
     ).all()
-    assert [(r.value, r.run_id) for r in got] == [(10.0, 1), (25.0, 2), (30.0, 2)]
+    assert [(r.value, r.run_id) for r in got] == [(10.0, r1), (25.0, r2), (30.0, r2)]
 
 
 async def test_estimates_skip_non_finite(session, rig):
     sid = await _est_series(session, rig)
     n = await ingest_estimates(
-        session, 1, [(at(0), sid, float("nan")), (at(1), sid, float("inf")), (at(2), sid, 3.0)]
+        session,
+        uuid.uuid7(),
+        [(at(0), sid, float("nan")), (at(1), sid, float("inf")), (at(2), sid, 3.0)],
     )
     assert n == 1
-    assert await ingest_estimates(session, 1, []) == 0
+    assert await ingest_estimates(session, uuid.uuid7(), []) == 0
 
 
 async def test_quality_bit_is_stored(session, rig):
@@ -313,7 +320,9 @@ async def test_two_batches_in_one_transaction(session, rig):
     b = await ingest_readings(session, rig["serial"], [ReadingRow(at(1), "p", 2.0)], "other")
     assert a.batch_id != b.batch_id
     assert (a.rows_new, b.rows_new) == (1, 1)
-    t = {r.id: r for r in (await session.execute(text("SELECT * FROM public.tb_ingest_batch"))).all()}
+    t = {
+        r.id: r for r in (await session.execute(text("SELECT * FROM public.tb_ingest_batch"))).all()
+    }
     ba, bb = t[a.batch_id], t[b.batch_id]
     assert ba.started_at < bb.started_at
     assert ba.finished_at >= ba.started_at and bb.finished_at >= bb.started_at
@@ -332,14 +341,15 @@ async def test_ingest_runs_with_ingest_role_privileges(session, rig):
         session, rig["serial"], [ReadingRow(at(1), "v", 2.0), ReadingRow(at(5), "p", 3.0)], SOURCE
     )
     assert (res.rows_new, res.rows_dup) == (1, 1)
-    assert await ingest_estimates(session, 1, [(at(0), sid, 5.0)]) == 1
-    assert await ingest_estimates(session, 2, [(at(0), sid, 6.0)]) == 1  # DO UPDATE path
+    r1, r2 = uuid.uuid7(), uuid.uuid7()
+    assert await ingest_estimates(session, r1, [(at(0), sid, 5.0)]) == 1
+    assert await ingest_estimates(session, r2, [(at(0), sid, 6.0)]) == 1  # DO UPDATE path
     await session.execute(text("RESET ROLE"))
     assert await checkpoint(session, rig["sids"]["p"]) == at(5)
     run = await session.scalar(
         text("SELECT run_id FROM public.tb_device_estimate WHERE series_id = :s"), {"s": sid}
     )
-    assert run == 2
+    assert run == r2
 
 
 async def test_throughput_100k_rows(session, rig, monkeypatch):

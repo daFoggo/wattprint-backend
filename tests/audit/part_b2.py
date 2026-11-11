@@ -66,7 +66,7 @@ async def copy_slices(
                 for a, b in slices:
                     rows = await raw_src.fetch(
                         f"SELECT {', '.join(cols)} FROM public.tb_{table} "
-                        "WHERE ts >= $1 AND ts < $2 AND series_id = ANY($3::int[])",
+                        "WHERE ts >= $1 AND ts < $2 AND series_id = ANY($3::uuid[])",
                         a,
                         b,
                         sids,

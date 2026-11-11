@@ -1,4 +1,5 @@
 import math
+import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
@@ -52,7 +53,7 @@ class LatestPower:
 
 @dataclass
 class DeviceEnergy:
-    device_id: int
+    device_id: uuid.UUID
     kwh: float
     share: float
 
@@ -102,7 +103,7 @@ def _minute(now: datetime | None) -> datetime:
     return now.replace(second=0, microsecond=0)
 
 
-async def _main_series(session: AsyncSession, home_id: int) -> int | None:
+async def _main_series(session: AsyncSession, home_id: uuid.UUID) -> uuid.UUID | None:
     return await session.scalar(
         text(
             "SELECT series_id FROM public.tb_series "
@@ -114,7 +115,7 @@ async def _main_series(session: AsyncSession, home_id: int) -> int | None:
 
 async def meter_series(
     session: AsyncSession,
-    home_id: int,
+    home_id: uuid.UUID,
     since: datetime,
     until: datetime,
     max_points: int = 600,
@@ -171,7 +172,7 @@ async def meter_series(
     ]
 
 
-def _latest_statement(series_id: int, now: datetime | None) -> tuple[str, dict]:
+def _latest_statement(series_id: uuid.UUID, now: datetime | None) -> tuple[str, dict]:
     hi = _minute(now)
     sql = (
         "SELECT bucket, last_w FROM public.reading_1m "
@@ -182,7 +183,7 @@ def _latest_statement(series_id: int, now: datetime | None) -> tuple[str, dict]:
 
 
 async def latest_power(
-    session: AsyncSession, home_id: int, now: datetime | None = None
+    session: AsyncSession, home_id: uuid.UUID, now: datetime | None = None
 ) -> LatestPower | None:
     """The newest closed 1-minute bucket of the main series within the last 7 days."""
     series_id = await _main_series(session, home_id)
@@ -194,7 +195,7 @@ async def latest_power(
 
 
 async def device_breakdown(
-    session: AsyncSession, home_id: int, since: datetime, until: datetime
+    session: AsyncSession, home_id: uuid.UUID, since: datetime, until: datetime
 ) -> list[DeviceEnergy]:
     """Energy per device of a home over the window, largest first.
 
@@ -228,7 +229,7 @@ async def device_breakdown(
         ),
         {"ids": list(by_series), "lo": lo, "hi": _ceil(until, bucket)},
     )
-    kwh: dict[int, float] = {}
+    kwh: dict[uuid.UUID, float] = {}
     for r in rows:
         device = by_series[r.series_id]
         kwh[device] = kwh.get(device, 0.0) + float(r.wh) / 1000

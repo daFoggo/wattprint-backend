@@ -22,7 +22,7 @@ class ReadingRow:
 
 @dataclass
 class IngestResult:
-    batch_id: int
+    batch_id: uuid.UUID
     rows_in: int
     rows_new: int
     rows_dup: int
@@ -59,7 +59,7 @@ async def _write_readings(session: AsyncSession, valid: list[tuple], source: str
         return 0
     stage = await _stage(
         session,
-        "series_id integer, ts timestamptz, value double precision, quality smallint",
+        "series_id uuid, ts timestamptz, value double precision, quality smallint",
         ["series_id", "ts", "value", "quality"],
         valid,
     )
@@ -135,7 +135,7 @@ async def ingest_readings(
     try:
         bad = 0
         dup = 0
-        seen: set[tuple[int, datetime]] = set()
+        seen: set[tuple[uuid.UUID, datetime]] = set()
         valid: list[tuple] = []
         for r in rows:
             sid = channels.get(r.channel)
@@ -150,7 +150,7 @@ async def ingest_readings(
                     and not isinstance(r.quality, bool)
                     and 0 <= r.quality <= QUALITY_MAX
                 )
-            except (TypeError, ValueError, OverflowError):
+            except TypeError, ValueError, OverflowError:
                 ok = False
             if not ok:
                 bad += 1
@@ -189,14 +189,14 @@ async def ingest_readings(
 
 
 async def ingest_estimates(
-    session: AsyncSession, run_id: int, rows: Sequence[tuple[datetime, int, float]]
+    session: AsyncSession, run_id: uuid.UUID, rows: Sequence[tuple[datetime, uuid.UUID, float]]
 ) -> int:
     """Upsert device estimates (ts, series_id, value); the latest run wins. Returns rows written.
 
     Non-finite values are skipped; a repeated (series_id, ts) inside the call keeps the last
     value. A naive ts raises ValueError. No other validation. Flushes but never commits.
     """
-    latest: dict[tuple[int, datetime], float] = {}
+    latest: dict[tuple[uuid.UUID, datetime], float] = {}
     for ts, series_id, value in rows:
         if not _aware(ts):
             raise ValueError("estimate ts must be timezone-aware")
@@ -208,7 +208,7 @@ async def ingest_estimates(
     records = [(sid, ts, v, run_id) for (sid, ts), v in latest.items()]
     stage = await _stage(
         session,
-        "series_id integer, ts timestamptz, value double precision, run_id integer",
+        "series_id uuid, ts timestamptz, value double precision, run_id uuid",
         ["series_id", "ts", "value", "run_id"],
         records,
     )

@@ -1,3 +1,4 @@
+import uuid
 from datetime import datetime
 
 from sqlalchemy import (
@@ -18,11 +19,11 @@ class HomeInvite(IdMixin, Base):
         {"schema": "public"},
     )
 
-    home_id: Mapped[int] = mapped_column(
+    home_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("public.tb_home.id", ondelete="CASCADE"), index=True
     )
     code_hash: Mapped[str] = mapped_column(String(128), unique=True)
     role: Mapped[str] = mapped_column(String(16), default="member", server_default="member")
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
-    used_by: Mapped[int | None] = mapped_column(ForeignKey("public.tb_users.id"), index=True)
+    used_by: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("public.tb_users.id"), index=True)
     used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

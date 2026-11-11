@@ -34,14 +34,16 @@ async def test_first_request_provisions_user_from_token(client, make_token):
     r = await client.get("/api/v1/users/me", headers=bearer(token))
     assert r.status_code == 200
     body = r.json()
-    assert isinstance(body["id"], int)
+    assert uuid.UUID(body["id"]).version == 7
     assert body["email"] == f"new.{tag}@example.com"
     assert body["full_name"] == "Test User"
     assert body["roles"] == ["user"]
     # Second call reuses the same row.
     assert (await client.get("/api/v1/users/me", headers=bearer(token))).json()["id"] == body["id"]
     async with SessionLocal() as session:
-        assert await session.scalar(select(User.id).where(User.keycloak_sub == sub)) == body["id"]
+        assert await session.scalar(select(User.id).where(User.keycloak_sub == sub)) == uuid.UUID(
+            body["id"]
+        )
 
 
 async def test_concurrent_first_requests_create_one_user(client, make_token):

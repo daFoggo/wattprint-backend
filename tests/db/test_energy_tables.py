@@ -18,11 +18,11 @@ JOBS_SQL = text(
 )
 
 
-async def _home(conn) -> int:
+async def _home(conn) -> uuid.UUID:
     return await conn.scalar(text("INSERT INTO public.tb_home (name) VALUES ('Home') RETURNING id"))
 
 
-async def _device(conn, home_id) -> int:
+async def _device(conn, home_id) -> uuid.UUID:
     return await conn.scalar(
         text(
             "INSERT INTO public.tb_device (home_id, device_type_code, name, origin) "
@@ -32,7 +32,9 @@ async def _device(conn, home_id) -> int:
     )
 
 
-async def _series(conn, home_id, kind="main", device_id=None, metric="power_w", **extra) -> int:
+async def _series(
+    conn, home_id, kind="main", device_id=None, metric="power_w", **extra
+) -> uuid.UUID:
     cols = {
         "home_id": home_id,
         "kind": kind,

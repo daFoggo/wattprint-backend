@@ -1,3 +1,4 @@
+import uuid
 from datetime import date, datetime
 from decimal import Decimal
 
@@ -21,7 +22,7 @@ class ForecastSnapshot(IdMixin, Base):
         {"schema": "public"},
     )
 
-    home_id: Mapped[int] = mapped_column(ForeignKey("public.tb_home.id", ondelete="CASCADE"))
+    home_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("public.tb_home.id", ondelete="CASCADE"))
     generated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     horizon_date: Mapped[date] = mapped_column(Date)
     kwh: Mapped[Decimal] = mapped_column(Numeric(12, 3))
