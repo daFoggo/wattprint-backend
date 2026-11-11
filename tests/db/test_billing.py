@@ -9,9 +9,9 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
 from app.database import Base
 from app.models import Bill, BillItem, Home, TariffPlan, TariffTier, TariffVersion
-from app.services.aggregates import backfill_aggregates as backfill
-from app.services.billing import _allocate, compute_bill
-from tests.db.conftest import _create_migrated_db, run_alembic
+from app.modules.billing.services.bill import _allocate, compute_bill
+from app.modules.energy.services.aggregates import backfill_aggregates as backfill
+from tests.db.conftest import _create_migrated_db, relations, run_alembic
 
 PLAN = "vn_residential"
 ICT = timedelta(hours=7)
@@ -74,7 +74,7 @@ async def home(c, session, cycle_day=1, plan=PLAN):
         await session.rollback()  # release row locks held by an uncommitted bill insert
         for s in sids:
             for t in ("reading", "device_estimate"):
-                await c.execute(text(f"DELETE FROM public.{t} WHERE series_id = :s"), {"s": s})
+                await c.execute(text(f"DELETE FROM public.tb_{t} WHERE series_id = :s"), {"s": s})
         await c.execute(text("DELETE FROM public.tb_home WHERE id = :i"), {"i": hid})
 
 
@@ -82,7 +82,7 @@ async def load(c, sid, start: datetime, minutes: int, watts: float = 1000, table
     """One reading per minute at constant power: exactly watts * minutes / 60 Wh."""
     await c.execute(
         text(
-            f"INSERT INTO public.{table} (ts, series_id, value) "
+            f"INSERT INTO public.tb_{table} (ts, series_id, value) "
             "SELECT CAST(:s AS timestamptz) + g * interval '1 minute', :sid, :w "
             "FROM generate_series(0, :n - 1) g"
         ),
@@ -653,10 +653,13 @@ async def test_orm_round_trip(session):
 
 
 async def test_billing_downgrade_upgrade(throwaway_dsn):
-    count = text(
-        "SELECT count(*) FROM information_schema.tables "
-        "WHERE table_schema = 'public' AND table_type = 'BASE TABLE'"
-    )
+    billing_module = {
+        "public.tb_tariff_plan",
+        "public.tb_tariff_version",
+        "public.tb_tariff_tier",
+        "public.tb_bill",
+        "public.tb_bill_item",
+    }
     fk = text(
         "SELECT count(*) FROM information_schema.table_constraints "
         "WHERE table_schema = 'public' AND table_name = 'tb_home' "
@@ -666,14 +669,15 @@ async def test_billing_downgrade_upgrade(throwaway_dsn):
     engine = create_async_engine(throwaway_dsn, isolation_level="AUTOCOMMIT")
     try:
         async with engine.connect() as c:
-            assert await c.scalar(count) == 5 and await c.scalar(fk) == 1
+            before = await relations(c)
+            assert billing_module <= before and await c.scalar(fk) == 1
             await c.execute(
                 text("INSERT INTO public.tb_home (name, tariff_plan_code) VALUES ('D', :p)"),
                 {"p": PLAN},
             )
         run_alembic(throwaway_dsn, "downgrade", "c8a4e1f7b295")
         async with engine.connect() as c:
-            assert await c.scalar(count) == 0 and await c.scalar(fk) == 0
+            assert billing_module.isdisjoint(await relations(c)) and await c.scalar(fk) == 0
             assert (
                 await c.scalar(
                     text("SELECT count(*) FROM public.tb_home WHERE tariff_plan_code = :p"),
@@ -683,7 +687,7 @@ async def test_billing_downgrade_upgrade(throwaway_dsn):
             )
         run_alembic(throwaway_dsn, "upgrade", "head")
         async with engine.connect() as c:
-            assert await c.scalar(count) == 5 and await c.scalar(fk) == 1
+            assert await relations(c) == before and await c.scalar(fk) == 1
             assert await c.scalar(text("SELECT count(*) FROM public.tb_tariff_version")) == 2
             assert await c.scalar(text("SELECT count(*) FROM public.tb_tariff_tier")) == 11
     finally:

@@ -18,7 +18,7 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
-from ..database import Base
+from app.common.base_model import Base
 
 _UUID_DEFAULT = text("gen_random_uuid()")
 _NOW = text("now()")

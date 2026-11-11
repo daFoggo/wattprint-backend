@@ -14,8 +14,8 @@ from pathlib import Path
 from sqlalchemy import event, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.services.billing import compute_bill
-from app.services.meter import (
+from app.modules.billing.services.bill import compute_bill
+from app.modules.energy.services.meter import (
     device_breakdown,
     latest_power,
     meter_series,

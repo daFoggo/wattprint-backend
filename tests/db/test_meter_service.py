@@ -4,8 +4,8 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from sqlalchemy import event, text
 
-from app.services import meter
-from app.services.meter import (
+from app.modules.energy.services import meter
+from app.modules.energy.services.meter import (
     device_breakdown,
     latest_power,
     meter_series,
@@ -58,7 +58,7 @@ async def new_device(session, hid, name="Fridge") -> tuple[int, int]:
 
 async def put(session, sid, ts, watts, table="reading"):
     await session.execute(
-        text(f"INSERT INTO public.{table} (ts, series_id, value) VALUES (:t, :s, :v)"),
+        text(f"INSERT INTO public.tb_{table} (ts, series_id, value) VALUES (:t, :s, :v)"),
         {"t": ts, "s": sid, "v": watts},
     )
 
@@ -67,7 +67,7 @@ async def load(session, sid, start, minutes, watts, table="reading"):
     """One reading per minute at constant power."""
     await session.execute(
         text(
-            f"INSERT INTO public.{table} (ts, series_id, value) "
+            f"INSERT INTO public.tb_{table} (ts, series_id, value) "
             "SELECT CAST(:s AS timestamptz) + g * interval '1 minute', :sid, :w "
             "FROM generate_series(0, :n - 1) g"
         ),

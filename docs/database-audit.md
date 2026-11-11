@@ -10,7 +10,7 @@ Task 4 (continuous aggregates), TimescaleDB 2.31.0 on PG17:
 - The predicate `WHERE quality & 1 = 0` is accepted in the `reading_1m` definition.
 - `ops.backfill_aggregates` cannot be an SQL procedure: `refresh_continuous_aggregate()` fails
   with "cannot be executed from a function" even via `CALL` from plpgsql. The helper is the
-  Python function `app.services.aggregates.backfill_aggregates(conn, from_ts, to_ts)`; it
+  Python function `app.modules.energy.services.aggregates.backfill_aggregates(conn, from_ts, to_ts)`; it
   requires tz-aware datetimes and an AUTOCOMMIT connection.
 - A refresh window must contain at least one whole bucket ("refresh window too small"). The
   helper widens the start down to a bucket boundary per view (daily buckets are cut at 17:00

@@ -6,7 +6,7 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
 
-from app.services.aggregates import SKIP_REASON, SkippedWindow, backfill_aggregates
+from app.modules.energy.services.aggregates import SKIP_REASON, SkippedWindow, backfill_aggregates
 from tests.db.conftest import _create_migrated_db
 
 D = [datetime(2026, 2, d, tzinfo=UTC) for d in range(1, 10)]  # raw chunks are 1 day

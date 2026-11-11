@@ -6,9 +6,9 @@ import jwt
 import pytest
 from sqlalchemy import select, update
 
-from app import security
 from app.database import SessionLocal
 from app.models import User
+from app.modules.auth.services import token as security
 
 
 def bearer(token: str) -> dict:

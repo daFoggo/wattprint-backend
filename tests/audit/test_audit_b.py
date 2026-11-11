@@ -10,9 +10,9 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
-from app.services.aggregates import backfill_aggregates
-from app.services.ingest import ReadingRow, ingest_readings
-from app.services.meter import meter_series
+from app.modules.energy.services.aggregates import backfill_aggregates
+from app.modules.energy.services.meter import meter_series
+from app.modules.ops.services.ingest import ReadingRow, ingest_readings
 from tests.audit import results
 from tests.audit.part_b2 import PAUSED_POLICIES
 from tests.audit.support import create_scratch, drop_scratch

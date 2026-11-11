@@ -25,9 +25,9 @@ from app.models import (
     SuggestionFeedback,
     ToolCall,
 )
-from app.models.insight import MIN_COHORT_HOMES
-from app.services.aggregates import backfill_aggregates as backfill
-from tests.db.conftest import _create_migrated_db, run_alembic
+from app.modules.energy.services.aggregates import backfill_aggregates as backfill
+from app.modules.insight.models import MIN_COHORT_HOMES
+from tests.db.conftest import _create_migrated_db, relations, run_alembic
 
 LOCK_TIMEOUT = {"server_settings": {"lock_timeout": "5000"}}
 NOW = datetime(2026, 11, 1, 12, 0, tzinfo=UTC)
@@ -145,7 +145,7 @@ COHORT = (
 
 async def test_cohort_min_size_check(conn):
     assert MIN_COHORT_HOMES == 10
-    await rejected(conn, COHORT, "ck_cohort_stat_min_size", n=9)
+    await rejected(conn, COHORT, "ck_tb_cohort_stat_min_size", n=9)
     await conn.execute(text(COHORT), {"n": 10})
     assert await count(conn, "public.tb_cohort_stat") == 1
 
@@ -185,7 +185,7 @@ async def test_chunk_hnsw_index_exists_and_nearest_is_correct(conn):
     indexdef = await conn.scalar(
         text(
             "SELECT indexdef FROM pg_indexes WHERE schemaname = 'public' "
-            "AND tablename = 'chunk' AND indexname = 'ix_chunk_embedding'"
+            "AND tablename = 'tb_chunk' AND indexname = 'ix_chunk_embedding'"
         )
     )
     assert indexdef and "hnsw" in indexdef and "vector_cosine_ops" in indexdef
@@ -211,7 +211,7 @@ async def test_chunk_unique_ord_and_not_null_embedding(conn):
         conn,
         "INSERT INTO public.tb_chunk (document_id, ord, body, embedding, embedding_model) "
         "VALUES (:d, 1, 'x', CAST(:v AS vector), 'm')",
-        "uq_chunk_document_id",
+        "uq_tb_chunk_document_id",
         d=doc,
         v=lit(vec(0)),
     )
@@ -274,7 +274,7 @@ async def test_ingest_checkpoint_pk(conn):
     )
     await conn.execute(text(sql), {"src": "csv", "s": s})
     await conn.execute(text(sql), {"src": "mqtt", "s": s})
-    await rejected(conn, sql, "pk_ingest_checkpoint", src="csv", s=s)
+    await rejected(conn, sql, "pk_tb_ingest_checkpoint", src="csv", s=s)
     await conn.execute(text("DELETE FROM public.tb_series WHERE series_id = :s"), {"s": s})
     assert await count(conn, "public.tb_ingest_checkpoint") == 0
 
@@ -328,7 +328,7 @@ async def test_alert_severity_accepted(conn, severity):
 
 async def test_alert_severity_rejected(conn):
     h = await mk_home(conn)
-    await rejected(conn, _alert(severity="fatal"), "ck_alert_severity", h=h)
+    await rejected(conn, _alert(severity="fatal"), "ck_tb_alert_severity", h=h)
 
 
 @pytest.mark.parametrize("status", ["open", "acknowledged", "resolved"])
@@ -339,7 +339,7 @@ async def test_alert_status_accepted(conn, status):
 
 async def test_alert_status_rejected(conn):
     h = await mk_home(conn)
-    await rejected(conn, _alert(status="closed"), "ck_alert_status", h=h)
+    await rejected(conn, _alert(status="closed"), "ck_tb_alert_status", h=h)
 
 
 async def test_message_role_check(conn):
@@ -352,7 +352,7 @@ async def test_message_role_check(conn):
     sql = "INSERT INTO ai.ai_message (conversation_id, role, content) VALUES (:c, :r, 'x')"
     for role in ("user", "assistant", "tool", "system"):
         await conn.execute(text(sql), {"c": cid, "r": role})
-    await rejected(conn, sql, "ck_ai_message_role", c=cid, r="bot")
+    await rejected(conn, sql, "ck_ai_message_ck_ai_message_role", c=cid, r="bot")
 
 
 async def test_suggestion_status_check(conn):
@@ -363,7 +363,7 @@ async def test_suggestion_status_check(conn):
     )
     for status in ("proposed", "shown", "accepted", "dismissed", "done"):
         await conn.execute(text(sql), {"h": h, "s": status})
-    await rejected(conn, sql, "ck_suggestion_status", h=h, s="pending")
+    await rejected(conn, sql, "ck_tb_suggestion_status", h=h, s="pending")
     default = await conn.scalar(
         text(
             "INSERT INTO public.tb_suggestion (home_id, kind, title, body) "
@@ -384,14 +384,14 @@ async def test_suggestion_feedback_action_check(conn):
     )
     for action in ("accept", "ignore", "done", "dislike"):
         await conn.execute(text(sql), {"s": sid, "u": u, "a": action})
-    await rejected(conn, sql, "ck_suggestion_feedback_action", s=sid, u=u, a="love")
+    await rejected(conn, sql, "ck_tb_suggestion_feedback_action", s=sid, u=u, a="love")
 
 
 async def test_document_type_check(conn):
     sql = "INSERT INTO public.tb_document (title, doc_type) VALUES ('t', :t)"
     for t in ("standard", "guide", "tariff", "expert_rule", "other"):
         await conn.execute(text(sql), {"t": t})
-    await rejected(conn, sql, "ck_document_doc_type", t="blog")
+    await rejected(conn, sql, "ck_tb_document_doc_type", t="blog")
     assert (
         await conn.scalar(
             text(
@@ -407,7 +407,7 @@ async def test_ingest_batch_status_check(conn):
     sql = "INSERT INTO public.tb_ingest_batch (source, status) VALUES ('s', :s)"
     for s in ("running", "ok", "failed"):
         await conn.execute(text(sql), {"s": s})
-    await rejected(conn, sql, "ck_ingest_batch_status", s="done")
+    await rejected(conn, sql, "ck_tb_ingest_batch_status", s="done")
 
 
 async def test_forecast_snapshot_unique(conn):
@@ -418,7 +418,7 @@ async def test_forecast_snapshot_unique(conn):
         "VALUES (:h, '2026-11-01T00:00Z', '2026-11-30', 100, 200000, 'v1')"
     )
     await conn.execute(text(sql), {"h": h})
-    await rejected(conn, sql, "uq_forecast_snapshot_home_id", h=h)
+    await rejected(conn, sql, "uq_tb_forecast_snapshot_home_id", h=h)
 
 
 # --- cascades ---
@@ -813,18 +813,32 @@ async def test_model_and_migration_indexes_agree(vdb):
             {"s": list(schemas)},
         )
     }
-    assert in_db - declared - backing == set()
+    # create_hypertable's default time index, not declared on the plain Table models
+    hypertable_default = {("public", "tb_reading_ts_idx"), ("public", "tb_device_estimate_ts_idx")}
+    assert in_db - declared - backing - hypertable_default == set()
 
 
 # --- migration round trip ---
 
 
 async def test_domain_tables_downgrade_upgrade(throwaway_dsn):
-    tables = text(
-        "SELECT count(*) FROM information_schema.tables WHERE table_type = 'BASE TABLE' "
-        "AND table_schema = 'public'"
-    )
-    views = text("SELECT count(*) FROM information_schema.views WHERE table_schema = 'public'")
+    # insight, copilot/knowledge, ops and roles revisions: everything after billing
+    after_billing = {
+        "public.tb_alert",
+        "public.tb_cohort_stat",
+        "public.tb_device_cycle",
+        "public.tb_forecast_snapshot",
+        "public.tb_document",
+        "public.tb_chunk",
+        "public.tb_suggestion",
+        "public.tb_suggestion_feedback",
+        "public.tb_savings_measure",
+        "public.tb_ingest_batch",
+        "public.tb_ingest_checkpoint",
+        "public.tb_scope_token",
+        "public.series_daily_coverage",
+        "public.stale_series",
+    }
     func = text(
         "SELECT count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace "
         "WHERE n.nspname = 'public' AND p.proname = 'immutable_unaccent'"
@@ -834,16 +848,16 @@ async def test_domain_tables_downgrade_upgrade(throwaway_dsn):
     )
     try:
         async with engine.connect() as c:
-            # 14 tables of this revision plus public.tb_scope_token (added by the roles revision)
-            assert await c.scalar(tables) == 15 and await c.scalar(views) == 2
+            before = await relations(c)
+            assert after_billing <= before
             assert await c.scalar(func) == 1
         run_alembic(throwaway_dsn, "downgrade", "d7b3f9a2c6e4")
         async with engine.connect() as c:
-            assert await c.scalar(tables) == 0 and await c.scalar(views) == 0
+            assert after_billing.isdisjoint(await relations(c))
             assert await c.scalar(func) == 0
         run_alembic(throwaway_dsn, "upgrade", "head")
         async with engine.connect() as c:
-            assert await c.scalar(tables) == 15 and await c.scalar(views) == 2
+            assert await relations(c) == before
             assert await c.scalar(func) == 1
     finally:
         await engine.dispose()

@@ -7,9 +7,9 @@ import pytest
 from cryptography.hazmat.primitives.asymmetric import rsa
 from httpx import ASGITransport, AsyncClient
 
-from app import security
 from app.config import settings
 from app.main import app
+from app.modules.auth.services import token as security
 
 _KEY = rsa.generate_private_key(public_exponent=65537, key_size=2048)
 _OTHER_KEY = rsa.generate_private_key(public_exponent=65537, key_size=2048)

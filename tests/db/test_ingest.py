@@ -5,14 +5,14 @@ from datetime import UTC, datetime, timedelta, timezone
 import pytest
 from sqlalchemy import text
 
-from app.services import ingest as ingest_mod
-from app.services.ingest import (
+from app.modules.ops.services import ingest as ingest_mod
+from app.modules.ops.services.ingest import (
     IngestResult,
-    MeterNotFound,
     ReadingRow,
     ingest_estimates,
     ingest_readings,
 )
+from app.modules.ops.utils.exceptions import MeterNotFound
 
 T0 = datetime(2026, 11, 1, 0, 0, tzinfo=UTC)
 SOURCE = "test-src"

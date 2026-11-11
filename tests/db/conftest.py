@@ -65,6 +65,18 @@ async def _create_migrated_db():
     return dsn, drop
 
 
+RELATIONS = text(
+    "SELECT table_schema || '.' || table_name FROM information_schema.tables "
+    "WHERE table_schema IN ('public', 'ai', 'copilot_ro')"
+)
+
+
+async def relations(conn) -> set[str]:
+    """Tables and views across the app schemas: a downgrade test checks which ones its
+    revisions own, since later modules (auth, AI...) live in the same schemas."""
+    return set((await conn.scalars(RELATIONS)).all())
+
+
 @pytest.fixture(scope="session")
 async def scratch_dsn():
     dsn, drop = await _create_migrated_db()

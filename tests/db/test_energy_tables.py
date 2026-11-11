@@ -8,7 +8,7 @@ from sqlalchemy.exc import IntegrityError
 
 from app.database import Base
 from app.models import InferenceRun, Series, WeatherHourly
-from app.models.energy import device_estimate_table, reading_table
+from app.modules.energy.models import device_estimate_table, reading_table
 
 POLICY_PROCS = ("policy_compression", "policy_retention")
 JOBS_SQL = text(
@@ -49,7 +49,7 @@ async def _series(conn, home_id, kind="main", device_id=None, metric="power_w", 
 
 
 async def test_reading_is_hypertable_with_one_day_chunks(conn):
-    for table in ("reading", "device_estimate"):
+    for table in ("tb_reading", "tb_device_estimate"):
         interval = await conn.scalar(
             text(
                 "SELECT d.time_interval FROM timescaledb_information.dimensions d "
@@ -200,11 +200,11 @@ async def test_compress_settings(conn):
                 "SELECT hypertable_name, attname, segmentby_column_index, orderby_column_index, "
                 "orderby_asc FROM timescaledb_information.compression_settings "
                 "WHERE hypertable_schema = 'public' AND "
-                "hypertable_name IN ('reading','device_estimate')"
+                "hypertable_name IN ('tb_reading','tb_device_estimate')"
             )
         )
     ).all()
-    for table in ("reading", "device_estimate"):
+    for table in ("tb_reading", "tb_device_estimate"):
         mine = {r.attname: r for r in rows if r.hypertable_name == table}
         assert mine["series_id"].segmentby_column_index == 1
         assert mine["ts"].orderby_column_index == 1
@@ -278,10 +278,10 @@ async def test_set_policies_toggle(autocommit_conn):
         await c.execute(text("SELECT public.set_policies(true)"))  # idempotent
         rows = (await c.execute(JOBS_SQL, p)).all()
         assert rows == [
-            ("policy_compression", "device_estimate"),
-            ("policy_compression", "reading"),
-            ("policy_retention", "device_estimate"),
-            ("policy_retention", "reading"),
+            ("policy_compression", "tb_device_estimate"),
+            ("policy_compression", "tb_reading"),
+            ("policy_retention", "tb_device_estimate"),
+            ("policy_retention", "tb_reading"),
         ]
         await c.execute(text("SELECT public.set_policies(false)"))
         await c.execute(text("SELECT public.set_policies(false)"))  # idempotent
@@ -343,12 +343,15 @@ def test_metadata_resolves():
 async def test_energy_downgrade_upgrade(throwaway_dsn):
     from sqlalchemy.ext.asyncio import create_async_engine
 
-    from tests.db.conftest import run_alembic
+    from tests.db.conftest import relations, run_alembic
 
-    q = text(
-        "SELECT count(*) FROM information_schema.tables "
-        "WHERE table_schema = 'public' AND table_type = 'BASE TABLE'"
-    )
+    energy_module = {
+        "public.tb_series",
+        "public.tb_reading",
+        "public.tb_device_estimate",
+        "public.tb_inference_run",
+        "public.tb_weather_hourly",
+    }
     fn = text(
         "SELECT count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace "
         "WHERE n.nspname = 'public' AND p.proname = 'set_policies'"
@@ -356,15 +359,16 @@ async def test_energy_downgrade_upgrade(throwaway_dsn):
     engine = create_async_engine(throwaway_dsn, isolation_level="AUTOCOMMIT")
     try:
         async with engine.connect() as c:
-            assert await c.scalar(q) == 5
+            before = await relations(c)
+            assert energy_module <= before
             assert await c.scalar(fn) == 1
         run_alembic(throwaway_dsn, "downgrade", "7a91e4d2b6c8")
         async with engine.connect() as c:
-            assert await c.scalar(q) == 0
+            assert energy_module.isdisjoint(await relations(c))
             assert await c.scalar(fn) == 0
         run_alembic(throwaway_dsn, "upgrade", "head")
         async with engine.connect() as c:
-            assert await c.scalar(q) == 5
+            assert await relations(c) == before
             assert len((await c.execute(JOBS_SQL, {"p": list(POLICY_PROCS)})).all()) == 4
     finally:
         await engine.dispose()
@@ -415,13 +419,13 @@ async def test_column_types_match_models(conn):
             text(
                 "SELECT table_name, column_name, data_type, character_maximum_length "
                 "FROM information_schema.columns WHERE table_schema = 'public' "
-                "AND table_name IN ('series')"
+                "AND table_name IN ('tb_series')"
             )
         )
     ).all()
     got = {(r.table_name, r.column_name): (r.data_type, r.character_maximum_length) for r in rows}
-    assert got[("series", "kind")] == ("character varying", 16)
-    assert got[("series", "metric")] == ("character varying", 64)
+    assert got[("tb_series", "kind")] == ("character varying", 16)
+    assert got[("tb_series", "metric")] == ("character varying", 64)
 
 
 async def test_hypertable_pk_names_and_meter_index(conn):

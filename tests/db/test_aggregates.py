@@ -6,12 +6,12 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
 
-from app.services.aggregates import backfill_aggregates as backfill
+from app.modules.energy.services.aggregates import backfill_aggregates as backfill
 from tests.db.conftest import _create_migrated_db, run_alembic
 
 RAW_JOBS = text(
     "SELECT proc_name, hypertable_name FROM timescaledb_information.jobs "
-    "WHERE hypertable_schema = 'public' AND hypertable_name IN ('reading', 'device_estimate') "
+    "WHERE hypertable_schema = 'public' AND hypertable_name IN ('tb_reading', 'tb_device_estimate') "
     "AND proc_name IN ('policy_compression', 'policy_retention') ORDER BY 1, 2"
 )
 
@@ -49,7 +49,7 @@ async def series(c, table="reading"):
         yield sid
     finally:
         for t in ("reading", "device_estimate"):
-            await c.execute(text(f"DELETE FROM public.{t} WHERE series_id = :s"), {"s": sid})
+            await c.execute(text(f"DELETE FROM public.tb_{t} WHERE series_id = :s"), {"s": sid})
         await c.execute(text("DELETE FROM public.tb_series WHERE series_id = :s"), {"s": sid})
         await c.execute(text("DELETE FROM public.tb_home WHERE id = :i"), {"i": home})
 
@@ -318,10 +318,10 @@ async def test_aggregates_downgrade_upgrade(throwaway_dsn):
             assert "continuous_aggregate" not in body and "_1m" not in body
             raw = (await c.execute(RAW_JOBS)).all()
             assert [tuple(r) for r in raw] == [
-                ("policy_compression", "device_estimate"),
-                ("policy_compression", "reading"),
-                ("policy_retention", "device_estimate"),
-                ("policy_retention", "reading"),
+                ("policy_compression", "tb_device_estimate"),
+                ("policy_compression", "tb_reading"),
+                ("policy_retention", "tb_device_estimate"),
+                ("policy_retention", "tb_reading"),
             ]
             await c.execute(text("SELECT public.set_policies(true)"))
             assert len((await c.execute(RAW_JOBS)).all()) == 4

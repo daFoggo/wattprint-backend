@@ -16,7 +16,7 @@ from sqlalchemy import event, text
 from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import create_async_engine
 
-from app.services.aggregates import backfill_aggregates
+from app.modules.energy.services.aggregates import backfill_aggregates
 from tests.audit import results
 from tests.audit.part_b import ROOT, log, summarize_ms
 from tests.audit.support import create_scratch, drop_scratch, make_engine, scratch_url
@@ -65,7 +65,7 @@ async def copy_slices(
                 total = 0
                 for a, b in slices:
                     rows = await raw_src.fetch(
-                        f"SELECT {', '.join(cols)} FROM public.{table} "
+                        f"SELECT {', '.join(cols)} FROM public.tb_{table} "
                         "WHERE ts >= $1 AND ts < $2 AND series_id = ANY($3::int[])",
                         a,
                         b,

@@ -16,7 +16,7 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import TSVECTOR
 from sqlalchemy.orm import Mapped, mapped_column
 
-from ..database import Base
+from app.common.base_model import Base
 
 EMBEDDING_DIM = 1024
 

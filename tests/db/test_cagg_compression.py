@@ -6,8 +6,8 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
-from app.services.aggregates import backfill_aggregates
-from app.services.meter import meter_series
+from app.modules.energy.services.aggregates import backfill_aggregates
+from app.modules.energy.services.meter import meter_series
 from tests.db.conftest import _create_migrated_db, run_alembic
 
 D = [datetime(2026, 2, d, tzinfo=UTC) for d in range(1, 6)]
@@ -276,10 +276,10 @@ async def test_set_policies_adds_and_removes_1m_compression_policies(cc):
     await cc.execute(text("SELECT public.set_policies(true)"))
     await cc.execute(text("SELECT public.set_policies(true)"))  # idempotent
     assert await jobs(cc) == [
-        ("device_estimate", "2 days"),
         ("device_estimate_1m", "14 days"),
-        ("reading", "2 days"),
         ("reading_1m", "14 days"),
+        ("tb_device_estimate", "2 days"),
+        ("tb_reading", "2 days"),
     ]
     # compress_after of a cagg must exceed the 1 m refresh start_offset (7 days)
     start = await cc.scalar(
@@ -331,13 +331,13 @@ async def test_downgrade_removes_compression_and_upgrade_restores_it(throwaway_d
             before = await snapshot(c, sid)
         run_alembic(throwaway_dsn, "downgrade", "4d7b1e9a3c52")
         async with engine.connect() as c:
-            assert [g[0] for g in await jobs(c)] == ["device_estimate", "reading"]
+            assert [g[0] for g in await jobs(c)] == ["tb_device_estimate", "tb_reading"]
             for view in CAGGS:
                 assert await compressed_count(c, view) == 0
                 assert await compression_enabled(c, view) is False
             assert await snapshot(c, sid) == before  # data survives the decompression
             await c.execute(text("SELECT public.set_policies(true)"))
-            assert [g[0] for g in await jobs(c)] == ["device_estimate", "reading"]
+            assert [g[0] for g in await jobs(c)] == ["tb_device_estimate", "tb_reading"]
         run_alembic(throwaway_dsn, "upgrade", "head")
         async with engine.connect() as c:
             await c.execute(text("SELECT public.set_policies(true)"))

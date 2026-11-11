@@ -16,7 +16,7 @@ from pathlib import Path
 
 from sqlalchemy import event, text
 
-from app.services.aggregates import backfill_aggregates
+from app.modules.energy.services.aggregates import backfill_aggregates
 from tests.audit import part_b, part_b2, results
 from tests.audit.support import database_name, ensure_database, guard, make_engine
 

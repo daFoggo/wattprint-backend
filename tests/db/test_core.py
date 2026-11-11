@@ -151,7 +151,7 @@ def test_metadata_sorted_tables_resolves():
 
     names = {t.fullname for t in Base.metadata.sorted_tables}
     assert {
-        "users",
+        "public.tb_users",
         "public.tb_home",
         "public.tb_home_member",
         "public.tb_device",
@@ -324,7 +324,7 @@ async def test_home_delete_cascades(conn):
     )
     await conn.execute(text("DELETE FROM public.tb_home WHERE id = :h"), {"h": hid})
     for table in ("home_member", "home_invite", "device", "device_alert_rule"):
-        n = await conn.scalar(text(f"SELECT count(*) FROM public.{table}"))
+        n = await conn.scalar(text(f"SELECT count(*) FROM public.tb_{table}"))
         assert n == 0, table
     assert await conn.scalar(text("SELECT count(*) FROM public.tb_users WHERE id = :u"), {"u": uid})
 
@@ -346,13 +346,13 @@ async def test_fk_columns_are_indexed(conn):
     rows = await conn.execute(text("SELECT indexname FROM pg_indexes WHERE schemaname = 'public'"))
     names = {r[0] for r in rows}
     assert {
-        "ix_device_home_id",
-        "ix_device_alert_rule_device_id",
-        "ix_home_invite_home_id",
-        "ix_meter_home_id",
-        "ix_device_merged_into_id",
-        "ix_home_invite_used_by",
-        "ix_home_invite_code_hash",
+        "ix_public_tb_device_home_id",
+        "ix_public_tb_device_alert_rule_device_id",
+        "ix_public_tb_home_invite_home_id",
+        "ix_public_tb_meter_home_id",
+        "ix_public_tb_device_merged_into_id",
+        "ix_public_tb_home_invite_used_by",
+        "uq_home_invite_code_hash",
         "ix_meter_claim_code_hash",
     } <= names
 
@@ -363,21 +363,29 @@ async def test_fk_columns_are_indexed(conn):
 async def test_catalog_core_downgrade_upgrade(throwaway_dsn):
     from sqlalchemy.ext.asyncio import create_async_engine
 
-    from tests.db.conftest import run_alembic
+    from tests.db.conftest import relations, run_alembic
 
-    q = text(
-        "SELECT count(*) FROM information_schema.tables WHERE table_schema = 'public'"
-    )
+    home_module = {
+        "public.cat_metric",
+        "public.cat_device_type",
+        "public.tb_home",
+        "public.tb_home_member",
+        "public.tb_home_invite",
+        "public.tb_meter",
+        "public.tb_device",
+        "public.tb_device_alert_rule",
+    }
     engine = create_async_engine(throwaway_dsn, isolation_level="AUTOCOMMIT")
     try:
         async with engine.connect() as c:
-            assert await c.scalar(q) == 8
+            before = await relations(c)
+            assert home_module <= before
         run_alembic(throwaway_dsn, "downgrade", "5f0b3c8a1d47")
         async with engine.connect() as c:
-            assert await c.scalar(q) == 0
+            assert home_module.isdisjoint(await relations(c))
         run_alembic(throwaway_dsn, "upgrade", "head")
         async with engine.connect() as c:
-            assert await c.scalar(q) == 8
+            assert await relations(c) == before
             assert await c.scalar(text("SELECT count(*) FROM public.cat_device_type")) == 22
     finally:
         await engine.dispose()
