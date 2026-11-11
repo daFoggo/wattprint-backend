@@ -4,7 +4,7 @@ Revision ID: a7c2e9f4b1d6
 Revises: f3a9c1e5b7d2
 Create Date: 2026-11-09
 
-The external Keycloak subject is stored separately from the local integer user id.
+The external Keycloak subject is stored separately from the local uuid user id.
 """
 
 import sqlalchemy as sa
@@ -15,6 +15,8 @@ revision = "a7c2e9f4b1d6"
 down_revision = "f3a9c1e5b7d2"
 branch_labels = None
 depends_on = None
+
+UUID7 = sa.text("uuidv7()")
 
 
 def upgrade() -> None:
@@ -30,8 +32,8 @@ def downgrade() -> None:
     op.add_column("tb_users", sa.Column("hashed_password", sa.String(255), nullable=True))
     op.create_table(
         "tb_refresh_tokens",
-        sa.Column("id", sa.Integer(), sa.Identity(always=False), nullable=False),
-        sa.Column("user_id", sa.Integer(), nullable=False),
+        sa.Column("id", sa.Uuid(), server_default=UUID7, nullable=False),
+        sa.Column("user_id", sa.Uuid(), nullable=False),
         sa.Column("token_hash", sa.String(64), nullable=False),
         sa.Column("expires_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("revoked_at", sa.DateTime(timezone=True), nullable=True),

@@ -15,6 +15,8 @@ down_revision = "c8a4e1f7b295"
 branch_labels = None
 depends_on = None
 
+UUID7 = sa.text("uuidv7()")
+
 _VAT_NOTE = (
     "VAT 8% per the 2025-2026 VAT reduction; not confirmed from an official text for "
     "electricity - verify before 2027."
@@ -94,7 +96,7 @@ def upgrade() -> None:
     )
     op.create_table(
         "tb_tariff_version",
-        sa.Column("id", sa.Integer, sa.Identity(always=False), primary_key=True),
+        sa.Column("id", sa.Uuid, server_default=UUID7, primary_key=True),
         sa.Column("plan_code", sa.String(64), nullable=False),
         sa.Column("valid_from", sa.Date, nullable=False),
         sa.Column("valid_to", sa.Date),
@@ -107,7 +109,7 @@ def upgrade() -> None:
     )
     op.create_table(
         "tb_tariff_tier",
-        sa.Column("version_id", sa.Integer, nullable=False),
+        sa.Column("version_id", sa.Uuid, nullable=False),
         sa.Column("tier_no", sa.SmallInteger, nullable=False),
         sa.Column("from_kwh", sa.Numeric(10, 2), nullable=False),
         sa.Column("to_kwh", sa.Numeric(10, 2)),
@@ -121,11 +123,11 @@ def upgrade() -> None:
     )
     op.create_table(
         "tb_bill",
-        sa.Column("id", sa.Integer, sa.Identity(always=False), primary_key=True),
-        sa.Column("home_id", sa.Integer, nullable=False),
+        sa.Column("id", sa.Uuid, server_default=UUID7, primary_key=True),
+        sa.Column("home_id", sa.Uuid, nullable=False),
         sa.Column("period_start", sa.Date, nullable=False),
         sa.Column("period_end", sa.Date, nullable=False),
-        sa.Column("version_id", sa.Integer, nullable=False),
+        sa.Column("version_id", sa.Uuid, nullable=False),
         sa.Column("kwh_total", sa.Numeric(12, 3), nullable=False),
         sa.Column("amount_before_vat", sa.Numeric(14, 2), nullable=False),
         sa.Column("vat_amount", sa.Numeric(14, 2), nullable=False),
@@ -147,9 +149,9 @@ def upgrade() -> None:
     )
     op.create_table(
         "tb_bill_item",
-        sa.Column("id", sa.Integer, sa.Identity(always=False), primary_key=True),
-        sa.Column("bill_id", sa.Integer, nullable=False),
-        sa.Column("device_id", sa.Integer),
+        sa.Column("id", sa.Uuid, server_default=UUID7, primary_key=True),
+        sa.Column("bill_id", sa.Uuid, nullable=False),
+        sa.Column("device_id", sa.Uuid),
         sa.Column("label", sa.Text, nullable=False),
         sa.Column("kwh", sa.Numeric(12, 3), nullable=False),
         sa.Column("share", sa.Numeric(7, 6), nullable=False),

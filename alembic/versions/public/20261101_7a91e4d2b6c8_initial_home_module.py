@@ -15,6 +15,7 @@ branch_labels = None
 depends_on = None
 
 NOW = sa.text("now()")
+UUID7 = sa.text("uuidv7()")
 
 METRICS = [
     ("power_w", "W", "mean"),
@@ -118,7 +119,7 @@ def upgrade() -> None:
 
     op.create_table(
         "tb_home",
-        sa.Column("id", sa.Integer(), sa.Identity(always=False), nullable=False),
+        sa.Column("id", sa.Uuid(), server_default=UUID7, nullable=False),
         sa.Column("name", sa.String(255), nullable=False),
         sa.Column("postal_code", sa.String(16), nullable=True),
         sa.Column("province_code", sa.String(16), nullable=True),
@@ -138,8 +139,8 @@ def upgrade() -> None:
     )
     op.create_table(
         "tb_home_member",
-        sa.Column("home_id", sa.Integer(), nullable=False),
-        sa.Column("user_id", sa.Integer(), nullable=False),
+        sa.Column("home_id", sa.Uuid(), nullable=False),
+        sa.Column("user_id", sa.Uuid(), nullable=False),
         sa.Column("role", sa.String(16), nullable=False, server_default="member"),
         sa.Column("joined_at", sa.DateTime(timezone=True), nullable=False, server_default=NOW),
         sa.PrimaryKeyConstraint("home_id", "user_id", name="pk_home_member"),
@@ -161,12 +162,12 @@ def upgrade() -> None:
     )
     op.create_table(
         "tb_home_invite",
-        sa.Column("id", sa.Integer(), sa.Identity(always=False), nullable=False),
-        sa.Column("home_id", sa.Integer(), nullable=False),
+        sa.Column("id", sa.Uuid(), server_default=UUID7, nullable=False),
+        sa.Column("home_id", sa.Uuid(), nullable=False),
         sa.Column("code_hash", sa.String(128), nullable=False),
         sa.Column("role", sa.String(16), nullable=False, server_default="member"),
         sa.Column("expires_at", sa.DateTime(timezone=True), nullable=False),
-        sa.Column("used_by", sa.Integer(), nullable=True),
+        sa.Column("used_by", sa.Uuid(), nullable=True),
         sa.Column("used_at", sa.DateTime(timezone=True), nullable=True),
         sa.PrimaryKeyConstraint("id", name="pk_home_invite"),
         sa.ForeignKeyConstraint(
@@ -184,9 +185,9 @@ def upgrade() -> None:
     )
     op.create_table(
         "tb_meter",
-        sa.Column("id", sa.Integer(), sa.Identity(always=False), nullable=False),
+        sa.Column("id", sa.Uuid(), server_default=UUID7, nullable=False),
         sa.Column("serial", sa.String(64), nullable=False),
-        sa.Column("home_id", sa.Integer(), nullable=True),
+        sa.Column("home_id", sa.Uuid(), nullable=True),
         sa.Column("claim_code_hash", sa.String(128), nullable=True),
         sa.Column("claimed_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("firmware", sa.String(64), nullable=True),
@@ -200,8 +201,8 @@ def upgrade() -> None:
     )
     op.create_table(
         "tb_device",
-        sa.Column("id", sa.Integer(), sa.Identity(always=False), nullable=False),
-        sa.Column("home_id", sa.Integer(), nullable=False),
+        sa.Column("id", sa.Uuid(), server_default=UUID7, nullable=False),
+        sa.Column("home_id", sa.Uuid(), nullable=False),
         sa.Column("device_type_code", sa.String(64), nullable=False),
         sa.Column("name", sa.String(255), nullable=False),
         sa.Column("room", sa.String(128), nullable=True),
@@ -209,7 +210,7 @@ def upgrade() -> None:
         sa.Column("show_on_timeline", sa.Boolean(), nullable=False, server_default=sa.text("true")),
         sa.Column("active_from", sa.DateTime(timezone=True), nullable=False, server_default=NOW),
         sa.Column("active_to", sa.DateTime(timezone=True), nullable=True),
-        sa.Column("merged_into_id", sa.Integer(), nullable=True),
+        sa.Column("merged_into_id", sa.Uuid(), nullable=True),
         sa.Column("deleted_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=NOW),
         sa.PrimaryKeyConstraint("id", name="pk_device"),
@@ -232,8 +233,8 @@ def upgrade() -> None:
     )
     op.create_table(
         "tb_device_alert_rule",
-        sa.Column("id", sa.Integer(), sa.Identity(always=False), nullable=False),
-        sa.Column("device_id", sa.Integer(), nullable=False),
+        sa.Column("id", sa.Uuid(), server_default=UUID7, nullable=False),
+        sa.Column("device_id", sa.Uuid(), nullable=False),
         sa.Column("kind", sa.String(16), nullable=False),
         sa.Column(
             "params",

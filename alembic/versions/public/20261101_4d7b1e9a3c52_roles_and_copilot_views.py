@@ -24,7 +24,7 @@ HOME = "copilot_ro.current_home()"
 
 TOKEN_REGEX = "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
 CURRENT_HOME_FN = f"""
-CREATE FUNCTION copilot_ro.current_home() RETURNS integer
+CREATE FUNCTION copilot_ro.current_home() RETURNS uuid
 LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, public, pg_temp AS $$
     SELECT t.home_id
@@ -135,14 +135,9 @@ AGGREGATES = tuple(
     for res in ("1m", "1h", "1d")
 )
 OPS_OBJECTS = ("tb_ingest_batch", "tb_ingest_checkpoint", "series_daily_coverage", "stale_series")
-SEQUENCES = (
-    ("public", "tb_series", "series_id"),
-    ("public", "tb_inference_run", "run_id"),
-    ("public", "tb_chunk", "id"),
-)
 SCHEMAS_ALL = ("public",)
 
-# (privileges, role, objects). Table-level only; schema USAGE and sequences are listed below.
+# (privileges, role, objects). Table-level only; schema USAGE is listed below.
 DML = "SELECT, INSERT, UPDATE, DELETE"
 TABLE_GRANTS: list[tuple[str, str, tuple[str, ...]]] = [
     (
@@ -194,27 +189,11 @@ SCHEMA_USAGE: list[tuple[str, tuple[str, ...]]] = [
 ]
 
 
-def _grant_sequences(role: str) -> None:
-    for schema, table, col in SEQUENCES:
-        op.execute(
-            "DO $$ BEGIN EXECUTE format('GRANT USAGE ON SEQUENCE %s TO " + role + "', "
-            f"pg_get_serial_sequence('{schema}.{table}', '{col}')); END $$"
-        )
-
-
-def _revoke_sequences(role: str) -> None:
-    for schema, table, col in SEQUENCES:
-        op.execute(
-            "DO $$ BEGIN EXECUTE format('REVOKE ALL ON SEQUENCE %s FROM " + role + "', "
-            f"pg_get_serial_sequence('{schema}.{table}', '{col}')); END $$"
-        )
-
-
 def _scope_token() -> None:
     op.create_table(
         "tb_scope_token",
         sa.Column("token", sa.UUID, primary_key=True, server_default=sa.text("gen_random_uuid()")),
-        sa.Column("home_id", sa.Integer, nullable=False),
+        sa.Column("home_id", sa.Uuid, nullable=False),
         sa.Column(
             "expires_at",
             sa.DateTime(timezone=True),
@@ -248,12 +227,10 @@ def upgrade() -> None:
     for privs, role, objects in TABLE_GRANTS:
         for obj in objects:
             op.execute(f"GRANT {privs} ON {obj} TO {role}")
-    _grant_sequences(APP)
 
 
 def downgrade() -> None:
     # Roles and their attributes are never touched; only this revision's grants are revoked.
-    _revoke_sequences(APP)
     for _privs, role, objects in reversed(TABLE_GRANTS):
         if role == COPILOT:
             continue  # the copilot_ro views are dropped below; the rest is revoked here

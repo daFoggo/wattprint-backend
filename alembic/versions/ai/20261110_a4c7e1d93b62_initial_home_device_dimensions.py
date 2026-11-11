@@ -13,20 +13,22 @@ down_revision = "b7d9e3a1c5f8"
 branch_labels = None
 depends_on = None
 
+UUID7 = sa.text("uuidv7()")
+
 def upgrade() -> None:
     op.execute("GRANT USAGE ON SCHEMA ai TO wattprint_app")
 
     op.create_table(
         "dim_home",
-        sa.Column("home_key", sa.BigInteger(), sa.Identity(always=False), nullable=False),
-        sa.Column("source_home_id", sa.Integer(), nullable=False),
+        sa.Column("home_key", sa.Uuid(), server_default=UUID7, nullable=False),
+        sa.Column("source_home_id", sa.Uuid(), nullable=False),
         sa.Column("province_code", sa.String(16)),
         sa.Column("home_type", sa.String(16)),
         sa.Column("floor_area_m2", sa.Numeric(8, 2)),
         sa.Column("year_built", sa.SmallInteger()),
         sa.Column("occupants", sa.SmallInteger()),
         sa.Column("timezone", sa.String(64), nullable=False),
-        sa.Column("tariff_plan_key", sa.BigInteger()),
+        sa.Column("tariff_plan_key", sa.Uuid()),
         sa.Column("billing_cycle_day", sa.SmallInteger(), nullable=False),
         sa.Column("is_deleted", sa.Boolean(), nullable=False, server_default=sa.text("false")),
         sa.Column(
@@ -46,9 +48,9 @@ def upgrade() -> None:
     )
     op.create_table(
         "dim_device",
-        sa.Column("device_key", sa.BigInteger(), sa.Identity(always=False), nullable=False),
-        sa.Column("source_device_id", sa.Integer(), nullable=False),
-        sa.Column("home_key", sa.BigInteger(), nullable=False),
+        sa.Column("device_key", sa.Uuid(), server_default=UUID7, nullable=False),
+        sa.Column("source_device_id", sa.Uuid(), nullable=False),
+        sa.Column("home_key", sa.Uuid(), nullable=False),
         sa.Column("device_type_code", sa.String(64), nullable=False),
         sa.Column("device_type_label_vi", sa.String(128), nullable=False),
         sa.Column("device_type_label_en", sa.String(128), nullable=False),
@@ -232,10 +234,6 @@ def upgrade() -> None:
     op.execute(
         "GRANT SELECT, INSERT, UPDATE, DELETE ON ai.dim_home, ai.dim_device TO wattprint_app"
     )
-    op.execute(
-        "GRANT USAGE, SELECT ON SEQUENCE ai.dim_home_home_key_seq, ai.dim_device_device_key_seq "
-        "TO wattprint_app"
-    )
 
 
 def downgrade() -> None:
@@ -245,10 +243,6 @@ def downgrade() -> None:
     op.execute("DROP FUNCTION ai.sync_dim_device_type()")
     op.execute("DROP FUNCTION ai.sync_dim_device()")
     op.execute("DROP FUNCTION ai.sync_dim_home()")
-    op.execute(
-        "REVOKE ALL ON SEQUENCE ai.dim_home_home_key_seq, ai.dim_device_device_key_seq "
-        "FROM wattprint_app"
-    )
     op.execute("REVOKE ALL ON ai.dim_home, ai.dim_device FROM wattprint_ai, wattprint_app")
     op.drop_table("dim_device", schema="ai")
     op.drop_table("dim_home", schema="ai")

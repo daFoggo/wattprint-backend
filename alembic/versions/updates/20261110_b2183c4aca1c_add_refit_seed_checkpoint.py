@@ -1,10 +1,10 @@
 """add REFIT House 2 seed data
 
-Revision ID: e2b726548f8c
+Revision ID: b2183c4aca1c
 Revises: c8d3f1a6b204
 """
 
-revision = "e2b726548f8c"
+revision = "b2183c4aca1c"
 down_revision = "c8d3f1a6b204"
 branch_labels = None
 depends_on = None
@@ -15,6 +15,7 @@ from datetime import datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
 from typing import ClassVar, Literal
+from uuid import UUID
 
 import pandas as pd
 import sqlalchemy as sa
@@ -55,7 +56,7 @@ class User(BaseModel):
     table: ClassVar[str]     = "public.tb_users"
     key:   ClassVar[tuple]   = ("email",)
 
-    id:           int | None = None
+    id:           UUID | None = None
     email:        str        = Field(max_length=320)
     full_name:    str | None = Field(default=None, max_length=255)
     keycloak_sub: str | None = Field(default=None, max_length=255)
@@ -66,7 +67,7 @@ class Home(BaseModel):
     table: ClassVar[str]               = "public.tb_home"
     key:   ClassVar[tuple]             = ("name",)
 
-    id:                int | None      = None
+    id:                UUID | None      = None
     name:              str             = Field(max_length=255)
     postal_code:       str | None      = Field(default=None, max_length=16)
     province_code:     str | None      = Field(default=None, max_length=16)
@@ -83,8 +84,8 @@ class HomeMember(BaseModel):
     table: ClassVar[str] = "public.tb_home_member"
     key:   ClassVar[tuple] = ("user_id",)
 
-    home_id: int                     # -> tb_home.id
-    user_id: int                     # -> tb_users.id (unique)
+    home_id: UUID                     # -> tb_home.id
+    user_id: UUID                     # -> tb_users.id (unique)
     role:    MemberRole  = "member"
 
 
@@ -92,9 +93,9 @@ class Meter(BaseModel):
     table: ClassVar[str]          = "public.tb_meter"
     key:   ClassVar[tuple]        = ("serial",)
 
-    id:           int | None      = None
+    id:           UUID | None      = None
     serial:       str             = Field(max_length=64)  # unique
-    home_id:      int | None      = None                  # -> tb_home.id
+    home_id:      UUID | None      = None                  # -> tb_home.id
     firmware:     str | None      = Field(default=None, max_length=64)
     last_seen_at: datetime | None = None
     status:       MeterStatus     = "new"
@@ -104,8 +105,8 @@ class Device(BaseModel):
     table: ClassVar[str]           = "public.tb_device"
     key:   ClassVar[tuple]         = ("home_id", "name")
 
-    id:               int | None   = None
-    home_id:          int                                  # -> tb_home.id
+    id:               UUID | None   = None
+    home_id:          UUID                                  # -> tb_home.id
     device_type_code: str          = Field(max_length=64)  # -> cat_device_type.code
     name:             str          = Field(max_length=255)
     room:             str | None   = Field(default=None, max_length=128)
@@ -117,11 +118,11 @@ class Series(BaseModel):
     table: ClassVar[str]       = "public.tb_series"
     key:   ClassVar[tuple]     = ("home_id", "kind", "device_id", "metric")
 
-    series_id:      int | None = None
-    home_id:        int                                                   # -> tb_home.id
+    series_id:      UUID | None = None
+    home_id:        UUID                                                   # -> tb_home.id
     kind:           SeriesKind
-    device_id:      int | None = None                                     # -> tb_device.id (NULL for main)
-    meter_id:       int | None = None                                     # -> tb_meter.id
+    device_id:      UUID | None = None                                     # -> tb_device.id (NULL for main)
+    meter_id:       UUID | None = None                                     # -> tb_meter.id
     source_channel: str | None = None                                     # Aggregate, Appliance1..9
     metric:         str        = Field(default="power_w", max_length=64)  # -> cat_metric.event_type
     unit:           str        = "W"
@@ -132,12 +133,12 @@ class Reading(BaseModel):
     key:   ClassVar[tuple] = ("series_id", "ts")
 
     ts:        datetime
-    series_id: int                   # -> tb_series.series_id
+    series_id: UUID                   # -> tb_series.series_id
     value:     float
     quality:   int        = 0        # 1 = CSV Issues flag
 
 
-def upsert(conn: sa.Connection, row: BaseModel, returning: str | None = "id") -> int | None:
+def upsert(conn: sa.Connection, row: BaseModel, returning: str | None = "id") -> UUID | None:
     values = row.model_dump(exclude_none=True)
     keys   = {k: getattr(row, k) for k in row.key}
     where  = " AND ".join(f"{k} IS NOT DISTINCT FROM :{k}" for k in keys)
@@ -182,7 +183,7 @@ WATERMARK_DDL = (
 LOAD_BATCH = sa.text("""
     WITH ins AS (
         INSERT INTO public.tb_reading (ts, series_id, value, quality)
-        SELECT * FROM unnest(CAST(:ts AS timestamptz[]), CAST(:series_id AS integer[]),
+        SELECT * FROM unnest(CAST(:ts AS timestamptz[]), CAST(:series_id AS uuid[]),
                              CAST(:value AS real[]), CAST(:quality AS smallint[]))
         ON CONFLICT (series_id, ts) DO NOTHING
         RETURNING 1
@@ -197,7 +198,7 @@ LOAD_BATCH = sa.text("""
 """)
 
 
-def seed_parents(conn: sa.Connection) -> dict[str, int]:
+def seed_parents(conn: sa.Connection) -> dict[str, UUID]:
     """User, home, meter, devices and series of the house; returns series_id per CSV channel."""
     user = User(email=OWNER_EMAIL, full_name=HOME_NAME)
     user.id = upsert(conn, user)
@@ -262,7 +263,7 @@ def plan_segments(conn: sa.Connection, filepath: Path) -> list[sa.Row]:
     ), {"s": SOURCE}).all()
 
 
-def batch_params(chunk: pd.DataFrame, ts: pd.Series, series_ids: dict[str, int]) -> dict[str, list]:
+def batch_params(chunk: pd.DataFrame, ts: pd.Series, series_ids: dict[str, UUID]) -> dict[str, list]:
     """Unnest arrays for one CSV chunk: one reading per (row, channel), NaN values dropped."""
     quality = (chunk["Issues"] == 1).astype("int16").to_numpy()
     params = {"ts": [], "series_id": [], "value": [], "quality": []}
@@ -275,7 +276,7 @@ def batch_params(chunk: pd.DataFrame, ts: pd.Series, series_ids: dict[str, int])
     return params
 
 
-def load_segment(conn: sa.Connection, wm: sa.Row, filepath: Path, series_ids: dict[str, int]) -> None:
+def load_segment(conn: sa.Connection, wm: sa.Row, filepath: Path, series_ids: dict[str, UUID]) -> None:
     """Stream the CSV and insert the rows of one segment after its watermark, BATCH_ROWS at a time."""
     if wm.status == "done":
         return

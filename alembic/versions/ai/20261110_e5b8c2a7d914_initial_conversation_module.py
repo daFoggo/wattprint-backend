@@ -13,12 +13,14 @@ down_revision = "d2f8a6c4b190"
 branch_labels = None
 depends_on = None
 
+UUID7 = sa.text("uuidv7()")
+
 def upgrade() -> None:
     op.create_table(
         "ai_conversation",
-        sa.Column("id", sa.Integer(), sa.Identity(always=False), nullable=False),
-        sa.Column("home_id", sa.Integer(), nullable=False),
-        sa.Column("user_id", sa.Integer(), nullable=False),
+        sa.Column("id", sa.Uuid(), server_default=UUID7, nullable=False),
+        sa.Column("home_id", sa.Uuid(), nullable=False),
+        sa.Column("user_id", sa.Uuid(), nullable=False),
         sa.Column("title", sa.Text()),
         sa.Column(
             "created_at",
@@ -33,8 +35,8 @@ def upgrade() -> None:
     )
     op.create_table(
         "ai_message",
-        sa.Column("id", sa.Integer(), sa.Identity(always=False), nullable=False),
-        sa.Column("conversation_id", sa.Integer(), nullable=False),
+        sa.Column("id", sa.Uuid(), server_default=UUID7, nullable=False),
+        sa.Column("conversation_id", sa.Uuid(), nullable=False),
         sa.Column("role", sa.String(16), nullable=False),
         sa.Column("content", sa.Text(), nullable=False),
         sa.Column(
@@ -52,8 +54,8 @@ def upgrade() -> None:
     )
     op.create_table(
         "ai_tool_call",
-        sa.Column("id", sa.Integer(), sa.Identity(always=False), nullable=False),
-        sa.Column("message_id", sa.Integer(), nullable=False),
+        sa.Column("id", sa.Uuid(), server_default=UUID7, nullable=False),
+        sa.Column("message_id", sa.Uuid(), nullable=False),
         sa.Column("tool", sa.Text(), nullable=False),
         sa.Column(
             "input",
@@ -75,17 +77,9 @@ def upgrade() -> None:
         "GRANT SELECT, INSERT, UPDATE, DELETE ON ai.ai_conversation, "
         "ai.ai_message, ai.ai_tool_call TO wattprint_app, wattprint_ai"
     )
-    op.execute(
-        "GRANT USAGE, SELECT ON SEQUENCE ai.ai_conversation_id_seq, "
-        "ai.ai_message_id_seq, ai.ai_tool_call_id_seq TO wattprint_app, wattprint_ai"
-    )
 
 
 def downgrade() -> None:
-    op.execute(
-        "REVOKE ALL ON SEQUENCE ai.ai_conversation_id_seq, "
-        "ai.ai_message_id_seq, ai.ai_tool_call_id_seq FROM wattprint_app, wattprint_ai"
-    )
     op.execute(
         "REVOKE ALL ON ai.ai_conversation, ai.ai_message, ai.ai_tool_call "
         "FROM wattprint_app, wattprint_ai"

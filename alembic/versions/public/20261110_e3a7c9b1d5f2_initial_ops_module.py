@@ -14,6 +14,7 @@ branch_labels = None
 depends_on = None
 
 NOW = sa.text("now()")
+UUID7 = sa.text("uuidv7()")
 
 STALE_SERIES = """
 CREATE VIEW public.stale_series AS
@@ -37,8 +38,8 @@ def _comment_view(view: str, text: str) -> None:
     op.execute(sa.text("COMMENT ON VIEW " + view + " IS '" + text.replace("'", "''") + "'"))
 
 
-def _int_pk() -> sa.Column:
-    return sa.Column("id", sa.Integer, sa.Identity(always=False), primary_key=True)
+def _uuid_pk() -> sa.Column:
+    return sa.Column("id", sa.Uuid, server_default=UUID7, primary_key=True)
 
 
 def _fk(col: str, target: str, ondelete: str) -> sa.ForeignKeyConstraint:
@@ -47,9 +48,9 @@ def _fk(col: str, target: str, ondelete: str) -> sa.ForeignKeyConstraint:
 def _ops() -> None:
     op.create_table(
         "tb_ingest_batch",
-        _int_pk(),
+        _uuid_pk(),
         sa.Column("source", sa.Text, nullable=False),
-        sa.Column("home_id", sa.Integer),
+        sa.Column("home_id", sa.Uuid),
         sa.Column("started_at", sa.DateTime(timezone=True), nullable=False, server_default=NOW),
         sa.Column("finished_at", sa.DateTime(timezone=True)),
         sa.Column("rows_in", sa.BigInteger, nullable=False, server_default="0"),
@@ -65,7 +66,7 @@ def _ops() -> None:
     op.create_table(
         "tb_ingest_checkpoint",
         sa.Column("source", sa.Text, nullable=False),
-        sa.Column("series_id", sa.Integer, nullable=False),
+        sa.Column("series_id", sa.Uuid, nullable=False),
         sa.Column("last_ts", sa.DateTime(timezone=True), nullable=False),
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False, server_default=NOW),
         sa.PrimaryKeyConstraint("source", "series_id"),

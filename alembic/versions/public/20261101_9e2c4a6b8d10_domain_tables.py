@@ -15,6 +15,7 @@ branch_labels = None
 depends_on = None
 
 NOW = sa.text("now()")
+UUID7 = sa.text("uuidv7()")
 
 IMMUTABLE_UNACCENT = """
 CREATE FUNCTION public.immutable_unaccent(text) RETURNS text
@@ -24,8 +25,8 @@ SET search_path = pg_catalog, public AS $$
 $$
 """
 
-def _int_pk() -> sa.Column:
-    return sa.Column("id", sa.Integer, sa.Identity(always=False), primary_key=True)
+def _uuid_pk() -> sa.Column:
+    return sa.Column("id", sa.Uuid, server_default=UUID7, primary_key=True)
 
 
 def _fk(col: str, target: str, ondelete: str) -> sa.ForeignKeyConstraint:
@@ -34,10 +35,10 @@ def _fk(col: str, target: str, ondelete: str) -> sa.ForeignKeyConstraint:
 def _copilot() -> None:
     op.create_table(
         "tb_suggestion",
-        _int_pk(),
-        sa.Column("home_id", sa.Integer, nullable=False),
-        sa.Column("device_id", sa.Integer),
-        sa.Column("alert_id", sa.Integer),
+        _uuid_pk(),
+        sa.Column("home_id", sa.Uuid, nullable=False),
+        sa.Column("device_id", sa.Uuid),
+        sa.Column("alert_id", sa.Uuid),
         sa.Column("kind", sa.Text, nullable=False),
         sa.Column("title", sa.Text, nullable=False),
         sa.Column("body", sa.Text, nullable=False),
@@ -55,9 +56,9 @@ def _copilot() -> None:
     )
     op.create_table(
         "tb_suggestion_feedback",
-        _int_pk(),
-        sa.Column("suggestion_id", sa.Integer, nullable=False),
-        sa.Column("user_id", sa.Integer, nullable=False),
+        _uuid_pk(),
+        sa.Column("suggestion_id", sa.Uuid, nullable=False),
+        sa.Column("user_id", sa.Uuid, nullable=False),
         sa.Column("action", sa.String(16), nullable=False),
         sa.Column("at", sa.DateTime(timezone=True), nullable=False, server_default=NOW),
         sa.Column("note", sa.Text),
@@ -68,7 +69,7 @@ def _copilot() -> None:
     )
     op.create_table(
         "tb_savings_measure",
-        sa.Column("suggestion_id", sa.Integer, primary_key=True),
+        sa.Column("suggestion_id", sa.Uuid, primary_key=True),
         sa.Column("baseline_kwh", sa.Numeric(12, 3), nullable=False),
         sa.Column("actual_kwh", sa.Numeric(12, 3), nullable=False),
         sa.Column("weather_adjusted_kwh", sa.Numeric(12, 3)),
@@ -83,7 +84,7 @@ def _knowledge() -> None:
     op.execute(IMMUTABLE_UNACCENT)
     op.create_table(
         "tb_document",
-        _int_pk(),
+        _uuid_pk(),
         sa.Column("title", sa.Text, nullable=False),
         sa.Column("doc_type", sa.String(16), nullable=False),
         sa.Column("lang", sa.Text, nullable=False, server_default="vi"),
@@ -98,8 +99,8 @@ def _knowledge() -> None:
     )
     op.create_table(
         "tb_chunk",
-        sa.Column("id", sa.BigInteger, sa.Identity(always=False), primary_key=True),
-        sa.Column("document_id", sa.Integer, nullable=False),
+        sa.Column("id", sa.Uuid, server_default=UUID7, primary_key=True),
+        sa.Column("document_id", sa.Uuid, nullable=False),
         sa.Column("ord", sa.Integer, nullable=False),
         sa.Column("body", sa.Text, nullable=False),
         sa.Column(

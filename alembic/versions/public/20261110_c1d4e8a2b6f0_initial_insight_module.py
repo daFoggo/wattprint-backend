@@ -13,6 +13,8 @@ down_revision = "d7b3f9a2c6e4"
 branch_labels = None
 depends_on = None
 
+UUID7 = sa.text("uuidv7()")
+
 SERIES_DAILY_COVERAGE = """
 CREATE VIEW public.series_daily_coverage AS
 SELECT f.series_id,
@@ -47,8 +49,8 @@ def _comment_view(view: str, text: str) -> None:
     op.execute(sa.text("COMMENT ON VIEW " + view + " IS '" + text.replace("'", "''") + "'"))
 
 
-def _int_pk() -> sa.Column:
-    return sa.Column("id", sa.Integer, sa.Identity(always=False), primary_key=True)
+def _uuid_pk() -> sa.Column:
+    return sa.Column("id", sa.Uuid, server_default=UUID7, primary_key=True)
 
 
 def _fk(col: str, target: str, ondelete: str) -> sa.ForeignKeyConstraint:
@@ -58,8 +60,8 @@ def _insight() -> None:
     op.execute(
         """
         CREATE TABLE public.tb_device_cycle (
-            home_id integer NOT NULL,
-            device_id integer NOT NULL,
+            home_id uuid NOT NULL,
+            device_id uuid NOT NULL,
             start_ts timestamptz NOT NULL,
             end_ts timestamptz NOT NULL,
             energy_wh double precision NOT NULL,
@@ -80,9 +82,9 @@ def _insight() -> None:
 
     op.create_table(
         "tb_alert",
-        _int_pk(),
-        sa.Column("home_id", sa.Integer, nullable=False),
-        sa.Column("device_id", sa.Integer),
+        _uuid_pk(),
+        sa.Column("home_id", sa.Uuid, nullable=False),
+        sa.Column("device_id", sa.Uuid),
         sa.Column("kind", sa.Text, nullable=False),
         sa.Column("severity", sa.String(16), nullable=False),
         sa.Column("ts", sa.DateTime(timezone=True), nullable=False),
@@ -101,8 +103,8 @@ def _insight() -> None:
     )
     op.create_table(
         "tb_forecast_snapshot",
-        _int_pk(),
-        sa.Column("home_id", sa.Integer, nullable=False),
+        _uuid_pk(),
+        sa.Column("home_id", sa.Uuid, nullable=False),
         sa.Column("generated_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("horizon_date", sa.Date, nullable=False),
         sa.Column("kwh", sa.Numeric(12, 3), nullable=False),

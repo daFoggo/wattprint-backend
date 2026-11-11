@@ -13,6 +13,8 @@ down_revision = "7a91e4d2b6c8"
 branch_labels = None
 depends_on = None
 
+UUID7 = sa.text("uuidv7()")
+
 # Task 4 extends this body with CREATE OR REPLACE FUNCTION.
 SET_POLICIES = """
 CREATE FUNCTION public.set_policies(enabled boolean) RETURNS void
@@ -42,11 +44,11 @@ $$
 def upgrade() -> None:
     op.create_table(
         "tb_series",
-        sa.Column("series_id", sa.Integer, sa.Identity(always=False), primary_key=True),
-        sa.Column("home_id", sa.Integer, nullable=False),
+        sa.Column("series_id", sa.Uuid, server_default=UUID7, primary_key=True),
+        sa.Column("home_id", sa.Uuid, nullable=False),
         sa.Column("kind", sa.String(16), nullable=False),
-        sa.Column("device_id", sa.Integer),
-        sa.Column("meter_id", sa.Integer),
+        sa.Column("device_id", sa.Uuid),
+        sa.Column("meter_id", sa.Uuid),
         sa.Column("source_channel", sa.Text),
         sa.Column("metric", sa.String(64), nullable=False),
         sa.Column("unit", sa.Text, nullable=False),
@@ -73,8 +75,8 @@ def upgrade() -> None:
 
     op.create_table(
         "tb_inference_run",
-        sa.Column("run_id", sa.Integer, sa.Identity(always=False), primary_key=True),
-        sa.Column("home_id", sa.Integer, nullable=False),
+        sa.Column("run_id", sa.Uuid, server_default=UUID7, primary_key=True),
+        sa.Column("home_id", sa.Uuid, nullable=False),
         sa.Column("model_name", sa.Text, nullable=False),
         sa.Column("model_version", sa.Text, nullable=False),
         sa.Column("window_start", sa.DateTime(timezone=True), nullable=False),
@@ -106,7 +108,7 @@ def upgrade() -> None:
         """
         CREATE TABLE public.tb_reading (
             ts timestamptz NOT NULL,
-            series_id integer NOT NULL,
+            series_id uuid NOT NULL,
             value real NOT NULL,
             quality smallint NOT NULL DEFAULT 0,
             CONSTRAINT pk_reading PRIMARY KEY (series_id, ts)
@@ -117,9 +119,9 @@ def upgrade() -> None:
         """
         CREATE TABLE public.tb_device_estimate (
             ts timestamptz NOT NULL,
-            series_id integer NOT NULL,
+            series_id uuid NOT NULL,
             value real NOT NULL,
-            run_id integer,
+            run_id uuid,
             CONSTRAINT pk_device_estimate PRIMARY KEY (series_id, ts)
         )
         """

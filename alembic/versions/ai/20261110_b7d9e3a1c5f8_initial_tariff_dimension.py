@@ -13,12 +13,14 @@ down_revision = "8c2f6a1d4b90"
 branch_labels = None
 depends_on = None
 
+UUID7 = sa.text("uuidv7()")
+
 
 def upgrade() -> None:
     op.execute("GRANT USAGE ON SCHEMA ai TO wattprint_app")
     op.create_table(
         "dim_tariff_plan",
-        sa.Column("tariff_plan_key", sa.BigInteger(), sa.Identity(always=False), nullable=False),
+        sa.Column("tariff_plan_key", sa.Uuid(), server_default=UUID7, nullable=False),
         sa.Column("source_plan_code", sa.String(64), nullable=False),
         sa.Column("plan_name", sa.Text(), nullable=False),
         sa.Column("currency", sa.Text(), nullable=False),
@@ -74,14 +76,11 @@ def upgrade() -> None:
     op.execute("REVOKE ALL ON ai.dim_tariff_plan FROM PUBLIC")
     op.execute("GRANT SELECT ON ai.dim_tariff_plan TO wattprint_ai")
     op.execute("GRANT SELECT, INSERT, UPDATE, DELETE ON ai.dim_tariff_plan TO wattprint_app")
-    op.execute("GRANT USAGE, SELECT ON SEQUENCE ai.dim_tariff_plan_tariff_plan_key_seq "
-               "TO wattprint_app")
 
 
 def downgrade() -> None:
     op.execute("DROP TRIGGER trg_sync_ai_dim_tariff_plan ON public.tb_tariff_plan")
     op.execute("DROP FUNCTION ai.sync_dim_tariff_plan()")
-    op.execute("REVOKE ALL ON SEQUENCE ai.dim_tariff_plan_tariff_plan_key_seq FROM wattprint_app")
     op.execute("REVOKE ALL ON ai.dim_tariff_plan FROM wattprint_ai, wattprint_app")
     op.drop_table("dim_tariff_plan", schema="ai")
     op.execute("REVOKE USAGE ON SCHEMA ai FROM wattprint_app")
