@@ -28,7 +28,7 @@ def make_token():
     def make(*, sub=None, email=None, roles=(), key=_KEY, **overrides) -> str:
         now = int(time.time())
         claims = {
-            "sub": sub or str(uuid.uuid4()),
+            "sub": str(uuid.uuid4()) if sub is None else sub,
             "email": f"user-{uuid.uuid4().hex[:8]}@example.com" if email is None else email,
             "name": "Test User",
             "typ": "Bearer",
