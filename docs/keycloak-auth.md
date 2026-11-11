@@ -7,7 +7,7 @@
   `http://localhost:11092|3000/auth/callback`), `wattprint-api` (bearer-only; audience mapper puts it in `aud`).
 - Sign-in is Google only: IdP `google`, flow `browser-google` redirects straight to it, `kc_idp_hint=google`.
 - FastAPI is a resource server: verifies RS256 JWT via JWKS (`iss`, `aud`, `exp`, `sub`, `typ=Bearer`, `azp` in
-  `KEYCLOAK_CLIENT_IDS`), creates the `tb_users` row on first request with an integer local `id` and stores `sub` in
+  `KEYCLOAK_CLIENT_IDS`), creates the `tb_users` row on first request with a local UUIDv7 `id` and stores `sub` in
   `keycloak_sub`; roles come from `realm_access.roles`.
   JWKS down -> 503, bad token -> 401, inactive user -> 403, email under another id -> 409.
 - Future AI service: another resource server with its own audience; it verifies the same JWKS.

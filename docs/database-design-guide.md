@@ -42,7 +42,7 @@ số đo và ước lượng (rất lớn), nhà và thiết bị, tiền điệ
 **Từng bước**
 
 1. **Nguồn.** Công tơ thật gửi số đo (endpoint chưa có). Hiện chỉ có dữ liệu seed REFIT House 2,
-   nạp bởi revision Alembic `e2b726548f8c` khi `alembic upgrade head`: mỗi dòng CSV 13 cột được tách
+   nạp bởi revision Alembic `b2183c4aca1c` khi `alembic upgrade head`: mỗi dòng CSV 13 cột được tách
    thành 10 reading (Aggregate và Appliance1-9), cột `Issues = 1` thành `quality = 1`. Revision này
    ghi thẳng vào `public.tb_reading` (không qua bước Ingest bên dưới), nạp phần test trước rồi phần
    train, theo dõi tiến độ trong `etl.tb_watermark` để chạy lại tiếp từ chỗ dừng. Đặt `SEED_REFIT=0`
@@ -100,7 +100,7 @@ số đo và ước lượng (rất lớn), nhà và thiết bị, tiền điệ
 |---|---|
 | Hypertable là **nơi ghi**, continuous aggregate là **nơi đọc** | Màn hình không bao giờ quét `tb_reading` thô; raw chỉ để ingest, audit, cửa sổ ngắn |
 | Khóa chính phải chứa cột thời gian | `PRIMARY KEY (series_id, ts)`; `tb_device_cycle` là `(device_id, start_ts)` |
-| Khóa nhỏ | Hypertable chỉ mang `series_id integer`, không lặp home hay device; ID và FK của bảng quan hệ dùng integer identity/integer |
+| Khóa nhỏ | Hypertable chỉ mang `series_id uuid`, không lặp home hay device (nén `segmentby series_id` chỉ lưu giá trị một lần mỗi segment nên khóa rộng hơn tốn rất ít); ID và FK của bảng quan hệ dùng `uuid` mặc định `uuidv7()` |
 | Không FK vào hai bảng lớn | `tb_reading`, `tb_device_estimate` không có FK; toàn vẹn của `series_id` do ingest bảo đảm (tra từ `public.tb_series`) |
 | Không index phụ | Chỉ có khóa chính, trừ khi một truy vấn đo được cần |
 | Chunk | 1 ngày cho `tb_reading`, `tb_device_estimate`; 30 ngày cho `tb_device_cycle` (ít dòng hơn nhiều) |
@@ -172,9 +172,9 @@ SQL của Copilot phải có login riêng và validator SELECT-only trên parse 
 
 ## 5. Chi tiết từng bảng
 
-Quy ước: `PK` khóa chính, `FK` khóa ngoại, *null* là cho phép NULL. Cột ID dùng `integer identity`,
-các FK tương ứng dùng `integer`; `created_at` mặc định `now()`. `public.tb_scope_token.token` vẫn là UUID
-ngẫu nhiên vì đó là bearer token, không phải ID bản ghi.
+Quy ước: `PK` khóa chính, `FK` khóa ngoại, *null* là cho phép NULL. Cột ID dùng `uuid` mặc định `uuidv7()` (ORM: `uuid.uuid7`),
+các FK tương ứng dùng `uuid`; khóa tự nhiên (mã, `event_type`, `(province_code, ts)`, `(cohort_key, period)`, `tier_no`) giữ nguyên. `created_at` mặc định `now()`. UUIDv7 để lộ thời điểm tạo (`uuid_extract_timestamp`) nên ID không phải bí mật. `public.tb_scope_token.token` cố ý vẫn là `gen_random_uuid()` (v4):
+đó là bearer token, v7 sẽ lộ thời điểm tạo và ít bit ngẫu nhiên hơn.
 
 ### 5.1 `core`
 
@@ -200,11 +200,11 @@ ngẫu nhiên vì đó là bearer token, không phải ID bản ghi.
 
 | Cột | Kiểu | Ghi chú |
 |---|---|---|
-| `series_id` | `integer` identity PK | Là thứ duy nhất hypertable mang theo |
-| `home_id` | `integer` FK | cascade |
+| `series_id` | `uuid` PK (`uuidv7()`) | Là thứ duy nhất hypertable mang theo |
+| `home_id` | `uuid` FK | cascade |
 | `kind` | `varchar(16)` | `main` công tơ tổng · `plug` ổ cắm đo riêng (kênh Appliance của REFIT) · `tb_device` kết quả NILM |
-| `device_id` | `integer` *null* FK | cascade |
-| `meter_id` | `integer` *null* FK | `SET NULL`: thay meter thì series và lịch sử còn nguyên |
+| `device_id` | `uuid` *null* FK | cascade |
+| `meter_id` | `uuid` *null* FK | `SET NULL`: thay meter thì series và lịch sử còn nguyên |
 | `source_channel` | `text` *null* | Tên kênh nguồn, ví dụ `Appliance3` |
 | `metric` | `varchar(64)` FK | → `public.cat_metric` |
 | `unit` | `text` | |
@@ -218,15 +218,15 @@ Appliance3" thành `series_id`.
 
 | Bảng | Cột | Ghi chú |
 |---|---|---|
-| `tb_reading` | `ts timestamptz`, `series_id int`, `value real` (W), `quality smallint` (mặc định 0) | PK `(series_id, ts)`. `quality` là bit cờ: bit 1 (giá trị 1) = nguồn báo lỗi (REFIT `Issues`), bị loại khỏi aggregate; ingest chấp nhận 0..32767 |
-| `tb_device_estimate` | `ts`, `series_id`, `value real` (W), `run_id int` *null* | PK `(series_id, ts)`; ghi bằng upsert, lần chạy mới nhất thắng |
+| `tb_reading` | `ts timestamptz`, `series_id uuid`, `value real` (W), `quality smallint` (mặc định 0) | PK `(series_id, ts)`. `quality` là bit cờ: bit 1 (giá trị 1) = nguồn báo lỗi (REFIT `Issues`), bị loại khỏi aggregate; ingest chấp nhận 0..32767 |
+| `tb_device_estimate` | `ts`, `series_id`, `value real` (W), `run_id uuid` *null* | PK `(series_id, ts)`; ghi bằng upsert, lần chạy mới nhất thắng |
 
 **Sáu aggregate** (`reading_*` và `device_estimate_*`, real-time aggregation bật):
 
 | Cột | Kiểu | Ý nghĩa |
 |---|---|---|
 | `bucket` | `timestamptz` | Đầu bucket; tầng 1d cắt theo 17:00 UTC |
-| `series_id` | `integer` | |
+| `series_id` | `uuid` | |
 | `avg_w` | `double precision` | Tầng 1m: `avg(value)`; tầng trên: trung bình **có trọng số** `sum(avg_w·n)/sum(n)`, không phải trung bình của trung bình |
 | `min_w`, `max_w`, `last_w` | `real` | |
 | `n` | `bigint` | Số mẫu |
@@ -238,7 +238,7 @@ ngày và nén sau 14 ngày; 1h, 1d giữ vô hạn, không nén.
 
 | Bảng | Cột | Ghi chú |
 |---|---|---|
-| `tb_inference_run` | `run_id` identity PK, `home_id` FK, `model_name`, `model_version`, `window_start`, `window_end`, `started_at`, `finished_at` *null*, `status` | `status` ∈ running/ok/failed. Ai đã tạo ước lượng nào |
+| `tb_inference_run` | `run_id` uuid PK (`uuidv7()`), `home_id` FK, `model_name`, `model_version`, `window_start`, `window_end`, `started_at`, `finished_at` *null*, `status` | `status` ∈ running/ok/failed. Ai đã tạo ước lượng nào |
 | `tb_weather_hourly` | `province_code`, `ts`, `temp_c real`, `humidity_pct real` | PK `(province_code, ts)`; bảng thường |
 
 ### 5.4 `billing`
@@ -270,7 +270,7 @@ tắc chính thức chưa có.
 
 | Bảng | Cột | Ghi chú |
 |---|---|---|
-| `tb_scope_token` | `token uuid` PK, `home_id integer` FK, `expires_at` (mặc định `now() + 5 phút`), `created_at` | Chỉ `wattprint_app` đọc/ghi; **không có job dọn**, backend tự xóa token hết hạn |
+| `tb_scope_token` | `token uuid` PK, `home_id uuid` FK, `expires_at` (mặc định `now() + 5 phút`), `created_at` | Chỉ `wattprint_app` đọc/ghi; **không có job dọn**, backend tự xóa token hết hạn |
 | `ai.ai_conversation` | `id`, `home_id`, `user_id`, `title`, `created_at` | |
 | `ai.ai_message` | `id`, `conversation_id`, `role`, `content`, `created_at` | `role` ∈ user/assistant/tool/system |
 | `ai.ai_tool_call` | `id`, `message_id`, `tool`, `input jsonb`, `sql_text`, `unit`, `duration_ms`, `ok` | Truy vết mỗi con số về truy vấn và đơn vị |
@@ -288,7 +288,7 @@ không tin `home_id` phi chuẩn hóa.
 | Bảng | Cột | Ghi chú |
 |---|---|---|
 | `public.tb_document` | `id`, `title`, `doc_type`, `lang` (mặc định vi), `source_url`, `version`, `license_note`, `published_at` | `doc_type` ∈ standard/guide/tariff/expert_rule/other |
-| `public.tb_chunk` | `id bigint` identity, `document_id`, `ord`, `body`, `tsv`, `embedding vector(1024)`, `embedding_model`, `token_count` | `UNIQUE (document_id, ord)`; `tsv` là cột sinh sẵn `to_tsvector('simple', immutable_unaccent(body))` (bỏ dấu tiếng Việt); index GIN trên `tsv`, HNSW cosine (`m = 16`, `ef_construction = 64`) trên `embedding`; tên model lưu theo từng dòng để phát hiện đổi model |
+| `public.tb_chunk` | `id uuid` (`uuidv7()`), `document_id`, `ord`, `body`, `tsv`, `embedding vector(1024)`, `embedding_model`, `token_count` | `UNIQUE (document_id, ord)`; `tsv` là cột sinh sẵn `to_tsvector('simple', immutable_unaccent(body))` (bỏ dấu tiếng Việt); index GIN trên `tsv`, HNSW cosine (`m = 16`, `ef_construction = 64`) trên `embedding`; tên model lưu theo từng dòng để phát hiện đổi model |
 | `public.tb_ingest_batch` | `id`, `source`, `home_id` *null*, `started_at`, `finished_at`, `rows_in/new/dup/bad`, `status`, `note` | `status` ∈ running/ok/failed; dòng `failed` mang nội dung lỗi |
 | `public.tb_ingest_checkpoint` | `source`, `series_id`, `last_ts`, `updated_at` | PK `(source, series_id)`; `last_ts` không bao giờ lùi |
 | `public.series_daily_coverage` | view | Mỗi series mỗi ngày địa phương: `covered_minutes`, `coverage` trên 1440 phút. Series chưa có reading nào thì không xuất hiện |

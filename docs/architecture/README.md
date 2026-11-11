@@ -41,7 +41,7 @@ container**: API, consumer, outbox relay và job định kỳ chạy chung một
 | Identity | Keycloak 26 | Đã có realm. Lưu vào `keycloak_db` trên Postgres chung (`KC_DB_URL_DATABASE`), không cần container DB riêng |
 | Database | Một PostgreSQL 18 + TimescaleDB 2.31 + pgvector (`timescale/timescaledb:2.31.0-pg18`) | Một server, 5 database, mỗi database một role. TimescaleDB lo chuỗi số đo (hypertable, continuous aggregate 1h/1d, nén, xóa theo hạn) ở `core_db` và read model ở `insight_db`; pgvector cho RAG ở `copilot_db` |
 | Broker | RabbitMQ 4 (`rabbitmq:4-management`), quorum queue | `delivery-limit` + dead-letter exchange có sẵn, không cần queue TTL để retry |
-| Service | Python 3.12, FastAPI, SQLAlchemy async + asyncpg, Alembic, pydantic-settings | Giữ như code hiện tại |
+| Service | Python 3.14, FastAPI, SQLAlchemy async + asyncpg, Alembic, pydantic-settings | Giữ như code hiện tại |
 | Messaging | FastStream (RabbitMQ) | Consumer viết như route FastAPI, tự sinh tài liệu AsyncAPI, có broker giả lập trong bộ nhớ để test |
 | Gọi HTTP | httpx + tenacity; breaker và bulkhead (`asyncio.Semaphore`) tự viết trong `libs/common` | pybreaker chỉ hỗ trợ async qua Tornado, nên không dùng |
 | Mã nguồn | Monorepo uv workspace: `services/{core,nilm,insight,copilot}` + `libs/common` | Một lockfile; phần chịu lỗi, log, outbox/inbox viết một lần. `libs/common` không chứa model nghiệp vụ |
@@ -67,7 +67,7 @@ và gửi batch số đo qua HTTPS tới gateway bằng API key của thiết b�
 script Python đọc CSV của bộ dữ liệu REFIT và gửi batch qua gateway y như cảm biến thật (cùng endpoint, cùng API key,
 cùng `Idempotency-Key`), có thể tua nhanh thời gian. Trên sơ đồ chỉ vẽ REFIT replayer, kèm ghi chú nó thay cho cảm biến
 thật và dữ liệu là public dataset.
-Dữ liệu REFIT hiện được seed bởi revision Alembic `e2b726548f8c`, ghi thẳng vào database; REFIT replayer gọi API sẽ là một script riêng khi tách service.
+Dữ liệu REFIT hiện được seed bởi revision Alembic `b2183c4aca1c`, ghi thẳng vào database; REFIT replayer gọi API sẽ là một script riêng khi tách service.
 
 ## 2b. Dữ liệu
 

@@ -67,8 +67,8 @@ Migrations need a database owner with permission to create extensions and roles 
   is on (`revokeRefreshToken=true`, `refreshTokenMaxReuse=0`, RFC 9700): see `docs/keycloak-auth.md`. Login and admin events are kept 7 days.
 - The app signs users in with Keycloak and sends `Authorization: Bearer <access_token>`. The API verifies it locally with the
   realm's JWKS (RS256; `iss`, `aud=wattprint-api`, `azp=wattprint-mobile`, `exp`). No Keycloak call per request.
-- `tb_users` is a local profile with an integer identity `id`; the first valid request stores the token's external `sub` in
-  `keycloak_sub`. Business tables use the local integer ID for foreign keys. A user whose email already exists under
+- `tb_users` is a local profile with a UUIDv7 `id` (`uuidv7()` server default, `uuid.uuid7` in the ORM); the first valid request stores the token's external `sub` in
+  `keycloak_sub`. Business tables use the local UUID for foreign keys. A v7 id reveals its creation time (`uuid_extract_timestamp`), so ids are not secrets. A user whose email already exists under
   another account gets 409. Roles come from `realm_access.roles`.
 - `GET /api/v1/users/me` returns the profile and roles; `GET /api/v1/users` needs the `admin` role (403 otherwise).
 - Issuer: `KEYCLOAK_ISSUER` must equal the URL clients use (`KEYCLOAK_PUBLIC_URL`); the API itself reaches Keycloak as

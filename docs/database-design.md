@@ -64,7 +64,7 @@ và cập nhật `public.tb_ingest_checkpoint` theo từng series. Mỗi lần g
 `rows_in = rows_new + rows_dup + rows_bad`, nên nạp lại cùng một file không đổi dữ liệu (idempotent), nhưng mỗi lần gọi vẫn ghi một dòng `public.tb_ingest_batch`. Vì vòng phân
 loại giữ mọi dòng trong bộ nhớ, caller phải chia nhỏ input (50k-500k dòng mỗi lần gọi). Endpoint cho
 meter sau này sẽ gọi hàm này. Dữ liệu seed REFIT House 2 thì không đi qua đây: revision Alembic
-`e2b726548f8c` ghi thẳng vào `public.tb_reading` theo batch `INSERT ... SELECT unnest(...) ON CONFLICT DO
+`b2183c4aca1c` ghi thẳng vào `public.tb_reading` theo batch `INSERT ... SELECT unnest(...) ON CONFLICT DO
 NOTHING` và lưu watermark từng đoạn (test trước, train sau) trong `etl.tb_watermark`.
 
 ### Continuous aggregates
