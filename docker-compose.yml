@@ -99,8 +99,9 @@ services:
       - ./app:/code/app
       - ./alembic:/code/alembic
       - ./tests:/code/tests
+      - ./scripts:/code/scripts
       - ./dataset:/data:ro
-    command: sh -c "alembic upgrade head && exec uvicorn app.main:app --host 0.0.0.0 --port 11093 --reload --reload-dir /code/app"
+    command: sh -c "alembic upgrade head && exec uvicorn app.main:app --host 0.0.0.0 --port 11093 --reload --reload-dir /code/app --timeout-graceful-shutdown 3"
 
 networks:
   default:

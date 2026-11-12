@@ -7,4 +7,4 @@ COPY pyproject.toml uv.lock* ./
 RUN uv sync --locked --no-install-project
 COPY . .
 EXPOSE 11093
-CMD ["sh", "-c", "alembic upgrade head && exec uvicorn app.main:app --host 0.0.0.0 --port 11093"]
+CMD ["sh", "-c", "alembic upgrade head && exec uvicorn app.main:app --host 0.0.0.0 --port 11093 --timeout-graceful-shutdown 3"]
