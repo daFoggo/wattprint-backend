@@ -1,4 +1,4 @@
-"""Dựng slide SOA WattPrint (10 trang, 1920x1080 px = 20x11.25 in). Chạy: python build_slides.py out.pptx"""
+"""Dựng slide SOA WattPrint (11 trang, 1920x1080 px = 20x11.25 in). Chạy: python build_slides.py out.pptx"""
 import sys, os
 from pptx import Presentation
 from pptx.util import Emu, Pt
@@ -150,13 +150,13 @@ for i, (t, d, im) in enumerate(mods):
 text(s, 86, 1010, 1500, 30, "Bài tập lớn tách hệ thống nguyên khối hiện có (một ứng dụng FastAPI) thành các service độc lập.", 21, MUTED)
 
 # ───────────── 3. Bốn service ─────────────
-s = base(3, "Phân rã service", "Căn cứ chia theo thứ tự ưu tiên: data ownership, workload, failure mode.")
+s = base(3, "Phân rã service", "Căn cứ chia theo thứ tự ưu tiên: data ownership, workload, fault isolation.")
 labx, colx0, colw, colgap = 86, 420, 340, 18
 svc = [("core", "Nhà, thiết bị, ingest dữ liệu sensor, hóa đơn. Nguồn sự thật.", "core_db · TimescaleDB", "Ổn định, cần nhanh", "Không được mất dữ liệu sensor"),
        ("nilm", "Inference NILMFormer, quản lý phiên bản model.", "nilm_db · volume model", "PyTorch, nhiều CPU và RAM", "Quá tải thì batch chờ ở trạng thái PENDING"),
        ("insight", "Bất thường, dự báo, so sánh, M&V, truy vấn an toàn.", "insight_db · TimescaleDB", "Chạy theo lô và theo lịch", "Phân tích tạm dừng, ingest dữ liệu sensor vẫn chạy"),
        ("copilot", "Hỏi đáp, gợi ý, guardrail, RAG, kế hoạch tiết kiệm.", "copilot_db · pgvector", "Phần lớn thời gian chờ LLM ngoài", "LLM chậm bị cô lập, dashboard không ảnh hưởng")]
-rows = [("Trách nhiệm", 150), ("1  Data ownership", 96), ("2  Workload", 96), ("3  Failure mode", 126)]
+rows = [("Trách nhiệm", 150), ("1  Data ownership", 96), ("2  Workload", 96), ("3  Fault isolation", 126)]
 y0 = 270
 for i, (nm, *_) in enumerate(svc):
     x = colx0 + i * (colw + colgap)
@@ -172,7 +172,7 @@ for ri, (lab, h) in enumerate(rows):
         text(s, x + 14, yy + 10, colw - 28, h - 20, txt, 24, INK, REG, "l", "m", 1.25)
     yy += h + 8
 rect(s, 86, yy + 14, 1748, 110, GREEN, None, 20)
-text(s, 126, yy + 14, 1670, 110, [[("Thứ tự ưu tiên khi chia: ", {"font": SEMI}), "data ownership, rồi workload, rồi failure mode. Mỗi service chỉ ghi vào dữ liệu của mình, mảng khác chỉ đọc qua API hoặc sự kiện."]], 28, WHITE, REG, "l", "m", 1.3)
+text(s, 126, yy + 14, 1670, 110, [[("Thứ tự ưu tiên khi chia: ", {"font": SEMI}), "data ownership, rồi workload, rồi fault isolation. Mỗi service chỉ ghi vào dữ liệu của mình, mảng khác chỉ đọc qua API hoặc sự kiện."]], 28, WHITE, REG, "l", "m", 1.3)
 
 # ───────────── 4. Kiến trúc tổng quan ─────────────
 s = base(4, "Kiến trúc tổng quan", "Mức Container theo C4: gateway, bốn service, database riêng và RabbitMQ.")
@@ -226,8 +226,150 @@ for i, (t, d) in enumerate(notes):
     text(s, nx, y + 22, 334, 40, t, 27, INK, SEMI)
     text(s, nx, y + 70, 334, 150, d, 22, MUTED, REG, lh=1.3)
 
-# ───────────── 5. Triển khai ─────────────
-s = base(5, "Triển khai", "Docker Compose cho môi trường demo, tám container.")
+# ───────────── 5. Giao tiếp ─────────────
+s = base(5, "Giao tiếp giữa các service", "REST đồng bộ theo một chiều, event bất đồng bộ qua RabbitMQ.")
+rect(s, 86, 290, 1748, 330, PALE, None, 24)
+text(s, 122, 314, 600, 30, "SYNCHRONOUS · REST QUA MẠNG NỘI BỘ", 21, GREEN, SEMI)
+cx0 = 122
+for i, nm in enumerate(["copilot", "insight", "core", "nilm"]):
+    x = cx0 + i * 270
+    chip(s, x, 372, 200, 84, nm, SAGE, INK, 30, SEMI, GREEN, 18)
+    if i < 3: arrow(s, x + 204, 414, x + 266, 414, INK, lw=3)
+text(s, cx0, 486, 1000, 110, "Một chiều, không có circular dependency. Lỗi của một service chỉ ảnh hưởng service ngay phía trên nó trong chuỗi.", 25, INK, REG, lh=1.3)
+text(s, 1250, 340, 550, 270, [[("Bên gọi luôn đặt", {"color": MUTED})], [("timeout, retry có giới hạn, circuit breaker", {"font": SEMI})],
+                              [("Lỗi nghiệp vụ 4xx giữ nguyên.", {"color": MUTED})], [("Lỗi hạ tầng: timeout là 504, breaker mở là 503.", {"color": MUTED})]], 24, INK, REG, lh=1.35, after=6)
+rect(s, 86, 650, 1748, 330, AMBER_BG, None, 24)
+text(s, 122, 674, 800, 30, "ASYNCHRONOUS · EVENT QUA RABBITMQ, EXCHANGE wattprint.events", 21, AMBER, SEMI)
+evs = [("energy.usage.updated", "core", "insight", "Có ước tính mới, kèm tổng theo giờ từng thiết bị"),
+       ("core.device.changed", "core", "insight", "Đồng bộ danh mục thiết bị vào read model"),
+       ("insight.alert.created", "insight", "copilot", "Kích hoạt gợi ý chủ động")]
+for i, (k, a, b, d) in enumerate(evs):
+    y = 724 + i * 66
+    text(s, 122, y, 480, 54, k, 24, INK, MONO, "l", "m")
+    chip(s, 620, y + 6, 130, 42, a, WHITE, INK, 22, SEMI, AMBER, 12)
+    arrow(s, 756, y + 27, 806, y + 27, AMBER, dash=True)
+    chip(s, 812, y + 6, 130, 42, b, WHITE, INK, 22, SEMI, AMBER, 12)
+    text(s, 980, y, 480, 54, d, 21, MUTED, REG, "l", "m", 1.15)
+text(s, 1490, 724, 310, 230, "Core không cần biết insight cập nhật xong lúc nào, insight không cần chờ copilot soạn xong gợi ý.", 23, INK, REG, lh=1.3)
+
+# ───────────── 6. Dữ liệu ─────────────
+s = base(6, "Dữ liệu", "Database per service trên một PostgreSQL 18.")
+rect(s, 86, 290, 880, 690, TEAL_BG, TEAL, 24, 2)
+text(s, 120, 316, 800, 34, "MỘT PostgreSQL 18 · TimescaleDB 2.31 · pgvector", 21, TEAL, SEMI)
+dbs = [("core_db", "TimescaleDB", "sensor, hóa đơn", "role core"), ("insight_db", "TimescaleDB", "read model", "role insight"),
+       ("copilot_db", "pgvector", "hội thoại, RAG", "role copilot"), ("nilm_db", "PostgreSQL", "lần chạy inference", "role nilm"), ("keycloak_db", "PostgreSQL", "tài khoản, realm", "role keycloak")]
+for i, (nm, ext, d, role) in enumerate(dbs):
+    col, row = i % 2, i // 2
+    x, y = 120 + col * 420, 372 + row * 192
+    rect(s, x, y, 396, 172, WHITE, TEAL, 18, 2)
+    text(s, x + 22, y + 16, 352, 36, nm, 28, INK, SEMI)
+    text(s, x + 22, y + 58, 352, 30, ext + " · " + d, 21, MUTED)
+    text(s, x + 22, y + 118, 352, 30, role, 19, TEAL, MONO)
+text(s, 540, 760 + 20, 400, 160, "Không service nào có quyền vào database của service khác. Khi cần, mỗi database tách sang server riêng chỉ bằng đổi địa chỉ kết nối.", 21, INK, REG, lh=1.3)
+text(s, 1010, 290, 824, 34, "ĐỌC DỮ LIỆU CỦA SERVICE KHÁC BẰNG HAI CÁCH", 21, GREEN, SEMI)
+for i, (t, d) in enumerate([("Event, pattern CQRS", "core ghi và là source of truth. insight giữ read model dữ liệu tiêu thụ tổng hợp theo giờ, cập nhật từ event của core."),
+                            ("API", "Cần dữ liệu mới nhất hoặc dữ liệu nhỏ thì hỏi thẳng service sở hữu, ví dụ insight lấy biểu giá và danh sách thiết bị từ core.")]):
+    y = 340 + i * 160
+    rect(s, 1010, y, 824, 140, PALE, None, 20)
+    rect(s, 1010, y, 10, 140, GREEN)
+    text(s, 1048, y + 16, 760, 36, t, 27, INK, SEMI)
+    text(s, 1048, y + 58, 760, 80, d, 22, MUTED, REG, lh=1.28)
+rect(s, 1010, 670, 824, 310, GREEN, None, 24)
+text(s, 1046, 692, 750, 36, "Vì sao Copilot đi qua insight", 28, WHITE, SEMI)
+text(s, 1046, 740, 750, 230, "Text-to-SQL do mô hình ngôn ngữ sinh ra. Chạy thẳng trên dữ liệu ghi nhận của core, một câu sai hoặc bị prompt injection có thể chạm vào dữ liệu nguồn. Nên copilot gửi SQL tới endpoint truy vấn an toàn của insight: SQL guard chỉ cho SELECT trên view được cấp quyền, ép điều kiện nhà của người hỏi, timeout 2 giây.", 22, WHITE, REG, lh=1.3)
+
+# ───────────── 7. Outbox / inbox ─────────────
+s = base(7, "Reliable messaging", "Event không mất và không bị xử lý hai lần, dù tiến trình hay mạng lỗi.")
+cards = [("Bên gửi: không mất event", GREEN, PALE,
+          "core lưu dữ liệu xong nhưng chết trước khi gửi lên RabbitMQ, insight không bao giờ nhận được.",
+          "Transactional outbox: ghi event vào bảng outbox cùng transaction với dữ liệu. Một relay riêng gửi dần."),
+         ("Bên nhận: không xử lý trùng", AMBER, AMBER_BG,
+          "RabbitMQ giao ít nhất một lần, nên cùng một event có thể đến hai lần và bị cộng hai lần.",
+          "Idempotent inbox: lưu message_id đã xử lý, gặp lại thì bỏ qua.")]
+for i, (h, accent, bg, prob, fix) in enumerate(cards):
+    x = 86 + i * 884
+    rect(s, x, 250, 864, 312, bg, None, 22)
+    rect(s, x, 250, 10, 312, accent)
+    text(s, x + 40, 272, 800, 44, h, 32, INK, SEMI)
+    text(s, x + 40, 332, 800, 26, "VẤN ĐỀ", 19, accent, SEMI)
+    text(s, x + 40, 360, 800, 70, prob, 23, INK, REG, lh=1.3)
+    text(s, x + 40, 442, 800, 26, "CÁCH CHẶN", 19, accent, SEMI)
+    text(s, x + 40, 470, 800, 70, fix, 23, INK, REG, lh=1.3)
+text(s, 86, 592, 800, 30, "ĐƯỜNG ĐI CỦA MỘT EVENT", 21, GREEN, SEMI)
+flow = [("core", "lưu dữ liệu và ghi dòng outbox, cùng một transaction", GREEN),
+        ("Outbox relay", "gửi dòng chưa gửi, broker xác nhận mới đánh dấu đã gửi", GREEN),
+        ("RabbitMQ", "queue insight.usage, giao lại tối đa 3 lần", HAIR),
+        ("insight", "tra inbox, chưa xử lý thì cập nhật rồi ghi inbox, cùng một transaction", AMBER)]
+cw, cg = 380, 76
+for i, (t, d, line) in enumerate(flow):
+    x = 86 + i * (cw + cg)
+    rect(s, x, 632, cw, 190, WHITE, line, 20, 3)
+    text(s, x + 24, 652, cw - 48, 40, t, 29, INK, SEMI)
+    text(s, x + 24, 702, cw - 48, 110, d, 21, MUTED, REG, lh=1.3)
+    if i < 3: arrow(s, x + cw + 6, 727, x + cw + cg - 6, 727, INK, lw=3)
+rect(s, 86, 856, 1748, 130, WHITE, HAIR, 22, 2)
+text(s, 122, 878, 1676, 38, "Nếu event lỗi quá 3 lần", 28, INK, SEMI)
+text(s, 122, 922, 1676, 50, "RabbitMQ chuyển event sang DLQ (hàng đợi lỗi) thay vì bỏ đi. Nhóm vận hành xem, sửa nguyên nhân rồi đẩy lại để chạy tiếp.", 24, MUTED, REG, lh=1.3)
+
+# ───────────── 8. Lỗi giữa chừng ─────────────
+s = base(8, "Xử lý failure giữa chừng", "Không có transaction chung giữa các service, nên mỗi luồng tự quy định cách xử lý khi một bước lỗi.")
+panels = [("Luồng 1: nhận dữ liệu sensor rồi chạy NILM",
+           "core đã lưu dữ liệu sensor (bước 1), rồi gọi nilm chạy inference (bước 2) thì nilm lỗi hoặc quá tải.",
+           "Không xóa dữ liệu sensor vì đây là dữ liệu thật. Đánh dấu batch chờ chạy lại phần inference.",
+           [("DONE · 201", "nilm trả lời kịp: lưu công suất ước tính từng thiết bị", GREEN, GREEN, WHITE),
+            ("PENDING_INFERENCE · 202", "nilm lỗi: giữ dữ liệu, retry sau 1, 2, 4 phút", AMBER_BG, AMBER, AMBER),
+            ("FAILED", "quá 5 lần vẫn lỗi: báo nhóm vận hành", AMBER_BG, AMBER, AMBER)]),
+          ("Luồng 2: kích hoạt kế hoạch tiết kiệm",
+           "copilot đã tạo baseline ở insight (bước 1), rồi đặt ngân sách (bước 2) thì gặp lỗi.",
+           "Lỗi nghiệp vụ (4xx) thì chắc bước 2 chưa xảy ra, hoàn tác bước 1. Lỗi hạ tầng thì chưa biết, chờ rồi hỏi lại. Hoàn tác như vậy gọi là compensate.",
+           [("ACTIVE", "bước 2 thành công: kế hoạch bắt đầu chạy", GREEN, GREEN, WHITE),
+            ("CANCELLED", "insight từ chối (4xx): xóa baseline ở bước 1, hủy kế hoạch kèm lý do", AMBER_BG, AMBER, AMBER),
+            ("PENDING", "timeout (504): chưa biết insight đã lưu chưa, giữ chờ rồi hỏi lại", AMBER_BG, AMBER, AMBER)])]
+for i, (h, sit, fix, rows) in enumerate(panels):
+    x = 86 + i * 884
+    rect(s, x, 250, 864, 730, WHITE, HAIR, 22, 2)
+    text(s, x + 32, 272, 800, 44, h, 30, INK, SEMI)
+    text(s, x + 32, 342, 800, 26, "TÌNH HUỐNG", 19, GREEN, SEMI)
+    text(s, x + 32, 372, 800, 66, sit, 24, INK, REG, lh=1.3)
+    text(s, x + 32, 468, 800, 26, "CÁCH XỬ LÝ", 19, GREEN, SEMI)
+    text(s, x + 32, 498, 800, 100, fix, 24, INK, REG, lh=1.3)
+    for k, (tag, d, fill, line, tc) in enumerate(rows):
+        y = 640 + k * 104
+        rect(s, x + 32, y, 800, 88, fill, line, 14, 2)
+        text(s, x + 52, y, 330, 88, tag, 22, WHITE if fill == GREEN else tc, SEMI, "l", "m")
+        text(s, x + 392, y, 428, 88, d, 21, WHITE if fill == GREEN else INK, REG, "l", "m", 1.2)
+
+# ───────────── 9. Quy tắc nghiệp vụ ─────────────
+s = base(9, "Business rules", "Chín quy tắc, nhóm theo service sở hữu dữ liệu.")
+groups = [("core · dữ liệu ghi nhận", [("BR1", "Mỗi tài khoản thuộc một nhà. Vào nhà bằng mã mời dùng một lần và có hạn."),
+                                      ("BR2", "Công tơ ghép với đúng một nhà. Dữ liệu sensor chỉ nhận từ công tơ đã ghép, kèm API key."),
+                                      ("BR3", "Batch dữ liệu sensor idempotent và liên tục: retry cùng Idempotency-Key không ghi hai lần, không hở hoặc chồng."),
+                                      ("BR4", "Tiền điện theo biểu giá 5 bậc, dùng đúng phiên bản có hiệu lực trong kỳ.")]),
+          ("insight · phân tích", [("BR5", "Dự báo hóa đơn cần ≥ 7 ngày dữ liệu, so sánh nhóm ≥ 10 hộ, M&V ≥ 14 ngày. Thiếu thì trả 4xx kèm lý do.")]),
+          ("copilot · trợ lý AI", [("BR6", "Energy Copilot chỉ dành cho gói Pro."),
+                                   ("BR7", "Thông báo chủ động có giới hạn mỗi ngày, không gửi giờ yên tĩnh."),
+                                   ("BR8", "Con số do công cụ tính, mô hình chỉ diễn giải. Sai số liệu, đơn vị, nguồn thì bị loại."),
+                                   ("BR9", "Ẩn PII trước khi gọi LLM. Chỉ đọc dữ liệu của hộ đang hỏi.")])]
+gx, gw, ggap = 86, 560, 34
+heights = [None, None, None]
+for gi, (g, rules) in enumerate(groups):
+    x = gx + gi * (gw + ggap)
+    chip(s, x, 290, gw, 64, g, GREEN, WHITE, 26, SEMI, None, 16)
+    y = 372
+    unit = 148 if gi != 1 else 190
+    for code, d in rules:
+        rect(s, x, y, gw, unit - 12, PALE, None, 18)
+        text(s, x + 22, y, 100, unit - 12, code, 28, GREEN, MONO, "l", "m")
+        text(s, x + 130, y + 8, gw - 150, unit - 28, d, 21, INK, REG, "l", "m", 1.25)
+        y += unit
+# cột giữa: ghi chú
+x = gx + 1 * (gw + ggap)
+rect(s, x, 372 + 190 + 12, gw, 330, GREEN, None, 22)
+text(s, x + 28, 372 + 190 + 36, gw - 56, 380, [[("Ranh giới này là cơ sở chia service", {"font": SEMI, "size": 30})],
+                                               [("BR1 đến BR4 cần một nguồn sự thật duy nhất nên ở core. BR5 là phần phân tích nên ở insight. BR6 đến BR9 thuộc trợ lý AI nên ở copilot.", {"size": 25})]], 22, WHITE, REG, lh=1.3, after=14)
+
+# ───────────── 10. Triển khai ─────────────
+s = base(10, "Triển khai", "Docker Compose cho môi trường demo, tám container.")
 text(s, 86, 270, 1000, 28, "MÔI TRƯỜNG DEMO · MỘT MÁY ≥ 16 GB RAM · GIỚI HẠN BỘ NHỚ ≈ 7 GB", 20, MUTED, SEMI)
 def layer(y, h, label, color, bg):
     rect(s, 86, y, 1090, h, None, color, 24, 2, True)
@@ -266,146 +408,6 @@ for t, d in pts:
     text(s, 1292, yy, 510, 30, t, 24, GREEN, SEMI)
     text(s, 1292, yy + 34, 510, 120, d, 21, INK, REG, lh=1.28)
     yy += 168 if t in ("Định tuyến", "Xác thực") else 128
-
-# ───────────── 6. Giao tiếp ─────────────
-s = base(6, "Giao tiếp giữa các service", "REST đồng bộ theo một chiều, event bất đồng bộ qua RabbitMQ.")
-rect(s, 86, 290, 1748, 330, PALE, None, 24)
-text(s, 122, 314, 600, 30, "SYNCHRONOUS · REST QUA MẠNG NỘI BỘ", 21, GREEN, SEMI)
-cx0 = 122
-for i, nm in enumerate(["copilot", "insight", "core", "nilm"]):
-    x = cx0 + i * 270
-    chip(s, x, 372, 200, 84, nm, SAGE, INK, 30, SEMI, GREEN, 18)
-    if i < 3: arrow(s, x + 204, 414, x + 266, 414, INK, lw=3)
-text(s, cx0, 486, 1000, 110, "Một chiều, không có circular dependency. Lỗi của một service chỉ ảnh hưởng service ngay phía trên nó trong chuỗi.", 25, INK, REG, lh=1.3)
-text(s, 1250, 340, 550, 270, [[("Bên gọi luôn đặt", {"color": MUTED})], [("timeout, retry có giới hạn, circuit breaker", {"font": SEMI})],
-                              [("Lỗi nghiệp vụ 4xx giữ nguyên.", {"color": MUTED})], [("Lỗi hạ tầng: timeout là 504, breaker mở là 503.", {"color": MUTED})]], 24, INK, REG, lh=1.35, after=6)
-rect(s, 86, 650, 1748, 330, AMBER_BG, None, 24)
-text(s, 122, 674, 800, 30, "ASYNCHRONOUS · EVENT QUA RABBITMQ, EXCHANGE wattprint.events", 21, AMBER, SEMI)
-evs = [("energy.usage.updated", "core", "insight", "Có ước tính mới, kèm tổng theo giờ từng thiết bị"),
-       ("core.device.changed", "core", "insight", "Đồng bộ danh mục thiết bị vào read model"),
-       ("insight.alert.created", "insight", "copilot", "Kích hoạt gợi ý chủ động")]
-for i, (k, a, b, d) in enumerate(evs):
-    y = 724 + i * 66
-    text(s, 122, y, 480, 54, k, 24, INK, MONO, "l", "m")
-    chip(s, 620, y + 6, 130, 42, a, WHITE, INK, 22, SEMI, AMBER, 12)
-    arrow(s, 756, y + 27, 806, y + 27, AMBER, dash=True)
-    chip(s, 812, y + 6, 130, 42, b, WHITE, INK, 22, SEMI, AMBER, 12)
-    text(s, 980, y, 480, 54, d, 21, MUTED, REG, "l", "m", 1.15)
-text(s, 1490, 724, 310, 230, "Core không cần biết insight cập nhật xong lúc nào, insight không cần chờ copilot soạn xong gợi ý.", 23, INK, REG, lh=1.3)
-
-# ───────────── 7. Dữ liệu ─────────────
-s = base(7, "Dữ liệu", "Database per service trên một PostgreSQL 18.")
-rect(s, 86, 290, 880, 690, TEAL_BG, TEAL, 24, 2)
-text(s, 120, 316, 800, 34, "MỘT PostgreSQL 18 · TimescaleDB 2.31 · pgvector", 21, TEAL, SEMI)
-dbs = [("core_db", "TimescaleDB", "sensor, hóa đơn", "role core"), ("insight_db", "TimescaleDB", "read model", "role insight"),
-       ("copilot_db", "pgvector", "hội thoại, RAG", "role copilot"), ("nilm_db", "PostgreSQL", "lần chạy inference", "role nilm"), ("keycloak_db", "PostgreSQL", "tài khoản, realm", "role keycloak")]
-for i, (nm, ext, d, role) in enumerate(dbs):
-    col, row = i % 2, i // 2
-    x, y = 120 + col * 420, 372 + row * 192
-    rect(s, x, y, 396, 172, WHITE, TEAL, 18, 2)
-    text(s, x + 22, y + 16, 352, 36, nm, 28, INK, SEMI)
-    text(s, x + 22, y + 58, 352, 30, ext + " · " + d, 21, MUTED)
-    text(s, x + 22, y + 118, 352, 30, role, 19, TEAL, MONO)
-text(s, 540, 760 + 20, 400, 160, "Không service nào có quyền vào database của service khác. Khi cần, mỗi database tách sang server riêng chỉ bằng đổi địa chỉ kết nối.", 21, INK, REG, lh=1.3)
-text(s, 1010, 290, 824, 34, "ĐỌC DỮ LIỆU CỦA SERVICE KHÁC BẰNG HAI CÁCH", 21, GREEN, SEMI)
-for i, (t, d) in enumerate([("Event, pattern CQRS", "core ghi và là source of truth. insight giữ read model dữ liệu tiêu thụ tổng hợp theo giờ, cập nhật từ event của core."),
-                            ("API", "Cần dữ liệu mới nhất hoặc dữ liệu nhỏ thì hỏi thẳng service sở hữu, ví dụ insight lấy biểu giá và danh sách thiết bị từ core.")]):
-    y = 340 + i * 160
-    rect(s, 1010, y, 824, 140, PALE, None, 20)
-    rect(s, 1010, y, 10, 140, GREEN)
-    text(s, 1048, y + 16, 760, 36, t, 27, INK, SEMI)
-    text(s, 1048, y + 58, 760, 80, d, 22, MUTED, REG, lh=1.28)
-rect(s, 1010, 670, 824, 310, GREEN, None, 24)
-text(s, 1046, 692, 750, 36, "Vì sao Copilot đi qua insight", 28, WHITE, SEMI)
-text(s, 1046, 740, 750, 230, "Text-to-SQL do mô hình ngôn ngữ sinh ra. Chạy thẳng trên dữ liệu ghi nhận của core, một câu sai hoặc bị prompt injection có thể chạm vào dữ liệu nguồn. Nên copilot gửi SQL tới endpoint truy vấn an toàn của insight: SQL guard chỉ cho SELECT trên view được cấp quyền, ép điều kiện nhà của người hỏi, timeout 2 giây.", 22, WHITE, REG, lh=1.3)
-
-# ───────────── 8. Outbox / inbox ─────────────
-s = base(8, "Reliable messaging", "Transactional outbox, idempotent inbox và DLQ.")
-steps = [("1", "core", "Lưu kết quả NILM và một dòng outbox trong cùng một transaction"),
-         ("2", "Outbox relay", "Đọc dòng chưa gửi bằng FOR UPDATE SKIP LOCKED, publish và đợi broker xác nhận mới đánh dấu đã gửi"),
-         ("3", "Exchange và queue", "wattprint.events chép message vào insight.usage (quorum queue, redeliver tối đa 3 lần)"),
-         ("4", "Consumer insight", "Tra message_id trong inbox. Đã có thì bỏ qua. Chưa có thì cập nhật read model và ghi inbox cùng một transaction, rồi ack")]
-bw, bg_ = 405, 32
-for i, (n, t, d) in enumerate(steps):
-    x = 86 + i * (bw + bg_)
-    rect(s, x, 300, bw, 300, PALE, None, 22)
-    chip(s, x + 24, 324, 52, 52, n, GREEN, WHITE, 26, SEMI, None, 26)
-    text(s, x + 92, 324, bw - 110, 52, t, 27, INK, SEMI, "l", "m")
-    text(s, x + 24, 396, bw - 48, 190, d, 22, MUTED, REG, lh=1.3)
-    if i < 3: arrow(s, x + bw + 2, 450, x + bw + bg_ - 2, 450, GREEN, lw=3)
-# nhánh lỗi
-arrow(s, 86 + 3 * (bw + bg_) + bw / 2, 600, 86 + 3 * (bw + bg_) + bw / 2, 680, AMBER, dash=True)
-rect(s, 86, 700, 1748, 130, AMBER_BG, None, 22)
-text(s, 122, 716, 1700, 100, [[("Lỗi quá 3 lần", {"font": SEMI, "color": AMBER}), "   queue chuyển message sang wattprint.dlx, vào insight.usage.dlq và nằm chờ chứ không mất. Nhóm vận hành xem trên giao diện RabbitMQ, sửa nguyên nhân rồi đẩy về insight.usage để chạy lại."]], 24, INK, REG, "l", "m", 1.3)
-for i, (t, d) in enumerate([("Outbox", "Tiến trình chết giữa lúc lưu và publish không làm insight thiếu hay thừa dữ liệu."),
-                            ("Inbox", "RabbitMQ giao at-least-once nên message có thể đến hai lần. Inbox giữ consumer idempotent.")]):
-    x = 86 + i * 884
-    rect(s, x, 860, 864, 120, WHITE, HAIR, 20, 2)
-    text(s, x + 28, 876, 220, 90, t, 32, GREEN, SEMI, "l", "m")
-    text(s, x + 220, 876, 620, 90, d, 23, INK, REG, "l", "m", 1.28)
-
-# ───────────── 9. Lỗi giữa chừng ─────────────
-s = base(9, "Xử lý failure giữa chừng", "Hai luồng đa bước: ingest dữ liệu sensor và saga kế hoạch tiết kiệm.")
-def lane(y, h, label, sub):
-    rect(s, 86, y, 1748, h, PALE, None, 24)
-    text(s, 122, y + 18, 740, 36, label, 28, INK, SEMI)
-    text(s, 122, y + 62, 740, 60, sub, 21, MUTED, REG, lh=1.25)
-def node(x, y, w, h, t, d, fill, line, tc=INK):
-    rect(s, x, y, w, h, fill, line, 16, 2)
-    text(s, x + 10, y, w - 20, h, [[(t, {"font": SEMI, "size": 23, "color": tc})], [(d, {"size": 19, "color": MUTED if tc == INK else WHITE})]], 22, INK, REG, "c", "m", 1.2)
-lane(290, 330, "Ingest dữ liệu sensor rồi inference NILM", "Không rollback dữ liệu sensor, chỉ đánh dấu phần chưa xong.")
-node(122, 400, 330, 120, "core lưu dữ liệu sensor", "kiểm API key, công tơ, batch liên tục", WHITE, GREEN)
-arrow(s, 456, 460, 520, 460)
-node(524, 400, 250, 120, "gọi nilm", "timeout, retry, breaker", WHITE, GREEN)
-arrow(s, 778, 430, 880, 360, GREEN)
-arrow(s, 778, 490, 880, 540, AMBER)
-node(884, 316, 330, 90, "DONE · 201", "lưu ước tính, ghi outbox", GREEN, GREEN, WHITE)
-node(884, 480, 330, 110, "PENDING_INFERENCE · 202", "nilm hết giờ, 5xx hoặc breaker mở", AMBER_BG, AMBER)
-arrow(s, 1218, 535, 1290, 535, AMBER, lw=3)
-node(1294, 480, 250, 110, "retry, backoff", "1, 2, 4 phút", WHITE, AMBER)
-arrow(s, 1548, 535, 1590, 535, AMBER, lw=3)
-node(1594, 480, 210, 110, "FAILED", "quá 5 lần, báo vận hành", WHITE, AMBER)
-lane(650, 330, "Kích hoạt kế hoạch tiết kiệm (saga)", "Copilot điều phối hai bước, compensate theo thứ tự ngược khi cần.")
-node(122, 760, 300, 120, "Bước 1 · baseline M&V", "cần ≥ 14 ngày dữ liệu", WHITE, GREEN)
-arrow(s, 426, 820, 490, 820)
-node(494, 760, 300, 120, "Bước 2 · đặt ngân sách", "theo kế hoạch", WHITE, GREEN)
-for k, (yy, t, d, f, l, tc) in enumerate([(682, "ACTIVE", "bước 2 thành công", GREEN, GREEN, WHITE),
-                                           (792, "CANCELLED", "bị từ chối 4xx, xóa baseline", AMBER_BG, AMBER, INK),
-                                           (902, "PENDING", "timeout 504, reconciler hỏi lại insight", AMBER_BG, AMBER, INK)]):
-    arrow(s, 798, 820, 900, yy + 36, GREEN if k == 0 else AMBER)
-    node(904, yy, 480, 74, t, d, f, l, tc)
-text(s, 1430, 700, 380, 260, [[("Hai loại lỗi", {"font": SEMI, "color": GREEN, "size": 25})],
-                              [("Business error (4xx): chắc chắn bước chưa xảy ra, compensate ngay.", {})],
-                              [("Infrastructure error (timeout, 5xx): chưa biết bước đã chạy chưa, giữ PENDING rồi reconcile.", {})]], 22, INK, REG, lh=1.32, after=10)
-
-# ───────────── 10. Quy tắc nghiệp vụ ─────────────
-s = base(10, "Business rules", "Chín quy tắc, nhóm theo service sở hữu dữ liệu.")
-groups = [("core · dữ liệu ghi nhận", [("BR1", "Mỗi tài khoản thuộc một nhà. Vào nhà bằng mã mời dùng một lần và có hạn."),
-                                      ("BR2", "Công tơ ghép với đúng một nhà. Dữ liệu sensor chỉ nhận từ công tơ đã ghép, kèm API key."),
-                                      ("BR3", "Batch dữ liệu sensor idempotent và liên tục: retry cùng Idempotency-Key không ghi hai lần, không hở hoặc chồng."),
-                                      ("BR4", "Tiền điện theo biểu giá 5 bậc, dùng đúng phiên bản có hiệu lực trong kỳ.")]),
-          ("insight · phân tích", [("BR5", "Dự báo hóa đơn cần ≥ 7 ngày dữ liệu, so sánh nhóm ≥ 10 hộ, M&V ≥ 14 ngày. Thiếu thì trả 4xx kèm lý do.")]),
-          ("copilot · trợ lý AI", [("BR6", "Energy Copilot chỉ dành cho gói Pro."),
-                                   ("BR7", "Thông báo chủ động có giới hạn mỗi ngày, không gửi giờ yên tĩnh."),
-                                   ("BR8", "Con số do công cụ tính, mô hình chỉ diễn giải. Sai số liệu, đơn vị, nguồn thì bị loại."),
-                                   ("BR9", "Ẩn PII trước khi gọi LLM. Chỉ đọc dữ liệu của hộ đang hỏi.")])]
-gx, gw, ggap = 86, 560, 34
-heights = [None, None, None]
-for gi, (g, rules) in enumerate(groups):
-    x = gx + gi * (gw + ggap)
-    chip(s, x, 290, gw, 64, g, GREEN, WHITE, 26, SEMI, None, 16)
-    y = 372
-    unit = 148 if gi != 1 else 190
-    for code, d in rules:
-        rect(s, x, y, gw, unit - 12, PALE, None, 18)
-        text(s, x + 22, y, 100, unit - 12, code, 28, GREEN, MONO, "l", "m")
-        text(s, x + 130, y + 8, gw - 150, unit - 28, d, 21, INK, REG, "l", "m", 1.25)
-        y += unit
-# cột giữa: ghi chú
-x = gx + 1 * (gw + ggap)
-rect(s, x, 372 + 190 + 12, gw, 330, GREEN, None, 22)
-text(s, x + 28, 372 + 190 + 36, gw - 56, 380, [[("Ranh giới này là cơ sở chia service", {"font": SEMI, "size": 30})],
-                                               [("BR1 đến BR4 cần một nguồn sự thật duy nhất nên ở core. BR5 là phần phân tích nên ở insight. BR6 đến BR9 thuộc trợ lý AI nên ở copilot.", {"size": 25})]], 22, WHITE, REG, lh=1.3, after=14)
 
 # ───────────── 11. Cảm ơn ─────────────
 s = prs.slides.add_slide(BLANK)

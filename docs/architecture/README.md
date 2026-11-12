@@ -37,9 +37,9 @@ container**: API, consumer, outbox relay và job định kỳ chạy chung một
 
 | Lớp | Chọn | Lý do |
 |---|---|---|
-| Gateway | Envoy 1.40 (`envoyproxy/envoy`), một file `envoy.yaml` | Kiểm JWT, rate limit, request id, timeout, retry, TLS đều là bộ lọc có sẵn, không phải viết code. CNCF graduated, lõi của Istio và Envoy Gateway |
+| Gateway | Envoy 1.40 (`envoyproxy/envoy`), một file `envoy.yaml` | Kiểm JWT (RS256, JWKS), rate limit, request id, timeout, retry, TLS là bộ lọc có sẵn trong bản mã nguồn mở, khai báo trong một file. Nginx mã nguồn mở không có JWT sẵn (`auth_jwt` chỉ có trong gói thương mại). Cùng proxy với Istio và Envoy Gateway |
 | Identity | Keycloak 26 | Đã có realm. Lưu vào `keycloak_db` trên Postgres chung (`KC_DB_URL_DATABASE`), không cần container DB riêng |
-| Database | Một PostgreSQL 18 + TimescaleDB 2.31 + pgvector (`timescale/timescaledb:2.31.0-pg18`) | Một server, 5 database, mỗi database một role. TimescaleDB lo chuỗi số đo (hypertable, continuous aggregate 1h/1d, nén, xóa theo hạn) ở `core_db` và read model ở `insight_db`; pgvector cho RAG ở `copilot_db` |
+| Database | Một PostgreSQL 18 + TimescaleDB 2.31 + pgvector (`timescale/timescaledb:2.31.0-pg18`) | Một server, 5 database, mỗi database một role. TimescaleDB lo chuỗi dữ liệu sensor (hypertable, continuous aggregate 1h/1d, nén, xóa theo hạn) ở `core_db` và read model ở `insight_db`; pgvector cho RAG ở `copilot_db` |
 | Broker | RabbitMQ 4 (`rabbitmq:4-management`), quorum queue | `delivery-limit` + dead-letter exchange có sẵn, không cần queue TTL để retry |
 | Service | Python 3.12, FastAPI, SQLAlchemy async + asyncpg, Alembic, pydantic-settings | Giữ như code hiện tại |
 | Messaging | FastStream (RabbitMQ) | Consumer viết như route FastAPI, tự sinh tài liệu AsyncAPI, có broker giả lập trong bộ nhớ để test |

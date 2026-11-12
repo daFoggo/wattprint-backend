@@ -1,0 +1,433 @@
+"""Dựng slide SOA WattPrint (11 trang, 1920x1080 px = 20x11.25 in). Chạy: python build_slides.py out.pptx"""
+import sys, os
+from pptx import Presentation
+from pptx.util import Emu, Pt
+from pptx.dml.color import RGBColor
+from pptx.enum.shapes import MSO_SHAPE, MSO_CONNECTOR
+from pptx.enum.text import PP_ALIGN, MSO_ANCHOR
+from pptx.oxml.ns import qn
+from lxml import etree
+from PIL import Image
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+A = lambda n: os.path.join(HERE, "assets", n)
+INK, GREEN, SAGE, PALE, MUTED, HAIR, LIME = "16392C", "278453", "DFECDD", "F1F7EF", "526B5E", "CBDACE", "C9EB88"
+AMBER, AMBER_BG, PURPLE_BG, PURPLE, TEAL_BG, TEAL, WHITE = "C2570C", "FDEBD6", "E9E3FF", "6D4FD8", "D6F5EC", "0F7B73", "FFFFFF"
+REG, SEMI, BOLD, MONO = "Geist", "Geist SemiBold", "Geist", "Geist Mono"
+SLIDE_W, SLIDE_H = 1920, 1080
+
+prs = Presentation()
+prs.slide_width, prs.slide_height = Emu(SLIDE_W * 9525), Emu(SLIDE_H * 9525)
+BLANK = prs.slide_layouts[6]
+px = lambda v: Emu(int(round(v * 9525)))
+rgb = lambda h: RGBColor.from_string(h)
+
+
+def rect(s, x, y, w, h, fill=None, line=None, r=0, lw=2, dash=False, shape=None):
+    shp = s.shapes.add_shape(shape or (MSO_SHAPE.ROUNDED_RECTANGLE if r else MSO_SHAPE.RECTANGLE), px(x), px(y), px(w), px(h))
+    if r and shape is None:
+        shp.adjustments[0] = min(0.5, r / min(w, h))
+    if fill: shp.fill.solid(); shp.fill.fore_color.rgb = rgb(fill)
+    else: shp.fill.background()
+    if line:
+        shp.line.color.rgb = rgb(line); shp.line.width = Pt(lw * .75)
+        if dash: shp.line.dash_style = 4
+    else: shp.line.fill.background()
+    shp.shadow.inherit = False
+    shp.text_frame.text = ""
+    return shp
+
+
+def text(s, x, y, w, h, paras, size=26, color=INK, font=REG, align="l", anchor="t", lh=1.2, after=0):
+    """paras: str | list of paragraphs; paragraph = str | list of runs; run = str | (str, {size,color,font})"""
+    tb = s.shapes.add_textbox(px(x), px(y), px(w), px(h))
+    tf = tb.text_frame; tf.word_wrap = True
+    tf.margin_left = tf.margin_right = tf.margin_top = tf.margin_bottom = 0
+    tf.vertical_anchor = {"t": MSO_ANCHOR.TOP, "m": MSO_ANCHOR.MIDDLE, "b": MSO_ANCHOR.BOTTOM}[anchor]
+    if isinstance(paras, str): paras = [paras]
+    for i, p in enumerate(paras):
+        para = tf.paragraphs[0] if i == 0 else tf.add_paragraph()
+        para.alignment = {"l": PP_ALIGN.LEFT, "c": PP_ALIGN.CENTER, "r": PP_ALIGN.RIGHT}[align]
+        para.line_spacing = lh; para.space_after = Pt(after * .75)
+        for r in ([p] if isinstance(p, (str, tuple)) else p):
+            t, o = (r, {}) if isinstance(r, str) else r
+            run = para.add_run(); run.text = t
+            f = run.font; f.size = Pt(o.get("size", size) * .75); f.name = o.get("font", font)
+            f.color.rgb = rgb(o.get("color", color)); f.bold = False
+    return tb
+
+
+def arrow(s, x1, y1, x2, y2, color=GREEN, dash=False, lw=3, both=False):
+    c = s.shapes.add_connector(MSO_CONNECTOR.STRAIGHT, px(x1), px(y1), px(x2), px(y2))
+    c.line.color.rgb = rgb(color); c.line.width = Pt(lw * .75)
+    ln = c.line._get_or_add_ln()
+    if dash: ln.append(etree.SubElement(ln, qn("a:prstDash"), val="dash"))
+    for tag in (["a:tailEnd"] + (["a:headEnd"] if both else [])):
+        ln.append(etree.SubElement(ln, qn(tag), type="triangle", w="med", len="med"))
+    return c
+
+
+def img(s, name, x, y, w, h):
+    iw, ih = Image.open(A(name)).size
+    k = min(w / iw, h / ih); w2, h2 = iw * k, ih * k
+    s.shapes.add_picture(A(name), px(x + (w - w2) / 2), px(y + (h - h2) / 2), px(w2), px(h2))
+
+
+def base(n, title, kicker=None):  # kicker = dòng mô tả dưới tiêu đề
+    s = prs.slides.add_slide(BLANK)
+    text(s, 86, 36, 300, 34, "WattPrint", 28, INK, SEMI)
+    text(s, 1100, 42, 560, 30, "SOA · Nhóm 6", 22, MUTED, REG, "r")
+    img(s, "logo-ptit.png", 1752, 24, 90, 58)
+    text(s, 1834 - 80, 1030, 80, 26, f"{n}/11", 20, MUTED, REG, "r")
+    text(s, 86, 98, 1748, 70, title, 56, INK, SEMI, lh=1.1)
+    if kicker: text(s, 86, 176, 1748, 40, kicker, 27, MUTED, REG)
+    return s
+
+
+def chip(s, x, y, w, h, label, fill=SAGE, color=INK, size=24, font=SEMI, line=None, r=14):
+    rect(s, x, y, w, h, fill, line, r)
+    text(s, x, y, w, h, label, size, color, font, "c", "m")
+
+
+# ───────────── 1. Bìa ─────────────
+s = prs.slides.add_slide(BLANK)
+rect(s, 1080, 0, 840, 1080, PALE)
+text(s, 86, 60, 900, 30, "BÀI TẬP LỚN · PHÁT TRIỂN PHẦN MỀM HƯỚNG DỊCH VỤ", 22, GREEN, SEMI)
+img(s, "logo-ptit.png", 1752, 40, 90, 58)
+text(s, 80, 250, 940, 180, "WattPrint", 170, INK, SEMI, lh=1.0)
+text(s, 86, 450, 900, 140, "Kiến trúc hướng dịch vụ cho hệ thống theo dõi điện năng từng thiết bị trong hộ gia đình", 40, INK, REG, lh=1.25)
+rect(s, 86, 650, 120, 6, GREEN)
+text(s, 86, 690, 900, 40, "Nhóm 6 · Lớp INT1448-20261-01", 30, INK, SEMI)
+text(s, 86, 740, 900, 40, "Giảng viên: Nguyễn Việt Dũng", 28, MUTED)
+text(s, 86, 810, 900, 150, [[("B23DCCC055", {"font": MONO, "color": GREEN}), "   Nguyễn Trường Giang"],
+                            [("B23DCCC056", {"font": MONO, "color": GREEN}), "   Lê Thị Hà"],
+                            [("B23DCCC160", {"font": MONO, "color": GREEN}), "   Nguyễn Thị Quỳnh Trang"]], 26, INK, REG, lh=1.45)
+text(s, 86, 1010, 400, 30, "Hà Nội, 2026", 22, MUTED)
+# minh họa: gateway + bốn service
+text(s, 1170, 200, 660, 30, "MỘT GATEWAY, BỐN SERVICE", 21, GREEN, SEMI)
+rect(s, 1170, 250, 660, 78, PURPLE_BG, PURPLE, 18, 2)
+text(s, 1170, 250, 660, 78, "API Gateway · Envoy", 30, INK, SEMI, "c", "m")
+names = ["copilot", "insight", "core", "nilm"]
+sizes = [150, 170, 190, 150]
+cx = 1170
+xs = []
+for i, nm in enumerate(names):
+    w = 150
+    x = 1170 + i * (150 + 20)
+    xs.append(x)
+    arrow(s, x + w / 2, 328, x + w / 2, 430, GREEN, lw=3)
+    rect(s, x, 430, w, 150, SAGE, GREEN, 22, 3)
+    text(s, x, 430, w, 150, nm, 30, INK, SEMI, "c", "m")
+    rect(s, x + 20, 640, w - 40, 70, TEAL_BG, TEAL, 16, 2)
+    text(s, x + 20, 640, w - 40, 70, nm + "_db", 20, INK, REG, "c", "m")
+    arrow(s, x + w / 2, 580, x + w / 2, 640, TEAL, lw=3)
+for i in range(3):
+    arrow(s, xs[i] + 150, 540, xs[i + 1], 540, INK, lw=3)
+text(s, 1170, 760, 660, 80, "Synchronous call một chiều từ copilot đến nilm. Dữ liệu đi ngược lên bằng event.", 26, MUTED, REG, lh=1.3)
+
+# ───────────── 2. WattPrint là gì ─────────────
+s = base(2, "Tổng quan dự án", "Theo dõi điện năng từng thiết bị từ một sensor ở aptomat, gồm bốn module.")
+# dải ý tưởng
+fy = 300
+chip(s, 86, fy, 330, 74, "Sensor ở aptomat", PALE, INK, 25, SEMI, HAIR)
+arrow(s, 420, fy + 37, 486, fy + 37)
+chip(s, 490, fy, 330, 74, "Tổng công suất cả hộ", PALE, INK, 25, SEMI, HAIR)
+arrow(s, 824, fy + 37, 890, fy + 37)
+chip(s, 894, fy, 330, 74, "Mô hình NILM tách ra", GREEN, WHITE, 25, SEMI, GREEN)
+arrow(s, 1228, fy + 37, 1294, fy + 37)
+chip(s, 1298, fy, 536, 74, "Điện năng và lời khuyên từng thiết bị", PALE, INK, 25, SEMI, HAIR)
+mods = [("Phân rã điện năng", "NILMFormer tách tổng công suất thành từng thiết bị, có hiệu chỉnh theo hộ.", "phone-03_device_01_detail.png"),
+        ("Dashboard và hóa đơn", "Điện năng theo giờ, ngày, tuần, tháng, quy ra tiền theo biểu giá sinh hoạt 5 bậc.", "phone-02_usage_02_device_breakdown.png"),
+        ("Phân tích", "Cảnh báo thiết bị chạy bất thường, dự báo hóa đơn, so sánh với tháng trước và nhóm hộ khác.", "phone-02_usage_01_chart.png"),
+        ("Energy Copilot", "Trả lời câu hỏi và chủ động gợi ý, lập kế hoạch tiết kiệm, mọi con số do công cụ tính.", "phone-04_copilot_01_thread_chat.png")]
+cw, gap, cy, ch = 410, 36, 420, 570
+for i, (t, d, im) in enumerate(mods):
+    x = 86 + i * (cw + gap)
+    rect(s, x, cy, cw, ch, PALE, None, 24)
+    img(s, im, x + 40, cy + 24, cw - 80, 270)
+    text(s, x + 32, cy + 318, cw - 64, 40, t, 31, INK, SEMI)
+    text(s, x + 32, cy + 366, cw - 64, 190, d, 24, MUTED, REG, lh=1.3)
+text(s, 86, 1010, 1500, 30, "Bài tập lớn tách hệ thống nguyên khối hiện có (một ứng dụng FastAPI) thành các service độc lập.", 21, MUTED)
+
+# ───────────── 3. Bốn service ─────────────
+s = base(3, "Phân rã service", "Căn cứ chia theo thứ tự ưu tiên: data ownership, workload, fault isolation.")
+labx, colx0, colw, colgap = 86, 420, 340, 18
+svc = [("core", "Nhà, thiết bị, ingest dữ liệu sensor, hóa đơn. Nguồn sự thật.", "core_db · TimescaleDB", "Ổn định, cần nhanh", "Không được mất dữ liệu sensor"),
+       ("nilm", "Inference NILMFormer, quản lý phiên bản model.", "nilm_db · volume model", "PyTorch, nhiều CPU và RAM", "Quá tải thì batch chờ ở trạng thái PENDING"),
+       ("insight", "Bất thường, dự báo, so sánh, M&V, truy vấn an toàn.", "insight_db · TimescaleDB", "Chạy theo lô và theo lịch", "Phân tích tạm dừng, ingest dữ liệu sensor vẫn chạy"),
+       ("copilot", "Hỏi đáp, gợi ý, guardrail, RAG, kế hoạch tiết kiệm.", "copilot_db · pgvector", "Phần lớn thời gian chờ LLM ngoài", "LLM chậm bị cô lập, dashboard không ảnh hưởng")]
+rows = [("Trách nhiệm", 150), ("1  Data ownership", 96), ("2  Workload", 96), ("3  Fault isolation", 126)]
+y0 = 270
+for i, (nm, *_) in enumerate(svc):
+    x = colx0 + i * (colw + colgap)
+    chip(s, x, y0, colw, 70, nm, GREEN, WHITE, 32, SEMI, None, 16)
+yy = y0 + 90
+for ri, (lab, h) in enumerate(rows):
+    fill = PALE if ri % 2 == 0 else WHITE
+    rect(s, labx, yy, 1748, h, fill, None, 14)
+    text(s, labx + 20, yy, 300, h, lab, 25, GREEN if ri else MUTED, SEMI, "l", "m")
+    for i, v in enumerate(svc):
+        x = colx0 + i * (colw + colgap)
+        txt = v[ri + 1]
+        text(s, x + 14, yy + 10, colw - 28, h - 20, txt, 24, INK, REG, "l", "m", 1.25)
+    yy += h + 8
+rect(s, 86, yy + 14, 1748, 110, GREEN, None, 20)
+text(s, 126, yy + 14, 1670, 110, [[("Thứ tự ưu tiên khi chia: ", {"font": SEMI}), "data ownership, rồi workload, rồi fault isolation. Mỗi service chỉ ghi vào dữ liệu của mình, mảng khác chỉ đọc qua API hoặc sự kiện."]], 28, WHITE, REG, "l", "m", 1.3)
+
+# ───────────── 4. Kiến trúc tổng quan ─────────────
+s = base(4, "Kiến trúc tổng quan", "Mức Container theo C4: gateway, bốn service, database riêng và RabbitMQ.")
+X0, W = 86, 1330
+# clients
+cl = [("App Expo", GREEN), ("Web Next.js", GREEN), ("REFIT replayer", AMBER)]
+for i, (nm, col) in enumerate(cl):
+    x = X0 + 60 + i * 400
+    chip(s, x, 290, 300, 64, nm, SAGE if col == GREEN else AMBER_BG, INK, 24, SEMI, col, 16)
+    arrow(s, x + 150, 354, x + 150, 410)
+text(s, X0 + 60 + 2 * 400 + 316, 296, 180, 60, "thay sensor CT, dữ liệu REFIT", 17, MUTED, REG, "l", "m", 1.15)
+# gateway + keycloak
+rect(s, X0, 410, 1060, 80, PURPLE_BG, PURPLE, 18, 2)
+text(s, X0, 410, 1060, 80, [[("API Gateway · Envoy", {"font": SEMI, "size": 29})], [("kiểm JWT · định tuyến · rate limit · không chứa nghiệp vụ", {"size": 20, "color": MUTED})]], 26, INK, REG, "c", "m", 1.15)
+rect(s, X0 + 1100, 410, 230, 80, PURPLE_BG, PURPLE, 18, 2)
+text(s, X0 + 1100, 410, 230, 80, [[("Keycloak", {"font": SEMI})], [("đăng nhập · JWT", {"size": 19, "color": MUTED})]], 26, INK, REG, "c", "m", 1.15)
+arrow(s, X0 + 1060, 450, X0 + 1100, 450, PURPLE, lw=2)
+# services row (copilot, insight, core, nilm)
+order = [("copilot", "hỏi đáp · gợi ý · RAG", "copilot_db", "pgvector"), ("insight", "bất thường · dự báo", "insight_db", "TimescaleDB"),
+         ("core", "nhà · sensor · hóa đơn", "core_db", "TimescaleDB"), ("nilm", "tách điện thiết bị", "nilm_db", "PostgreSQL")]
+sw, sgap = 260, 80
+sx = [X0 + i * (sw + sgap) for i in range(4)]
+for i, (nm, sub, db, ext) in enumerate(order):
+    x = sx[i]
+    arrow(s, x + sw / 2, 490, x + sw / 2, 580)
+    rect(s, x, 580, sw, 130, SAGE, GREEN, 22, 3)
+    text(s, x, 580, sw, 130, [[(nm, {"font": SEMI, "size": 32})], [(sub, {"size": 20, "color": MUTED})]], 26, INK, REG, "c", "m", 1.2)
+    arrow(s, x + sw / 2, 710, x + sw / 2, 780, TEAL)
+    rect(s, x + 20, 780, sw - 40, 84, TEAL_BG, TEAL, 16, 2)
+    text(s, x + 20, 780, sw - 40, 84, [[(db, {"font": SEMI, "size": 22})], [(ext, {"size": 18, "color": MUTED})]], 22, INK, REG, "c", "m", 1.15)
+for i in range(3):
+    xa, xb = sx[i] + sw, sx[i + 1]
+    arrow(s, xa + 4, 628, xb - 4, 628, INK, lw=3)           # gọi đồng bộ
+    text(s, xa, 592, xb - xa, 26, "call", 18, MUTED, REG, "c")
+    if i < 2:
+        arrow(s, xb - 4, 672, xa + 4, 672, AMBER, dash=True, lw=3)   # sự kiện
+        text(s, xa - 10, 678, xb - xa + 20, 26, "event", 17, AMBER, REG, "c")
+# hạ tầng chung
+rect(s, X0, 900, sx[3] + sw - X0, 80, PURPLE_BG, PURPLE, 18, 2)
+text(s, X0, 900, sx[3] + sw - X0, 80, [[("Hạ tầng chung  ", {"font": SEMI}), "PostgreSQL 18 (một server, mỗi service một database) · RabbitMQ: exchange → queue → DLQ"]], 22, INK, REG, "c", "m")
+# LLM ngoài
+text(s, X0, 540, 260, 30, "LLM, Expo Push, Telegram", 17, AMBER, REG, "l")
+# cột ghi chú
+nx = 1500
+notes = [("Call đồng bộ một chiều", "copilot → insight → core → nilm. Không có circular dependency, lỗi chỉ lan lên một tầng."),
+         ("Event đi ngược lên", "core → insight → copilot qua RabbitMQ, bên gửi không phải chờ bên nhận."),
+         ("Database riêng", "Mỗi service một database, không service nào đọc database của service khác.")]
+for i, (t, d) in enumerate(notes):
+    y = 290 + i * 230
+    rect(s, nx, y, 334, 6, [INK, AMBER, TEAL][i])
+    text(s, nx, y + 22, 334, 40, t, 27, INK, SEMI)
+    text(s, nx, y + 70, 334, 150, d, 22, MUTED, REG, lh=1.3)
+
+# ───────────── 5. Triển khai ─────────────
+s = base(5, "Triển khai", "Docker Compose cho môi trường demo, tám container.")
+text(s, 86, 270, 1000, 28, "MÔI TRƯỜNG DEMO · MỘT MÁY ≥ 16 GB RAM · GIỚI HẠN BỘ NHỚ ≈ 7 GB", 20, MUTED, SEMI)
+def layer(y, h, label, color, bg):
+    rect(s, 86, y, 1090, h, None, color, 24, 2, True)
+    text(s, 110, y + 14, 700, 28, label, 20, color, SEMI)
+layer(310, 170, "EDGE · mạng edge, có publish port", PURPLE, PURPLE_BG)
+for i, (nm, sub) in enumerate([("gateway", "Envoy 1.40 · 256 MB"), ("keycloak", "Keycloak 26 · 1 GB")]):
+    x = 116 + i * 520
+    rect(s, x, 356, 500, 100, PURPLE_BG, PURPLE, 18, 2)
+    text(s, x, 356, 500, 100, [[(nm, {"font": SEMI, "size": 30})], [(sub, {"size": 21, "color": MUTED})]], 26, INK, REG, "c", "m", 1.2)
+layer(510, 210, "APPLICATION SERVICES · mạng internal, không publish port", GREEN, SAGE)
+for i, (nm, sub) in enumerate([("core", "512 MB · 1 CPU"), ("nilm", "2 GB · 2 CPU"), ("insight", "512 MB · 1 CPU"), ("copilot", "512 MB · 1 CPU")]):
+    x = 116 + i * 258
+    rect(s, x, 556, 242, 134, SAGE, GREEN, 18, 2)
+    text(s, x, 556, 242, 134, [[(nm, {"font": SEMI, "size": 30})], [(sub, {"size": 20, "color": MUTED})], [("API + consumer + relay", {"size": 17, "color": MUTED})]], 26, INK, REG, "c", "m", 1.2)
+layer(750, 220, "DỮ LIỆU VÀ MESSAGING · mạng internal", TEAL, TEAL_BG)
+dat = [("postgres", "5 database · 1,5 GB", TEAL_BG, TEAL), ("rabbitmq", "Quorum queue · DLQ · 512 MB", PURPLE_BG, PURPLE), ("models", "Volume trọng số NILM", TEAL_BG, TEAL)]
+for i, (nm, sub, bg, ln) in enumerate(dat):
+    x = 116 + i * 345
+    rect(s, x, 796, 330, 140, bg, ln, 18, 2)
+    text(s, x + 10, 796, 310, 140, [[(nm, {"font": SEMI, "size": 28})], [(sub, {"size": 19, "color": MUTED})]], 26, INK, REG, "c", "m", 1.25)
+for x in (366, 624, 882):
+    pass
+text(s, 86, 986, 1700, 30, "Mỗi service có Dockerfile, nhận cấu hình qua biến môi trường và có /health, /ready: chuyển lên Kubernetes không cần đổi mã nguồn.", 20, MUTED, REG)
+arrow(s, 600, 480, 600, 510, INK, lw=3)
+arrow(s, 600, 720, 600, 750, INK, lw=3)
+# cột chính sách gateway
+rect(s, 1230, 270, 604, 700, PALE, None, 24)
+text(s, 1264, 296, 540, 40, "Gateway chỉ định tuyến và áp chính sách", 27, INK, SEMI, lh=1.15)
+pts = [("Định tuyến", "/api/core, /insight, /copilot, /nilm (chỉ admin). Mỗi route có timeout. Chỉ GET được retry, POST thì không để khỏi ghi hai lần."),
+       ("Xác thực", "jwt_authn kiểm chữ ký RS256 bằng khóa JWKS của Keycloak, gán X-User-Id, X-User-Roles và xóa header cùng tên do client gửi."),
+       ("Giới hạn", "Rate limit, kích thước body, gán x-request-id để lần theo log."),
+       ("Ngoại lệ", "Route ingest dữ liệu sensor không cần JWT, core tự kiểm API key và công tơ (BR2).")]
+yy = 384
+for t, d in pts:
+    rect(s, 1264, yy + 4, 8, 120 if t in ("Định tuyến", "Xác thực") else 80, GREEN)
+    text(s, 1292, yy, 510, 30, t, 24, GREEN, SEMI)
+    text(s, 1292, yy + 34, 510, 120, d, 21, INK, REG, lh=1.28)
+    yy += 168 if t in ("Định tuyến", "Xác thực") else 128
+
+# ───────────── 6. Giao tiếp ─────────────
+s = base(6, "Giao tiếp giữa các service", "REST đồng bộ theo một chiều, event bất đồng bộ qua RabbitMQ.")
+rect(s, 86, 290, 1748, 330, PALE, None, 24)
+text(s, 122, 314, 600, 30, "SYNCHRONOUS · REST QUA MẠNG NỘI BỘ", 21, GREEN, SEMI)
+cx0 = 122
+for i, nm in enumerate(["copilot", "insight", "core", "nilm"]):
+    x = cx0 + i * 270
+    chip(s, x, 372, 200, 84, nm, SAGE, INK, 30, SEMI, GREEN, 18)
+    if i < 3: arrow(s, x + 204, 414, x + 266, 414, INK, lw=3)
+text(s, cx0, 486, 1000, 110, "Một chiều, không có circular dependency. Lỗi của một service chỉ ảnh hưởng service ngay phía trên nó trong chuỗi.", 25, INK, REG, lh=1.3)
+text(s, 1250, 340, 550, 270, [[("Bên gọi luôn đặt", {"color": MUTED})], [("timeout, retry có giới hạn, circuit breaker", {"font": SEMI})],
+                              [("Lỗi nghiệp vụ 4xx giữ nguyên.", {"color": MUTED})], [("Lỗi hạ tầng: timeout là 504, breaker mở là 503.", {"color": MUTED})]], 24, INK, REG, lh=1.35, after=6)
+rect(s, 86, 650, 1748, 330, AMBER_BG, None, 24)
+text(s, 122, 674, 800, 30, "ASYNCHRONOUS · EVENT QUA RABBITMQ, EXCHANGE wattprint.events", 21, AMBER, SEMI)
+evs = [("energy.usage.updated", "core", "insight", "Có ước tính mới, kèm tổng theo giờ từng thiết bị"),
+       ("core.device.changed", "core", "insight", "Đồng bộ danh mục thiết bị vào read model"),
+       ("insight.alert.created", "insight", "copilot", "Kích hoạt gợi ý chủ động")]
+for i, (k, a, b, d) in enumerate(evs):
+    y = 724 + i * 66
+    text(s, 122, y, 480, 54, k, 24, INK, MONO, "l", "m")
+    chip(s, 620, y + 6, 130, 42, a, WHITE, INK, 22, SEMI, AMBER, 12)
+    arrow(s, 756, y + 27, 806, y + 27, AMBER, dash=True)
+    chip(s, 812, y + 6, 130, 42, b, WHITE, INK, 22, SEMI, AMBER, 12)
+    text(s, 980, y, 480, 54, d, 21, MUTED, REG, "l", "m", 1.15)
+text(s, 1490, 724, 310, 230, "Core không cần biết insight cập nhật xong lúc nào, insight không cần chờ copilot soạn xong gợi ý.", 23, INK, REG, lh=1.3)
+
+# ───────────── 7. Dữ liệu ─────────────
+s = base(7, "Dữ liệu", "Database per service trên một PostgreSQL 18.")
+rect(s, 86, 290, 880, 690, TEAL_BG, TEAL, 24, 2)
+text(s, 120, 316, 800, 34, "MỘT PostgreSQL 18 · TimescaleDB 2.31 · pgvector", 21, TEAL, SEMI)
+dbs = [("core_db", "TimescaleDB", "sensor, hóa đơn", "role core"), ("insight_db", "TimescaleDB", "read model", "role insight"),
+       ("copilot_db", "pgvector", "hội thoại, RAG", "role copilot"), ("nilm_db", "PostgreSQL", "lần chạy inference", "role nilm"), ("keycloak_db", "PostgreSQL", "tài khoản, realm", "role keycloak")]
+for i, (nm, ext, d, role) in enumerate(dbs):
+    col, row = i % 2, i // 2
+    x, y = 120 + col * 420, 372 + row * 192
+    rect(s, x, y, 396, 172, WHITE, TEAL, 18, 2)
+    text(s, x + 22, y + 16, 352, 36, nm, 28, INK, SEMI)
+    text(s, x + 22, y + 58, 352, 30, ext + " · " + d, 21, MUTED)
+    text(s, x + 22, y + 118, 352, 30, role, 19, TEAL, MONO)
+text(s, 540, 760 + 20, 400, 160, "Không service nào có quyền vào database của service khác. Khi cần, mỗi database tách sang server riêng chỉ bằng đổi địa chỉ kết nối.", 21, INK, REG, lh=1.3)
+text(s, 1010, 290, 824, 34, "ĐỌC DỮ LIỆU CỦA SERVICE KHÁC BẰNG HAI CÁCH", 21, GREEN, SEMI)
+for i, (t, d) in enumerate([("Event, pattern CQRS", "core ghi và là source of truth. insight giữ read model dữ liệu tiêu thụ tổng hợp theo giờ, cập nhật từ event của core."),
+                            ("API", "Cần dữ liệu mới nhất hoặc dữ liệu nhỏ thì hỏi thẳng service sở hữu, ví dụ insight lấy biểu giá và danh sách thiết bị từ core.")]):
+    y = 340 + i * 160
+    rect(s, 1010, y, 824, 140, PALE, None, 20)
+    rect(s, 1010, y, 10, 140, GREEN)
+    text(s, 1048, y + 16, 760, 36, t, 27, INK, SEMI)
+    text(s, 1048, y + 58, 760, 80, d, 22, MUTED, REG, lh=1.28)
+rect(s, 1010, 670, 824, 310, GREEN, None, 24)
+text(s, 1046, 692, 750, 36, "Vì sao Copilot đi qua insight", 28, WHITE, SEMI)
+text(s, 1046, 740, 750, 230, "Text-to-SQL do mô hình ngôn ngữ sinh ra. Chạy thẳng trên dữ liệu ghi nhận của core, một câu sai hoặc bị prompt injection có thể chạm vào dữ liệu nguồn. Nên copilot gửi SQL tới endpoint truy vấn an toàn của insight: SQL guard chỉ cho SELECT trên view được cấp quyền, ép điều kiện nhà của người hỏi, timeout 2 giây.", 22, WHITE, REG, lh=1.3)
+
+# ───────────── 8. Outbox / inbox ─────────────
+s = base(8, "Reliable messaging", "Transactional outbox, idempotent inbox và DLQ.")
+steps = [("1", "core", "Lưu kết quả NILM và một dòng outbox trong cùng một transaction"),
+         ("2", "Outbox relay", "Đọc dòng chưa gửi bằng FOR UPDATE SKIP LOCKED, publish và đợi broker xác nhận mới đánh dấu đã gửi"),
+         ("3", "Exchange và queue", "wattprint.events chép message vào insight.usage (quorum queue, redeliver tối đa 3 lần)"),
+         ("4", "Consumer insight", "Tra message_id trong inbox. Đã có thì bỏ qua. Chưa có thì cập nhật read model và ghi inbox cùng một transaction, rồi ack")]
+bw, bg_ = 405, 32
+for i, (n, t, d) in enumerate(steps):
+    x = 86 + i * (bw + bg_)
+    rect(s, x, 300, bw, 300, PALE, None, 22)
+    chip(s, x + 24, 324, 52, 52, n, GREEN, WHITE, 26, SEMI, None, 26)
+    text(s, x + 92, 324, bw - 110, 52, t, 27, INK, SEMI, "l", "m")
+    text(s, x + 24, 396, bw - 48, 190, d, 22, MUTED, REG, lh=1.3)
+    if i < 3: arrow(s, x + bw + 2, 450, x + bw + bg_ - 2, 450, GREEN, lw=3)
+# nhánh lỗi
+arrow(s, 86 + 3 * (bw + bg_) + bw / 2, 600, 86 + 3 * (bw + bg_) + bw / 2, 680, AMBER, dash=True)
+rect(s, 86, 700, 1748, 130, AMBER_BG, None, 22)
+text(s, 122, 716, 1700, 100, [[("Lỗi quá 3 lần", {"font": SEMI, "color": AMBER}), "   queue chuyển message sang wattprint.dlx, vào insight.usage.dlq và nằm chờ chứ không mất. Nhóm vận hành xem trên giao diện RabbitMQ, sửa nguyên nhân rồi đẩy về insight.usage để chạy lại."]], 24, INK, REG, "l", "m", 1.3)
+for i, (t, d) in enumerate([("Outbox", "Tiến trình chết giữa lúc lưu và publish không làm insight thiếu hay thừa dữ liệu."),
+                            ("Inbox", "RabbitMQ giao at-least-once nên message có thể đến hai lần. Inbox giữ consumer idempotent.")]):
+    x = 86 + i * 884
+    rect(s, x, 860, 864, 120, WHITE, HAIR, 20, 2)
+    text(s, x + 28, 876, 220, 90, t, 32, GREEN, SEMI, "l", "m")
+    text(s, x + 220, 876, 620, 90, d, 23, INK, REG, "l", "m", 1.28)
+
+# ───────────── 9. Lỗi giữa chừng ─────────────
+s = base(9, "Xử lý failure giữa chừng", "Hai luồng đa bước: ingest dữ liệu sensor và saga kế hoạch tiết kiệm.")
+def lane(y, h, label, sub):
+    rect(s, 86, y, 1748, h, PALE, None, 24)
+    text(s, 122, y + 18, 740, 36, label, 28, INK, SEMI)
+    text(s, 122, y + 62, 740, 60, sub, 21, MUTED, REG, lh=1.25)
+def node(x, y, w, h, t, d, fill, line, tc=INK):
+    rect(s, x, y, w, h, fill, line, 16, 2)
+    text(s, x + 10, y, w - 20, h, [[(t, {"font": SEMI, "size": 23, "color": tc})], [(d, {"size": 19, "color": MUTED if tc == INK else WHITE})]], 22, INK, REG, "c", "m", 1.2)
+lane(290, 330, "Ingest dữ liệu sensor rồi inference NILM", "Không rollback dữ liệu sensor, chỉ đánh dấu phần chưa xong.")
+node(122, 400, 330, 120, "core lưu dữ liệu sensor", "kiểm API key, công tơ, batch liên tục", WHITE, GREEN)
+arrow(s, 456, 460, 520, 460)
+node(524, 400, 250, 120, "gọi nilm", "timeout, retry, breaker", WHITE, GREEN)
+arrow(s, 778, 430, 880, 360, GREEN)
+arrow(s, 778, 490, 880, 540, AMBER)
+node(884, 316, 330, 90, "DONE · 201", "lưu ước tính, ghi outbox", GREEN, GREEN, WHITE)
+node(884, 480, 330, 110, "PENDING_INFERENCE · 202", "nilm hết giờ, 5xx hoặc breaker mở", AMBER_BG, AMBER)
+arrow(s, 1218, 535, 1290, 535, AMBER, lw=3)
+node(1294, 480, 250, 110, "retry, backoff", "1, 2, 4 phút", WHITE, AMBER)
+arrow(s, 1548, 535, 1590, 535, AMBER, lw=3)
+node(1594, 480, 210, 110, "FAILED", "quá 5 lần, báo vận hành", WHITE, AMBER)
+lane(650, 330, "Kích hoạt kế hoạch tiết kiệm (saga)", "Copilot điều phối hai bước, compensate theo thứ tự ngược khi cần.")
+node(122, 760, 300, 120, "Bước 1 · baseline M&V", "cần ≥ 14 ngày dữ liệu", WHITE, GREEN)
+arrow(s, 426, 820, 490, 820)
+node(494, 760, 300, 120, "Bước 2 · đặt ngân sách", "theo kế hoạch", WHITE, GREEN)
+for k, (yy, t, d, f, l, tc) in enumerate([(682, "ACTIVE", "bước 2 thành công", GREEN, GREEN, WHITE),
+                                           (792, "CANCELLED", "bị từ chối 4xx, xóa baseline", AMBER_BG, AMBER, INK),
+                                           (902, "PENDING", "timeout 504, reconciler hỏi lại insight", AMBER_BG, AMBER, INK)]):
+    arrow(s, 798, 820, 900, yy + 36, GREEN if k == 0 else AMBER)
+    node(904, yy, 480, 74, t, d, f, l, tc)
+text(s, 1430, 700, 380, 260, [[("Hai loại lỗi", {"font": SEMI, "color": GREEN, "size": 25})],
+                              [("Business error (4xx): chắc chắn bước chưa xảy ra, compensate ngay.", {})],
+                              [("Infrastructure error (timeout, 5xx): chưa biết bước đã chạy chưa, giữ PENDING rồi reconcile.", {})]], 22, INK, REG, lh=1.32, after=10)
+
+# ───────────── 10. Quy tắc nghiệp vụ ─────────────
+s = base(10, "Business rules", "Chín quy tắc, nhóm theo service sở hữu dữ liệu.")
+groups = [("core · dữ liệu ghi nhận", [("BR1", "Mỗi tài khoản thuộc một nhà. Vào nhà bằng mã mời dùng một lần và có hạn."),
+                                      ("BR2", "Công tơ ghép với đúng một nhà. Dữ liệu sensor chỉ nhận từ công tơ đã ghép, kèm API key."),
+                                      ("BR3", "Batch dữ liệu sensor idempotent và liên tục: retry cùng Idempotency-Key không ghi hai lần, không hở hoặc chồng."),
+                                      ("BR4", "Tiền điện theo biểu giá 5 bậc, dùng đúng phiên bản có hiệu lực trong kỳ.")]),
+          ("insight · phân tích", [("BR5", "Dự báo hóa đơn cần ≥ 7 ngày dữ liệu, so sánh nhóm ≥ 10 hộ, M&V ≥ 14 ngày. Thiếu thì trả 4xx kèm lý do.")]),
+          ("copilot · trợ lý AI", [("BR6", "Energy Copilot chỉ dành cho gói Pro."),
+                                   ("BR7", "Thông báo chủ động có giới hạn mỗi ngày, không gửi giờ yên tĩnh."),
+                                   ("BR8", "Con số do công cụ tính, mô hình chỉ diễn giải. Sai số liệu, đơn vị, nguồn thì bị loại."),
+                                   ("BR9", "Ẩn PII trước khi gọi LLM. Chỉ đọc dữ liệu của hộ đang hỏi.")])]
+gx, gw, ggap = 86, 560, 34
+heights = [None, None, None]
+for gi, (g, rules) in enumerate(groups):
+    x = gx + gi * (gw + ggap)
+    chip(s, x, 290, gw, 64, g, GREEN, WHITE, 26, SEMI, None, 16)
+    y = 372
+    unit = 148 if gi != 1 else 190
+    for code, d in rules:
+        rect(s, x, y, gw, unit - 12, PALE, None, 18)
+        text(s, x + 22, y, 100, unit - 12, code, 28, GREEN, MONO, "l", "m")
+        text(s, x + 130, y + 8, gw - 150, unit - 28, d, 21, INK, REG, "l", "m", 1.25)
+        y += unit
+# cột giữa: ghi chú
+x = gx + 1 * (gw + ggap)
+rect(s, x, 372 + 190 + 12, gw, 330, GREEN, None, 22)
+text(s, x + 28, 372 + 190 + 36, gw - 56, 380, [[("Ranh giới này là cơ sở chia service", {"font": SEMI, "size": 30})],
+                                               [("BR1 đến BR4 cần một nguồn sự thật duy nhất nên ở core. BR5 là phần phân tích nên ở insight. BR6 đến BR9 thuộc trợ lý AI nên ở copilot.", {"size": 25})]], 22, WHITE, REG, lh=1.3, after=14)
+
+# ───────────── 11. Cảm ơn ─────────────
+s = prs.slides.add_slide(BLANK)
+rect(s, 1080, 0, 840, 1080, PALE)
+text(s, 86, 60, 900, 30, "WATTPRINT · NHÓM 6", 22, GREEN, SEMI)
+img(s, "logo-ptit.png", 1752, 40, 90, 58)
+text(s, 80, 330, 940, 200, "Cảm ơn đã lắng nghe", 110, INK, SEMI, lh=1.05)
+rect(s, 86, 640, 120, 6, GREEN)
+text(s, 86, 680, 900, 40, "Câu hỏi và thảo luận", 34, INK, SEMI)
+text(s, 86, 750, 900, 40, "Môn Phát triển phần mềm hướng dịch vụ · INT1448-20261-01", 26, MUTED)
+text(s, 86, 800, 900, 40, "Giảng viên: Nguyễn Việt Dũng", 26, MUTED)
+text(s, 1170, 200, 660, 30, "TÓM TẮT KIẾN TRÚC", 21, GREEN, SEMI)
+for i, (t, d) in enumerate([("4 service", "core, nilm, insight, copilot"), ("1 gateway", "Envoy, kiểm JWT, không chứa nghiệp vụ"),
+                            ("5 database", "một PostgreSQL 18, mỗi service một database"), ("RabbitMQ", "event qua outbox, idempotent inbox, DLQ"),
+                            ("9 business rule", "thuộc đúng service sở hữu dữ liệu")]):
+    y = 250 + i * 130
+    rect(s, 1170, y, 660, 110, WHITE, HAIR, 18, 2)
+    text(s, 1196, y, 300, 110, t, 28, GREEN, SEMI, "l", "m")
+    text(s, 1480, y, 330, 110, d, 21, INK, REG, "l", "m", 1.25)
+
+out = sys.argv[1] if len(sys.argv) > 1 else os.path.join(HERE, "SOA-WattPrint-Slide.pptx")
+prs.core_properties.title = "WattPrint - Kiến trúc hướng dịch vụ"
+prs.core_properties.author = "Nhóm 6"
+prs.save(out)
+print("saved", out)
