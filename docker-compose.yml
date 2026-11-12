@@ -17,7 +17,7 @@ services:
     # timescale/timescaledb#10500: PG18-only planner error on some DISTINCT/GROUP BY + ORDER BY over caggs.
     # Overrides timescaledb-tune, which sized the conf for the whole shared host (shared_buffers 24GB).
     command: ["postgres", "-c", "timescaledb.enable_cagg_reorder_groupby=off",
-              "-c", "shared_buffers=1GB", "-c", "effective_cache_size=4GB",
+              "-c", "shared_buffers=2GB", "-c", "effective_cache_size=4GB",
               "-c", "maintenance_work_mem=256MB", "-c", "work_mem=16MB",
               "-c", "max_parallel_workers=4", "-c", "max_parallel_workers_per_gather=2"]
     healthcheck:
