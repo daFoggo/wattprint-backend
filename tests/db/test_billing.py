@@ -9,7 +9,14 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
 from app.database import Base
 from app.models import Bill, BillItem, Home, TariffPlan, TariffTier, TariffVersion
-from app.modules.billing.services.bill import _allocate, _cycle_start, compute_bill, current_bill
+from app.modules.billing.services.bill import (
+    _allocate,
+    _cycle_start,
+    _parts,
+    _Segment,
+    compute_bill,
+    current_bill,
+)
 from app.modules.energy.services.aggregates import backfill_aggregates as backfill
 from tests.db.conftest import _create_migrated_db, relations, run_alembic
 
@@ -265,8 +272,34 @@ async def test_straddle_flag_when_version_changes_inside_period(bdb, bsession):
         b = await bill_for(c, bsession, h, date(2026, 10, 15), 100)
     assert b.period_end == date(2026, 11, 14)
     assert b.tariff_straddle is True
-    # whole period at 1279 prices: 50*1984 + 50*2050
-    assert b.amount_before_vat == Decimal("201700")
+    # EVN's split by days, 17 of 31 at decision 1279 and 14 at 2892:
+    #   1279: 54.839 kWh over tiers 27 / 27 / 55 wide = 27*1984 + 27*2050 + 0.839*2380 = 110915
+    #   2892: 45.161 kWh over tiers 45 / 45 wide      = 45*1901 + 0.161*2289          =  85914
+    assert (b.amount_before_vat, b.vat_amount) == (Decimal("196829"), Decimal("15746"))
+
+
+def test_split_by_days_matches_evn_worked_example():
+    """Bo Cong Thuong's example: 505 kWh over 28 days, 10 at the old price. Tiers 1-4 of 50 kWh
+    become 18 wide, tiers 5-6 of 100 become 36; the old price takes 505 * 10 / 28 kWh."""
+    old = TariffVersion(id=1, vat_rate=Decimal("0.1"))
+    new = TariffVersion(id=2, vat_rate=Decimal("0.1"))
+    widths = [50, 50, 50, 50, 100, 100, None]
+    tiers, lo = [], 0
+    for no, w in enumerate(widths, start=1):
+        tiers.append(
+            TariffTier(
+                tier_no=no,
+                from_kwh=Decimal(lo),
+                to_kwh=None if w is None else Decimal(lo + w),
+                price_per_kwh=Decimal(1),
+            )
+        )
+        lo += w or 0
+    segs = [_Segment(old, tiers, date(2010, 3, 1), 10), _Segment(new, tiers, date(2010, 3, 11), 18)]
+    (_, old_tiers, old_kwh), (_, new_tiers, new_kwh) = _parts(segs, Decimal(505))
+    assert [t.to_kwh - t.from_kwh for t in old_tiers[:6]] == [18, 18, 18, 18, 36, 36]
+    assert [t.to_kwh - t.from_kwh for t in new_tiers[:6]] == [32, 32, 32, 32, 64, 64]
+    assert (old_kwh, old_kwh + new_kwh) == (Decimal("180.357"), Decimal(505))
 
 
 async def test_no_version_or_plan_raises_lookup_error(bdb, bsession):
