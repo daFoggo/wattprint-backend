@@ -1,7 +1,7 @@
 """Extract the dataset and NILM training artifacts into the repository.
 
-- dataset/archive.zip            -> dataset/ (REFIT CSVs); CLEAN_House2.csv then moves to
-                                    alembic/versions/data/, where the REFIT seed revision reads it
+- dataset/archive.zip            -> dataset/ (REFIT CSVs); the REFIT seed revision reads
+                                    dataset/CLEAN_House2.csv (mounted at /data in the api container)
 - dataset/training/artifacts.zip -> dataset/training/artifacts/
                                       nilm_pipeline.pt2   architecture + weights (torch.export)
                                       nilm_pipeline.pt    weights + config (torch.load weights_only=True)
@@ -14,8 +14,6 @@ from zipfile import ZipFile
 
 ROOT = Path(__file__).resolve().parents[1]
 ARCHIVES = [ROOT / "dataset" / "archive.zip", ROOT / "dataset" / "training" / "artifacts.zip"]
-SEED_CSV = "CLEAN_House2.csv"
-SEED_DIR = ROOT / "alembic" / "versions" / "data"
 
 if __name__ == "__main__":
     missing = [a for a in ARCHIVES if not a.exists()]
@@ -25,7 +23,3 @@ if __name__ == "__main__":
         with ZipFile(archive_path) as archive:
             archive.extractall(ROOT)               # members are stored with repo-relative paths
         print(f"Extracted {archive_path.relative_to(ROOT)}")
-
-    SEED_DIR.mkdir(parents=True, exist_ok=True)
-    seed = (ROOT / "dataset" / SEED_CSV).replace(SEED_DIR / SEED_CSV)
-    print(f"Moved {SEED_CSV} -> {seed.relative_to(ROOT)}")

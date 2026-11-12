@@ -15,7 +15,11 @@ services:
       # PG18 images keep PGDATA at /var/lib/postgresql/18/docker, so the volume mounts one level up.
       - wattprint_pg18data:/var/lib/postgresql
     # timescale/timescaledb#10500: PG18-only planner error on some DISTINCT/GROUP BY + ORDER BY over caggs.
-    command: ["postgres", "-c", "timescaledb.enable_cagg_reorder_groupby=off"]
+    # Overrides timescaledb-tune, which sized the conf for the whole shared host (shared_buffers 24GB).
+    command: ["postgres", "-c", "timescaledb.enable_cagg_reorder_groupby=off",
+              "-c", "shared_buffers=1GB", "-c", "effective_cache_size=4GB",
+              "-c", "maintenance_work_mem=256MB", "-c", "work_mem=16MB",
+              "-c", "max_parallel_workers=4", "-c", "max_parallel_workers_per_gather=2"]
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U $$POSTGRES_USER -d $$POSTGRES_DB"]
       interval: 5s
@@ -83,6 +87,7 @@ services:
       INGEST_DB_PASSWORD: ${INGEST_DB_PASSWORD:-}
       COPILOT_DB_PASSWORD: ${COPILOT_DB_PASSWORD:-}
       AI_DB_PASSWORD: ${AI_DB_PASSWORD:-}
+      REFIT_SEED_DIR: /data
     ports:
       - "${API_PORT:-11093}:11093"
     depends_on:
@@ -96,6 +101,13 @@ services:
       - ./tests:/code/tests
       - ./dataset:/data:ro
     command: sh -c "alembic upgrade head && exec uvicorn app.main:app --host 0.0.0.0 --port 11093 --reload --reload-dir /code/app"
+
+networks:
+  default:
+    # Explicit subnet: the host's default Docker address pools are exhausted by other projects.
+    ipam:
+      config:
+        - subnet: ${COMPOSE_SUBNET:-10.254.93.0/24}
 
 volumes:
   wattprint_pg18data:

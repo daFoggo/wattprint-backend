@@ -313,9 +313,12 @@ def upgrade() -> None:
     if context.is_offline_mode():
         raise RuntimeError("REFIT seed reads a CSV and streams readings: run it online")
 
-    filepath = Path(__file__).resolve().parents[1] / "data" / f"CLEAN_House{HOUSE}.csv"
+    # The CSV stays out of the image: compose mounts dataset/ at /data and sets REFIT_SEED_DIR.
+    data_dir = os.environ.get("REFIT_SEED_DIR") or Path(__file__).resolve().parents[3] / "dataset"
+    filepath = Path(data_dir) / f"CLEAN_House{HOUSE}.csv"
     if not os.path.isfile(filepath):
-        raise FileNotFoundError(f"REFIT dataset not found: {filepath}")
+        raise FileNotFoundError(
+            f"REFIT dataset not found: {filepath} (set REFIT_SEED_DIR, or SEED_REFIT=0 to skip)")
 
     conn = op.get_bind()
     for ddl in WATERMARK_DDL:

@@ -15,7 +15,6 @@ dist/
 
 # NILM dataset / training outputs (shipped as dataset/archive.zip and dataset/training/artifacts.zip)
 dataset/CLEAN_House*.csv
-alembic/versions/data/*.csv
 dataset/preprocessed/
 dataset/training/data/
 dataset/training/artifacts/
