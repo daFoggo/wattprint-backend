@@ -9,8 +9,11 @@ from app.modules.energy.services import meter
 from app.modules.energy.services.meter import (
     device_breakdown,
     latest_power,
+    latest_reading,
+    main_readings,
     meter_series,
     pick_step,
+    today_energy,
 )
 
 
@@ -538,3 +541,53 @@ async def test_device_breakdown_validation(session):
         await device_breakdown(session, hid, datetime(2026, 10, 1), T0 + timedelta(days=1))
     with pytest.raises(ValueError):
         await device_breakdown(session, hid, T0, T0)
+
+
+# --- latest_reading / today_energy ---
+
+
+async def test_latest_reading_is_the_newest_raw_sample(session):
+    hid, sid = await new_home(session)
+    assert await latest_reading(session, hid, T0) is None  # series, no data
+    await put(session, sid, T0 + timedelta(seconds=10), 100)
+    await put(session, sid, T0 + timedelta(seconds=17), 250)  # inside the open minute
+    lr = await latest_reading(session, hid, T0 + timedelta(seconds=20))
+    assert (lr.ts, lr.watts) == (T0 + timedelta(seconds=17), 250)
+    assert (await latest_reading(session, hid, T0 + timedelta(seconds=12))).watts == 100  # <= now
+    assert await latest_reading(session, hid, T0 + timedelta(days=8)) is None  # lookback
+    assert await latest_reading(session, uuid.uuid7(), T0) is None  # unknown home
+
+
+async def test_today_energy_against_the_same_weekday(session):
+    hid, sid = await new_home(session)
+    week = timedelta(days=7)
+    now = T0 + timedelta(hours=2)
+    await load(session, sid, T0, 120, 600)  # today: 120 min at 600 W = 1.2 kWh
+    await load(session, sid, T0 - week, 60, 600)  # 0.6 kWh
+    await load(session, sid, T0 - 3 * week, 120, 300)  # 0.6 kWh; weeks 2 and 4 have no data
+    await load(session, sid, T0 - week + timedelta(hours=3), 60, 9000)  # after "now": ignored
+    te = await today_energy(session, hid, now)
+    assert te.kwh == pytest.approx(1.2)
+    assert te.typical_kwh == pytest.approx(0.6)
+
+
+async def test_today_energy_without_history(session):
+    hid, _ = await new_home(session)
+    te = await today_energy(session, hid, T0 + timedelta(hours=1))
+    assert (te.kwh, te.typical_kwh) == (0.0, None)
+    assert await today_energy(session, uuid.uuid7(), T0) is None
+
+
+async def test_main_readings_are_the_samples_after_a_moment(session):
+    hid, sid = await new_home(session)
+    for s, w in ((5, 100), (12, 200), (19, 300)):
+        await put(session, sid, T0 + timedelta(seconds=s), w)
+    got = await main_readings(session, hid, T0 + timedelta(seconds=5))
+    assert [(r.ts, r.watts) for r in got] == [
+        (T0 + timedelta(seconds=12), 200),
+        (T0 + timedelta(seconds=19), 300),
+    ]
+    assert len(await main_readings(session, hid, T0, limit=2)) == 2
+    assert await main_readings(session, uuid.uuid7(), T0) == []
+    with pytest.raises(ValueError):
+        await main_readings(session, hid, datetime(2026, 10, 1))

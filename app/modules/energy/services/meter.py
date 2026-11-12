@@ -52,6 +52,12 @@ class LatestPower:
 
 
 @dataclass
+class TodayEnergy:
+    kwh: float
+    typical_kwh: float | None
+
+
+@dataclass
 class DeviceEnergy:
     device_id: uuid.UUID
     kwh: float
@@ -192,6 +198,73 @@ async def latest_power(
     sql, params = _latest_statement(series_id, now)
     row = (await session.execute(text(sql), params)).first()
     return None if row is None else LatestPower(row.bucket, float(row.last_w))
+
+
+async def latest_reading(
+    session: AsyncSession, home_id: uuid.UUID, now: datetime | None = None
+) -> LatestPower | None:
+    """Newest good raw main-meter sample of the last 7 days (to the second, unlike latest_power)."""
+    now = now or datetime.now(UTC)
+    _require_aware(now=now)
+    series_id = await _main_series(session, home_id)
+    if series_id is None:
+        return None
+    row = (
+        await session.execute(
+            text(
+                "SELECT ts, value FROM public.tb_reading WHERE series_id = :sid "
+                "AND ts > :lo AND ts <= :now AND quality & 1 = 0 ORDER BY ts DESC LIMIT 1"
+            ),
+            {"sid": series_id, "lo": now - LATEST_LOOKBACK, "now": now},
+        )
+    ).first()
+    return None if row is None else LatestPower(row.ts, float(row.value))
+
+
+async def main_readings(
+    session: AsyncSession, home_id: uuid.UUID, after: datetime, limit: int = 500
+) -> list[LatestPower]:
+    """Good raw main-meter samples newer than `after`, oldest first (the live stream's feed)."""
+    _require_aware(after=after)
+    series_id = await _main_series(session, home_id)
+    if series_id is None:
+        return []
+    rows = await session.execute(
+        text(
+            "SELECT ts, value FROM public.tb_reading WHERE series_id = :sid AND ts > :after "
+            "AND quality & 1 = 0 ORDER BY ts LIMIT :limit"
+        ),
+        {"sid": series_id, "after": after, "limit": limit},
+    )
+    return [LatestPower(r.ts, float(r.value)) for r in rows]
+
+
+async def today_energy(
+    session: AsyncSession, home_id: uuid.UUID, now: datetime | None = None
+) -> TodayEnergy | None:
+    """kWh since local midnight, and the mean over the same weekday and hours of the last 4 weeks.
+
+    Weeks without data are left out of the mean; typical_kwh is None when none has data.
+    """
+    series_id = await _main_series(session, home_id)
+    if series_id is None:
+        return None
+    now = now or datetime.now(UTC)
+    _require_aware(now=now)
+    lo = _floor(now, _STEP["1d"])
+    totals = []
+    for week in range(5):  # one bounded query per week keeps chunk exclusion on the 1m view
+        shift = timedelta(days=7 * week)
+        wh = await session.scalar(
+            text(
+                "SELECT sum(energy_wh) FROM public.reading_1m "
+                "WHERE series_id = :sid AND bucket >= :lo AND bucket < :hi"
+            ),
+            {"sid": series_id, "lo": lo - shift, "hi": now - shift},
+        )
+        totals.append(None if wh is None else float(wh) / 1000)
+    past = [t for t in totals[1:] if t is not None]
+    return TodayEnergy(totals[0] or 0.0, sum(past) / len(past) if past else None)
 
 
 async def device_breakdown(
