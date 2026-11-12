@@ -1,5 +1,6 @@
 import calendar
 import uuid
+from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta, timezone
 from decimal import ROUND_HALF_UP, Decimal
 
@@ -30,13 +31,22 @@ def _local_midnight(d: date) -> datetime:
     return datetime(d.year, d.month, d.day, tzinfo=ICT).astimezone(UTC)
 
 
-def _tier_amount(tiers: list[TariffTier], kwh: Decimal) -> Decimal:
-    """Cumulative tiers: a tier prices the kWh in (from_kwh, to_kwh]; the last is unbounded."""
-    total = Decimal(0)
+def _tier_split(tiers: list[TariffTier], kwh: Decimal) -> list[tuple[TariffTier, Decimal, Decimal]]:
+    """(tier, kWh in it, amount in whole dong) per tier, in tier order.
+
+    Cumulative tiers: a tier prices the kWh in (from_kwh, to_kwh]; the last is unbounded. Each
+    tier's amount is rounded on its own, as on an EVN bill, so the lines add up to the total.
+    """
+    split = []
     for t in sorted(tiers, key=lambda t: t.tier_no):
         top = kwh if t.to_kwh is None else min(kwh, t.to_kwh)
-        total += max(top - t.from_kwh, Decimal(0)) * t.price_per_kwh
-    return total
+        used = max(top - t.from_kwh, Decimal(0))
+        split.append((t, used, _round(used * t.price_per_kwh)))
+    return split
+
+
+def _tier_amount(tiers: list[TariffTier], kwh: Decimal) -> Decimal:
+    return sum((amount for _, _, amount in _tier_split(tiers, kwh)), Decimal(0))
 
 
 async def _kwh_by_series(session, view, series_ids, lo, hi) -> dict[uuid.UUID, Decimal]:
@@ -82,13 +92,13 @@ def _allocate(
     return [(k, _round(e, "0.000001"), a) for k, e, a in zip(kwhs, exact, amounts, strict=True)]
 
 
-async def compute_bill(
-    session: AsyncSession, home_id: uuid.UUID, period_start: date, now: datetime | None = None
-) -> Bill:
-    """Compute (or recompute) the bill of one billing cycle; idempotent on (home, period_start).
+async def _price(
+    session: AsyncSession, home_id: uuid.UUID, period_start: date, now: datetime | None
+):
+    """Price one billing cycle without writing: (bill columns, tiers, series rows, lo, hi).
 
     The bill is priced with the tariff version valid on period_start only (no proration); a
-    version change inside the period just sets tariff_straddle. The caller commits.
+    version change inside the period just sets tariff_straddle.
     """
     if now is not None and now.tzinfo is None:
         raise ValueError("now must be a timezone-aware datetime")
@@ -185,6 +195,17 @@ async def compute_bill(
         tariff_straddle=straddle,
         status=status,
     )
+    return values, tiers, series, lo, hi
+
+
+async def compute_bill(
+    session: AsyncSession, home_id: uuid.UUID, period_start: date, now: datetime | None = None
+) -> Bill:
+    """Compute (or recompute) and store the bill of one billing cycle; idempotent on
+    (home, period_start). The caller commits.
+    """
+    values, _, series, lo, hi = await _price(session, home_id, period_start, now)
+    kwh_total, before_vat = values["kwh_total"], values["amount_before_vat"]
     bill_id = await session.scalar(
         insert(Bill)
         .values(home_id=home_id, period_start=period_start, **values)
@@ -223,3 +244,90 @@ async def compute_bill(
         )
     await session.flush()
     return await session.get(Bill, bill_id, populate_existing=True)
+
+
+@dataclass
+class TierUse:
+    tier_no: int
+    from_kwh: Decimal
+    to_kwh: Decimal | None
+    price_per_kwh: Decimal
+    kwh: Decimal
+    amount: Decimal
+
+
+@dataclass
+class CurrentBill:
+    period_start: date
+    period_end: date
+    status: str
+    coverage: Decimal
+    tariff_straddle: bool
+    vat_rate: Decimal
+    kwh: Decimal
+    amount_before_vat: Decimal
+    vat_amount: Decimal
+    amount_total: Decimal
+    tier_no: int
+    tiers: list[TierUse]
+    today_kwh: Decimal
+    today_amount: Decimal
+
+
+def _cycle_start(today: date, cycle_day: int) -> date:
+    if today.day >= cycle_day:
+        return today.replace(day=cycle_day)
+    return (today.replace(day=1) - timedelta(days=1)).replace(day=cycle_day)  # day <= 28
+
+
+async def current_bill(
+    session: AsyncSession, home_id: uuid.UUID, now: datetime | None = None
+) -> CurrentBill:
+    """The running billing cycle so far: its bill, the kWh and amount in each tier, the tier the
+    next kWh falls in, and what today cost (VAT included). Reads only: a GET does not write; the
+    stored bill is compute_bill's.
+
+    Today is priced at the margin: T(kWh by now) - T(kWh by local midnight), T being the cycle's
+    tiered amount, so the days of a cycle add up to its bill.
+    """
+    now = now or datetime.now(UTC)
+    home = await session.get(Home, home_id)
+    if home is None:
+        raise LookupError(f"home {home_id} not found")
+    today = now.astimezone(ICT).date()
+    start = _cycle_start(today, home.billing_cycle_day or 1)
+    bill, tiers, series, _, _ = await _price(session, home_id, start, now)
+    vat_rate = await session.scalar(
+        select(TariffVersion.vat_rate).where(TariffVersion.id == bill["version_id"])
+    )
+    main_ids = [s.series_id for s in series if s.kind == "main"]
+    lo = _local_midnight(today)
+    today_kwh = sum(
+        (
+            await _kwh_by_series(session, "reading_1d", main_ids, lo, lo + timedelta(days=1))
+        ).values(),
+        Decimal(0),
+    )
+    kwh = bill["kwh_total"]
+    marginal = _tier_amount(tiers, kwh) - _tier_amount(tiers, max(kwh - today_kwh, Decimal(0)))
+    split = _tier_split(tiers, kwh)
+    return CurrentBill(
+        period_start=start,
+        period_end=bill["period_end"],
+        status=bill["status"],
+        coverage=bill["coverage"],
+        tariff_straddle=bill["tariff_straddle"],
+        vat_rate=vat_rate,
+        kwh=kwh,
+        amount_before_vat=bill["amount_before_vat"],
+        vat_amount=bill["vat_amount"],
+        amount_total=bill["amount_total"],
+        # The tier the next kWh is priced in: at exactly 100 kWh that is tier 2, not tier 1.
+        tier_no=next(t.tier_no for t, _, _ in split if t.to_kwh is None or kwh < t.to_kwh),
+        tiers=[
+            TierUse(t.tier_no, t.from_kwh, t.to_kwh, t.price_per_kwh, used, amount)
+            for t, used, amount in split
+        ],
+        today_kwh=today_kwh,
+        today_amount=_round(marginal * (_ONE + vat_rate)),
+    )

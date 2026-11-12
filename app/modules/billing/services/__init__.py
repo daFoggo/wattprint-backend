@@ -1,3 +1,3 @@
-from .bill import compute_bill
+from .bill import CurrentBill, TierUse, compute_bill, current_bill
 
-__all__ = ["compute_bill"]
+__all__ = ["CurrentBill", "TierUse", "compute_bill", "current_bill"]

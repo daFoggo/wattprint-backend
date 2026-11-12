@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
 from app.database import Base
 from app.models import Bill, BillItem, Home, TariffPlan, TariffTier, TariffVersion
-from app.modules.billing.services.bill import _allocate, compute_bill
+from app.modules.billing.services.bill import _allocate, _cycle_start, compute_bill, current_bill
 from app.modules.energy.services.aggregates import backfill_aggregates as backfill
 from tests.db.conftest import _create_migrated_db, relations, run_alembic
 
@@ -121,6 +121,64 @@ async def bill_for(c, session, h, start: date, kwh: float | None, now=None, watt
     bill = await compute_bill(session, h["id"], start, now=now)
     await session.commit()
     return bill
+
+
+# --- running cycle ---
+
+
+def test_cycle_start_before_and_on_cycle_day():
+    assert _cycle_start(date(2026, 11, 12), 1) == date(2026, 11, 1)
+    assert _cycle_start(date(2026, 11, 12), 15) == date(2026, 10, 15)
+    assert _cycle_start(date(2026, 11, 15), 15) == date(2026, 11, 15)
+    assert _cycle_start(date(2026, 1, 3), 28) == date(2025, 12, 28)
+
+
+async def test_current_bill_prices_today_at_the_margin(bdb, bsession):
+    """90 kWh before today, 30 today: today crosses from tier 1 into tier 2 of decision 2892."""
+    c, _ = bdb
+    today = date(2026, 11, 20)
+    async with home(c, bsession) as h:
+        await load(c, h["main"], local_midnight(V2892), 30 * 60, 3000)  # 90 kWh on Nov 1-2
+        await load(c, h["main"], local_midnight(today), 10 * 60, 3000)  # 30 kWh, 00:00-10:00
+        await backfill(c, local_midnight(V2892), local_midnight(today) + timedelta(days=1))
+        cur = await current_bill(bsession, h["id"], now=local_midnight(today) + timedelta(hours=12))
+        await bsession.commit()
+        stored = await c.scalar(
+            text("SELECT count(*) FROM public.tb_bill WHERE home_id = :h"), {"h": h["id"]}
+        )
+    assert stored == 0  # a GET reads only
+    assert (cur.period_start, cur.kwh, cur.today_kwh) == (
+        V2892,
+        Decimal("120.000"),
+        Decimal("30.000"),
+    )
+    assert cur.amount_before_vat == Decimal("235880")  # 100 * 1901 + 20 * 2289
+    assert cur.tier_no == 2
+    assert [(t.tier_no, t.kwh, t.amount) for t in cur.tiers[:3]] == [
+        (1, Decimal("100.000"), Decimal("190100")),
+        (2, Decimal("20.000"), Decimal("45780")),
+        (3, Decimal("0"), Decimal("0")),
+    ]
+    assert sum(t.amount for t in cur.tiers) == cur.amount_before_vat
+    # T(120) - T(90) = 235880 - 171090 = 64790, plus 8% VAT = 69973.2
+    assert cur.today_amount == Decimal("69973")
+
+
+async def test_current_tier_at_a_boundary_is_the_next_one(bdb, bsession):
+    """Exactly 100 kWh fills tier 1, so the next kWh is priced in tier 2; nothing used today."""
+    c, _ = bdb
+    today = date(2026, 11, 20)
+    async with home(c, bsession) as h:
+        await load(c, h["main"], local_midnight(V2892), 100 * 60, 1000)
+        await backfill(c, local_midnight(V2892), local_midnight(today) + timedelta(days=1))
+        cur = await current_bill(bsession, h["id"], now=local_midnight(today) + timedelta(hours=1))
+        await bsession.commit()
+    assert (cur.kwh, cur.tier_no, cur.today_kwh, cur.today_amount) == (
+        Decimal("100.000"),
+        2,
+        Decimal(0),
+        Decimal(0),
+    )
 
 
 # --- tier arithmetic ---
