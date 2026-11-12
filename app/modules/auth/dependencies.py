@@ -29,7 +29,7 @@ async def get_claims(token: Annotated[str, Depends(oauth2_scheme)]) -> dict[str,
         return await run_in_threadpool(decode_access_token, token)
     except jwt.PyJWKClientConnectionError:
         raise IdentityProviderUnavailableError from None
-    except (jwt.PyJWKClientError, jwt.InvalidTokenError):  # unknown kid, bad signature, expired...
+    except jwt.PyJWKClientError, jwt.InvalidTokenError:  # unknown kid, bad signature, expired...
         raise InvalidCredentialsError from None
 
 
@@ -39,7 +39,7 @@ Claims = Annotated[dict[str, Any], Depends(get_claims)]
 async def get_current_user(claims: Claims, db: DbSession) -> User:
     try:
         user = await provision_user(db, claims)
-    except (KeyError, ValueError, AttributeError):  # no usable `email` or Keycloak `sub`
+    except KeyError, ValueError, AttributeError:  # no usable `email` or Keycloak `sub`
         raise InvalidCredentialsError from None
     if not user.is_active:
         raise InactiveUserError
