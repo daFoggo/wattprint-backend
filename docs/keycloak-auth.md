@@ -23,6 +23,9 @@
   (flow `first broker login (re-auth)`, email-link verification disabled): otherwise someone could pre-register a
   victim's address, wait for the victim to link Google, and keep a working password on the account. The victim uses
   "Forgot password" instead, which replaces that password.
+- Password policy: 12+ characters, an uppercase, a lowercase, a digit, a special character, not the email
+  (`passwordPolicy`). The theme's sign-up checklist and meter read these rules from Keycloak, so change them
+  only in the realm.
 - Brute force: lockout after 10 failures, waits from 1 to 15 minutes (`failureFactor`, `waitIncrementSeconds`,
   `maxFailureWaitSeconds`).
 - Never set `KEYCLOAKIFY_SPA_DEV_SERVER_PORT` outside local theme development: the theme would load its scripts from
