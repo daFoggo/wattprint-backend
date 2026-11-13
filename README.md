@@ -38,6 +38,7 @@ app/
   routers/         health, users
   services/        business logic (users: first-login provisioning)
 keycloak/realm/    realm export imported by Keycloak on first start (clients, roles, admin user)
+keycloak/providers/ Keycloak provider jars, mounted read-only (the login theme from wattprint-web; not committed)
 alembic/           hand-written revisions in versions/{public,ai,updates}; database-wide bootstrap revisions stay in versions/
 tests/
 pyproject.toml     (uv)

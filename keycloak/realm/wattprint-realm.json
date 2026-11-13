@@ -2,8 +2,16 @@
   "realm": "wattprint",
   "displayName": "Wattprint",
   "enabled": true,
+  "loginTheme": "wattprint",
+  "emailTheme": "wattprint",
+  "internationalizationEnabled": true,
+  "supportedLocales": [
+    "vi",
+    "en"
+  ],
+  "defaultLocale": "vi",
   "sslRequired": "external",
-  "registrationAllowed": false,
+  "registrationAllowed": true,
   "loginWithEmailAllowed": true,
   "duplicateEmailsAllowed": false,
   "resetPasswordAllowed": true,
@@ -17,6 +25,32 @@
       {
         "name": "user",
         "description": "Regular Wattprint user"
+      },
+      {
+        "name": "offline_access",
+        "description": "${role_offline-access}"
+      },
+      {
+        "name": "uma_authorization",
+        "description": "${role_uma_authorization}"
+      },
+      {
+        "name": "default-roles-wattprint",
+        "description": "Roles every new user gets (sign-up and Google)",
+        "composite": true,
+        "composites": {
+          "realm": [
+            "offline_access",
+            "uma_authorization",
+            "user"
+          ],
+          "client": {
+            "account": [
+              "view-profile",
+              "manage-account"
+            ]
+          }
+        }
       }
     ]
   },
@@ -75,7 +109,7 @@
       "webOrigins": [],
       "attributes": {
         "pkce.code.challenge.method": "S256",
-        "post.logout.redirect.uris": "http://localhost:11092/sign-in##http://localhost:11091/sign-in"
+        "post.logout.redirect.uris": "http://localhost:11092/sign-in##http://localhost:11092/en/sign-in##http://localhost:11091/sign-in##http://localhost:11091/en/sign-in"
       },
       "protocolMappers": [
         {
@@ -113,6 +147,9 @@
     }
   ],
   "bruteForceProtected": true,
+  "failureFactor": 10,
+  "waitIncrementSeconds": 60,
+  "maxFailureWaitSeconds": 900,
   "passwordPolicy": "length(12) and notUsername",
   "identityProviders": [
     {
@@ -121,7 +158,7 @@
       "enabled": true,
       "trustEmail": true,
       "storeToken": false,
-      "firstBrokerLoginFlowAlias": "first broker login",
+      "firstBrokerLoginFlowAlias": "first broker login (re-auth)",
       "config": {
         "clientId": "${GOOGLE_CLIENT_ID}",
         "clientSecret": "${GOOGLE_CLIENT_SECRET}",
@@ -141,39 +178,229 @@
       }
     }
   ],
-  "authenticationFlows": [
-    {
-      "alias": "browser-google",
-      "description": "Always send the user to Google (no Keycloak login form)",
-      "providerId": "basic-flow",
-      "topLevel": true,
-      "builtIn": false,
-      "authenticationExecutions": [
-        {
-          "authenticator": "identity-provider-redirector",
-          "authenticatorConfig": "google-redirect",
-          "requirement": "REQUIRED",
-          "priority": 10,
-          "userSetupAllowed": false,
-          "autheticatorFlow": false
-        }
-      ]
-    }
-  ],
-  "authenticatorConfig": [
-    {
-      "alias": "google-redirect",
-      "config": {
-        "defaultProvider": "google"
-      }
-    }
-  ],
-  "browserFlow": "browser-google",
   "ssoSessionIdleTimeout": 2592000,
   "ssoSessionMaxLifespan": 7776000,
   "eventsEnabled": true,
   "adminEventsEnabled": true,
   "eventsExpiration": 604800,
   "revokeRefreshToken": true,
-  "refreshTokenMaxReuse": 0
+  "refreshTokenMaxReuse": 0,
+  "rememberMe": false,
+  "registrationEmailAsUsername": true,
+  "verifyEmail": true,
+  "smtpServer": {
+    "host": "${SMTP_HOST}",
+    "port": "${SMTP_PORT}",
+    "from": "${SMTP_FROM}",
+    "fromDisplayName": "WattPrint",
+    "auth": "${SMTP_AUTH}",
+    "user": "${SMTP_USER}",
+    "password": "${SMTP_PASSWORD}",
+    "starttls": "${SMTP_STARTTLS}",
+    "ssl": "false"
+  },
+  "defaultRole": {
+    "name": "default-roles-wattprint"
+  },
+  "authenticationFlows": [
+    {
+      "alias": "first broker login (re-auth)",
+      "description": "Actions taken after first broker login with identity provider account, which is not yet linked to any Keycloak account",
+      "providerId": "basic-flow",
+      "topLevel": true,
+      "builtIn": false,
+      "authenticationExecutions": [
+        {
+          "authenticatorConfig": "first broker login (re-auth) review profile config",
+          "authenticator": "idp-review-profile",
+          "authenticatorFlow": false,
+          "requirement": "REQUIRED",
+          "priority": 10,
+          "autheticatorFlow": false,
+          "userSetupAllowed": false
+        },
+        {
+          "authenticatorFlow": true,
+          "requirement": "REQUIRED",
+          "priority": 20,
+          "autheticatorFlow": true,
+          "flowAlias": "first broker login (re-auth) User creation or linking",
+          "userSetupAllowed": false
+        },
+        {
+          "authenticatorFlow": true,
+          "requirement": "CONDITIONAL",
+          "priority": 50,
+          "autheticatorFlow": true,
+          "flowAlias": "first broker login (re-auth) First Broker Login - Conditional Organization",
+          "userSetupAllowed": false
+        }
+      ]
+    },
+    {
+      "alias": "first broker login (re-auth) Account verification options",
+      "description": "Method with which to verity the existing account",
+      "providerId": "basic-flow",
+      "topLevel": false,
+      "builtIn": false,
+      "authenticationExecutions": [
+        {
+          "authenticator": "idp-email-verification",
+          "authenticatorFlow": false,
+          "requirement": "DISABLED",
+          "priority": 0,
+          "autheticatorFlow": false,
+          "userSetupAllowed": false
+        },
+        {
+          "authenticatorFlow": true,
+          "requirement": "REQUIRED",
+          "priority": 0,
+          "autheticatorFlow": true,
+          "flowAlias": "first broker login (re-auth) Verify Existing Account by Re-authentication",
+          "userSetupAllowed": false
+        }
+      ]
+    },
+    {
+      "alias": "first broker login (re-auth) First Broker Login - Conditional Organization",
+      "description": "Flow to determine if the authenticator that adds organization members is to be used",
+      "providerId": "basic-flow",
+      "topLevel": false,
+      "builtIn": false,
+      "authenticationExecutions": [
+        {
+          "authenticator": "conditional-user-configured",
+          "authenticatorFlow": false,
+          "requirement": "REQUIRED",
+          "priority": 10,
+          "autheticatorFlow": false,
+          "userSetupAllowed": false
+        },
+        {
+          "authenticator": "idp-add-organization-member",
+          "authenticatorFlow": false,
+          "requirement": "REQUIRED",
+          "priority": 20,
+          "autheticatorFlow": false,
+          "userSetupAllowed": false
+        }
+      ]
+    },
+    {
+      "alias": "first broker login (re-auth) First broker login - Conditional OTP",
+      "description": "Flow to determine if the OTP is required for the authentication",
+      "providerId": "basic-flow",
+      "topLevel": false,
+      "builtIn": false,
+      "authenticationExecutions": [
+        {
+          "authenticator": "conditional-user-configured",
+          "authenticatorFlow": false,
+          "requirement": "REQUIRED",
+          "priority": 10,
+          "autheticatorFlow": false,
+          "userSetupAllowed": false
+        },
+        {
+          "authenticator": "auth-otp-form",
+          "authenticatorFlow": false,
+          "requirement": "REQUIRED",
+          "priority": 20,
+          "autheticatorFlow": false,
+          "userSetupAllowed": false
+        }
+      ]
+    },
+    {
+      "alias": "first broker login (re-auth) Handle Existing Account",
+      "description": "Handle what to do if there is existing account with same email/username like authenticated identity provider",
+      "providerId": "basic-flow",
+      "topLevel": false,
+      "builtIn": false,
+      "authenticationExecutions": [
+        {
+          "authenticator": "idp-confirm-link",
+          "authenticatorFlow": false,
+          "requirement": "REQUIRED",
+          "priority": 10,
+          "autheticatorFlow": false,
+          "userSetupAllowed": false
+        },
+        {
+          "authenticatorFlow": true,
+          "requirement": "REQUIRED",
+          "priority": 20,
+          "autheticatorFlow": true,
+          "flowAlias": "first broker login (re-auth) Account verification options",
+          "userSetupAllowed": false
+        }
+      ]
+    },
+    {
+      "alias": "first broker login (re-auth) User creation or linking",
+      "description": "Flow for the existing/non-existing user alternatives",
+      "providerId": "basic-flow",
+      "topLevel": false,
+      "builtIn": false,
+      "authenticationExecutions": [
+        {
+          "authenticatorConfig": "first broker login (re-auth) create unique user config",
+          "authenticator": "idp-create-user-if-unique",
+          "authenticatorFlow": false,
+          "requirement": "ALTERNATIVE",
+          "priority": 10,
+          "autheticatorFlow": false,
+          "userSetupAllowed": false
+        },
+        {
+          "authenticatorFlow": true,
+          "requirement": "ALTERNATIVE",
+          "priority": 20,
+          "autheticatorFlow": true,
+          "flowAlias": "first broker login (re-auth) Handle Existing Account",
+          "userSetupAllowed": false
+        }
+      ]
+    },
+    {
+      "alias": "first broker login (re-auth) Verify Existing Account by Re-authentication",
+      "description": "Reauthentication of existing account",
+      "providerId": "basic-flow",
+      "topLevel": false,
+      "builtIn": false,
+      "authenticationExecutions": [
+        {
+          "authenticator": "idp-username-password-form",
+          "authenticatorFlow": false,
+          "requirement": "REQUIRED",
+          "priority": 10,
+          "autheticatorFlow": false,
+          "userSetupAllowed": false
+        },
+        {
+          "authenticatorFlow": true,
+          "requirement": "CONDITIONAL",
+          "priority": 20,
+          "autheticatorFlow": true,
+          "flowAlias": "first broker login (re-auth) First broker login - Conditional OTP",
+          "userSetupAllowed": false
+        }
+      ]
+    }
+  ],
+  "authenticatorConfig": [
+    {
+      "alias": "first broker login (re-auth) create unique user config",
+      "config": {
+        "require.password.update.after.registration": "false"
+      }
+    },
+    {
+      "alias": "first broker login (re-auth) review profile config",
+      "config": {
+        "update.profile.on.first.login": "missing"
+      }
+    }
+  ]
 }

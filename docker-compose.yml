@@ -66,13 +66,37 @@ services:
       KC_HOSTNAME_BACKCHANNEL_DYNAMIC: "true"
       KC_HTTP_ENABLED: "true"
       KC_HTTP_PORT: "11095"
+      # Read by the WattPrint login theme (links home, terms, privacy).
+      WATTPRINT_LANDING_URL: ${WATTPRINT_LANDING_URL:-http://localhost:11091}
+      # start-dev turns theme caching off, so every page re-fetched the theme's JS/CSS/fonts. Cache like `start` does:
+      # asset URLs carry a per-start version, so a redeployed theme jar (container recreated) is fetched fresh.
+      KC_SPI_THEME_STATIC_MAX_AGE: "2592000"
+      KC_SPI_THEME_CACHE_THEMES: "true"
+      KC_SPI_THEME_CACHE_TEMPLATES: "true"
+      # Mail for sign-up verification and password reset. Dev default: the mailpit service below; production: real SMTP.
+      SMTP_HOST: ${SMTP_HOST:-mailpit}
+      SMTP_PORT: ${SMTP_PORT:-1025}
+      SMTP_FROM: ${SMTP_FROM:-no-reply@wattprint.local}
+      SMTP_AUTH: ${SMTP_AUTH:-false}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_STARTTLS: ${SMTP_STARTTLS:-false}
     ports:
       - "${KEYCLOAK_BIND:-127.0.0.1}:${KEYCLOAK_PORT:-11095}:11095"
     volumes:
       - ./keycloak/realm:/opt/keycloak/data/import:ro
+      # The login theme jar, built by wattprint-web (`pnpm --filter keycloak-theme build:jar`).
+      - ./keycloak/providers:/opt/keycloak/providers:ro
     depends_on:
       keycloak-db:
         condition: service_healthy
+
+  mailpit:
+    # Dev SMTP: catches every mail Keycloak sends (verify email, reset password). Inbox: http://localhost:11099
+    image: axllent/mailpit:v1.27.4
+    container_name: wattprint-mailpit
+    ports:
+      - "${MAILPIT_BIND:-127.0.0.1}:${MAILPIT_PORT:-11099}:8025"
 
   api:
     build: .
