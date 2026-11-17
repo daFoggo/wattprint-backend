@@ -1,19 +1,19 @@
-"""Replay REFIT House 2 into the live pipeline, standing in for the real meter.
+"""Replay every demo REFIT home into the live pipeline, standing in for the real meters.
 
-Fills the gap from the newest stored main-meter reading to now, then tails every TAIL_S seconds.
-Every sample goes through ops.ingest_readings, like a sensor batch would. The CSV is shifted by
-the seed's shift plus whole weeks (weekday kept) so each window lands inside the recording.
+For each meter seeded by scripts/seed_demo_homes.py (etl.tb_watermark segment 'demo'): fill the gap
+from its newest main reading to now, then tail every TAIL_S seconds. Every sample goes through
+ops.ingest_readings, like a sensor batch would. Time mapping: scripts/refit.py. Past the end of
+a recording it keeps replaying its last week; a recording gap shows as no data.
 
-Runs inside the api container, where the app, the database and the CSV (/data) are available.
-Past the end of the recording it keeps replaying the last week; a recording gap shows as no data:
+Runs inside the api container, where the app, the database and the CSVs (/data) are available:
     docker compose exec -T api python -m scripts.replay_refit            # gap + tail
     docker compose exec -T api python -m scripts.replay_refit --once     # gap only
 """
 
 import asyncio
-import math
 import os
 import sys
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -21,84 +21,83 @@ import pandas as pd
 from sqlalchemy import text
 
 from app.database import SessionLocal
-from app.modules.ops.api import ReadingRow, ingest_readings
+from app.modules.ops.api import ingest_readings
+from scripts import refit
 
-SOURCE = "refit/CLEAN_House2.csv"  # the seed's etl.tb_watermark source, holds its shift_days
-METER = "REFIT-H2"
-CHANNELS = ("Aggregate", *(f"Appliance{i}" for i in range(1, 10)))
-WEEK = timedelta(days=7)
-WINDOW = timedelta(hours=6)  # ~3k CSV rows, ~30k readings per ingest call
+WINDOW = timedelta(hours=6)  # ~2.7k readings per ingest call
 TAIL_S = 5
 
 
-def load_csv(path: Path) -> pd.DataFrame:
-    df = pd.read_csv(
-        path, usecols=["Unix", *CHANNELS, "Issues"], dtype={c: "float32" for c in CHANNELS}
-    )
-    df["ts"] = pd.to_datetime(df["Unix"], unit="s", utc=True)
-    return df.set_index("ts").sort_index()
+@dataclass
+class Home:
+    house: int
+    shift_days: int
+    df: pd.DataFrame
+    last: datetime  # newest database time already stored for its main series
 
 
-def shift_for(db_hi: datetime, base: timedelta, last: datetime) -> timedelta:
-    """The smallest base + k weeks (k >= 0) that maps db_hi to a moment inside the recording."""
-    return base + max(0, math.ceil((db_hi - base - last) / WEEK)) * WEEK
-
-
-def rows_in(df: pd.DataFrame, lo: datetime, hi: datetime, shift: timedelta) -> list[ReadingRow]:
-    """Readings with database time in (lo, hi]; NaN cells are recording gaps, not bad rows."""
-    part = df.loc[(df.index > lo - shift) & (df.index <= hi - shift)]
-    rows = []
-    for ts, rec in part.iterrows():
-        when = (ts + shift).to_pydatetime()
-        quality = int(rec["Issues"] == 1)
-        rows += [
-            ReadingRow(when, ch, float(rec[ch]), quality) for ch in CHANNELS if pd.notna(rec[ch])
-        ]
-    return rows
-
-
-async def replay(df: pd.DataFrame, base: timedelta, lo: datetime, hi: datetime) -> int:
-    last = df.index[-1].to_pydatetime()
+async def replay(h: Home, lo: datetime, hi: datetime, source: str = "replay") -> int:
+    """Ingest the readings with database time in (lo, hi], in WINDOW steps. Returns new rows."""
+    last_wall = h.df["wall"].iloc[-1].to_pydatetime()
     new = 0
     while lo < hi:
         step_hi = min(lo + WINDOW, hi)
-        rows = rows_in(df, lo, step_hi, shift_for(step_hi, base, last))
+        shift = refit.shift_for(step_hi, h.shift_days, last_wall)
+        rows = refit.rows_between(h.df, lo, step_hi, shift)
         if rows:
             async with SessionLocal() as session, session.begin():
-                new += (await ingest_readings(session, METER, rows, "replay")).rows_new
+                result = await ingest_readings(session, refit.meter(h.house), rows, source)
+                new += result.rows_new
         lo = step_hi
     return new
 
 
-async def main(once: bool) -> None:
-    # Not __file__: piped in through `python -` (as above) the script has none.
-    data_dir = Path(os.environ.get("REFIT_SEED_DIR") or "dataset")
-    df = load_csv(data_dir / "CLEAN_House2.csv")
+async def homes(data_dir: Path) -> list[Home]:
     async with SessionLocal() as session:
-        days = await session.scalar(
-            text("SELECT shift_days FROM etl.tb_watermark WHERE source = :s LIMIT 1"), {"s": SOURCE}
-        )
-        start = await session.scalar(
-            text(
-                "SELECT max(r.ts) FROM public.tb_reading r "
-                "JOIN public.tb_series s USING (series_id) "
-                "JOIN public.tb_meter m ON m.id = s.meter_id "
-                "WHERE m.serial = :m AND s.kind = 'main'"
-            ),
-            {"m": METER},
-        )
-    if days is None or start is None:
-        sys.exit("Seed REFIT first (alembic upgrade head with SEED_REFIT=1)")
-    base = timedelta(days=days)
+        rows = (
+            await session.execute(
+                text(
+                    "SELECT w.source, w.shift_days, ("
+                    "  SELECT r.ts FROM public.tb_reading r "
+                    "  JOIN public.tb_series s USING (series_id) "
+                    "  JOIN public.tb_meter m ON m.id = s.meter_id "
+                    "  WHERE m.serial = 'REFIT-H' || substring(w.source FROM 'House([0-9]+)') "
+                    "    AND s.kind = 'main' ORDER BY r.ts DESC LIMIT 1) AS last "
+                    "FROM etl.tb_watermark w WHERE w.segment = :seg ORDER BY w.source"
+                ),
+                {"seg": refit.SEGMENT},
+            )
+        ).all()
+    out = []
+    for r in rows:
+        house = refit.house_of(r.source)
+        if r.last is None:
+            print(f"house {house}: no readings yet, run scripts.seed_demo_homes first", flush=True)
+            continue
+        df = refit.load(data_dir / f"CLEAN_House{house}.csv")
+        out.append(Home(house, r.shift_days, df, r.last))
+    return out
 
+
+async def main(once: bool) -> None:
+    # Not __file__: piped in through `python -` the script has none.
+    data_dir = Path(os.environ.get("REFIT_SEED_DIR") or "dataset")
+    hs = await homes(data_dir)
+    if not hs:
+        sys.exit("No demo homes: run `python -m scripts.seed_demo_homes` first")
     now = datetime.now(UTC)
-    print(f"gap {start} -> {now}: {await replay(df, base, start, now)} new readings", flush=True)
+    for h in hs:
+        print(
+            f"house {h.house}: gap {h.last} -> {now}: {await replay(h, h.last, now)} new",
+            flush=True,
+        )
     while not once:
         await asyncio.sleep(TAIL_S)
         start, now = now, datetime.now(UTC)
-        new = await replay(df, base, start, now)
-        if new:
-            print(f"{now:%H:%M:%S} +{new}", flush=True)
+        for h in hs:
+            new = await replay(h, start, now)
+            if new:
+                print(f"{now:%H:%M:%S} house {h.house} +{new}", flush=True)
 
 
 if __name__ == "__main__":

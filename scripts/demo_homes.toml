@@ -1,0 +1,25 @@
+# Demo homes replayed from REFIT (scripts/seed_demo_homes.py), named as in the dataset: the house
+# number and the appliance names of CLEAN_READ_ME_081116.txt. Only the time is moved, onto Vietnam
+# time (scripts/refit.py). Profile fields REFIT does not give (province, floor area, occupants) stay empty.
+# Passwords: DEMO_PASSWORD in .env (Keycloak policy: 12+ chars, upper, lower, digit, special).
+# Real accounts to add as members of the first home: DEMO_EXTRA_MEMBERS="a@x.com,b@y.com" in .env.
+
+history_days = 90
+# Model for homes without one of their own (tb_nilm_model with home_id NULL), relative to
+# dataset/models/nilm (NILM_MODEL_DIR in the nilm container).
+shared_model = "house2/nilm_pipeline.pt"
+
+[[home]]
+house = 2
+model = "house2/nilm_pipeline.pt"
+owner = { email = "refit.house2@wattprint.local", name = "REFIT House 2" }
+members = [{ email = "refit.house2.member@wattprint.local", name = "REFIT House 2 member" }]
+# NILM label -> the REFIT name of that appliance in this house ("Other" is the model's remainder)
+devices = { Fridge = "Fridge-Freezer", WashMach = "Washing Machine", Dishwash = "Dishwasher", Microwave = "Microwave", Toaster = "Toaster", Kettle = "Kettle", Other = "Other" }
+
+[[home]]
+house = 5
+# model = "house5/nilm_pipeline.pt"  # once trained; until then the shared model runs
+owner = { email = "refit.house5@wattprint.local", name = "REFIT House 5" }
+members = []
+devices = { Fridge = "Fridge-Freezer", WashMach = "Washing Machine", Dishwash = "Dishwasher", Microwave = "Microwave", Toaster = "Toaster", Kettle = "Kettle", Other = "Other" }
