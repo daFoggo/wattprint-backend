@@ -7,8 +7,8 @@ Tài liệu này dành cho người mới vào dự án: vì sao database đư�
 lấy từ hai file audit đó và được ghi rõ là **đo** (measured) hay **ngoại suy** (extrapolated).
 
 > **Đang chuyển sang microservices.** Mục 1–6 mô tả database của code hiện tại: một database, nhiều schema. Kiến
-> trúc đã chốt (`docs/architecture/README.md`) tách thành 4 service, mỗi service một database trên cùng PostgreSQL
-> server. Thiết kế bảng, hypertable, aggregate, policy và các số đo bên dưới giữ nguyên; thứ thay đổi là bảng nào nằm
+> trúc đã chốt (`docs/architecture/README.md`) tách thành 5 service, mỗi service một database trên cùng PostgreSQL
+> server, vector chuyển sang Qdrant. Thiết kế bảng, hypertable, aggregate, policy và các số đo bên dưới giữ nguyên; thứ thay đổi là bảng nào nằm
 > ở database nào, phân quyền, và cách Copilot đọc dữ liệu. Xem **mục 7**. Thứ tự làm nằm trong
 > `docs/superpowers/plans/2026-11-10-microservices-split.md`.
 
@@ -98,7 +98,7 @@ thầm tính thiếu. Chi phí theo thiết bị = tỉ lệ kWh × tiền trư�
 ### Cô lập Copilot
 
 > Cơ chế dưới đây (`copilot_ro`, scope token) bị thay khi tách service: Copilot không còn kết nối tới database dữ liệu
-> tiêu thụ nữa mà gọi API truy vấn an toàn của public. Xem mục 7.3.
+> tiêu thụ nữa; câu hỏi tự do về số liệu đi qua service text2sql, đọc view chỉ đọc của insight. Xem mục 7.3.
 
 Copilot không đọc bảng mà chỉ đọc view `copilot_ro.*` (owner là migration owner, `security_barrier`)
 cộng `public.*`, `public.*` và các bảng tariff. Phạm vi home do một **scope token** quyết định:
@@ -234,22 +234,30 @@ không có khẳng định nào rằng hệ thống giữ được các mức tr
 
 ## 7. Khi tách thành microservices
 
-### 7.1 Một server, năm database
+### 7.1 Một server, sáu database, một Qdrant
 
-Vẫn đúng server ở mục 1 và 4 (PostgreSQL 18, TimescaleDB 2.31, pgvector). ID của bản ghi mới dùng số nguyên tự tăng.
+Vẫn đúng server ở mục 1 và 4 (PostgreSQL 18, TimescaleDB 2.31), nhưng bỏ pgvector: vector chuyển sang Qdrant, vector
+store duy nhất của hệ thống, mỗi service một collection. ID của bản ghi mới dùng số nguyên tự tăng.
 Lỗi #10500 (mục 4) đáng chú ý vì Text-to-SQL có thể sinh ra đúng dạng truy vấn đó.
-Mỗi service một database và một role; role của service này không có quyền `CONNECT` vào database của service khác.
+Mỗi service một database và một role; role của service này không có quyền `CONNECT` vào database của service khác,
+trừ role chỉ đọc `text2sql_ro` vào các view công bố của `insight_db` (mục 7.3).
 Keycloak cũng dùng một database trên server này thay cho container `keycloak-db` riêng.
 
 | Database | Chủ | Nội dung (lấy từ schema hiện tại) | Extension |
 |---|---|---|---|
 | `core_db` | core | `public.tb_users`; `public.tb_home`, `home_member`, `home_invite`, `meter`, `device`; `public.*`; `public.tb_series`, `reading`, `device_estimate` và 6 continuous aggregate; `public.*`; `public.*`; thêm `outbox` | TimescaleDB |
 | `nilm_db` | nilm | `public.tb_inference_run`; thêm danh mục phiên bản model và tham số hiệu chỉnh theo hộ | |
-| `insight_db` | insight | `public.tb_device_cycle`, `alert`, `forecast_snapshot`, `cohort_stat`; `public.tb_savings_measure`; `public.tb_weather_hourly`; `public.tb_device_alert_rule`; thêm read model tiêu thụ theo giờ (hypertable), bản sao danh mục thiết bị, view cho truy vấn an toàn, `inbox`, `outbox` | TimescaleDB |
-| `copilot_db` | copilot | `ai.ai_conversation`, `ai.ai_message`, `ai.ai_tool_call`; `public.tb_suggestion`, `public.tb_suggestion_feedback`; thêm bảng saga, `inbox`, `outbox` | pgvector, unaccent, pg_trgm |
+| `insight_db` | insight | `public.tb_device_cycle`, `alert`, `forecast_snapshot`, `cohort_stat`; `public.tb_savings_measure`; `public.tb_weather_hourly`; `public.tb_device_alert_rule`; thêm read model tiêu thụ theo giờ (hypertable), bản sao danh mục thiết bị, view công bố cho text2sql, `inbox`, `outbox` | TimescaleDB |
+| `copilot_db` | copilot | `ai.ai_conversation`, `ai.ai_message`, `ai.ai_tool_call`; `public.tb_suggestion`, `public.tb_suggestion_feedback`; `public.tb_document`, `public.tb_chunk` (chỉ chữ, bỏ cột `embedding`); thêm bảng saga, `inbox`, `outbox` | unaccent, pg_trgm |
+| `text2sql_db` | text2sql | Catalog: kết nối nguồn (URI mã hóa Fernet), snapshot bảng và cột, data dictionary, metric, glossary, expert rule; phiên truy vấn (plan, SQL đã chạy, khóa theo người hỏi; không phải hội thoại của người dùng, hội thoại nằm ở `copilot_db`); `technical.ingestion_jobs` | |
 | `keycloak_db` | Keycloak | Do Keycloak tự quản | |
 
-Bỏ hẳn: schema `copilot_ro`, `public.tb_scope_token`, role `wattprint_copilot_ro`.
+| Collection Qdrant | Chủ | Nội dung | Nguồn để dựng lại |
+|---|---|---|---|
+| `copilot_knowledge_v1` | copilot | Vector của `tb_chunk` (biểu giá, quy định, tài liệu thiết bị) | `copilot_db.public.tb_chunk` |
+| `text2sql_semantics_v1` | text2sql | Vector và chỉ mục full-text của bảng, cột, metric, glossary, rule | `text2sql_db`, `POST /text2sql/ingestion/sync` |
+
+Bỏ hẳn: schema `copilot_ro`, `public.tb_scope_token`, role `wattprint_copilot_ro`, extension `vector`.
 
 ### 7.2 Không còn join chéo giữa các database
 
@@ -257,22 +265,29 @@ Lý do ở mục 1 ("join bằng SQL, số kWh/VND chỉ tính ở một nơi") 
 aggregate, tariff cùng nằm ở `core_db`, nên hóa đơn vẫn tính bằng một câu SQL ở một nơi. Phần cần dữ liệu của service
 khác đi theo hai cách:
 
-- **Sự kiện:** core phát `public.usage.updated` (tổng theo giờ từng thiết bị) và `public.tb_device.changed`; insight lưu
-  bản sao vào read model của nó. Đây là pattern CQRS: insight đọc nhanh, không chạm database ghi của public.
-- **Gọi API:** insight hỏi core biểu giá khi dự báo hóa đơn; copilot hỏi insight số liệu qua tool.
+- **Sự kiện:** core phát `energy.usage.updated` (tổng theo giờ từng thiết bị) và `core.device.changed`; insight lưu
+  bản sao vào read model của nó. Đây là pattern CQRS: insight đọc nhanh, không chạm database ghi của core.
+- **Gọi API:** insight hỏi core biểu giá khi dự báo hóa đơn; copilot hỏi insight số liệu qua tool và hỏi text2sql câu
+  hỏi tự do.
 
 Hệ quả: read model của insight có độ trễ (thường vài giây sau khi batch xong), và có thể lệch tạm thời khi một
-message nằm trong DLQ. Màn hình nào cần số chính xác tuyệt đối (hóa đơn) thì đọc từ public.
+message nằm trong DLQ. Màn hình nào cần số chính xác tuyệt đối (hóa đơn) thì đọc từ core.
 
-### 7.3 Copilot đọc dữ liệu thế nào
+### 7.3 Text-to-SQL đọc dữ liệu thế nào
 
-Thay cho `copilot_ro` + scope token: copilot gọi `POST /queries` của public. Insight chạy câu SQL do LLM sinh trên
-các view của `insight_db`, với các yêu cầu đã nêu ở mục 3 (Cô lập Copilot) chuyển sang SQL guard của insight:
+Thay cho `copilot_ro` + scope token: copilot gọi `POST /text2sql/chat` của text2sql trong mạng nội bộ, chuyển tiếp
+`X-User-Id` và mã phiên truy vấn của lượt trước (lưu trong `ai_tool_call`) nếu là câu hỏi nối tiếp. text2sql không nhận câu SQL từ ai: LLM chỉ trả plan tham chiếu ID của metric, bảng, cột đã đăng ký trong
+catalog, compiler (sqlglot) dựng câu `SELECT` với tên được quote và giá trị bind. Các yêu cầu ở mục 3 (Cô lập Copilot)
+chuyển thành:
 
-- chỉ một câu `SELECT`, kiểm trên parse tree; chặn `set_config`, `current_setting`, hàm `pg_*`;
-- `home_id` lấy từ header `X-User-Id` đã qua gateway (không lấy từ câu hỏi), ép vào mọi view;
-- chạy bằng một login riêng chỉ có `SELECT` trên các view đó, `statement_timeout = 2s`;
-- sai bất kỳ điều nào → 400, không chạy.
+- insight công bố một nhóm view trong `insight_db`, mỗi view có `WHERE home_id = current_setting('app.home_id', true)::bigint`;
+  chưa đặt `app.home_id` thì view không trả dòng nào (fail closed);
+- executor của text2sql mở transaction `READ ONLY`, chạy `SET LOCAL app.home_id` từ `X-User-Id` (không lấy từ câu hỏi),
+  rồi mới chạy câu đã dựng; vì SQL do compiler dựng nên câu chạy không thể gọi `set_config` để đổi nhà;
+- kết nối bằng role `text2sql_ro`, chỉ có `CONNECT` vào `insight_db` và `SELECT` trên các view đó, `statement_timeout = 5s`,
+  giới hạn số dòng trả về;
+- catalog chỉ đăng ký các view công bố, nên plan không tham chiếu được bảng nào khác;
+- kết quả qua presidio che PII trước khi gửi lại copilot hoặc đưa vào prompt.
 
 ### 7.4 Migration
 
@@ -289,4 +304,8 @@ cho `core_db` và `insight_db`.
 - Kết quả đo ở mục 5 là của một database trên PostgreSQL 17.11; sau khi tách và lên PG18 cần chạy lại ít nhất bài idempotency, failure drill và
   latency trên `core_db`.
 - Cột `device_id`, `home_id` ở `insight_db` và `copilot_db` không còn foreign key tới `core_db`; tính đúng dựa vào sự
-  kiện `public.tb_device.changed`. Thiết bị bị xóa ở core phải phát sự kiện để insight dọn theo.
+  kiện `core.device.changed`. Thiết bị bị xóa ở core phải phát sự kiện để insight dọn theo.
+- Bỏ pgvector: migration mới của `copilot_db` không tạo cột `tb_chunk.embedding` và index HNSW; một job nạp vector của
+  từng chunk lên collection `copilot_knowledge_v1`. Code monolith hiện tại (`app/models/knowledge.py`) giữ nguyên tới
+  bước tách copilot.
+- Đổi view công bố trong `insight_db` là đổi hợp đồng với text2sql: catalog phải sync lại (`POST /text2sql/ingestion/sync`).
