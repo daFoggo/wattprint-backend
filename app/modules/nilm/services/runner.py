@@ -91,11 +91,14 @@ async def _start(session: AsyncSession, t: Target, history: timedelta) -> dateti
 
 
 async def _read(session: AsyncSession, series_id: uuid.UUID, lo: datetime, hi: datetime):
+    """Good readings only: flagged ones (REFIT `Issues`) were dropped from the training data and
+    count as missing time in the aggregates too."""
     rows = (
         await session.execute(
             text(
                 "SELECT ts, value FROM public.tb_reading "
-                "WHERE series_id = :s AND ts >= :lo AND ts <= :hi ORDER BY ts"
+                "WHERE series_id = :s AND ts >= :lo AND ts <= :hi AND quality & 1 = 0 "
+                "ORDER BY ts"
             ),
             {"s": series_id, "lo": lo, "hi": hi},
         )
@@ -111,7 +114,7 @@ async def _open_head(session: AsyncSession, series_id: uuid.UUID, lo: datetime) 
         await session.scalar(
             text(
                 "SELECT EXISTS (SELECT 1 FROM public.tb_reading "
-                "WHERE series_id = :s AND ts >= :a AND ts < :b)"
+                "WHERE series_id = :s AND ts >= :a AND ts < :b AND quality & 1 = 0)"
             ),
             {"s": series_id, "a": lo - gap, "b": lo},
         )

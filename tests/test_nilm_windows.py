@@ -73,3 +73,9 @@ def test_plan_marks_bins_final_once_every_covering_window_is_inside_the_data():
     assert p.final_until == (ts[-1] - (w - 1) * windows.STEP).to_pydatetime()
     young = windows.plan(ts[:10], np.full(10, 5.0), T0, w, w // 2, open_head=False)
     assert young.final_until is None and young.starts == []
+
+
+def test_model_inputs_clip_the_aggregate_as_the_training_data_was():
+    s = pd.Series([3.0, 5.0, 2500.0, 12_000.0], index=idx(4))
+    x = windows.model_inputs(s, [0], 4, "Asia/Ho_Chi_Minh")
+    assert x[0, 0].tolist() == [0.0, 5.0, 2500.0, 10_000.0]

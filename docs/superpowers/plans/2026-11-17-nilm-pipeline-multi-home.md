@@ -127,14 +127,15 @@ Dựa trên `dataset/training/data.py` và `inference.py`:
 
 - **Lưới 15 s:** `resample('15s').mean()`, mốc lưới căn theo epoch. Lệch múi giờ giữa Anh và Việt Nam là bội số phút,
   nên lưới không đổi.
-- **Clip ≥ 0** cho aggregate.
+- **Kẹp như dữ liệu train** (`dataset/scripts/eda.ipynb`): dưới 5 W thành 0, trên 10 kW thành 10 kW. Chỉ áp cho
+  đầu vào model; cân bằng năng lượng vẫn dùng số đo thật.
 - **Đặc trưng thời gian** tính trên **giờ địa phương của nhà** (`tb_home.timezone`). Theo D4, giờ đó trùng giờ địa
   phương Anh của bản ghi gốc.
 - **Lỗ dữ liệu:** lúc train chỉ dùng đoạn liền mạch, không lấp lỗ. Khi suy luận, lấp tiến tối đa 4 ô (60 s), vì REFIT
   thường có mẫu cách nhau khoảng 62 s. Cửa sổ có lỗ dài hơn thì bỏ, đoạn đó không có estimate (coverage thấp). Ngưỡng
   60 s là tham số. Bước 2 đo tỉ lệ dữ liệu bị bỏ với vài ngưỡng rồi chốt.
-- **Bỏ qua cờ `quality`** khi đưa vào model, vì dữ liệu train có cả mẫu gắn cờ `Issues`. Vẫn ghi số mẫu gắn cờ vào log
-  của lần chạy.
+- **Bỏ các mẫu gắn cờ** (`quality & 1`, tức `Issues` của REFIT): dữ liệu train đã bỏ chúng, và các aggregate
+  cũng tính chúng là thời gian thiếu. (Bản plan đầu ghi ngược lại: sai, đã sửa khi đọc `eda.ipynb`.)
 
 ### 4.3 Cửa sổ, chồng lấn và điểm "đã chốt"
 

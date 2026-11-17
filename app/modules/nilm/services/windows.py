@@ -8,6 +8,8 @@ import pandas as pd
 STEP = pd.Timedelta(seconds=15)  # the model's sample period (dataset/training/data.py)
 MAX_FILL_BINS = 4  # gaps up to 60 s are carried forward; REFIT logs ~62 s apart at times
 INPUT_CHANNELS = 9  # aggregate + 8 time features
+# The training data was clipped so (dataset/scripts/eda.ipynb): under 5 W is 0, over 10 kW is 10 kW.
+MIN_W, MAX_W = 5.0, 10_000.0
 
 
 def grid(ts: pd.DatetimeIndex, watts: np.ndarray) -> pd.Series:
@@ -76,8 +78,9 @@ def time_features(index: pd.DatetimeIndex, tz: str) -> np.ndarray:
 
 
 def model_inputs(s: pd.Series, starts: list[int], window: int, tz: str) -> np.ndarray:
-    """(B, 9, window): clipped aggregate W + time features, one row per window start."""
-    agg = np.clip(s.to_numpy(np.float32), 0.0, None)
+    """(B, 9, window): aggregate W clipped as in training + time features, one row per window."""
+    agg = s.to_numpy(np.float32)
+    agg = np.where(agg < MIN_W, 0.0, np.minimum(agg, MAX_W)).astype(np.float32)
     feats = time_features(s.index, tz)
     x = np.empty((len(starts), INPUT_CHANNELS, window), dtype=np.float32)
     for i, a in enumerate(starts):
