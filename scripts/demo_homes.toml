@@ -19,7 +19,7 @@ devices = { Fridge = "Fridge-Freezer", WashMach = "Washing Machine", Dishwash = 
 
 [[home]]
 house = 5
-# model = "house5/nilm_pipeline.pt"  # once trained; until then the shared model runs
+model = "house5/nilm_pipeline.pt"
 owner = { email = "refit.house5@wattprint.local", name = "REFIT House 5" }
 members = []
 devices = { Fridge = "Fridge-Freezer", WashMach = "Washing Machine", Dishwash = "Dishwasher", Microwave = "Microwave", Toaster = "Toaster", Kettle = "Kettle", Other = "Other" }
