@@ -57,6 +57,7 @@ def pytest_configure(config):
     if proc.returncode != 0:
         raise RuntimeError(f"migrating the test database failed:\n{proc.stdout}\n{proc.stderr}")
 
+
 _KEY = rsa.generate_private_key(public_exponent=65537, key_size=2048)
 _OTHER_KEY = rsa.generate_private_key(public_exponent=65537, key_size=2048)
 

@@ -177,14 +177,21 @@ async def seed_home(cfg: dict, home: dict, kc: Keycloak, password: str, extra: l
         )
         for p, role in people + [({"email": e, "name": None}, "member") for e in extra]:
             uid = await ensure_profile(s, p["email"], p["name"], subs.get(p["email"]))
-            await s.execute(
+            # Demo accounts move here; an extra (real) account already in a home stays there.
+            on_conflict = (
+                "DO NOTHING"
+                if p["email"] in extra
+                else ("DO UPDATE SET home_id = EXCLUDED.home_id, role = EXCLUDED.role")
+            )
+            added = await s.scalar(
                 text(
                     "INSERT INTO public.tb_home_member (home_id, user_id, role) "
-                    "VALUES (:h, :u, :r) ON CONFLICT (user_id) DO UPDATE "
-                    "SET home_id = EXCLUDED.home_id, role = EXCLUDED.role"
+                    f"VALUES (:h, :u, :r) ON CONFLICT (user_id) {on_conflict} RETURNING user_id"
                 ),
                 {"h": home_id, "u": uid, "r": role},
             )
+            if added is None:
+                print(f"house {house}: {p['email']} already has a home, left there")
         meter_id = await s.scalar(
             text(
                 "INSERT INTO public.tb_meter (serial, home_id, status, claimed_at) "

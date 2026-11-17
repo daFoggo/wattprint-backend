@@ -5,7 +5,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 OTHER = "Other"  # the remainder: aggregate minus every modelled appliance
 
-# Bundle label -> cat_device_type.code. Labels a bundle may add later fall back to 'other'.
+# Bundle label -> cat_device_type.code. A label missing here fails the pass (KeyError) rather than
+# sharing Other's series and overwriting it.
 DEVICE_TYPES = {
     "Fridge": "fridge_freezer",
     "Freezer": "freezer",
@@ -29,7 +30,7 @@ async def ensure_devices(
     """
     out: dict[str, uuid.UUID] = {}
     for label in [*labels, OTHER]:
-        code = DEVICE_TYPES.get(label, "other")
+        code = DEVICE_TYPES[label]
         device_id = await session.scalar(
             text(
                 "SELECT id FROM public.tb_device WHERE home_id = :h AND origin = 'nilm' "
