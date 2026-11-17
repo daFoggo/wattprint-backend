@@ -28,3 +28,6 @@ dataset/MetaData_Tables.xlsx
 
 # Keycloak provider jars (the login theme is built in wattprint-web/apps/keycloak-theme)
 keycloak/providers/*.jar
+
+# NILM model bundles per home (dataset/models/nilm/<home>/nilm_pipeline.pt), registered in tb_nilm_model
+dataset/models/

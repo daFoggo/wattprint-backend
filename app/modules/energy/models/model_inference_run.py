@@ -34,3 +34,4 @@ class InferenceRun(Base):
     started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=NOW)
     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     status: Mapped[str] = mapped_column(Text, default="running", server_default="running")
+    error: Mapped[str | None] = mapped_column(Text)

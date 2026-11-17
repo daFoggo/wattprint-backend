@@ -342,7 +342,10 @@ async def test_downgrade_removes_compression_and_upgrade_restores_it(throwaway_d
         async with engine.connect() as c:
             await c.execute(text("SELECT public.set_policies(true)"))
             assert len(await jobs(c)) == 4
-            assert await compress_1m(c) >= 1
+            # The 1m policy may compress first (it starts right away): either way, all compressed.
+            await compress_1m(c)
+            for view in CAGGS:
+                assert await compressed_count(c, view) >= 1
             assert await snapshot(c, sid) == before
     finally:
         await engine.dispose()

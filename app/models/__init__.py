@@ -12,6 +12,7 @@ from ..modules.home.models import (
     Metric,
 )
 from ..modules.insight.models import Alert, CohortStat, DeviceCycle, ForecastSnapshot
+from ..modules.nilm.models import NilmModel
 from ..modules.ops.models import IngestBatch, IngestCheckpoint
 from .copilot import (
     Conversation,
@@ -46,6 +47,7 @@ __all__ = [
     "Message",
     "Meter",
     "Metric",
+    "NilmModel",
     "SavingsMeasure",
     "ScopeToken",
     "Series",

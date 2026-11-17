@@ -724,6 +724,7 @@ def expected_app(rel: str) -> set[str]:
         "public.tb_refresh_tokens",
         "public.tb_series",
         "public.tb_inference_run",
+        "public.tb_nilm_model",
         "public.tb_weather_hourly",
         "ai.ai_conversation",
         "ai.ai_message",
@@ -758,6 +759,7 @@ def expected_ingest(rel: str) -> set[str]:
         "public.tb_device_estimate": {"SELECT", "INSERT", "UPDATE"},
         "public.tb_ingest_batch": {"SELECT", "INSERT", "UPDATE"},
         "public.tb_ingest_checkpoint": {"SELECT", "INSERT", "UPDATE"},
+        "public.tb_nilm_model": {"SELECT"},
     }.get(rel, set())
 
 

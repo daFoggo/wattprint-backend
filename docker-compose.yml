@@ -112,6 +112,8 @@ services:
       COPILOT_DB_PASSWORD: ${COPILOT_DB_PASSWORD:-}
       AI_DB_PASSWORD: ${AI_DB_PASSWORD:-}
       REFIT_SEED_DIR: /data
+      # The House 2 seed revision is opt-in: demo homes come from scripts/seed_demo_homes.py.
+      SEED_REFIT: ${SEED_REFIT:-0}
     ports:
       - "${API_PORT:-11093}:11093"
     depends_on:
@@ -126,6 +128,29 @@ services:
       - ./scripts:/code/scripts
       - ./dataset:/data:ro
     command: sh -c "alembic upgrade head && exec uvicorn app.main:app --host 0.0.0.0 --port 11093 --reload --reload-dir /code/app --timeout-graceful-shutdown 3"
+
+  nilm:
+    # NILM worker: disaggregates every home's main meter into device estimates (CPU torch).
+    build:
+      context: .
+      args:
+        WITH_NILM: "1"
+    image: wattprint-nilm
+    container_name: wattprint-nilm
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:11096/${POSTGRES_DB}
+      NILM_MODEL_DIR: /data/models/nilm
+      NILM_THREADS: ${NILM_THREADS:-4}
+    depends_on:
+      db:
+        condition: service_healthy
+      api:
+        condition: service_started # runs the migrations
+    volumes:
+      - ./app:/code/app
+      - ./dataset:/data:ro
+    restart: unless-stopped
+    command: python -m app.modules.nilm.worker
 
 networks:
   default:

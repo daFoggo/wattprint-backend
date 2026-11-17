@@ -19,6 +19,12 @@ class Settings(BaseSettings):
     # Comma separated clients (`azp`) accepted: the mobile app and the web dashboard.
     keycloak_client_ids: str = "wattprint-mobile,wattprint-web"
 
+    # NILM worker (app.modules.nilm.worker): tb_nilm_model.artifact is relative to this directory.
+    nilm_model_dir: str = "models/nilm"
+    nilm_history_days: int = 90  # how far back a home's first pass starts
+    nilm_poll_s: int = 60
+    nilm_threads: int = 4  # torch CPU threads, so the API on the same host keeps its share
+
     @property
     def client_id_list(self) -> list[str]:
         return [c.strip() for c in self.keycloak_client_ids.split(",") if c.strip()]
