@@ -1,3 +1,3 @@
-from .exceptions import HomeNotFoundError
+from .exceptions import DeviceNotFoundError, HomeNotFoundError
 
-__all__ = ["HomeNotFoundError"]
+__all__ = ["DeviceNotFoundError", "HomeNotFoundError"]

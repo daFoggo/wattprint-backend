@@ -1,4 +1,14 @@
 from .aggregates import SKIP_REASON, SkippedWindow, backfill_aggregates
+from .devices import (
+    Cycle,
+    DeviceDetail,
+    DeviceRow,
+    activity,
+    analyzed_until,
+    device_detail,
+    devices,
+    runs,
+)
 from .meter import (
     DeviceEnergy,
     LatestPower,
@@ -14,6 +24,14 @@ from .meter import (
 
 __all__ = [
     "SKIP_REASON",
+    "Cycle",
+    "DeviceDetail",
+    "DeviceRow",
+    "activity",
+    "analyzed_until",
+    "device_detail",
+    "devices",
+    "runs",
     "DeviceEnergy",
     "LatestPower",
     "Point",

@@ -49,7 +49,10 @@ async def series(
 
 @router.get(
     "/stream",
-    summary="Server-sent events: `reading` for each main-meter sample, the last 5 minutes first",
+    summary=(
+        "Server-sent events: `reading` for each main-meter sample (the last 5 minutes first), "
+        "`nilm.updated` when the device estimates move on (data: `analyzed_until`)"
+    ),
 )
 async def stream(request: Request, home_id: CurrentHome, db: DbSession) -> StreamingResponse:
     # Release the auth session's pooled connection now: the stream lives for minutes.
@@ -59,10 +62,16 @@ async def stream(request: Request, home_id: CurrentHome, db: DbSession) -> Strea
         opened = datetime.now(UTC)
         last = opened - STREAM_BACKLOG
         idle = 0
+        async with SessionLocal() as session:
+            analyzed = await services.analyzed_until(session, home_id)
         while datetime.now(UTC) - opened < STREAM_MAX and not await request.is_disconnected():
             # shortcut: one poll per open stream every 3 s; use LISTEN/NOTIFY when many watch.
             async with SessionLocal() as session:
                 samples = await services.main_readings(session, home_id, last)
+                newest = await services.analyzed_until(session, home_id)
+            if newest is not None and (analyzed is None or newest > analyzed):
+                analyzed = newest
+                yield f'event: nilm.updated\ndata: {{"analyzed_until": "{newest.isoformat()}"}}\n\n'
             if samples:
                 last, idle = samples[-1].ts, 0
                 for sample in samples:
