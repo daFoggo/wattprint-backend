@@ -5,7 +5,7 @@ Bạn nhận một báo cáo bài tập lớn đã đủ nội dung và đã d�
 ## 1. Bối cảnh
 
 - Môn: Phát triển phần mềm hướng dịch vụ (Service-Oriented Architecture), INT1448-20261-01, Nhóm 6, giảng viên Nguyễn Việt Dũng.
-- Đề: WattPrint, hệ thống theo dõi điện năng gia đình (NILM tách tải thiết bị, insight, Energy Copilot trả lời bằng ngôn ngữ tự nhiên). Báo cáo chỉ gồm từ bài toán đến phân tích chốt kiến trúc: 4 service (core, nilm, insight, copilot), Envoy gateway, Keycloak, RabbitMQ, một PostgreSQL 18 + TimescaleDB + pgvector với 5 database, transactional outbox/inbox, saga, C4 mức 1 đến 3.
+- Đề: WattPrint, hệ thống theo dõi điện năng gia đình (NILM tách tải thiết bị, insight, Energy Copilot trả lời bằng ngôn ngữ tự nhiên). Báo cáo chỉ gồm từ bài toán đến phân tích chốt kiến trúc: 5 service (nilm, core, insight, copilot, text2sql), Envoy gateway, Keycloak, RabbitMQ, Qdrant, một PostgreSQL 18 + TimescaleDB với 6 database, transactional outbox/inbox, saga, C4 mức 1 đến 3.
 - Đề bài gốc: `C:\Users\Foggo\Downloads\bai-tap-lon-yeu-cau-gui-sinh-vien_1.docx` (đọc để biết giảng viên chấm gì).
 - Người đọc: giảng viên môn SOA và bạn học. Cần dễ hiểu, không quá kỹ thuật.
 
@@ -37,7 +37,7 @@ Gốc repo: `D:\Dev_Projects\project-wattprint\wattprint-fastapi`
 - Không dùng chữ "mock" trong phần kiến trúc.
 
 **Kỹ thuật, không được đổi**
-- Số liệu, tên service, tên bảng, tên queue, luồng (copilot → insight → core → nilm), các business rule BR1 đến BR9, mã hình và bảng.
+- Số liệu, tên service, tên bảng, tên queue, luồng gọi (core → nilm, insight → core, copilot → insight, copilot → text2sql), các business rule BR1 đến BR9, mã hình và bảng.
 - Không thêm tuyên bố mới không có trong các file nguồn ở mục 2. Muốn thêm thì phải tìm được căn cứ trong nguồn.
 - Không xóa trích dẫn `[@key]`. Có thể di chuyển nếu câu đổi chỗ, miễn nó vẫn đứng cạnh câu nó chứng minh.
 

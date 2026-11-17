@@ -11,40 +11,58 @@ bằng [excalidraw.com](https://excalidraw.com) (Open) hoặc extension Excalidr
 | `02-container.excalidraw` | Container | Gồm những khối chạy độc lập nào, ai gọi ai, dữ liệu của ai |
 | `03-component-core.excalidraw` | Component | Bên trong core: router, service, client, outbox relay |
 | `04-component-nilm.excalidraw` | Component | Bên trong nilm: API suy luận, engine NILMFormer, kho model |
-| `05-component-insight.excalidraw` | Component | Bên trong insight: consumer, read model, detector, truy vấn an toàn |
+| `05-component-insight.excalidraw` | Component | Bên trong insight: consumer, read model, detector, view công bố cho text2sql |
 | `06-component-copilot.excalidraw` | Component | Bên trong copilot: guardrail, orchestrator, verifier, RAG, saga, notifier |
+| `07-component-text2sql.excalidraw` | Component | Bên trong text2sql: catalog, pipeline, compiler SQL, executor chỉ đọc, chỉ mục Qdrant |
 
 Vẽ 3 cấp đầu của C4 (Context, Container, Component), như cách làm thông dụng; không vẽ cấp Code. File được sinh bởi `gen_excalidraw.py` (`python gen_excalidraw.py docs/architecture`);
 thêm `--all` để sinh cả sơ đồ Deployment và Dynamic (`x1`–`x6`) khi cần. Chạy lại script sẽ ghi đè
 các chỉnh sửa tay trong Excalidraw, nên sau khi bắt đầu chỉnh tay thì coi file `.excalidraw` là bản gốc.
 
-## 1. Service nghiệp vụ (4) và phần mềm có sẵn
+## 1. Service nghiệp vụ (5) và phần mềm có sẵn
 
-Lời gọi đồng bộ chỉ đi một chiều **copilot → insight → core → nilm**. Dữ liệu đi ngược lên bằng sự kiện qua
-RabbitMQ (core → insight → copilot; nilm trả kết quả ngay trong response), nên không có vòng phụ thuộc và một service chết chỉ ảnh hưởng tầng ngay trên.
+Trên sơ đồ, service xếp theo luồng dữ liệu, từ dữ liệu sensor tới khuyến nghị: **nilm, core, insight, copilot,
+text2sql** (nilm đứng trước core vì core gọi nilm ngay trong lúc ingest). Nhờ vậy mọi lời gọi đồng bộ đều nối hai ô
+kề nhau. Lời gọi đồng bộ có bốn cạnh, không cạnh nào tạo vòng: `core → nilm`, `insight → core`, `copilot → insight`,
+`copilot → text2sql`. Bên cần số liệu gọi bên giữ số liệu; dữ liệu đi theo luồng nghiệp vụ bằng sự kiện qua RabbitMQ
+(core → insight → copilot; nilm trả kết quả ngay trong response). Một service chết chỉ ảnh hưởng service gọi tới nó.
 
 | Service | Trách nhiệm | Dữ liệu riêng | Gọi tới |
 |---|---|---|---|
 | `core` | Nhà, thành viên, mã mời, ghép công tơ, thiết bị, nhận batch số đo, biểu giá 5 bậc, hóa đơn. Nguồn sự thật | `core_db` (TimescaleDB) | `nilm` |
 | `nilm` | Suy luận NILMFormer, hiệu chỉnh theo hộ, phiên bản model | `nilm_db` + volume model | không |
-| `insight` | Read model tiêu thụ (CQRS), bất thường, chạy ngầm, dự báo hóa đơn và bậc giá, ngân sách, so sánh nhóm, what-if, M&V, truy vấn an toàn cho Text-to-SQL | `insight_db` (TimescaleDB) | `core`, Open-Meteo |
-| `copilot` | Hỏi đáp (pull), gợi ý chủ động (push), guardrail PII và prompt injection, verifier, RAG, xếp hạng theo phản hồi, thông báo, thống kê token, saga kế hoạch tiết kiệm | `copilot_db` (pgvector) | `insight`, LLM provider, Expo Push, Telegram |
+| `insight` | Read model tiêu thụ (CQRS), bất thường, chạy ngầm, dự báo hóa đơn và bậc giá, ngân sách, so sánh nhóm, what-if, M&V, view chỉ đọc công bố cho text2sql | `insight_db` (TimescaleDB) | `core`, Open-Meteo |
+| `copilot` | Hỏi đáp (pull), gợi ý chủ động (push), guardrail PII và prompt injection, verifier, RAG, xếp hạng theo phản hồi, thông báo, thống kê token, saga kế hoạch tiết kiệm | `copilot_db`, collection Qdrant `copilot_knowledge_v1` | `insight`, `text2sql`, LLM provider, Expo Push, Telegram |
+| `text2sql` | Trả lời câu hỏi tự do về số liệu: catalog (bảng, cột, metric, glossary, rule), tìm metric, LLM lập plan theo ID, compiler dựng SQL, chạy chỉ đọc trên view của insight, che PII trên kết quả | `text2sql_db` (catalog, phiên truy vấn), collection Qdrant `text2sql_semantics_v1` | LLM provider; đọc view `insight_db` bằng role `text2sql_ro` |
 
-Phần mềm có sẵn: Envoy (API gateway), Keycloak (identity), RabbitMQ (broker), PostgreSQL. Mỗi service là **một
-container**: API, consumer, outbox relay và job định kỳ chạy chung một process (background task trong lifespan của FastAPI).
+`text2sql` xây trên ứng dụng mã nguồn `ai-agent-superset-standalone` (FastAPI, Python 3.14). Trong WattPrint, người hỏi
+lấy từ `X-User-Id` do copilot chuyển tiếp, nguồn dữ liệu duy nhất là các view công bố của `insight_db`, catalog khai báo
+các metric năng lượng (kWh theo thiết bị, tiền theo bậc giá), ingestion worker chạy như background task trong lifespan.
 
-### Stack (8 container, 2 ngôn ngữ: Python và TypeScript)
+**Hội thoại chỉ có ở copilot.** Lịch sử chat của người dùng (`ai_conversation`, `ai_message`) nằm ở `copilot_db`.
+text2sql chỉ giữ **phiên truy vấn**: plan, metric đã chọn, câu SQL đã chạy, trạng thái chờ người hỏi chọn quan hệ, để xử
+lý câu hỏi nối tiếp ("còn tháng trước?"). Lượt hỏi số liệu đầu tiên trong một cuộc chat, text2sql tạo phiên và trả mã
+phiên; copilot lưu mã này trong `ai_tool_call` và gửi lại ở các lượt sau. Người dùng không thấy phiên truy vấn; API
+phiên của text2sql chỉ dùng cho trang quản trị xem lại truy vấn.
+
+Phần mềm có sẵn: Envoy (API gateway), Keycloak (identity), RabbitMQ (broker), PostgreSQL, Qdrant (vector store). Mỗi
+service là **một container**: API, consumer, outbox relay và job định kỳ chạy chung một process (background task
+trong lifespan của FastAPI).
+
+### Stack (10 container, 2 ngôn ngữ: Python và TypeScript)
 
 | Lớp | Chọn | Lý do |
 |---|---|---|
 | Gateway | Envoy 1.40 (`envoyproxy/envoy`), một file `envoy.yaml` | Kiểm JWT, rate limit, request id, timeout, retry, TLS đều là bộ lọc có sẵn, không phải viết code. CNCF graduated, lõi của Istio và Envoy Gateway |
 | Identity | Keycloak 26 | Đã có realm. Lưu vào `keycloak_db` trên Postgres chung (`KC_DB_URL_DATABASE`), không cần container DB riêng |
-| Database | Một PostgreSQL 18 + TimescaleDB 2.31 + pgvector (`timescale/timescaledb:2.31.0-pg18`) | Một server, 5 database, mỗi database một role. TimescaleDB lo chuỗi số đo (hypertable, continuous aggregate 1h/1d, nén, xóa theo hạn) ở `core_db` và read model ở `insight_db`; pgvector cho RAG ở `copilot_db` |
+| Database | Một PostgreSQL 18 + TimescaleDB 2.31 (`timescale/timescaledb:2.31.0-pg18`) | Một server, 6 database, mỗi database một role. TimescaleDB lo chuỗi số đo (hypertable, continuous aggregate 1h/1d, nén, xóa theo hạn) ở `core_db` và read model ở `insight_db` |
+| Vector store | Qdrant 1.20 (`qdrant/qdrant:v1.20.1`), không publish port | Vector store duy nhất. Mỗi service một collection, khóa JWT của Qdrant giới hạn theo collection. Tìm kết hợp vector và full-text trong một truy vấn, đúng cách text2sql tìm metric. Vector dựng lại được từ chữ trong `copilot_db` và `text2sql_db` |
 | Broker | RabbitMQ 4 (`rabbitmq:4-management`), quorum queue | `delivery-limit` + dead-letter exchange có sẵn, không cần queue TTL để retry |
 | Service | Python 3.14, FastAPI, SQLAlchemy async + asyncpg, Alembic, pydantic-settings | Giữ như code hiện tại |
 | Messaging | FastStream (RabbitMQ) | Consumer viết như route FastAPI, tự sinh tài liệu AsyncAPI, có broker giả lập trong bộ nhớ để test |
 | Gọi HTTP | httpx + tenacity; breaker và bulkhead (`asyncio.Semaphore`) tự viết trong `libs/common` | pybreaker chỉ hỗ trợ async qua Tornado, nên không dùng |
-| Mã nguồn | Monorepo uv workspace: `services/{core,nilm,insight,copilot}` + `libs/common` | Một lockfile; phần chịu lỗi, log, outbox/inbox viết một lần. `libs/common` không chứa model nghiệp vụ |
+| Text-to-SQL | Service `text2sql` (nền `ai-agent-superset-standalone`): sqlglot, LLM qua API tương thích OpenAI, presidio | LLM không viết SQL: chỉ chọn metric và cột theo ID trong catalog, compiler dựng câu SQL |
+| Mã nguồn | Monorepo uv workspace: `services/{core,nilm,insight,copilot,text2sql}` + `libs/common` | Một lockfile; phần chịu lỗi, log, outbox/inbox viết một lần. `libs/common` không chứa model nghiệp vụ |
 | Kiểm tra | ruff, pytest, Postman + Newman, GitHub Actions | |
 | Client | Next.js (pnpm + turbo), Expo | Repo riêng, không đổi |
 
@@ -53,11 +71,14 @@ Không dùng: Prometheus, Grafana, Loki, Jaeger, OpenResty/Lua, container worker
 
 **Vì sao chia như vậy**
 
-- Ranh giới theo dữ liệu và nghiệp vụ: ghi nhận (core), tính toán ML (nilm), phân tích (insight), tương tác AI (copilot).
+- Ranh giới theo dữ liệu và nghiệp vụ: ghi nhận (core), tính toán ML (nilm), phân tích (insight), tương tác AI
+  (copilot), hỏi đáp số liệu (text2sql).
 - Khác nhau về tài nguyên và kiểu lỗi: nilm nặng CPU/RAM (PyTorch), copilot phụ thuộc LLM ngoài chậm và hay lỗi,
   insight chạy theo lô và lịch, core cần nhận số đo ổn định.
+- text2sql tách khỏi copilot vì có dữ liệu riêng (catalog metric, glossary, mô tả cột do quản trị viên khai báo),
+  có worker embedding riêng, và giữ nguyên được mã nguồn gốc khi gọi qua API thay vì chép vào copilot.
 - Insight giữ bản sao dữ liệu tiêu thụ cập nhật bằng sự kiện (pattern
-  [CQRS](https://microservices.io/patterns/data/cqrs.html)), nên Text-to-SQL của copilot chạy trên database phân tích
+  [CQRS](https://microservices.io/patterns/data/cqrs.html)), nên text2sql chạy trên view của database phân tích
   của insight, không chạm vào database ghi nhận của core.
 
 ## 2. Nguồn số đo
@@ -67,21 +88,29 @@ và gửi batch số đo qua HTTPS tới gateway bằng API key của thiết b�
 script Python đọc CSV của bộ dữ liệu REFIT và gửi batch qua gateway y như cảm biến thật (cùng endpoint, cùng API key,
 cùng `Idempotency-Key`), có thể tua nhanh thời gian. Trên sơ đồ chỉ vẽ REFIT replayer, kèm ghi chú nó thay cho cảm biến
 thật và dữ liệu là public dataset.
-Dữ liệu REFIT hiện được seed bởi revision Alembic `b2183c4aca1c`, ghi thẳng vào database; REFIT replayer gọi API sẽ là một script riêng khi tách service.
+Khi dev có thể seed nhanh dữ liệu REFIT bằng revision Alembic `b2183c4aca1c` (ghi thẳng vào `core_db`); khi demo và
+kiểm thử, dữ liệu luôn đi qua REFIT replayer và gateway.
 
 ## 2b. Dữ liệu
 
-Bảng nào sang database nào, cách Copilot đọc dữ liệu sau khi bỏ `copilot_ro`: `docs/database-design.md` mục 7.
+Bảng nào sang database nào, cách text2sql đọc dữ liệu sau khi bỏ `copilot_ro`: `docs/database-design.md` mục 7.
 Thứ tự làm: `docs/superpowers/plans/2026-11-10-microservices-split.md`.
 
-- Một PostgreSQL server (TimescaleDB + pgvector), năm database `core_db`, `insight_db`, `copilot_db`, `nilm_db`,
-  `keycloak_db`, mỗi database một role riêng. Không service nào có quyền vào database của service khác.
+- Một PostgreSQL server (TimescaleDB), sáu database `core_db`, `insight_db`, `copilot_db`, `nilm_db`, `text2sql_db`,
+  `keycloak_db`, mỗi database một role riêng. Không service nào có quyền vào database của service khác, trừ một ngoại
+  lệ có kiểm soát: role `text2sql_ro` chỉ có `SELECT` trên các view mà insight công bố trong `insight_db`.
+- View công bố lọc theo `current_setting('app.home_id', true)`. Executor của text2sql đặt giá trị này từ `X-User-Id`
+  trong cùng transaction chỉ đọc; chưa đặt thì view không trả dòng nào. Insight sở hữu view, đổi view là đổi hợp đồng
+  với text2sql.
+- Một Qdrant, mỗi service một collection: `copilot_knowledge_v1` (tri thức RAG), `text2sql_semantics_v1` (catalog).
+  Chữ gốc nằm ở database của service, Qdrant chỉ giữ vector để tìm.
 - Ghi dữ liệu và ghi sự kiện trong cùng transaction (transactional outbox). Outbox relay lấy bản ghi bằng
   `SELECT … FOR UPDATE SKIP LOCKED`, nên chạy nhiều tiến trình cũng không gửi trùng. Consumer lưu `message_id` đã
   xử lý (inbox) để idempotent.
 - Bảng hiện có cần đổi chủ khi tách: `insight.*` và `copilot.savings_measure` → `insight_db`;
   `energy.inference_run` → `nilm_db`; `energy.weather_hourly` và `core.device_alert_rule` → `insight_db`;
-  `copilot.*`, `knowledge.*` → `copilot_db`. View `copilot_ro` được thay bằng API truy vấn an toàn của insight.
+  `copilot.*`, `knowledge.*` → `copilot_db` (cột `embedding` chuyển sang Qdrant). View `copilot_ro` được thay bằng
+  view công bố của insight cho text2sql.
 
 ## 3. Sự kiện qua RabbitMQ
 
@@ -124,7 +153,8 @@ cần chờ thì thêm một queue TTL.
 
 - Gateway là Envoy, một listener HTTP (lab) hoặc HTTPS (server, chứng chỉ Let's Encrypt lấy bằng certbot). Nếu server
   đã có nginx chung thì nginx giữ tên miền và HTTPS, Envoy đứng sau ở cổng 11093.
-- Route theo prefix `/api/core/`, `/api/insight/`, `/api/copilot/`, `/api/nilm/` tới cluster tương ứng, mỗi route có
+- Route theo prefix `/api/core/`, `/api/insight/`, `/api/copilot/`, `/api/nilm/` (admin), `/api/text2sql/` (admin,
+  quản lý catalog) tới cluster tương ứng. Người dùng cuối hỏi số liệu qua copilot, không gọi thẳng text2sql. Mỗi route có
   `timeout`, `retry_policy` (chỉ `connect-failure`, `reset` cho GET; không retry POST).
 - Bộ lọc `local_ratelimit` (rate limit), `x-request-id` do Envoy tự sinh, giới hạn kích thước body.
 - Bộ lọc `jwt_authn`, provider Keycloak:
@@ -141,8 +171,10 @@ cần chờ thì thêm một queue TTL.
 
 ## 5. Độ tin cậy (`libs/common`)
 
-- Mọi lời gọi giữa service: timeout (connect 1s, read 3s; LLM 20s), retry tối đa 2 lần có backoff và jitter (tenacity)
-  chỉ cho request idempotent hoặc có `Idempotency-Key`, circuit breaker (`core → nilm`, `copilot → LLM`),
+- Mọi lời gọi giữa service: timeout (connect 1s, read 3s; LLM 20s; `copilot → text2sql` 30s vì gồm nhiều lần gọi LLM),
+  retry tối đa 2 lần có backoff và jitter (tenacity) chỉ cho request idempotent hoặc có `Idempotency-Key`, circuit
+  breaker (`core → nilm`, `copilot → LLM`, `copilot → text2sql`, `text2sql → LLM`). text2sql lỗi thì copilot vẫn trả
+  lời bằng các tool cố định của insight (dự báo, what-if, so sánh tháng),
   `asyncio.Semaphore` giới hạn lời gọi đồng thời (bulkhead) và `mem_limit`/`cpus` cho từng container.
 - Phân loại lỗi: 4xx của service phía sau giữ nguyên; timeout → 504; không kết nối được hoặc breaker mở → 503 kèm
   `Retry-After`.
@@ -173,7 +205,7 @@ cần chờ thì thêm một queue TTL.
 | Yêu cầu | Đáp ứng |
 |---|---|
 | 1. ≥5 luật nghiệp vụ | Mã ghép dùng một lần có hạn; mỗi tài khoản một nhà; batch idempotent và liên tục; hóa đơn theo đúng phiên bản biểu giá 5 bậc; dự báo cần ≥7 ngày dữ liệu; so sánh nhóm cần ≥10 hộ; M&V cần ≥14 ngày; Copilot chỉ cho gói Pro; tối đa N thông báo mỗi ngày, có giờ yên tĩnh |
-| 2. ≥3 service, dữ liệu riêng | 4 service, 4 database |
+| 2. ≥3 service, dữ liệu riêng | 5 service, 5 database (và collection Qdrant riêng cho copilot, text2sql) |
 | 3. ≥4 endpoint, OpenAPI | FastAPI sinh OpenAPI, CI kiểm file đã commit |
 | 4. Gateway | Envoy, chỉ định tuyến và chính sách |
 | 5. Gọi liên service tin cậy | Mục 5 |

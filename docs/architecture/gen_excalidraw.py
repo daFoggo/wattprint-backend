@@ -231,40 +231,46 @@ class Diagram:
 def overview():
     d = Diagram()
     d.label("title", 0, -120, "WattPrint · kiến trúc tổng quan", 34, "#0b2e4f")
-    d.label("subtitle", 0, -70, "Một trang, đủ để trình bày. Chi tiết ở sơ đồ 01 (Context), 02 (Container), 03–06 (Component).", 18, "#555555")
+    d.label("subtitle", 0, -70, "Một trang, đủ để trình bày. Chi tiết ở sơ đồ 01 (Context), 02 (Container), 03–07 (Component).", 18, "#555555")
     big = dict(name_fs=26, desc_fs=18)
     d.box("app", 300, 0, 260, 90, "team", "App Expo", **big)
     d.box("web", 680, 0, 260, 90, "team", "Web Next.js", **big)
     d.box("sensor", 1060, 0, 260, 90, "external", "REFIT replayer", desc="public dataset REFIT", **big)
     d.label("sensor_note", 1340, 10, "Thay cho sensor CT ở aptomat\n(Shelly EM, ESP32 + ESPHome)\nvì đồ án không có thiết bị", 16, "#495057")
-    d.box("kc", 1880, 190, 260, 90, "offshelf", "Keycloak", desc="đăng nhập · JWT", **big)
-    d.box("gw", 300, 190, 1400, 90, "offshelf", "API Gateway · Envoy",
+    d.box("kc", 2000, 190, 260, 90, "offshelf", "Keycloak", desc="đăng nhập · JWT", **big)
+    d.box("gw", 300, 190, 1620, 90, "offshelf", "API Gateway · Envoy",
           desc="kiểm JWT · định tuyến · rate limit · không chứa nghiệp vụ", **big)
     for k in ("app", "web", "sensor"):
         cx = d.boxes[k]["x"] + 130
         d.arrow("in_" + k, k, "gw", pts=[(cx, 96), (cx, 184)])
-    d.arrow("jwks", "gw", "kc", "JWKS", pts=[(1706, 235), (1874, 235)], lbl_w=80)
+    d.arrow("jwks", "gw", "kc", "JWKS", pts=[(1926, 235), (1994, 235)], lbl_w=60)
 
-    svc = [("cop", "copilot", "hỏi đáp · gợi ý · RAG", ("copilot_db", "pgvector")),
-           ("ins", "insight", "bất thường · dự báo", ("insight_db", "TimescaleDB")),
+    # theo luồng dữ liệu: nilm (core gọi khi ingest) → core → insight → copilot → text2sql; mọi call nối hai ô kề nhau
+    svc = [("nilm", "nilm", "tách điện từng thiết bị", ("nilm_db", "PostgreSQL")),
            ("core", "core", "nhà · dữ liệu sensor · hóa đơn", ("core_db", "TimescaleDB")),
-           ("nilm", "nilm", "tách điện từng thiết bị", ("nilm_db", "PostgreSQL"))]
-    xs = [300, 680, 1060, 1440]
+           ("ins", "insight", "bất thường · dự báo", ("insight_db", "TimescaleDB")),
+           ("cop", "copilot", "hỏi đáp · gợi ý · RAG", ("copilot_db", "PostgreSQL")),
+           ("t2s", "text2sql", "hỏi đáp số liệu · SQL chỉ đọc", ("text2sql_db", "PostgreSQL"))]
+    xs = [300, 640, 980, 1320, 1660]
     for (i, n, desc, (db, dbt)), x in zip(svc, xs):
         d.box(i, x, 380, 260, 130, "team", n, desc=desc, name_fs=28, desc_fs=18)
         d.arrow("r_" + i, "gw", i, pts=[(x + 130, 286), (x + 130, 374)])
         d.box(i + "_db", x + 30, 600, 200, 80, "db", db, desc=dbt, name_fs=20, desc_fs=16)
         d.arrow("d_" + i, i, i + "_db", pts=[(x + 130, 516), (x + 130, 594)])
-    for (a, _, _, _), (b, _, _, _), x in zip(svc, svc[1:], xs):
-        d.arrow(f"s_{a}", a, b, "gọi", pts=[(x + 266, 415), (x + 374, 415)], lbl_w=80)
-        if b != "nilm":  # nilm trả kết quả ngay trong response, không phát event
-            d.arrow(f"e_{a}", b, a, "event", "async", pts=[(x + 374, 475), (x + 266, 475)], lbl_w=90)
-    d.box("llm", 0, 380, 220, 130, "external", "LLM", desc="API ngoài", **big)
-    d.arrow("llm_a", "cop", "llm", pts=[(294, 445), (226, 445)])
-    d.box("infra", 300, 750, 1400, 80, "offshelf", "Hạ tầng chung",
-          desc="PostgreSQL 18 + TimescaleDB + pgvector (một server, mỗi service và Keycloak một DB) · "
-               "RabbitMQ: exchange → queue → DLQ", name_fs=22, desc_fs=18)
-    d.legend(1800, 380, ["team", "offshelf", "db", "external"], ["sync", "async"], w=420)
+    # call đồng bộ: bên cần số liệu gọi bên giữ số liệu
+    for a, b, x in (("core", "nilm", 300), ("ins", "core", 640), ("cop", "ins", 980)):
+        d.arrow(f"s_{a}", a, b, "gọi", pts=[(x + 334, 415), (x + 266, 415)], lbl_w=60)
+    d.arrow("s_cop_t2s", "cop", "t2s", "gọi", pts=[(1586, 415), (1654, 415)], lbl_w=60)
+    # nilm trả kết quả ngay trong response, không phát event
+    d.arrow("e_core_ins", "core", "ins", "event", "async", pts=[(906, 475), (974, 475)], lbl_w=70)
+    d.arrow("e_ins_cop", "ins", "cop", "event", "async", pts=[(1246, 475), (1314, 475)], lbl_w=70)
+    d.box("llm", 2000, 380, 260, 130, "external", "LLM", desc="API ngoài", **big)
+    d.arrow("llm_a", "t2s", "llm", pts=[(1926, 445), (1994, 445)])
+    d.label("llm_note", 2000, 520, "copilot và text2sql\nđều gọi LLM", 16, "#495057")
+    d.box("infra", 300, 750, 1620, 80, "offshelf", "Hạ tầng chung",
+          desc="PostgreSQL 18 + TimescaleDB (một server, mỗi service và Keycloak một DB) · "
+               "Qdrant (mỗi service một collection) · RabbitMQ: exchange → queue → DLQ", name_fs=22, desc_fs=18)
+    d.legend(2000, 620, ["team", "offshelf", "db", "external"], ["sync", "async"], w=420)
     return d
 
 
@@ -314,7 +320,7 @@ def container():
     d = Diagram()
     d.title(0, -220, "[Container] WattPrint",
             "Phạm vi: các khối chạy độc lập bên trong WattPrint. Mỗi service nghiệp vụ có mã nguồn, database và OpenAPI riêng.")
-    d.boundary("b_sys", 20, 250, 2800, 1480, "WattPrint [Software system]", color="#1168bd", fs=20)
+    d.boundary("b_sys", 20, 250, 3540, 1480, "WattPrint [Software system]", color="#1168bd", fs=20)
 
     d.box("hh", 1150, -100, 360, 160, "person", "Thành viên hộ gia đình", "[Person]")
     d.box("op", 1800, -100, 360, 160, "person", "Nhóm vận hành", "[Person]")
@@ -329,37 +335,41 @@ def container():
           "Phát lại public dataset REFIT")
     d.label("meter_note", 2760, -90, "Thay cho sensor CT ở aptomat\n(Shelly EM, ESP32 + ESPHome)", 16, "#495057")
 
-    d.box("gw", 500, 620, 2280, 120, "offshelf", "API Gateway", "[Container: Envoy 1.40, bộ lọc jwt_authn]",
+    d.box("gw", 500, 620, 3020, 120, "offshelf", "API Gateway", "[Container: Envoy 1.40, bộ lọc jwt_authn]",
           "Điểm vào duy nhất, HTTPS: kiểm JWT (RS256, iss, aud), định tuyến theo prefix, rate limit, x-request-id, timeout và retry. Không chứa luật nghiệp vụ.")
 
-    sx = {"cop": 500, "ins": 1120, "core": 1740, "nilm": 2360}
+    # theo luồng dữ liệu, mọi call nối hai ô kề nhau; Qdrant nằm giữa copilot và text2sql vì chỉ hai service này dùng
+    sx = {"nilm": 500, "core": 1120, "ins": 1740, "cop": 2360, "t2s": 3100}
     SY, SW, SH = 920, 420, 240
-    d.box("cop", sx["cop"], SY, SW, SH, "team", "copilot", "[Container: Python, FastAPI, FastStream]",
-          "Trợ lý hai chiều: hỏi đáp, gợi ý chủ động, guardrail PII/injection, verifier, RAG, thông báo")
-    d.box("ins", sx["ins"], SY, SW, SH, "team", "insight", "[Container: Python, FastAPI, FastStream]",
-          "Read model tiêu thụ; bất thường, chạy ngầm, dự báo hóa đơn, so sánh nhóm, what-if, M&V; truy vấn an toàn")
     d.box("core", sx["core"], SY, SW, SH, "team", "core", "[Container: Python, FastAPI, FastStream]",
           "Nhà, công tơ, thiết bị, ingest dữ liệu sensor, biểu giá 5 bậc, hóa đơn. Nguồn sự thật")
     d.box("nilm", sx["nilm"], SY, SW, SH, "team", "nilm", "[Container: Python, FastAPI, PyTorch]",
           "Inference NILMFormer, hiệu chỉnh theo hộ, quản lý phiên bản model")
+    d.box("ins", sx["ins"], SY, SW, SH, "team", "insight", "[Container: Python, FastAPI, FastStream]",
+          "Read model tiêu thụ; bất thường, chạy ngầm, dự báo hóa đơn, so sánh nhóm, what-if, M&V; view công bố cho text2sql")
+    d.box("cop", sx["cop"], SY, SW, SH, "team", "copilot", "[Container: Python, FastAPI, FastStream]",
+          "Trợ lý hai chiều: hỏi đáp, gợi ý chủ động, guardrail PII/injection, verifier, RAG, thông báo")
+    d.box("t2s", sx["t2s"], SY, SW, SH, "team", "text2sql", "[Container: Python 3.14, FastAPI]",
+          "Text-to-SQL: catalog metric, LLM lập plan theo ID, compiler dựng SQL, chạy chỉ đọc trên view của insight, che PII")
+    d.box("qd", 2810, 1040, 260, 120, "db", "Qdrant", "[Vector store]", "RAG copilot, catalog text2sql", name_fs=17)
 
     DY, DH = 1320, 160
-    d.box("cop_db", 500, DY, 200, DH, "db", "copilot_db", "[PostgreSQL + pgvector]", name_fs=17)
-    d.box("llm", 720, DY, 200, DH, "external", "LLM provider", "[External]", "Chat, embedding", name_fs=17)
-    d.box("ins_db", 1120, DY, 200, DH, "db", "insight_db", "[PostgreSQL + TimescaleDB]", name_fs=17)
-    d.box("wx", 1340, DY, 200, DH, "external", "Open-Meteo", "[External]", "Thời tiết theo giờ", name_fs=17)
-    d.box("core_db", 1740, DY, 200, DH, "db", "core_db", "[PostgreSQL + TimescaleDB]", name_fs=17)
-    d.box("nilm_db", 2360, DY, 200, DH, "db", "nilm_db", "[PostgreSQL]", "Model, hiệu chỉnh, lần chạy", name_fs=17)
-    d.box("models", 2580, DY, 200, DH, "db", "Kho model", "[Docker volume, chỉ đọc]", name_fs=17)
-    d.box("notify", 40, 960, 340, 170, "external", "Expo Push, Telegram", "[External system]",
-          "Thông báo tới điện thoại; phản hồi tới nhóm vận hành")
+    d.box("nilm_db", 500, DY, 200, DH, "db", "nilm_db", "[PostgreSQL]", "Model, hiệu chỉnh, lần chạy", name_fs=17)
+    d.box("models", 720, DY, 200, DH, "db", "Kho model", "[Docker volume, chỉ đọc]", name_fs=17)
+    d.box("core_db", 1120, DY, 200, DH, "db", "core_db", "[PostgreSQL + TimescaleDB]", name_fs=17)
+    d.box("ins_db", 1740, DY, 200, DH, "db", "insight_db", "[PostgreSQL + TimescaleDB]", "View công bố", name_fs=17)
+    d.box("wx", 1960, DY, 200, DH, "external", "Open-Meteo", "[External]", "Thời tiết theo giờ", name_fs=17)
+    d.box("cop_db", 2360, DY, 200, DH, "db", "copilot_db", "[PostgreSQL]", name_fs=17)
+    d.box("notify", 2580, DY, 200, DH, "external", "Expo Push, Telegram", "[External]", name_fs=17)
+    d.box("llm", 2840, DY, 200, DH, "external", "LLM provider", "[External]", "Chat, embedding", name_fs=17)
+    d.box("t2s_db", 3100, DY, 200, DH, "db", "text2sql_db", "[PostgreSQL]", "Catalog, phiên truy vấn", name_fs=17)
     # C4: each queue is a container (data store); the broker itself is only a deployment concern
     QY, QH = 1560, 140
-    d.box("q_cop_dlq", 500, QY, 280, QH, "queue", "copilot.alerts.dlq", "[Queue: RabbitMQ]", "Message lỗi quá 3 lần")
-    d.box("q_cop", 900, QY, 360, QH, "queue", "copilot.alerts", "[Queue: RabbitMQ quorum]", "insight.alert.created")
-    d.box("q_ins", 1600, QY, 480, QH, "queue", "insight.usage", "[Queue: RabbitMQ quorum]",
+    d.box("q_ins", 1120, QY, 480, QH, "queue", "insight.usage", "[Queue: RabbitMQ quorum]",
           "energy.usage.updated, core.device.changed")
-    d.box("q_ins_dlq", 2200, QY, 400, QH, "queue", "insight.usage.dlq", "[Queue: RabbitMQ]", "Message lỗi quá 3 lần")
+    d.box("q_ins_dlq", 1700, QY, 400, QH, "queue", "insight.usage.dlq", "[Queue: RabbitMQ]", "Message lỗi quá 3 lần")
+    d.box("q_cop", 2200, QY, 360, QH, "queue", "copilot.alerts", "[Queue: RabbitMQ quorum]", "insight.alert.created")
+    d.box("q_cop_dlq", 2680, QY, 280, QH, "queue", "copilot.alerts.dlq", "[Queue: RabbitMQ]", "Message lỗi quá 3 lần")
 
     d.arrow("p1", "hh", "mob", "Dùng hằng ngày", lbl_w=150)
     d.arrow("p2", "hh", "web", "Xem dashboard", lbl_w=150)
@@ -370,35 +380,45 @@ def container():
     d.arrow("g2", "web", "gw", "Gọi API [HTTPS/JSON, JWT]", pts=[(1570, 516), (1570, 614)], lbl_w=210)
     d.arrow("g3", "meter", "gw", "Gửi batch dữ liệu sensor [HTTPS, API key thiết bị]", pts=[(2510, 66), (2510, 614)], lbl_w=230)
     d.arrow("g4", "gw", "kc", "Lấy khóa công khai kiểm JWT [JWKS, HTTPS]", pts=[(494, 680), (270, 680), (270, 516)], lbl_seg=1, lbl_w=200)
-    for k, path in (("cop", "/api/copilot/*"), ("ins", "/api/insight/*"), ("core", "/api/core/*"), ("nilm", "/api/nilm/* (admin)")):
+    for k, path in (("core", "/api/core/*"), ("nilm", "/api/nilm/* (admin)"), ("ins", "/api/insight/*"),
+                    ("cop", "/api/copilot/*"), ("t2s", "/api/text2sql/* (admin)")):
         cx = sx[k] + SW / 2
         d.arrow("r_" + k, "gw", k, f"Định tuyến {path} [HTTP]", pts=[(cx, 746), (cx, SY - 6)], lbl_w=200)
-    # sync chain (top band) and events (bottom band)
-    d.arrow("s1", "cop", "ins", "Gọi tool: truy vấn an toàn, dự báo, what-if [REST]", pts=[(926, 980), (1114, 980)], lbl_w=170)
-    d.arrow("s2", "ins", "core", "Lấy biểu giá, danh sách thiết bị [REST]", pts=[(1546, 980), (1734, 980)], lbl_w=170)
-    d.arrow("s3", "core", "nilm", "Yêu cầu inference [REST, timeout 3s]", pts=[(2166, 980), (2354, 980)], lbl_w=170)
-    d.arrow("e1", "core", "q_ins", "gửi [AMQP]", "async", pts=[(2050, 1166), (2050, QY - 6)], lbl_w=100)
-    d.arrow("e2", "q_ins", "ins", "nhận [AMQP]", "async", pts=[(1640, QY - 6), (1640, 1100), (1546, 1100)], lbl_seg=0, lbl_w=100)
-    d.arrow("e3", "ins", "q_cop", "gửi [AMQP]", "async", pts=[(1114, 1100), (1070, 1100), (1070, QY - 6)], lbl_seg=1, lbl_w=100)
-    d.arrow("e4", "q_cop", "cop", "nhận [AMQP]", "async", pts=[(990, QY - 6), (990, 1040), (926, 1040)], lbl_seg=0, lbl_w=100)
-    d.arrow("e5", "q_cop", "q_cop_dlq", "quá 3 lần", "async", pts=[(894, QY + 70), (786, QY + 70)], lbl_w=100)
-    d.arrow("e6", "q_ins", "q_ins_dlq", "quá 3 lần", "async", pts=[(2086, QY + 70), (2194, QY + 70)], lbl_w=100)
-    d.arrow("n1", "cop", "notify", "Gửi thông báo, phản hồi [HTTPS]", pts=[(494, 1045), (386, 1045)], lbl_w=100)
+    # sync calls: bên cần số liệu gọi bên giữ số liệu
+    d.arrow("s3", "core", "nilm", "Yêu cầu inference [REST, timeout 3s]", pts=[(1114, 980), (926, 980)], lbl_w=170)
+    d.arrow("s2", "ins", "core", "Lấy biểu giá, danh sách thiết bị [REST]", pts=[(1734, 980), (1546, 980)], lbl_w=170)
+    d.arrow("s1", "cop", "ins", "Gọi tool: dự báo, what-if, so sánh tháng [REST]", pts=[(2354, 980), (2166, 980)], lbl_w=170)
+    d.arrow("s4", "cop", "t2s", "Câu hỏi tự do, X-User-Id [REST, SSE, timeout 30s]", pts=[(2786, 980), (3094, 980)], lbl_w=260)
+    d.arrow("v1", "cop", "qd", "", pts=[(2786, 1100), (2804, 1100)])
+    d.arrow("v2", "t2s", "qd", "", pts=[(3094, 1100), (3076, 1100)])
+    d.arrow("e1", "core", "q_ins", "gửi [AMQP]", "async", pts=[(1440, SY + SH + 6), (1440, QY - 6)], lbl_w=100)
+    d.arrow("e2", "q_ins", "ins", "nhận [AMQP]", "async", pts=[(1580, QY - 6), (1580, 1100), (1734, 1100)], lbl_seg=0, lbl_w=100)
+    d.arrow("e3", "ins", "q_cop", "gửi [AMQP]", "async", pts=[(2166, 1060), (2250, 1060), (2250, QY - 6)], lbl_seg=1, lbl_w=100)
+    d.arrow("e4", "q_cop", "cop", "nhận [AMQP]", "async", pts=[(2310, QY - 6), (2310, 1120), (2354, 1120)], lbl_seg=0, lbl_w=100)
+    d.arrow("e5", "q_cop", "q_cop_dlq", "quá 3 lần", "async", pts=[(2566, QY + 70), (2674, QY + 70)], lbl_w=100)
+    d.arrow("e6", "q_ins", "q_ins_dlq", "quá 3 lần", "async", pts=[(1606, QY + 70), (1694, QY + 70)], lbl_w=90)
     # data and externals
-    d.arrow("d1", "cop", "cop_db", "Đọc/ghi [SQL]", pts=[(600, SY + SH + 6), (600, DY - 6)], lbl_w=110)
-    d.arrow("d2", "cop", "llm", "Prompt đã ẩn PII [HTTPS]", pts=[(820, SY + SH + 6), (820, DY - 6)], lbl_w=110)
-    d.arrow("d3", "ins", "ins_db", "Đọc/ghi [SQL]", pts=[(1220, SY + SH + 6), (1220, DY - 6)], lbl_w=110)
-    d.arrow("d4", "ins", "wx", "Lấy thời tiết [HTTPS]", pts=[(1440, SY + SH + 6), (1440, DY - 6)], lbl_w=110)
-    d.arrow("d5", "core", "core_db", "Đọc/ghi [SQL]", pts=[(1840, SY + SH + 6), (1840, DY - 6)], lbl_w=110)
-    d.arrow("d6", "nilm", "nilm_db", "Đọc/ghi [SQL]", pts=[(2460, SY + SH + 6), (2460, DY - 6)], lbl_w=110)
-    d.arrow("d7", "nilm", "models", "Nạp trọng số [file]", pts=[(2680, SY + SH + 6), (2680, DY - 6)], lbl_w=110)
+    d.arrow("d6", "nilm", "nilm_db", "Đọc/ghi [SQL]", pts=[(600, SY + SH + 6), (600, DY - 6)], lbl_w=110)
+    d.arrow("d7", "nilm", "models", "Nạp trọng số [file]", pts=[(820, SY + SH + 6), (820, DY - 6)], lbl_w=110)
+    d.arrow("d5", "core", "core_db", "Đọc/ghi [SQL]", pts=[(1220, SY + SH + 6), (1220, DY - 6)], lbl_w=110)
+    d.arrow("d3", "ins", "ins_db", "Đọc/ghi [SQL]", pts=[(1840, SY + SH + 6), (1840, DY - 6)], lbl_w=110)
+    d.arrow("d4", "ins", "wx", "Lấy thời tiết [HTTPS]", pts=[(2060, SY + SH + 6), (2060, DY - 6)], lbl_w=110)
+    d.arrow("d1", "cop", "cop_db", "Đọc/ghi [SQL]", pts=[(2460, SY + SH + 6), (2460, DY - 6)], lbl_w=110)
+    d.arrow("n1", "cop", "notify", "Gửi thông báo [HTTPS]", pts=[(2680, SY + SH + 6), (2680, DY - 6)], lbl_w=110)
+    d.arrow("d2", "cop", "llm", "Prompt đã ẩn PII", pts=[(2760, SY + SH + 6), (2900, DY - 6)], lbl_w=90)
+    d.arrow("d8", "t2s", "llm", "Lập plan [HTTPS]", pts=[(3140, SY + SH + 6), (2990, DY - 6)], lbl_w=90)
+    d.arrow("d9", "t2s", "t2s_db", "Catalog [SQL]", pts=[(3260, SY + SH + 6), (3260, DY - 6)], lbl_w=100)
+    # ngoại lệ duy nhất: text2sql đọc view công bố của insight bằng role chỉ đọc
+    d.arrow("d10", "t2s", "ins_db", "SELECT view công bố [SQL, role text2sql_ro, app.home_id]",
+            pts=[(3440, SY + SH + 6), (3440, 1515), (1880, 1515), (1880, DY + DH + 6)], lbl_seg=1, lbl_w=420)
     d.legend(40, 1790, ["person", "team", "offshelf", "db", "queue", "external"], ["sync", "async"], w=460)
     d.label("note", 580, 1790,
             "Ghi chú\n"
             "• Nét đứt là message AMQP. Service gửi lên exchange wattprint.events, exchange chép vào queue theo routing key (README mục 3).\n"
             "• Theo C4, mỗi queue là một container lưu message; RabbitMQ chỉ xuất hiện ở sơ đồ Deployment.\n"
-            "• Một PostgreSQL server, mỗi service (và Keycloak) một database, một role; không service nào đọc database của service khác.\n"
-            "• Lời gọi đồng bộ chỉ đi một chiều copilot → insight → core → nilm. Dữ liệu đi ngược lên bằng event (core → insight → copilot); nilm trả kết quả ngay trong response.\n"
+            "• Một PostgreSQL server, mỗi service (và Keycloak) một database, một role. Ngoại lệ duy nhất: text2sql đọc view công bố của insight_db bằng role chỉ đọc.\n"
+            "• Qdrant là vector store duy nhất, mỗi service một collection (copilot_knowledge_v1, text2sql_semantics_v1).\n"
+            "• Service xếp theo luồng dữ liệu, mọi call nối hai ô kề nhau: core → nilm, insight → core, copilot → insight, copilot → text2sql, không có vòng. Dữ liệu đi bằng event core → insight → copilot; nilm trả kết quả ngay trong response.\n"
             "• Mọi call giữa service có timeout, retry có giới hạn, circuit breaker; địa chỉ lấy từ biến môi trường.\n"
             "• Mỗi service là một container: API, consumer và outbox relay chạy chung process; có /health và /ready.", 16, "#333333")
     return d
@@ -425,23 +445,26 @@ def deployment():
           "Xem queue, DLQ, đẩy lại message")
 
     d.boundary("n_app", 60, 530, 2620, 260, "Service ứng dụng  [network: internal, không publish port]", color="#2e6295")
-    cols = [100, 740, 1380, 2020]
-    api = [("copilot", "512 MB · 1 CPU"), ("insight", "512 MB · 1 CPU"), ("core", "512 MB · 1 CPU"), ("nilm", "2 GB · 2 CPU, PyTorch CPU")]
+    cols = [100, 610, 1120, 1630, 2140]
+    api = [("nilm", "2 GB · 2 CPU, PyTorch CPU"), ("core", "512 MB · 1 CPU"), ("insight", "512 MB · 1 CPU"),
+           ("copilot", "512 MB · 1 CPU"), ("text2sql", "512 MB · 1 CPU")]
     for c, (n, lim) in zip(cols, api):
-        d.box("api_" + n, c, 590, 600, 160, "team", n, f"[Container · {lim}]", "uvicorn: API + consumer + outbox relay · /health · /ready")
+        d.box("api_" + n, c, 590, 480, 160, "team", n, f"[Container · {lim}]", "uvicorn: API + consumer/worker + outbox relay · /health · /ready")
 
     d.boundary("n_data", 60, 840, 2620, 300, "Dữ liệu và messaging  [network: internal]", color="#2e6295")
-    d.box("pg", 100, 900, 920, 200, "db", "postgres",
+    d.box("pg", 100, 900, 660, 200, "db", "postgres",
           "[timescale/timescaledb:2.31.0-pg18 · 1.5 GB · volume pgdata]",
-          "5 database: core_db, insight_db (TimescaleDB: hypertable, continuous aggregate), copilot_db (pgvector), nilm_db, keycloak_db")
-    d.box("mq", 1060, 900, 760, 200, "offshelf", "rabbitmq", "[rabbitmq:4-management · 512 MB · volume mqdata]",
+          "6 database: core_db, insight_db (TimescaleDB), nilm_db, copilot_db, text2sql_db, keycloak_db")
+    d.box("mq", 800, 900, 560, 200, "offshelf", "rabbitmq", "[rabbitmq:4-management · 512 MB · volume mqdata]",
           "Exchange wattprint.events, quorum queue theo consumer, delivery-limit 3 → DLQ")
-    d.box("vol", 1860, 900, 780, 200, "db", "models", "[Docker volume, mount chỉ đọc vào nilm]",
+    d.box("qd", 1400, 900, 560, 200, "db", "qdrant", "[qdrant/qdrant:v1.20.1 · 512 MB · volume qdata]",
+          "Collection copilot_knowledge_v1, text2sql_semantics_v1; khóa JWT theo collection")
+    d.box("vol", 2000, 900, 640, 200, "db", "models", "[Docker volume, mount chỉ đọc vào nilm]",
           "Trọng số NILMFormer theo phiên bản, ví dụ nilmformer-refit-v3.pt")
 
     d.label("o_note", 100, 1160,
             "Log: mọi container ghi JSON ra stdout có request_id, xem bằng docker compose logs.  "
-            "Tổng giới hạn bộ nhớ toàn hệ thống ≈ 7 GB, 8 container.", 16, "#333333")
+            "Tổng giới hạn bộ nhớ toàn hệ thống ≈ 8 GB, 10 container.", 16, "#333333")
 
     d.box("saas", 2860, 560, 520, 400, "external", "Dịch vụ bên ngoài", "[Internet, HTTPS]",
           "LLM provider (server, key của thầy Cường)\nOpen-Meteo\nExpo Push\nTelegram Bot API")
@@ -449,8 +472,8 @@ def deployment():
           "ruff + pytest từng service, build image, compose up, Newman chạy Postman collection, kiểm OpenAPI")
 
     d.arrow("c1", "client", "kong", "HTTPS :11093", pts=[(1000, 96), (1000, 212), (660, 212), (660, 284)], lbl_seg=1, lbl_w=160)
-    d.arrow("c2", "kong", "", "HTTP nội bộ tới 4 API, theo route", pts=[(660, 456), (660, 584)], lbl_w=170)
-    d.arrow("c3", "", "saas", "copilot, insight gọi API ngoài [HTTPS]", pts=[(2686, 760), (2854, 760)], lbl_w=150)
+    d.arrow("c2", "kong", "", "HTTP nội bộ tới 5 API, theo route", pts=[(560, 456), (560, 584)], lbl_w=170)
+    d.arrow("c3", "", "saas", "copilot, insight, text2sql gọi API ngoài [HTTPS]", pts=[(2686, 760), (2854, 760)], lbl_w=150)
     d.legend(2860, 1290, ["team", "offshelf", "db", "external"], ["sync"], w=460)
     return d
 
@@ -590,8 +613,9 @@ def qa():
              ("gr", "team", "copilot: Guardrail", "[component]"),
              ("orch", "team", "copilot: Orchestrator", "[component]"),
              ("ver", "team", "copilot: Verifier", "[component]"),
-             ("cdb", "db", "copilot_db", "[pgvector]"),
-             ("ia", "team", "insight", "[FastAPI]"),
+             ("cdb", "db", "copilot_db", "[PostgreSQL]"),
+             ("t2s", "team", "text2sql", "[FastAPI, SSE]"),
+             ("qd", "db", "Qdrant", "[copilot_knowledge_v1]"),
              ("llm", "external", "LLM provider", "[External system]")]
     steps = [
         ("user", "gw", "POST /api/copilot/conversations/{id}/messages: \"Tại sao tháng này tiền điện cao?\"", "sync"),
@@ -600,16 +624,16 @@ def qa():
         ("gr", "user", "409 pii_confirmation_required: hỏi người dùng có thật sự muốn gửi", "reply"),
         ("gr", "orch", "Câu hỏi đã làm sạch và ngữ cảnh hộ", "sync"),
         ("orch", "llm", "Prompt và danh sách tool (function calling). Timeout 20s, circuit breaker", "sync"),
-        ("llm", "orch", "Tool calls: so sánh tháng, tiêu thụ theo thiết bị, thời tiết", "reply"),
-        ("orch", "ia", "POST /queries (SQL do LLM sinh) và GET /forecast", "sync"),
-        ("ia", "ia", "Chỉ cho SELECT trên view được phép, ép home_id, timeout 2s; sai → 400", "sync"),
-        ("ia", "orch", "Số liệu và nguồn", "reply"),
-        ("orch", "cdb", "Tìm tri thức liên quan (pgvector) để giải thích và trích dẫn", "sync"),
+        ("llm", "orch", "Tool call: ask_data(câu hỏi về số liệu tiêu thụ theo thiết bị, so sánh tháng)", "reply"),
+        ("orch", "t2s", "POST /text2sql/chat: câu hỏi đã làm sạch, X-User-Id, mã phiên của lượt trước (nếu có). Timeout 30s, circuit breaker", "sync"),
+        ("t2s", "t2s", "Tìm metric, LLM lập plan theo ID, compiler dựng SELECT; SET LOCAL app.home_id, chạy chỉ đọc trên view insight_db; che PII", "sync"),
+        ("t2s", "orch", "Event data: rows, cột, câu SQL đã chạy (làm nguồn) và mã phiên", "reply"),
+        ("orch", "qd", "Tìm tri thức liên quan để giải thích và trích dẫn", "sync"),
         ("orch", "llm", "Kết quả tool → soạn câu trả lời", "sync"),
         ("llm", "orch", "Bản nháp", "reply"),
         ("orch", "ver", "Gửi bản nháp và kết quả tool", "sync"),
         ("ver", "ver", "Mọi con số khớp kết quả tool, đúng đơn vị kWh/VND, có trích dẫn; gắn nhãn AI tạo và độ tin cậy", "sync"),
-        ("ver", "cdb", "Lưu message, tool_call, số token", "sync"),
+        ("ver", "cdb", "Lưu message, tool_call (kèm mã phiên text2sql), số token", "sync"),
         ("ver", "user", "200: câu trả lời, trích dẫn, nhãn AI tạo, độ tin cậy", "reply"),
         ("orch", "user", "503 + số liệu thô từ tool (không diễn giải), Retry-After", "reply"),
     ]
@@ -743,6 +767,10 @@ def component(title, sub, cname, ctech, above, rows, below, links, note=""):
             a, b = d.boxes[src], d.boxes[dst]
             ax, bx, uy = a["x"] + CBW / 2, b["x"] + CBW / 2, by + 150
             pts = [(ax, a["y"] + a["height"] + 6), (ax, uy), (bx, uy), (bx, by + 116)]
+        elif route == ["gap"]:  # đi trong khe giữa hai hàng component, không cắt ô nào
+            a, b = d.boxes[src], d.boxes[dst]
+            ax, bx, gy = a["x"] + CBW - 40, b["x"] + CBW / 2, a["y"] + a["height"] + RG / 2
+            pts = [(ax, a["y"] + a["height"] + 6), (ax, gy), (bx, gy), (bx, b["y"] - 6)]
         d.arrow(f"l_{src}_{dst}", src, dst, lbl, kind, pts=pts, lbl_w=170)
     kinds = []
     for k in [a[2] for a in above + below] + ["comp"]:
@@ -812,10 +840,8 @@ def comp_insight():
                (3, "q_in", "queue", "insight.usage", "[Queue: RabbitMQ]")],
         rows=[
             [(0, "an_api", "Analytics API", "[FastAPI router]", "Tiêu thụ, dự báo, ngân sách, what-if, M&V"),
-             (1, "q_api", "Safe query API", "[FastAPI router]", "POST /queries cho Text-to-SQL"),
              (3, "consumer", "Usage consumer", "[FastStream]", "Inbox: bỏ qua message_id đã xử lý")],
             [(0, "forecast", "Forecast & what-if", "[Python]", "Cần ≥ 7 ngày dữ liệu; M&V cần ≥ 14 ngày"),
-             (1, "guard", "SQL guard", "[Python]", "Chỉ SELECT trên view cho phép, ép home_id, timeout 2s"),
              (2, "detect", "Detectors", "[Python]", "Bất thường, chạy ngầm, chạm bậc, vượt ngân sách"),
              (3, "rm", "ReadModel updater", "[Python]", "Tổng theo giờ từng thiết bị")],
             [(0, "repo", "Repositories", "[SQLAlchemy, TimescaleDB]", "Read model, alert, outbox"),
@@ -823,26 +849,31 @@ def comp_insight():
              (2, "wx_cli", "WeatherClient", "[httpx]", "Nhiệt độ theo giờ"),
              (3, "relay", "OutboxRelay", "[background task]", "Publish alert")],
         ],
-        below=[(0, "db", "db", "insight_db", "[PostgreSQL + TimescaleDB]"), (1, "core", "team", "core", "[Container]"),
-               (2, "wx", "external", "Open-Meteo", "[External system]"), (3, "q_out", "queue", "copilot.alerts", "[Queue: RabbitMQ]")],
-        links=[("gw", "an_api", "REST", "sync"), ("cop", "q_api", "Gọi tool [REST]", "sync"),
+        below=[(0, "db", "db", "insight_db", "[PostgreSQL + TimescaleDB, view công bố]"), (1, "core", "team", "core", "[Container]"),
+               (2, "wx", "external", "Open-Meteo", "[External system]"), (3, "q_out", "queue", "copilot.alerts", "[Queue: RabbitMQ]"),
+               (4, "t2s", "team", "text2sql", "[Container]")],
+        links=[("gw", "an_api", "REST", "sync"), ("cop", "an_api", "Gọi tool [REST]", "sync"),
                ("q_in", "consumer", "Nhận [AMQP]", "async"),
-               ("an_api", "forecast", "", "sync"), ("q_api", "guard", "", "sync"), ("consumer", "rm", "", "sync"),
+               ("an_api", "forecast", "", "sync"), ("consumer", "rm", "", "sync"),
                ("rm", "detect", "", "sync"),
-               ("forecast", "repo", "", "sync"), ("forecast", "core_cli", "", "sync"), ("guard", "repo", "", "sync"),
+               ("forecast", "repo", "", "sync"), ("forecast", "core_cli", "", "sync"),
                ("detect", "wx_cli", "", "sync"), ("detect", "relay", "", "sync"), ("rm", "repo", "", "sync"),
                ("repo", "db", "SQL", "sync"), ("core_cli", "core", "REST", "sync"), ("wx_cli", "wx", "HTTPS", "sync"),
-               ("relay", "q_out", "insight.alert.created [AMQP]", "async")])
+               ("relay", "q_out", "insight.alert.created [AMQP]", "async"),
+               ("t2s", "db", "SELECT view công bố [SQL, role text2sql_ro]", "sync", "under")],
+        note="View công bố lọc theo app.home_id; text2sql chỉ đọc các view này, không đọc bảng.")
 
 
 def comp_copilot():
     return component(
         "[Component] copilot", "Phạm vi: bên trong container copilot. Trợ lý hai chiều: hỏi đáp (pull) và gợi ý chủ động (push).",
         "copilot", "[Container: Python, FastAPI, FastStream]",
-        above=[(1, "gw", "offshelf", "API Gateway", "[Envoy]"), (3, "q_in", "queue", "copilot.alerts", "[Queue: RabbitMQ]")],
+        above=[(1, "gw", "offshelf", "API Gateway", "[Envoy]"), (2, "t2s", "team", "text2sql", "[Container]"),
+               (3, "q_in", "queue", "copilot.alerts", "[Queue: RabbitMQ]")],
         rows=[
             [(0, "chat_api", "Chat API", "[FastAPI router]", "Hội thoại, tin nhắn, phản hồi"),
              (1, "plan_api", "Plans API", "[FastAPI router]", "Kích hoạt kế hoạch tiết kiệm"),
+             (2, "t2s_cli", "Text2sqlClient", "[httpx SSE, breaker]", "Câu hỏi số liệu, giữ mã phiên, timeout 30s"),
              (3, "consumer", "Alert consumer", "[FastStream]", "Inbox chống trùng")],
             [(0, "guard", "Guardrail", "[Python, regex + NER]", "Ẩn PII, chặn prompt injection, kiểm gói Pro"),
              (1, "orch", "Orchestrator", "[LLM tool calling]", "Tools first: số liệu do tool tính"),
@@ -850,20 +881,54 @@ def comp_copilot():
              (3, "rank", "Ranker", "[Python]", "Xếp hạng theo phản hồi, giờ yên tĩnh, chống trùng")],
             [(0, "verify", "Verifier", "[Python]", "Số khớp tool, đúng đơn vị, có trích dẫn"),
              (1, "llm_cli", "LLMClient", "[httpx, breaker]", "Timeout 20s, circuit breaker"),
-             (2, "ins_cli", "InsightClient", "[httpx, tenacity, breaker]", "Truy vấn an toàn, dự báo, what-if"),
+             (2, "ins_cli", "InsightClient", "[httpx, tenacity, breaker]", "Dự báo, what-if, so sánh tháng"),
              (3, "notify", "Notifier", "[httpx]", "Expo Push, Telegram"),
-             (4, "rag", "RAG retriever", "[pgvector]", "Tìm tri thức để trích dẫn")],
+             (4, "rag", "RAG retriever", "[Qdrant REST]", "Tìm tri thức để trích dẫn")],
         ],
-        below=[(0, "db", "db", "copilot_db", "[PostgreSQL + pgvector]"), (1, "llm", "external", "LLM provider", "[External system]"),
-               (2, "ins", "team", "insight", "[Container]"), (3, "push", "external", "Expo Push, Telegram", "[External system]")],
+        below=[(0, "db", "db", "copilot_db", "[PostgreSQL]"), (1, "llm", "external", "LLM provider", "[External system]"),
+               (2, "ins", "team", "insight", "[Container]"), (3, "push", "external", "Expo Push, Telegram", "[External system]"),
+               (4, "qd", "db", "Qdrant", "[collection copilot_knowledge_v1]")],
         links=[("gw", "chat_api", "REST", "sync"), ("gw", "plan_api", "REST", "sync"), ("q_in", "consumer", "Nhận [AMQP]", "async"),
                ("chat_api", "guard", "", "sync"), ("guard", "orch", "", "sync"), ("plan_api", "saga", "", "sync"),
                ("consumer", "rank", "", "sync"),
                ("orch", "verify", "", "sync"), ("orch", "llm_cli", "", "sync"), ("orch", "ins_cli", "", "sync"),
-               ("orch", "rag", "", "sync"), ("saga", "ins_cli", "", "sync"), ("rank", "ins_cli", "", "sync"),
+               ("orch", "t2s_cli", "", "sync"),
+               ("orch", "rag", "", "sync", "gap"), ("saga", "ins_cli", "", "sync"), ("rank", "ins_cli", "", "sync"),
                ("rank", "notify", "", "sync"),
                ("verify", "db", "Lưu tin nhắn, token [SQL]", "sync"), ("llm_cli", "llm", "Prompt đã ẩn PII [HTTPS]", "sync"),
-               ("ins_cli", "ins", "REST", "sync"), ("notify", "push", "HTTPS", "sync"), ("rag", "db", "Tìm vector [SQL]", "sync", "under")])
+               ("ins_cli", "ins", "REST", "sync"), ("notify", "push", "HTTPS", "sync"),
+               ("t2s_cli", "t2s", "POST /text2sql/chat [REST, SSE]", "sync"), ("rag", "qd", "Tìm vector [REST]", "sync")])
+
+
+def comp_text2sql():
+    return component(
+        "[Component] text2sql", "Phạm vi: bên trong container text2sql. LLM lập plan, compiler dựng SQL, hội thoại của người dùng nằm ở copilot.",
+        "text2sql", "[Container: Python 3.14, FastAPI]",
+        above=[(1, "cop", "team", "copilot", "[Container]"), (2, "llm", "external", "LLM provider", "[External system]"),
+               (3, "gw", "offshelf", "API Gateway", "[Envoy, chỉ admin]")],
+        rows=[
+            [(1, "chat_api", "Chat API", "[FastAPI router, SSE]", "POST /text2sql/chat, X-User-Id, mã phiên"),
+             (2, "agents", "Plan agents", "[LLM structured output]", "Viết lại câu hỏi, plan chỉ tham chiếu ID"),
+             (3, "cat_api", "Catalog API", "[FastAPI router]", "Metric, glossary, rule, mô tả cột")],
+            [(1, "pipe", "Pipeline", "[Python]", "Chọn metric hoặc dataset, hỏi lại khi mơ hồ"),
+             (2, "comp", "Compiler", "[sqlglot]", "Dựng SELECT, quote tên, bind giá trị"),
+             (3, "catalog", "CatalogService", "[Python]", "Sync schema view, ghi job ingest")],
+            [(0, "retr", "Semantic retriever", "[httpx, reranker]", "Tìm metric, cột liên quan"),
+             (1, "pii", "PII masker", "[presidio]", "Che PII trên rows trả về"),
+             (2, "exec", "Executor", "[psycopg, READ ONLY]", "SET LOCAL app.home_id, timeout 5s, giới hạn dòng"),
+             (3, "repo", "Repositories", "[SQLAlchemy]", "Catalog, phiên truy vấn, job"),
+             (4, "worker", "Ingestion worker", "[background task]", "Embedding lại khi catalog đổi")],
+        ],
+        below=[(0, "qd", "db", "Qdrant", "[collection text2sql_semantics_v1]"),
+               (2, "ins_db", "db", "insight_db", "[view công bố, role text2sql_ro]"),
+               (3, "db", "db", "text2sql_db", "[PostgreSQL]")],
+        links=[("cop", "chat_api", "Câu hỏi [REST, SSE]", "sync"), ("gw", "cat_api", "REST (admin)", "sync"),
+               ("chat_api", "pipe", "", "sync"), ("pipe", "agents", "", "sync"), ("agents", "llm", "Prompt đã ẩn PII [HTTPS]", "sync"),
+               ("pipe", "comp", "", "sync"), ("comp", "exec", "", "sync"), ("pipe", "retr", "", "sync"), ("pipe", "pii", "", "sync"),
+               ("cat_api", "catalog", "", "sync"), ("catalog", "repo", "", "sync"), ("catalog", "worker", "", "sync"),
+               ("retr", "qd", "Tìm vector + full-text [REST]", "sync"), ("exec", "ins_db", "SELECT [SQL, chỉ đọc]", "sync"),
+               ("repo", "db", "SQL", "sync"), ("worker", "qd", "Upsert vector [REST]", "sync", "under")],
+        note="Câu SQL chạy không chứa chữ do LLM viết; app.home_id lấy từ X-User-Id do copilot chuyển tiếp.")
 
 
 if __name__ == "__main__":
@@ -871,7 +936,8 @@ if __name__ == "__main__":
     out.mkdir(parents=True, exist_ok=True)
     diagrams = [("00-overview", overview), ("01-system-context", context), ("02-container", container),
                 ("03-component-core", comp_core), ("04-component-nilm", comp_nilm),
-                ("05-component-insight", comp_insight), ("06-component-copilot", comp_copilot)]
+                ("05-component-insight", comp_insight), ("06-component-copilot", comp_copilot),
+                ("07-component-text2sql", comp_text2sql)]
     if "--all" in sys.argv:  # deployment and dynamic views: kept for later, not part of the current deliverable
         diagrams += [("x1-deployment", deployment), ("x2-dynamic-ingest-nilm", ingest),
                      ("x3-dynamic-proactive-suggestion", proactive), ("x4-dynamic-copilot-qa", qa),

@@ -21,7 +21,7 @@ Cần `python-docx`, `pillow`, và Microsoft Word (để cập nhật mục lụ
 
 ## Việc còn lại
 - Bản này gồm Chương 1 đến 4 (bài toán, phân tích, kiến trúc, đánh đổi). Còn thiếu: thiết kế API, độ tin cậy và xử lý lỗi có số liệu, triển khai và kiểm thử, đánh giá, hạn chế.
-- Đề bài yêu cầu tối thiểu 30 trang: hiện 32 trang tính cả bìa và mục lục. Toàn bộ tài liệu dùng một khổ dọc duy nhất của template, sơ đồ đặt xen trong thân bài.
+- Đề bài yêu cầu tối thiểu 30 trang: hiện 35 trang tính cả bìa và mục lục. Toàn bộ tài liệu dùng một khổ dọc duy nhất của template, sơ đồ đặt xen trong thân bài.
 - Chữ trong các sơ đồ lớn (container, sequence) nhỏ khi in vì phải thu về bề rộng trang dọc; xem rõ hơn ở bản PDF (phóng to) hoặc mở file `.excalidraw`.
 
 ## Ghi chú audit sơ đồ (khi lồng vào báo cáo)
