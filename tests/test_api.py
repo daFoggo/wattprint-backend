@@ -140,3 +140,21 @@ async def test_malformed_realm_access_does_not_crash(client, make_token, access)
     r = await client.get("/api/v1/users/me", headers=bearer(token))
     assert r.status_code == 200
     assert r.json()["roles"] == []
+
+
+async def test_verified_email_claims_a_profile_created_before_first_login(client, make_token):
+    email = f"invited-{uuid.uuid4().hex[:8]}@example.com"
+    async with SessionLocal() as session:
+        session.add(User(email=email, full_name="Invited"))
+        await session.commit()
+    unverified = make_token(email=email, email_verified=False)
+    assert (await client.get("/api/v1/users/me", headers=bearer(unverified))).status_code == 409
+    sub = str(uuid.uuid4())
+    verified = make_token(sub=sub, email=email.upper(), email_verified=True)
+    r = await client.get("/api/v1/users/me", headers=bearer(verified))
+    assert r.status_code == 200
+    async with SessionLocal() as session:
+        row = (await session.execute(select(User).where(User.email == email))).scalar_one()
+    assert row.keycloak_sub == sub
+    other = make_token(email=email, email_verified=True)  # already claimed: not again
+    assert (await client.get("/api/v1/users/me", headers=bearer(other))).status_code == 409

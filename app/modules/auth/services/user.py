@@ -20,6 +20,14 @@ async def provision_user(db: AsyncSession, claims: dict[str, Any]) -> User:
     email = claims.get("email")
     if not email:
         raise KeyError("email")
+    if claims.get("email_verified") is True:
+        # A profile created ahead of the first login (an invite, a seeded demo member) is claimed by
+        # the account that proves it owns the email; an unverified email never claims one.
+        invited = await users.read_one(email=email.lower(), keycloak_sub=None)
+        if invited is not None:
+            await users.update(invited, keycloak_sub=keycloak_sub)
+            await db.commit()
+            return invited
     try:
         user = await users.create(
             keycloak_sub=keycloak_sub, email=email.lower(), full_name=claims.get("name")
