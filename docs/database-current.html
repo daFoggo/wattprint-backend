@@ -1,0 +1,222 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>WattPrint Database</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one column reading flow — pipeline diagram, key ER, then schema map grid */
+:root{
+  --bg:#f6f7f5; --panel:#ffffff; --fg:#1c211f; --muted:#5d6763; --line:#d9dedb;
+  --accent:#0f7a5c; --raw:#2563a8; --pred:#9a5b00; --empty:#a33a2b; --ok:#0f7a5c;
+  --sans:"IBM Plex Sans",system-ui,sans-serif; --mono:"IBM Plex Mono",ui-monospace,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#121614; --panel:#1a201d; --fg:#e4e9e6; --muted:#98a39e; --line:#2c3531;
+  --accent:#4cc39a; --raw:#6fa8e6; --pred:#e0a54a; --empty:#ec7a69; --ok:#4cc39a; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#121614; --panel:#1a201d; --fg:#e4e9e6; --muted:#98a39e; --line:#2c3531;
+  --accent:#4cc39a; --raw:#6fa8e6; --pred:#e0a54a; --empty:#ec7a69; --ok:#4cc39a; color-scheme:dark}
+body{background:var(--bg);color:var(--fg);font:15px/1.55 var(--sans);
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:32px 56px}
+main{max-width:1080px;margin:0 auto;display:flex;flex-direction:column;gap:40px}
+h1{font-size:28px;font-weight:600;margin:0;text-wrap:balance}
+h2{font-size:19px;font-weight:600;margin:0 0 6px;text-wrap:balance}
+p{margin:0;max-width:68ch;color:var(--muted)}
+code,.mono{font-family:var(--mono);font-size:.88em}
+.lede{display:flex;flex-direction:column;gap:8px}
+.legend{display:flex;flex-wrap:wrap;gap:8px 18px;font-size:13px;color:var(--muted)}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.dot{width:10px;height:10px;border-radius:2px;display:inline-block}
+.diagram{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:16px;overflow-x:auto;margin-top:12px}
+.diagram svg{max-width:100%;height:auto}
+/* flow */
+.flow{display:grid;grid-template-columns:repeat(5,minmax(150px,1fr));gap:10px;min-width:820px;align-items:stretch}
+.step{border:1px solid var(--line);border-radius:6px;padding:10px 12px;display:flex;flex-direction:column;gap:4px;position:relative;background:var(--bg)}
+.step b{font-size:13px}
+.step .t{font-family:var(--mono);font-size:12px}
+.step .n{font-size:12px;color:var(--muted)}
+.step.raw{border-top:3px solid var(--raw)} .step.pred{border-top:3px solid var(--pred)} .step.out{border-top:3px solid var(--accent)}
+.step.missing{border-style:dashed;border-top-style:solid}
+.arrow{position:absolute;right:-10px;top:50%;transform:translate(50%,-50%);color:var(--muted);font-size:14px}
+.flow2{margin-top:10px;min-width:820px;display:grid;grid-template-columns:repeat(5,minmax(150px,1fr));gap:10px}
+.flow2 .step{grid-column:span 1}
+/* schema grid */
+.groups{display:grid;grid-template-columns:repeat(auto-fill,minmax(310px,1fr));gap:14px;margin-top:12px}
+.group{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:14px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.group h3{margin:0;font-size:14px;font-weight:600;display:flex;justify-content:space-between;gap:8px;align-items:baseline}
+.group h3 small{font-family:var(--mono);font-weight:400;color:var(--muted);font-size:12px}
+.tbl{display:grid;grid-template-columns:1fr auto;gap:2px 10px;font-size:13px}
+.tbl .name{font-family:var(--mono);font-size:12.5px;min-width:0;overflow-wrap:anywhere}
+.tbl .cols{grid-column:1/-1;color:var(--muted);font-size:12px;margin-bottom:6px;overflow-wrap:anywhere}
+.chip{font-size:11px;font-family:var(--mono);padding:1px 6px;border-radius:999px;border:1px solid currentColor;white-space:nowrap;align-self:start;font-variant-numeric:tabular-nums}
+.chip.ok{color:var(--ok)} .chip.empty{color:var(--empty)} .chip.view{color:var(--muted)}
+.note{border-left:3px solid var(--pred);padding:8px 12px;background:var(--panel);border-radius:0 6px 6px 0;font-size:14px;max-width:none}
+.note p{color:var(--fg)}
+</style>
+
+<main>
+  <header class="lede">
+    <h1>WattPrint Database</h1>
+    <p>Một PostgreSQL 18 + TimescaleDB, database <code>wattprint</code>. Số liệu đọc trực tiếp từ DB local ngày 17/11/2026.</p>
+    <div class="legend">
+      <span><i class="dot" style="background:var(--raw)"></i>Số đo thật</span>
+      <span><i class="dot" style="background:var(--pred)"></i>Dự đoán NILM</span>
+      <span><i class="dot" style="background:var(--accent)"></i>Dữ liệu dùng cho app/AI</span>
+      <span><span class="chip empty">0</span>Bảng trống</span>
+    </div>
+  </header>
+
+  <section>
+    <h2>Luồng dữ liệu: raw → NILM → dùng</h2>
+    <p>Hàng trên đang chạy. Hàng dưới đã có bảng nhưng thiếu worker NILM (khung nét đứt), nên toàn bộ phía dự đoán đang trống.</p>
+    <div class="diagram">
+      <div class="flow">
+        <div class="step raw"><b>Nguồn</b><span class="t">REFIT replayer</span><span class="n">thay cảm biến thật, tail mỗi 5 s</span><span class="arrow">→</span></div>
+        <div class="step raw"><b>Nhận lô</b><span class="t">ingest_readings</span><span class="n">ghi tb_ingest_batch, checkpoint 'replay'</span><span class="arrow">→</span></div>
+        <div class="step raw"><b>Số đo gốc</b><span class="t">tb_reading</span><span class="n">hypertable · 45,3 triệu dòng</span><span class="arrow">→</span></div>
+        <div class="step raw"><b>Gộp theo thời gian</b><span class="t">reading_1m / 1h / 1d</span><span class="n">continuous aggregate</span><span class="arrow">→</span></div>
+        <div class="step out"><b>Dùng</b><span class="t">/energy/overview, series, stream</span><span class="n">dashboard live, hoá đơn</span></div>
+      </div>
+      <div class="flow2">
+        <div class="step pred missing"><b>NILM worker</b><span class="t">chưa có</span><span class="n">đọc reading sau checkpoint 'nilm'</span><span class="arrow">→</span></div>
+        <div class="step pred"><b>Model</b><span class="t">GRU + NILMFormer</span><span class="n">6 thiết bị, file .pt đã train</span><span class="arrow">→</span></div>
+        <div class="step pred"><b>Lần chạy</b><span class="t">tb_inference_run</span><span class="n"><span class="chip empty">0</span></span><span class="arrow">→</span></div>
+        <div class="step pred"><b>Kết quả phân rã</b><span class="t">tb_device_estimate</span><span class="n">hypertable, có run_id · <span class="chip empty">0</span></span><span class="arrow">→</span></div>
+        <div class="step out"><b>Gộp + view</b><span class="t">device_estimate_1m/1h/1d</span><span class="n">→ ai.fact_energy, copilot_ro</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Lõi của pipeline</h2>
+    <p>Mọi chuỗi số, đo thật hay dự đoán, đều treo vào <code>tb_series</code>. Một thiết bị có thể có chuỗi <code>plug</code> (đo qua ổ cắm) và chuỗi <code>device</code> (NILM) song song.</p>
+    <div class="diagram">
+<pre class="mermaid">
+erDiagram
+  tb_home ||--o{ tb_meter : "có"
+  tb_home ||--o{ tb_device : "có"
+  tb_home ||--o{ tb_series : "có"
+  tb_meter ||--o{ tb_series : "kênh main"
+  tb_device ||--o{ tb_series : "kênh plug/device"
+  tb_series ||--o{ tb_reading : "số đo thật"
+  tb_series ||--o{ tb_device_estimate : "số dự đoán"
+  tb_inference_run ||--o{ tb_device_estimate : "run_id"
+  tb_home ||--o{ tb_inference_run : ""
+  tb_series ||--o{ tb_ingest_checkpoint : "replay / nilm"
+  tb_home ||--o{ tb_ingest_batch : ""
+  tb_series {
+    uuid series_id PK
+    uuid home_id FK
+    varchar kind "main | plug | device"
+    uuid device_id FK
+    uuid meter_id FK
+    varchar metric "power_w ..."
+  }
+  tb_reading {
+    timestamptz ts
+    uuid series_id FK
+    real value "W"
+    smallint quality
+  }
+  tb_device_estimate {
+    timestamptz ts
+    uuid series_id FK
+    real value "W"
+    uuid run_id FK
+  }
+  tb_inference_run {
+    uuid run_id PK
+    text model_name
+    text model_version
+    timestamptz window_start
+    timestamptz window_end
+    text status
+  }
+  tb_device {
+    uuid id PK
+    varchar device_type_code FK
+    varchar origin "nilm | plug | manual"
+  }
+  tb_ingest_checkpoint {
+    text source
+    uuid series_id FK
+    timestamptz last_ts
+  }
+</pre>
+    </div>
+  </section>
+
+  <section>
+    <h2>Toàn bộ bảng theo nhóm</h2>
+    <p><code>tb_</code> là bảng nghiệp vụ, <code>cat_</code> là danh mục seed sẵn, tên không tiền tố là view hoặc aggregate.</p>
+    <div class="groups">
+      <div class="group"><h3>Nhà và người <small>public</small></h3><div class="tbl">
+        <span class="name">tb_users</span><span class="chip ok">có</span><span class="cols">email, full_name, keycloak_sub</span>
+        <span class="name">tb_home</span><span class="chip ok">1</span><span class="cols">province_code, tariff_plan_code, billing_cycle_day</span>
+        <span class="name">tb_home_member · tb_home_invite</span><span class="chip ok">có</span><span class="cols">role, mã mời băm</span>
+        <span class="name">tb_meter</span><span class="chip ok">có</span><span class="cols">serial, claim_code_hash, last_seen_at</span>
+        <span class="name">tb_device · tb_device_alert_rule</span><span class="chip ok">9</span><span class="cols">origin nilm/plug/manual, merged_into_id</span>
+        <span class="name">cat_device_type · cat_metric</span><span class="chip ok">seed</span><span class="cols">22 loại thiết bị; W, Wh, V, A</span>
+      </div></div>
+
+      <div class="group"><h3>Số đo và NILM <small>public · hypertable</small></h3><div class="tbl">
+        <span class="name">tb_series</span><span class="chip ok">10</span><span class="cols">1 main + 9 plug, chưa có device</span>
+        <span class="name">tb_reading</span><span class="chip ok">45,3 tr</span><span class="cols">giữ 400 ngày, nén columnstore</span>
+        <span class="name">reading_1m / 1h / 1d</span><span class="chip view">view</span><span class="cols">avg/min/max_w, energy_wh, covered_minutes</span>
+        <span class="name">tb_inference_run</span><span class="chip empty">0</span><span class="cols">model, cửa sổ thời gian, status</span>
+        <span class="name">tb_device_estimate</span><span class="chip empty">0</span><span class="cols">ts, series_id, value, run_id</span>
+        <span class="name">device_estimate_1m / 1h / 1d</span><span class="chip view">view</span><span class="cols">cùng cột với reading_*</span>
+        <span class="name">series_daily_coverage · stale_series</span><span class="chip view">view</span><span class="cols">độ phủ theo ngày, cảm biến mất tín hiệu</span>
+      </div></div>
+
+      <div class="group"><h3>Nhận dữ liệu <small>public · etl</small></h3><div class="tbl">
+        <span class="name">tb_ingest_batch</span><span class="chip ok">có</span><span class="cols">rows_in/new/dup/bad, status</span>
+        <span class="name">tb_ingest_checkpoint</span><span class="chip ok">10</span><span class="cols">source 'replay' đã có; 'nilm' chưa</span>
+        <span class="name">etl.tb_watermark</span><span class="chip ok">2</span><span class="cols">seed REFIT: train 30,6 tr, test 13,6 tr dòng</span>
+      </div></div>
+
+      <div class="group"><h3>Biểu giá và hoá đơn <small>public</small></h3><div class="tbl">
+        <span class="name">tb_tariff_plan → tb_tariff_version</span><span class="chip ok">có</span><span class="cols">hiệu lực theo ngày, VAT</span>
+        <span class="name">tb_tariff_tier</span><span class="chip ok">11</span><span class="cols">bậc EVN: from/to kWh, giá</span>
+        <span class="name">tb_bill</span><span class="chip ok">1</span><span class="cols">kwh_total, amount_total, coverage, tariff_straddle</span>
+        <span class="name">tb_bill_item</span><span class="chip ok">có</span><span class="cols">tiền chia theo thiết bị</span>
+      </div></div>
+
+      <div class="group"><h3>Insight <small>public</small></h3><div class="tbl">
+        <span class="name">tb_device_cycle</span><span class="chip empty">0</span><span class="cols">hypertable: các lần thiết bị chạy</span>
+        <span class="name">tb_alert</span><span class="chip empty">0</span><span class="cols">kind, severity, payload</span>
+        <span class="name">tb_cohort_stat</span><span class="chip empty">0</span><span class="cols">p10–p90 theo nhóm nhà tương tự</span>
+        <span class="name">tb_forecast_snapshot</span><span class="chip empty">0</span><span class="cols">dự báo kWh, tiền, ngày chạm bậc</span>
+        <span class="name">tb_weather_hourly</span><span class="chip empty">0</span><span class="cols">nhiệt độ, độ ẩm theo tỉnh</span>
+      </div></div>
+
+      <div class="group"><h3>Copilot và tri thức <small>public</small></h3><div class="tbl">
+        <span class="name">tb_suggestion · _feedback</span><span class="chip empty">0</span><span class="cols">gợi ý tiết kiệm, phản hồi người dùng</span>
+        <span class="name">tb_savings_measure</span><span class="chip empty">0</span><span class="cols">M&amp;V: baseline vs actual kWh</span>
+        <span class="name">tb_document · tb_chunk</span><span class="chip empty">0</span><span class="cols">RAG: tsvector + embedding</span>
+        <span class="name">tb_scope_token</span><span class="chip view">—</span><span class="cols">token giới hạn theo nhà</span>
+      </div></div>
+
+      <div class="group"><h3>Cho text2sql <small>ai</small></h3><div class="tbl">
+        <span class="name">dim_home · dim_device · dim_tariff_plan</span><span class="chip ok">có</span><span class="cols">bảng dimension</span>
+        <span class="name">fact_reading_1m · fact_estimate_1m</span><span class="chip view">view</span><span class="cols">đổi tên cột sang dạng star schema</span>
+        <span class="name">fact_energy</span><span class="chip ok">4,9 tr</span><span class="cols">ưu tiên số đo thật, thiếu thì lấy NILM; chia tiền theo thiết bị</span>
+        <span class="name">metric_definition</span><span class="chip ok">có</span><span class="cols">catalog metric</span>
+        <span class="name">ai_conversation · ai_message · ai_tool_call</span><span class="chip view">—</span><span class="cols">lịch sử chat</span>
+      </div></div>
+
+      <div class="group"><h3>Cho copilot <small>copilot_ro</small></h3><div class="tbl">
+        <span class="name">15 view chỉ đọc</span><span class="chip view">view</span><span class="cols">home, device, series, reading_*, device_estimate_*, bill, bill_item, alert, device_cycle, suggestion, forecast_snapshot</span>
+      </div></div>
+    </div>
+  </section>
+
+  <section class="note">
+    <p>Kiến trúc đã chốt trong <code>docs/architecture/README.md</code> tách thành 6 database theo service, và dùng Qdrant làm vector store duy nhất. DB đang chạy vẫn là một database chung, embedding nằm trong Postgres.</p>
+  </section>
+</main>
+
+<!-- mermaid only renders natively in the artifact viewer; load it for local viewing -->
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js"></script>
+<script>mermaid.initialize({startOnLoad:true,theme:matchMedia("(prefers-color-scheme: dark)").matches?"dark":"default"})</script>
