@@ -13,7 +13,8 @@ from app.modules.energy.models import device_estimate_table, reading_table
 POLICY_PROCS = ("policy_compression", "policy_retention")
 JOBS_SQL = text(
     "SELECT proc_name, hypertable_name FROM timescaledb_information.jobs "
-    "WHERE hypertable_schema = 'public' AND hypertable_name IN ('tb_reading', 'tb_device_estimate') "
+    "WHERE hypertable_schema = 'public' "
+    "AND hypertable_name IN ('tb_reading', 'tb_device_estimate') "
     "AND proc_name = ANY(:p) ORDER BY 1, 2"
 )
 

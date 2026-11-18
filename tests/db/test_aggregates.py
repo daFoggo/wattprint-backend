@@ -11,7 +11,8 @@ from tests.db.conftest import _create_migrated_db, run_alembic
 
 RAW_JOBS = text(
     "SELECT proc_name, hypertable_name FROM timescaledb_information.jobs "
-    "WHERE hypertable_schema = 'public' AND hypertable_name IN ('tb_reading', 'tb_device_estimate') "
+    "WHERE hypertable_schema = 'public' "
+    "AND hypertable_name IN ('tb_reading', 'tb_device_estimate') "
     "AND proc_name IN ('policy_compression', 'policy_retention') ORDER BY 1, 2"
 )
 

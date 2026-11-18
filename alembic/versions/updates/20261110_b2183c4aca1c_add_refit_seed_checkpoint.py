@@ -4,12 +4,6 @@ Revision ID: b2183c4aca1c
 Revises: c8d3f1a6b204
 """
 
-revision = "b2183c4aca1c"
-down_revision = "c8d3f1a6b204"
-branch_labels = None
-depends_on = None
-
-
 import os
 from datetime import datetime, timedelta
 from decimal import Decimal
@@ -23,13 +17,19 @@ from pydantic import BaseModel, Field
 
 from alembic import context, op
 
+revision = "b2183c4aca1c"
+down_revision = "c8d3f1a6b204"
+branch_labels = None
+depends_on = None
+
 HOUSE       = 2
 OWNER_EMAIL = "admin@gmail.com"
 HOME_NAME   = f"REFIT House {HOUSE}"
 METER       = f"REFIT-H{HOUSE}"
 SOURCE      = f"refit/CLEAN_House{HOUSE}.csv"
-DIVIDE_DAY  = pd.Timestamp("2015-01-24 19:59:51", tz="UTC")  # NILM test_start, see train.ipynb
-BATCH_ROWS  = 20_000                                          # CSV rows per INSERT, 10 readings each
+# NILM test_start, see train.ipynb
+DIVIDE_DAY  = pd.Timestamp("2015-01-24 19:59:51", tz="UTC")
+BATCH_ROWS  = 20_000  # CSV rows per INSERT, 10 readings each
 
 # CSV channel -> (device name, cat_device_type.code), from REFIT metadata of House 2
 APPLIANCES = {
@@ -76,7 +76,8 @@ class Home(BaseModel):
     year_built:        int | None      = None
     occupants:         int | None      = None
     timezone:          str             = "Asia/Ho_Chi_Minh"
-    tariff_plan_code:  str | None      = Field(default=None, max_length=64)  # -> tb_tariff_plan.code
+    # -> tb_tariff_plan.code
+    tariff_plan_code:  str | None      = Field(default=None, max_length=64)
     billing_cycle_day: int             = Field(default=1, ge=1, le=28)
 
 
@@ -119,11 +120,11 @@ class Series(BaseModel):
     key:   ClassVar[tuple]     = ("home_id", "kind", "device_id", "metric")
 
     series_id:      UUID | None = None
-    home_id:        UUID                                                   # -> tb_home.id
+    home_id:        UUID                # -> tb_home.id
     kind:           SeriesKind
-    device_id:      UUID | None = None                                     # -> tb_device.id (NULL for main)
-    meter_id:       UUID | None = None                                     # -> tb_meter.id
-    source_channel: str | None = None                                     # Aggregate, Appliance1..9
+    device_id:      UUID | None = None  # -> tb_device.id (NULL for main)
+    meter_id:       UUID | None = None  # -> tb_meter.id
+    source_channel: str | None = None   # Aggregate, Appliance1..9
     metric:         str        = Field(default="power_w", max_length=64)  # -> cat_metric.event_type
     unit:           str        = "W"
 
@@ -146,7 +147,8 @@ def upsert(conn: sa.Connection, row: BaseModel, returning: str | None = "id") ->
     ret    = f" RETURNING {returning}" if returning else ""
 
     if conn.execute(sa.text(f"SELECT 1 FROM {row.table} WHERE {where}"), keys).first() is None:
-        sql = f"INSERT INTO {row.table} ({', '.join(values)}) VALUES ({', '.join(':' + k for k in values)}){ret}"
+        cols, params = ", ".join(values), ", ".join(":" + k for k in values)
+        sql = f"INSERT INTO {row.table} ({cols}) VALUES ({params}){ret}"
     elif sets:
         sql = f"UPDATE {row.table} SET {sets} WHERE {where}{ret}"
     elif returning:
@@ -218,7 +220,8 @@ def seed_parents(conn: sa.Connection) -> dict[str, UUID]:
         device = Device(home_id=home.id, device_type_code=type_code, name=name, origin="plug")
         device.id = upsert(conn, device)
         series_ids[channel] = upsert(conn, Series(
-            home_id=home.id, kind="plug", device_id=device.id, meter_id=meter.id, source_channel=channel,
+            home_id=home.id, kind="plug", device_id=device.id, meter_id=meter.id,
+            source_channel=channel,
         ), returning="series_id")
     return series_ids
 
@@ -233,8 +236,10 @@ def plan_segments(conn: sa.Connection, filepath: Path) -> list[sa.Row]:
     unix = pd.read_csv(filepath, usecols=["Unix"])["Unix"]
     first, last = (pd.Timestamp(unix.iloc[i], unit="s", tz="UTC") for i in (0, -1))
 
-    shift_days = conn.scalar(sa.text("SELECT shift_days FROM etl.tb_watermark WHERE source = :s LIMIT 1"),
-                             {"s": SOURCE})
+    shift_days = conn.scalar(
+        sa.text("SELECT shift_days FROM etl.tb_watermark WHERE source = :s LIMIT 1"),
+        {"s": SOURCE},
+    )
     if shift_days is None:
         shift_days = (pd.Timestamp.now(tz="UTC") - last).days // 7 * 7
     shift = timedelta(days=shift_days)
@@ -244,7 +249,9 @@ def plan_segments(conn: sa.Connection, filepath: Path) -> list[sa.Row]:
         "WHERE proc_name = 'policy_retention' AND hypertable_schema = 'public' "
         "AND hypertable_name = 'tb_reading' AND scheduled"
     ))
-    floor = pd.Timestamp.now(tz="UTC") - drop_after + timedelta(days=1) if drop_after else first + shift
+    floor = (
+        pd.Timestamp.now(tz="UTC") - drop_after + timedelta(days=1) if drop_after else first + shift
+    )
 
     segments = (
         ("test",  DIVIDE_DAY + shift,        last + shift + timedelta(seconds=1)),
@@ -263,7 +270,9 @@ def plan_segments(conn: sa.Connection, filepath: Path) -> list[sa.Row]:
     ), {"s": SOURCE}).all()
 
 
-def batch_params(chunk: pd.DataFrame, ts: pd.Series, series_ids: dict[str, UUID]) -> dict[str, list]:
+def batch_params(
+    chunk: pd.DataFrame, ts: pd.Series, series_ids: dict[str, UUID]
+) -> dict[str, list]:
     """Unnest arrays for one CSV chunk: one reading per (row, channel), NaN values dropped."""
     quality = (chunk["Issues"] == 1).astype("int16").to_numpy()
     params = {"ts": [], "series_id": [], "value": [], "quality": []}
@@ -276,8 +285,10 @@ def batch_params(chunk: pd.DataFrame, ts: pd.Series, series_ids: dict[str, UUID]
     return params
 
 
-def load_segment(conn: sa.Connection, wm: sa.Row, filepath: Path, series_ids: dict[str, UUID]) -> None:
-    """Stream the CSV and insert the rows of one segment after its watermark, BATCH_ROWS at a time."""
+def load_segment(
+    conn: sa.Connection, wm: sa.Row, filepath: Path, series_ids: dict[str, UUID]
+) -> None:
+    """Stream the CSV and insert one segment's rows after its watermark, BATCH_ROWS at a time."""
     if wm.status == "done":
         return
     shift = timedelta(days=wm.shift_days)
@@ -333,7 +344,8 @@ def upgrade() -> None:
                 load_segment(conn, wm, filepath, series_ids)
             except Exception as exc:
                 conn.execute(sa.text(
-                    "UPDATE etl.tb_watermark SET status = 'failed', error = :error, updated_at = now() "
+                    "UPDATE etl.tb_watermark "
+                    "SET status = 'failed', error = :error, updated_at = now() "
                     "WHERE source = :source AND segment = :segment"
                 ), {"error": repr(exc)[:2000], "source": SOURCE, "segment": wm.segment})
                 raise
@@ -343,11 +355,15 @@ def downgrade() -> None:
     conn = op.get_bind()
     home = {"name": HOME_NAME}
     conn.execute(sa.text(
-        "DELETE FROM public.tb_reading WHERE series_id IN (SELECT s.series_id FROM public.tb_series s "
+        "DELETE FROM public.tb_reading WHERE series_id IN "
+        "(SELECT s.series_id FROM public.tb_series s "
         "JOIN public.tb_home h ON h.id = s.home_id WHERE h.name = :name)"
     ), home)
     conn.execute(sa.text("DELETE FROM public.tb_meter WHERE serial = :serial"), {"serial": METER})
-    conn.execute(sa.text("DELETE FROM public.tb_home WHERE name = :name"), home)  # cascades devices, series, member
-    conn.execute(sa.text("DELETE FROM public.tb_users WHERE email = :email"), {"email": OWNER_EMAIL})
+    # cascades devices, series, member
+    conn.execute(sa.text("DELETE FROM public.tb_home WHERE name = :name"), home)
+    conn.execute(
+        sa.text("DELETE FROM public.tb_users WHERE email = :email"), {"email": OWNER_EMAIL}
+    )
     op.execute("DROP TABLE IF EXISTS etl.tb_watermark")
     op.execute("DROP SCHEMA IF EXISTS etl")

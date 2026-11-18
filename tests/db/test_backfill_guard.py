@@ -25,7 +25,9 @@ async def guard_conn():
     try:
         async with engine.connect() as c:
             await c.execute(text("SELECT public.set_policies(false)"))
-            home = await c.scalar(text("INSERT INTO public.tb_home (name) VALUES ('G') RETURNING id"))
+            home = await c.scalar(
+                text("INSERT INTO public.tb_home (name) VALUES ('G') RETURNING id")
+            )
             sid = await c.scalar(
                 text(
                     "INSERT INTO public.tb_series (home_id, kind, metric, unit) "

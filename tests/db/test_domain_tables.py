@@ -723,7 +723,8 @@ async def test_stale_series_view(vdb):
         r.series_id: r.minutes_since
         for r in await c.execute(
             text(
-                "SELECT series_id, minutes_since FROM public.stale_series WHERE series_id = ANY(:ids)"
+                "SELECT series_id, minutes_since FROM public.stale_series "
+                "WHERE series_id = ANY(:ids)"
             ),
             {"ids": [fresh, stale, old, at59, at61]},
         )

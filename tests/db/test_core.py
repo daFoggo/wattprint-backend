@@ -32,7 +32,8 @@ async def test_user_can_join_only_one_home(conn):
     with pytest.raises(IntegrityError):
         await conn.execute(
             text(
-                "INSERT INTO public.tb_home_member (home_id, user_id, role) VALUES (:h, :u, 'member')"
+                "INSERT INTO public.tb_home_member (home_id, user_id, role) "
+                "VALUES (:h, :u, 'member')"
             ),
             {"h": h2, "u": uid},
         )
