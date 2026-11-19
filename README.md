@@ -9,6 +9,9 @@ FastAPI + PostgreSQL/TimescaleDB with Keycloak identity service (OIDC, runs in t
 | `api` | FastAPI, SQLAlchemy 2 async, Alembic | 11093 | Business API (`/api/v1`, OpenAPI at `/docs`) |
 | `db` | TimescaleDB 2.31 on PostgreSQL 18 | 11096 | Application database |
 | `keycloak` | Keycloak 26 (`start-dev`) + its own Postgres (`keycloak-db`) | 11095 | Identity: login, users, roles. Realm `wattprint` is imported from `keycloak/realm/` on first start |
+| `nilm` | `app.modules.nilm.worker` | — | Per-home NILM model: device estimates from the main meter |
+| `insight` | `app.modules.insight.worker` | — | Jobs, one at a time per name (advisory lock): bills (hourly), forecasts and cohorts (daily), device runs + alerts and mail (5 min), upkeep (hourly) |
+| `mailpit` | Mailpit | 11099 | Dev SMTP: alert, tier and weekly mails land here |
 
 ## Run
 
@@ -34,24 +37,34 @@ The seed needs `dataset/CLEAN_House<n>.csv` (REFIT Cleaned), the model bundles i
 and `DEMO_PASSWORD` in `.env`. Each home gets its own model (`tb_nilm_model`). Plan and decisions:
 `docs/superpowers/plans/2026-11-17-nilm-pipeline-multi-home.md`.
 
+### Copilot (Wappi)
+
+`POST /api/v1/copilot/chat` streams an answer (SSE) from an LLM through OpenRouter with tool calls over the
+home's own services; free-form data questions go to `wattprint-text2sql-mcp` under a 5-minute scope token
+(the `copilot_ro` views show only that home). Voice uses AstralX (Whisper, TTS voice `speaker_05`). Env in
+`.env` (see `.env.example`): `OPENROUTER_API_KEY`, `TEXT2SQL_URL`, `TEXT2SQL_CONNECTION_ID` (the "Wattprint"
+connection in text2sql), `TEXT2SQL_SERVICE_KEY` (sent as `X-Service-Key`), `ASTRALX_API_KEY`,
+`OPENWEATHER_API_KEY`. Without a key the matching endpoints answer 503 (`copilot_unavailable`,
+`voice_unavailable`, `weather_unavailable`). text2sql must also listen on the docker0 gateway
+(`BACKEND_DOCKER_BIND=172.17.0.1`, `BACKEND_DOCKER_PORT=11101` in its `.env`) so the containers reach it as
+`host.docker.internal:11101`. Plan and decisions: `docs/superpowers/plans/2026-11-19-real-dashboard-apis.md`.
+
 Keycloak console: http://localhost:11095 (user `admin`, `KEYCLOAK_ADMIN_PASSWORD`).
 
 ## Layout
 
 ```
 app/
-  main.py          entrypoint, includes routers
+  main.py          entrypoint, includes each module's router under /api/v1
   config.py        settings (env)
   database.py      async engine, session, Base
-  dependencies.py  shared dependencies (db session, current user)
-  security.py      Keycloak access-token verification (JWKS, RS256)
-  models/          SQLAlchemy models
-  schemas/         Pydantic schemas (user)
-  routers/         health, users
-  services/        business logic (users: first-login provisioning)
+  modules/<name>/  models, schemas, services, routes, utils (errors), dependencies, api.py (what other
+                   modules may import): auth, home, energy, billing, insight, copilot, nilm, ops
+  routers/         health
 keycloak/realm/    realm export imported by Keycloak on first start (clients, roles, admin user)
 keycloak/providers/ Keycloak provider jars, mounted read-only (the login theme from wattprint-web; not committed)
 alembic/           hand-written revisions in versions/{public,ai,updates}; database-wide bootstrap revisions stay in versions/
+scripts/           demo seed, REFIT replay, NILM evaluation
 tests/
 pyproject.toml     (uv)
 Dockerfile
@@ -106,11 +119,11 @@ Known deviations from Keycloak/OAuth best practice, kept on purpose for developm
   code, Android App Links would be stricter.
 - Access tokens stay valid until `exp` (15 min) after logout; the API does not check revocation.
 
-## Adding a router
+## Adding a module
 
-1. Create `app/routers/x.py` with an `APIRouter(prefix="/x", tags=["x"])`.
-2. Import it in `app/main.py` and add it to the tuple in the `for module in (health, users):` loop,
-   which mounts every router under `/api/v1`.
+1. Create `app/modules/x/` like the others; `routes/__init__.py` exports `router = APIRouter(prefix="/x", tags=["x"])`.
+2. Import it in `app/main.py` and add it to the `for router in (...)` tuple, which mounts every router under
+   `/api/v1`. Other modules import only from `app.modules.x.api`.
 
 ## Migrations and tests
 
@@ -134,5 +147,4 @@ Tests run inside the `api` container (database access). Token tests sign with a 
 
 - Apple as an additional Keycloak identity provider (Google is already configured)
 - SMTP in Keycloak (email verification, password reset)
-- AI query execution and validation over `ai.fact_energy`
 - CI

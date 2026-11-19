@@ -144,7 +144,22 @@ Sau mỗi bước: chạy test, `ponytail-review` phần thay đổi, sửa rồ
 - [x] M5 (backend `967199e`, web `04fe25a`): cohort từ công tơ tổng (`reading_1d`, công suất TB trên số phút có
   số, độ phủ ≥ 90 %), job `cohorts` mỗi ngày, `GET /insights/cohort` (kèm kWh của chính nhà cùng cửa sổ). Dữ liệu
   thật hiện 2 nhà → 404 `cohort_too_small`, thẻ ẩn.
-- [ ] M6 cảnh báo + email, M7 copilot backend + text2sql, M8 voice, M9 copilot web, M10 audit cuối.
+- [x] M6 (backend `d513349`, web `d66593d`): `tb_device_cycle` tách lần chạy từ ước lượng NILM (tăng dần), 4
+  detector mỗi 5 phút (tủ lạnh chạy lâu, điện nền đêm, tải lạ trong "Other", bậc giá), upsert theo `dedup_key`, tự
+  resolve; `GET/PATCH /insights/alerts` (✕ trên Tổng quan = đã xem); mail SMTP theo tuỳ chọn (1 lần/ngày/nguyên nhân)
+  và tóm tắt tuần thứ Hai 08:00.
+- [x] M7 (backend `527e235`, text2sql nhánh `feat/copilot-scope-token`): module copilot, OpenRouter tool calling (11
+  tool), SSE `meta/step/token/done/error`, reply dựng từ kết quả tool, hội thoại/feedback/kế hoạch + M&V 14 ngày,
+  20 câu/phút. text2sql: `scope_token` → `set_config('app.copilot_token')`, `time_zone`, `X-Service-Key` tuỳ chọn,
+  cổng thứ hai trên docker0 (`BACKEND_DOCKER_BIND=172.17.0.1`) để container gọi qua `host.docker.internal:11101`.
+- [x] M8 (backend `141faff`): STT/TTS AstralX (`speaker_05`), body thô `audio/*` ≤ 10 MB, 30 lượt/phút.
+- [x] M9 (web `b7a7e16`, backend `3fed4e7`): Wappi thật (route handler proxy SSE, Server Actions lịch sử, voice qua
+  backend), avatar `@bible-strong/avatar-react` 1.2.1 (MIT) với bảng cảm xúc `features/copilot/moods.ts`.
+- [x] M10 (backend `e6a6acb`, web `316de06`, text2sql `19f1269`): audit độc lập 2 repo, sửa: mail không gửi lặp khi
+  một địa chỉ lỗi, kế hoạch commit ngay, không giữ kết nối DB suốt câu trả lời, `pinned: null`, giới hạn voice,
+  "hôm nay" theo giờ VN trong text2sql; web: câu trả lời không kẹt "đang nghĩ", không mất lượt khi đang tải hội
+  thoại, giới hạn body đếm theo byte, nhả micro, thu hồi audio, URL nguồn chỉ http(s)/đường dẫn app.
+- Còn lại có chủ đích (`shortcut:` trong code): job hoá đơn tính lại mọi kỳ mỗi giờ; giới hạn voice đếm theo process.
 
 Lưu ý khi làm tiếp:
 - Nguồn dữ liệu (người dùng chốt 2026-11-19): số theo thiết bị chỉ lấy từ ước lượng NILM (`tb_device_estimate`,
