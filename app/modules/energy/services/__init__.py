@@ -21,6 +21,7 @@ from .meter import (
     meter_series,
     today_energy,
 )
+from .weather import weather_at
 
 __all__ = [
     "SKIP_REASON",
@@ -44,4 +45,5 @@ __all__ = [
     "main_readings",
     "meter_series",
     "today_energy",
+    "weather_at",
 ]

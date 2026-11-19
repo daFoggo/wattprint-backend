@@ -23,7 +23,9 @@ class Home(BaseModel):
 
     name: Mapped[str] = mapped_column(String(255))
     postal_code: Mapped[str | None] = mapped_column(String(16))
-    province_code: Mapped[str | None] = mapped_column(String(16))
+    province_code: Mapped[str | None] = mapped_column(
+        String(16), ForeignKey("public.cat_province.code", onupdate="CASCADE", ondelete="SET NULL")
+    )
     home_type: Mapped[str | None] = mapped_column(String(16))
     floor_area_m2: Mapped[Decimal | None] = mapped_column(Numeric(8, 2))
     year_built: Mapped[int | None] = mapped_column(SmallInteger)

@@ -97,3 +97,44 @@ def make_token():
 async def client():
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
         yield c
+
+
+@pytest.fixture
+async def make_member(client, make_token):
+    """Factory: a signed-in user who is `role` of a home (a new one, or `home_id`); cleaned up."""
+    from app.database import SessionLocal
+
+    homes: list = []
+
+    async def make(role: str = "owner", home_id=None, **home_cols):
+        token = make_token(sub=str(uuid.uuid4()))
+        me = await client.get("/api/v1/users/me", headers={"Authorization": f"Bearer {token}"})
+        assert me.status_code == 200
+        async with SessionLocal() as s, s.begin():
+            if home_id is None:
+                cols = {"name": "Test home", **home_cols}
+                home_id = await s.scalar(
+                    text(
+                        f"INSERT INTO public.tb_home ({', '.join(cols)}) "
+                        f"VALUES ({', '.join(':' + k for k in cols)}) RETURNING id"
+                    ),
+                    cols,
+                )
+                homes.append(home_id)
+            await s.execute(
+                text(
+                    "INSERT INTO public.tb_home_member (home_id, user_id, role) VALUES (:h, :u, :r)"
+                ),
+                {"h": home_id, "u": me.json()["id"], "r": role},
+            )
+        return SimpleNamespace(
+            token=token,
+            headers={"Authorization": f"Bearer {token}"},
+            user_id=uuid.UUID(me.json()["id"]),
+            home_id=home_id,
+        )
+
+    yield make
+    async with SessionLocal() as s, s.begin():
+        for h in homes:
+            await s.execute(text("DELETE FROM public.tb_home WHERE id = :h"), {"h": h})

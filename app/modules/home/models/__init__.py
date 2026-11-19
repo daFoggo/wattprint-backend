@@ -6,6 +6,7 @@ from .model_home_invite import HomeInvite
 from .model_home_member import HomeMember
 from .model_meter import Meter
 from .model_metric import Metric
+from .model_province import Province
 
 __all__ = [
     "Device",
@@ -16,4 +17,5 @@ __all__ = [
     "HomeMember",
     "Meter",
     "Metric",
+    "Province",
 ]

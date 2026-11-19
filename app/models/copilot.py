@@ -8,6 +8,7 @@ from sqlalchemy import (
     CheckConstraint,
     DateTime,
     ForeignKey,
+    Index,
     Integer,
     Numeric,
     String,
@@ -50,7 +51,10 @@ class ScopeToken(Base):
 
 class Conversation(Base):
     __tablename__ = "ai_conversation"
-    __table_args__ = {"schema": "ai"}
+    __table_args__ = (
+        Index("ix_ai_conversation_user_updated", "user_id", "updated_at"),
+        {"schema": "ai"},
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(
         Uuid, primary_key=True, default=uuid.uuid7, server_default=text("uuidv7()")
@@ -62,13 +66,16 @@ class Conversation(Base):
         ForeignKey("public.tb_users.id", ondelete="CASCADE"), index=True
     )
     title: Mapped[str | None] = mapped_column(Text)
+    pinned: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=_NOW)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=_NOW)
 
 
 class Message(Base):
     __tablename__ = "ai_message"
     __table_args__ = (
         CheckConstraint("role IN ('user','assistant','tool','system')", name="role"),
+        CheckConstraint("feedback IN ('up', 'down')", name="feedback"),
         {"schema": "ai"},
     )
 
@@ -80,6 +87,8 @@ class Message(Base):
     )
     role: Mapped[str] = mapped_column(String(16))
     content: Mapped[str] = mapped_column(Text)
+    reply: Mapped[dict[str, Any] | None] = mapped_column(JSONB)  # the structured assistant Reply
+    feedback: Mapped[str | None] = mapped_column(String(8))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=_NOW)
 
 

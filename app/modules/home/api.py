@@ -1,4 +1,16 @@
-from .models import Device, DeviceAlertRule, DeviceType, Home, HomeInvite, HomeMember, Meter, Metric
+from .dependencies import Membership
+from .models import (
+    Device,
+    DeviceAlertRule,
+    DeviceType,
+    Home,
+    HomeInvite,
+    HomeMember,
+    Meter,
+    Metric,
+    Province,
+)
+from .utils import HomeNotFoundError
 
 __all__ = [
     "Device",
@@ -7,6 +19,9 @@ __all__ = [
     "Home",
     "HomeInvite",
     "HomeMember",
+    "HomeNotFoundError",
+    "Membership",
     "Meter",
     "Metric",
+    "Province",
 ]

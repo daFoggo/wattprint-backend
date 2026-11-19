@@ -16,13 +16,24 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from app.common.base_model import Base, IdMixin
 
+ALERT_KINDS = ("longer_than_usual", "standby_high", "tier_near", "unexplained_load")
+
 
 class Alert(IdMixin, Base):
     __tablename__ = "tb_alert"
     __table_args__ = (
         CheckConstraint("severity IN ('info','warning','critical')", name="severity"),
         CheckConstraint("status IN ('open','acknowledged','resolved')", name="status"),
+        CheckConstraint(f"kind IN ({', '.join(repr(k) for k in ALERT_KINDS)})", name="kind"),
         Index("ix_alert_home_ts", "home_id", text("ts DESC")),
+        # A detector upserts on (home, dedup_key) while its alert is not resolved.
+        Index(
+            "uq_tb_alert_home_dedup_unresolved",
+            "home_id",
+            "dedup_key",
+            unique=True,
+            postgresql_where=text("status <> 'resolved'"),
+        ),
         {"schema": "public"},
     )
 
@@ -37,3 +48,6 @@ class Alert(IdMixin, Base):
         JSONB, default=dict, server_default=text("'{}'::jsonb")
     )
     status: Mapped[str] = mapped_column(String(16), default="open", server_default="open")
+    dedup_key: Mapped[str] = mapped_column(Text)
+    resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    notified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

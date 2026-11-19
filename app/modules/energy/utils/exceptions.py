@@ -1,11 +1,16 @@
-from app.common.exceptions import NotFoundError
-
-
-class HomeNotFoundError(NotFoundError):
-    code = "home_not_found"
-    message = "This account is not a member of any home"
+from app.common.exceptions import NotFoundError, ServiceUnavailableError
 
 
 class DeviceNotFoundError(NotFoundError):
     code = "device_not_found"
     message = "No such device in this home"
+
+
+class HomeLocationUnsetError(NotFoundError):
+    code = "home_location_unset"
+    message = "The home has no province: set one to see its weather"
+
+
+class WeatherUnavailableError(ServiceUnavailableError):
+    code = "weather_unavailable"
+    message = "Weather is unavailable right now"

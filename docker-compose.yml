@@ -1,5 +1,14 @@
 name: wattprint
 
+x-copilot-env: &copilot-env
+  OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+  OPENROUTER_MODEL: ${OPENROUTER_MODEL:-openai/gpt-6-luna}
+  TEXT2SQL_URL: ${TEXT2SQL_URL:-http://host.docker.internal:11101}
+  TEXT2SQL_CONNECTION_ID: ${TEXT2SQL_CONNECTION_ID:-}
+  TEXT2SQL_SERVICE_KEY: ${TEXT2SQL_SERVICE_KEY:-}
+  ASTRALX_API_KEY: ${ASTRALX_API_KEY:-}
+  OPENWEATHER_API_KEY: ${OPENWEATHER_API_KEY:-}
+
 services:
   db:
     image: timescale/timescaledb:2.31.0-pg18
@@ -114,6 +123,9 @@ services:
       REFIT_SEED_DIR: /data
       # The House 2 seed revision is opt-in: demo homes come from scripts/seed_demo_homes.py.
       SEED_REFIT: ${SEED_REFIT:-0}
+      <<: *copilot-env
+    extra_hosts:
+      - "host.docker.internal:host-gateway" # text2sql runs in its own compose project
     ports:
       - "${API_PORT:-11093}:11093"
     depends_on:
@@ -128,6 +140,29 @@ services:
       - ./scripts:/code/scripts
       - ./dataset:/data:ro
     command: sh -c "alembic upgrade head && exec uvicorn app.main:app --host 0.0.0.0 --port 11093 --reload --reload-dir /code/app --timeout-graceful-shutdown 3"
+
+  insight:
+    # Insight worker: bills, forecasts, cohorts, alerts, weather and mail, each on its own cadence.
+    build: .
+    container_name: wattprint-insight
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:11096/${POSTGRES_DB}
+      DASHBOARD_URL: ${DASHBOARD_URL:-http://localhost:11092}
+      SMTP_HOST: ${SMTP_HOST:-mailpit}
+      SMTP_PORT: ${SMTP_PORT:-1025}
+      SMTP_FROM: ${SMTP_FROM:-no-reply@wattprint.local}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_STARTTLS: ${SMTP_STARTTLS:-false}
+    depends_on:
+      db:
+        condition: service_healthy
+      api:
+        condition: service_started # runs the migrations
+    volumes:
+      - ./app:/code/app
+    restart: unless-stopped
+    command: python -m app.modules.insight.worker
 
   nilm:
     # NILM worker: disaggregates every home's main meter into device estimates (CPU torch).
