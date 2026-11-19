@@ -250,7 +250,11 @@ async def answer(
                     args = c.args()
                     outcome, ok, ms = await run_tool(ctx, c.name, args)
                     vi, en = STEPS.get(c.name, (c.name, c.name))
-                    step = {"label": vi if lang == "vi" else en, "detail": outcome.detail}
+                    step = {
+                        "tool": c.name,
+                        "label": vi if lang == "vi" else en,
+                        "detail": outcome.detail,
+                    }
                     state.steps.append(step)
                     state.calls.append((c.name, args, outcome, ok, ms))
                     yield event("step", step)

@@ -69,6 +69,7 @@ async def test_chat_streams_tools_and_stores_the_reply(client, make_member, scri
     assert r.status_code == 200
     names = [n for n, _ in events]
     assert names == ["meta", "step", "token", "token", "done"]
+    assert events[1][1]["tool"] == "compare_periods"
     meta, done = events[0][1], events[-1][1]
     reply = done["reply"]
     assert reply["text"] == "Tuần này dùng 0 kWh [1]."
