@@ -146,6 +146,18 @@ async def test_conversations_are_private_and_editable(client, make_member, scrip
     assert (await client.get(f"{base}/{conv}", headers=me.headers)).status_code == 404
 
 
+async def test_personal_data_never_reaches_the_model_or_the_database(client, make_member, script):
+    turns, seen = script
+    me = await make_member("owner")
+    turns += [["Mình không cần số đó."]]
+    _, events = await ask(client, me, "SĐT mình 0912345678, tháng này dùng bao nhiêu?")
+    asked = "SĐT mình [số điện thoại], tháng này dùng bao nhiêu?"
+    assert seen[0][-1] == {"role": "user", "content": asked}
+    conv = events[0][1]["conversation_id"]
+    r = await client.get(f"/api/v1/copilot/conversations/{conv}", headers=me.headers)
+    assert (r.json()["title"], r.json()["messages"][0]["content"]) == (asked, asked)
+
+
 async def test_llm_failure_is_an_error_event_and_nothing_is_stored(client, make_member, script):
     turns, _ = script
     me = await make_member("owner")

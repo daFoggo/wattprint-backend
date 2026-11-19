@@ -50,8 +50,12 @@ async def _guarded(events: AsyncIterator[str]) -> AsyncIterator[str]:
     response_class=StreamingResponse,
 )
 async def chat(body: ChatIn, member: Membership, db: DbSession) -> StreamingResponse:
+    # Personal data is replaced before it is stored or reaches the model (kinds logged, not values).
+    question, found = services.redact(body.question, body.lang)
+    if found:
+        log.info("copilot question redacted: %s", found)
     conversation_id, question_id = await services.ask(
-        db, member.user_id, member.home_id, body.conversation_id, body.question
+        db, member.user_id, member.home_id, body.conversation_id, question
     )
     await db.close()  # the answer opens its own session; this one is done
     return StreamingResponse(
