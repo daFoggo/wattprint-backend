@@ -33,13 +33,20 @@ sys.path.insert(0, str(ROOT))
 from app.ml.nilm.GRUDetector import GRUConfig, GRUDetector  # noqa: E402
 from app.ml.nilm.NILMFormerRegressor import NILMFormerConfig, NILMFormerRegressor  # noqa: E402
 
-# Label -> CSV channel per house (CLEAN_READ_ME_081116.txt), label order as the House 2 bundle.
-LABELS = ["Fridge", "WashMach", "Dishwash", "Microwave", "Toaster", "Kettle"]
+# Label -> CSV channel per house (CLEAN_READ_ME_081116.txt; NILMTK's REFIT metadata agrees, its
+# meter k+1 is Appliance<k>), label order as the House 2 bundle. House 6 has a freezer, no fridge.
 CHANNELS = {
-    2: ["Appliance1", "Appliance2", "Appliance3", "Appliance5", "Appliance6", "Appliance8"],
-    5: ["Appliance1", "Appliance3", "Appliance4", "Appliance7", "Appliance9", "Appliance8"],
+    2: {"Fridge": "Appliance1", "WashMach": "Appliance2", "Dishwash": "Appliance3",
+        "Microwave": "Appliance5", "Toaster": "Appliance6", "Kettle": "Appliance8"},
+    3: {"Fridge": "Appliance2", "WashMach": "Appliance6", "Dishwash": "Appliance5",
+        "Microwave": "Appliance8", "Toaster": "Appliance1", "Kettle": "Appliance9"},
+    5: {"Fridge": "Appliance1", "WashMach": "Appliance3", "Dishwash": "Appliance4",
+        "Microwave": "Appliance7", "Toaster": "Appliance9", "Kettle": "Appliance8"},
+    6: {"Freezer": "Appliance1", "WashMach": "Appliance2", "Dishwash": "Appliance3",
+        "Microwave": "Appliance6", "Toaster": "Appliance8", "Kettle": "Appliance7"},
 }
-ON_THRESHOLD_W = np.array([50, 20, 10, 200, 200, 1000], dtype=np.float32)
+ON_THRESHOLD_W = {"Fridge": 50, "Freezer": 50, "WashMach": 20, "Dishwash": 10,
+                  "Microwave": 200, "Toaster": 200, "Kettle": 1000}
 
 SAMPLE = pd.Timedelta(seconds=15)
 WINDOW, BASE_L = 256, 128
@@ -69,7 +76,8 @@ def time_features(index: pd.DatetimeIndex) -> np.ndarray:
 
 
 def load(house: int):
-    cols = ["Aggregate", *CHANNELS[house]]
+    channels = list(CHANNELS[house].values())
+    cols = ["Aggregate", *channels]
     df = pd.read_csv(
         ROOT / "dataset" / f"CLEAN_House{house}.csv", usecols=["Time", *cols, "Issues"]
     )
@@ -87,7 +95,7 @@ def load(house: int):
     ]
     ids = np.asarray(starts, dtype=np.int64)[:, None] + np.arange(WINDOW)
     agg = frame["Aggregate"].to_numpy(np.float32)
-    y = frame[CHANNELS[house]].to_numpy(np.float32).T
+    y = frame[channels].to_numpy(np.float32).T
     feats = time_features(frame.index)
     x = np.concatenate([agg[ids][:, None], feats[:, ids].transpose(1, 0, 2)], axis=1).astype(
         np.float32
@@ -231,11 +239,11 @@ def onoff_f1(t, p):
     return 2 * tp / max(2 * tp + fp + fn, 1)
 
 
-def evaluate(pred, p_on, true, true_on, thresholds):
+def evaluate(pred, p_on, true, true_on, thresholds, labels):
     """Per device and macro, the metrics of train.ipynb §6 (energy matched step by step)."""
     k = SAMPLE.total_seconds() / 3.6e6
     rows = {}
-    for c, name in enumerate(LABELS):
+    for c, name in enumerate(labels):
         t, p = true[:, c], pred[:, c]
         match = np.minimum(t, p).sum()
         on_c = true_on[:, c]
@@ -258,8 +266,10 @@ def evaluate(pred, p_on, true, true_on, thresholds):
 
 def main(house: int) -> None:
     t_start = time.time()
+    labels = list(CHANNELS[house])
+    on_w = np.array([ON_THRESHOLD_W[label] for label in labels], dtype=np.float32)
     x, y, start, end = load(house)
-    on = y >= ON_THRESHOLD_W[None, :, None]
+    on = y >= on_w[None, :, None]
     lab = split(start, end)
     ids = {s: np.flatnonzero(lab == s) for s in ("train", "val", "test")}
     pretest = np.flatnonzero((lab != "test") & (lab != "cross"))
@@ -268,8 +278,8 @@ def main(house: int) -> None:
         + " ".join(f"{s} {len(v):,}" for s, v in ids.items()),
         flush=True,
     )
-    cfg_det = GRUConfig(c_in=x.shape[1] + 1, c_out=len(LABELS))
-    cfg_reg = NILMFormerConfig(c_out=len(LABELS))
+    cfg_det = GRUConfig(c_in=x.shape[1] + 1, c_out=len(labels))
+    cfg_reg = NILMFormerConfig(c_out=len(labels))
 
     print("stage A: epochs by early stopping on val", flush=True)
     stage_a = [
@@ -281,7 +291,7 @@ def main(house: int) -> None:
     thresholds = np.array(
         [
             grid[int(np.argmax([onoff_f1(on[ids["val"]][:, c], p_val[:, c] >= t) for t in grid]))]
-            for c in range(len(LABELS))
+            for c in range(len(labels))
         ],
         dtype=np.float32,
     )
@@ -293,7 +303,7 @@ def main(house: int) -> None:
     final = [train_seed(x, y, on, s, pretest, None, final_epochs, cfg_det, cfg_reg) for s in SEEDS]
 
     p_test, a_test = predict(final, x[ids["test"]])
-    table, summary = evaluate(a_test, p_test, y[ids["test"]], on[ids["test"]], thresholds)
+    table, summary = evaluate(a_test, p_test, y[ids["test"]], on[ids["test"]], thresholds, labels)
     print(
         table.round(3).to_string(),
         "\n",
@@ -320,9 +330,9 @@ def main(house: int) -> None:
     }
     bundle = {
         "format": "wattprint-nilm/2",
-        "appliances": CHANNELS[house],
-        "labels": LABELS,
-        "on_threshold_w": ON_THRESHOLD_W.tolist(),
+        "appliances": list(CHANNELS[house].values()),
+        "labels": labels,
+        "on_threshold_w": on_w.tolist(),
         "gate": "soft",
         "event_thresholds": thresholds.tolist(),
         "tau_w": TAU_W,
@@ -354,7 +364,7 @@ def main(house: int) -> None:
         )
     )
     loaded = torch.load(out_dir / "nilm_pipeline.pt", map_location="cpu", weights_only=True)
-    assert loaded["labels"] == LABELS and len(loaded["members"]) == len(SEEDS)
+    assert loaded["labels"] == labels and len(loaded["members"]) == len(SEEDS)
     print(f"saved {out_dir / 'nilm_pipeline.pt'} in {meta['minutes']} min", flush=True)
 
 

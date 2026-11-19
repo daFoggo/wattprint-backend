@@ -23,3 +23,23 @@ model = "house5/nilm_pipeline.pt"
 owner = { email = "refit.house5@wattprint.local", name = "REFIT House 5" }
 members = []
 devices = { Fridge = "Fridge-Freezer", WashMach = "Washing Machine", Dishwash = "Dishwasher", Microwave = "Microwave", Toaster = "Toaster", Kettle = "Kettle", Other = "Other" }
+
+# Ready, waiting for their own models (no training yet: the machine is busy). To add one:
+#   uv run python dataset/training/train_house.py --house 3
+#   uncomment its block, then  uv run python -m scripts.seed_demo_homes --house 3
+# Seeding before the model exists stops at "model ... not found". House 3 also has a freezer
+# (Appliance3) and House 6 a freezer instead of a fridge-freezer; channels in train_house.py.
+#
+# [[home]]
+# house = 3
+# model = "house3/nilm_pipeline.pt"
+# owner = { email = "refit.house3@wattprint.local", name = "REFIT House 3" }
+# members = []
+# devices = { Fridge = "Fridge-Freezer", WashMach = "Washing Machine", Dishwash = "Dishwasher", Microwave = "Microwave", Toaster = "Toaster", Kettle = "Kettle", Other = "Other" }
+#
+# [[home]]
+# house = 6
+# model = "house6/nilm_pipeline.pt"
+# owner = { email = "refit.house6@wattprint.local", name = "REFIT House 6" }
+# members = []
+# devices = { Freezer = "Freezer (Utility Room)", WashMach = "Washing Machine", Dishwash = "Dishwasher", Microwave = "Microwave", Toaster = "Toaster", Kettle = "Kettle", Other = "Other" }

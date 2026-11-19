@@ -31,6 +31,14 @@ CHANNELS = {
         "toaster": "Appliance6",
         "kettle": "Appliance8",
     },
+    3: {
+        "fridge_freezer": "Appliance2",
+        "washing_machine": "Appliance6",
+        "dishwasher": "Appliance5",
+        "microwave": "Appliance8",
+        "toaster": "Appliance1",
+        "kettle": "Appliance9",
+    },
     5: {
         "fridge_freezer": "Appliance1",
         "washing_machine": "Appliance3",
@@ -38,6 +46,14 @@ CHANNELS = {
         "microwave": "Appliance7",
         "toaster": "Appliance9",
         "kettle": "Appliance8",
+    },
+    6: {
+        "freezer": "Appliance1",
+        "washing_machine": "Appliance2",
+        "dishwasher": "Appliance3",
+        "microwave": "Appliance6",
+        "toaster": "Appliance8",
+        "kettle": "Appliance7",
     },
 }
 

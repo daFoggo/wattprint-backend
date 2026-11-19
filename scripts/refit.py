@@ -1,12 +1,11 @@
 """REFIT recordings as live Vietnamese homes: shared by seed_demo_homes.py and replay_refit.py.
 
-A REFIT house lived on UK wall-clock time; the NILM model learned its time features from that
-clock (dataset/training/data.py reads the CSV's local `Time`). Each sample's UK wall-clock time is
-moved by whole 52-week years and read as Asia/Ho_Chi_Minh time, so a 7 pm UK dinner shows at 7 pm
-in Vietnam, the weekday is kept, the month drifts at most ~1.25 days per year shifted, and the
-NILM worker, which takes time features on the home's clock, sees what the model was trained on.
-UK autumn clock changes repeat an hour (duplicate timestamps, dropped by ingest as dups); spring
-ones skip an hour (a 1 h gap).
+The CSV's `Time` column is UTC (it equals `Unix` on every row, no summer time), and the NILM models
+learned their time features from it (dataset/training/data.py, train_house.py). Each sample's UTC
+clock time is moved by whole 52-week years and read as Asia/Ho_Chi_Minh time, so a 7 pm dinner
+(UK winter) shows at 7 pm in Vietnam (6 pm in UK summer), the weekday is kept, the month drifts at
+most ~1.25 days per year shifted, and the NILM worker, which takes time features on the home's
+clock, sees what the model was trained on. The database still stores UTC (timestamptz).
 """
 
 import math
@@ -18,7 +17,7 @@ import pandas as pd
 
 from app.modules.ops.api import ReadingRow
 
-SOURCE_TZ = "Europe/London"
+SOURCE_TZ = "UTC"  # the clock of the CSV's `Time`, which the models were trained on
 HOME_TZ = "Asia/Ho_Chi_Minh"  # tb_home.timezone is CHECKed to this
 YEAR_DAYS = 364  # 52 weeks
 WEEK = timedelta(days=7)
