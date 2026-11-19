@@ -141,9 +141,16 @@ Sau mỗi bước: chạy test, `ponytail-review` phần thay đổi, sửa rồ
   qua backend (OpenWeather, key ở backend `.env`; không lưu `tb_weather_hourly` vì chưa có ai đọc).
 - [x] M3–M4 (backend `afbc9c4`, web `bca95ef`): lịch sử hoá đơn, dự báo theo thứ, worker `insight`
   (`app/modules/insight/worker.py`, job ở `services/jobs.py`; đang chạy: `bills` mỗi giờ, `forecasts` mỗi ngày).
-- [ ] M5 cohort, M6 cảnh báo + email, M7 copilot backend + text2sql, M8 voice, M9 copilot web, M10 audit cuối.
+- [x] M5 (backend `967199e`, web `04fe25a`): cohort từ công tơ tổng (`reading_1d`, công suất TB trên số phút có
+  số, độ phủ ≥ 90 %), job `cohorts` mỗi ngày, `GET /insights/cohort` (kèm kWh của chính nhà cùng cửa sổ). Dữ liệu
+  thật hiện 2 nhà → 404 `cohort_too_small`, thẻ ẩn.
+- [ ] M6 cảnh báo + email, M7 copilot backend + text2sql, M8 voice, M9 copilot web, M10 audit cuối.
 
 Lưu ý khi làm tiếp:
+- Nguồn dữ liệu (người dùng chốt 2026-11-19): số theo thiết bị chỉ lấy từ ước lượng NILM (`tb_device_estimate`,
+  `device_estimate_*`); tổng cả nhà lấy từ kênh `main` (như công tơ thật). Không API nào đọc kênh thiết bị gốc của
+  CSV REFIT (chỉ `scripts/eval_nilm.py` dùng để chấm điểm offline). Đã kiểm: series `device` có 0 dòng `tb_reading`.
+- `ruff format` của máy reformat cả file cũ: chỉ format file mình sửa.
 - Chạy **toàn bộ** `docker compose exec -T api pytest -q` trước mỗi commit (migration từng làm hỏng fixture cũ ở
   `tests/db/test_domain_tables.py`, `test_roles.py` ma trận quyền: bảng mới phải thêm vào `expected_*`).
 - Test chèn số đo vào quá khứ phải `backfill` aggregate (`app.modules.energy.services.aggregates`).
