@@ -852,6 +852,7 @@ async def test_forecast_bill_projects_the_cycle_and_the_next_tier(bdb, bsession)
         f = await forecast_bill(bsession, h["id"], now)
         # 9 days * 24 + 12 so far, 12 more today, 20 days * 24 to the 30th
         assert f.kwh == Decimal("720.000") and f.basis_days == 10
+        assert f.as_of == date(2026, 11, 10)
         assert f.period_end == date(2026, 11, 30)
         bill = await current_bill(bsession, h["id"], now)
         assert f.next is not None and f.next.tier_no == bill.tier_no + 1

@@ -67,3 +67,4 @@ class Forecast(BaseModel):
     tier_no: int
     next: TierCross | None
     basis_days: int
+    as_of: date  # the local day it was made on: how much of the cycle is behind it

@@ -34,6 +34,7 @@ class Forecast:
     tier_no: int  # the tier the cycle ends in
     next: TierCross | None  # the next tier, if this cycle reaches it
     basis_days: int
+    as_of: date  # the local day it was made on
 
 
 async def _daily_kwh(session: AsyncSession, home_id: uuid.UUID, lo: datetime, hi: datetime):
@@ -124,4 +125,5 @@ async def forecast_bill(
         tier_no=ends_in[0].tier_no,
         next=cross,
         basis_days=len(history),
+        as_of=today,
     )
