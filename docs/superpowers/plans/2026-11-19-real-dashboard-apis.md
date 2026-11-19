@@ -159,7 +159,16 @@ Sau mỗi bước: chạy test, `ponytail-review` phần thay đổi, sửa rồ
   một địa chỉ lỗi, kế hoạch commit ngay, không giữ kết nối DB suốt câu trả lời, `pinned: null`, giới hạn voice,
   "hôm nay" theo giờ VN trong text2sql; web: câu trả lời không kẹt "đang nghĩ", không mất lượt khi đang tải hội
   thoại, giới hạn body đếm theo byte, nhả micro, thu hồi audio, URL nguồn chỉ http(s)/đường dẫn app.
-- Còn lại có chủ đích (`shortcut:` trong code): job hoá đơn tính lại mọi kỳ mỗi giờ; giới hạn voice đếm theo process.
+- [x] M11 giọng nói (backend `12a0cb6`, web `f464782` `49b0c23`): CSP cho phép audio `blob:`/`data:` (trước đó
+  không phát được); TTS đọc từng câu thành một luồng MP3 (AstralX không stream, xử lý tuần tự), đổi số, đơn vị,
+  giờ thành chữ trước khi đọc, Whisper có từ vựng ngành; bản đọc trọn vẹn lưu ở `ai.ai_speech` (30 ngày).
+- [x] M12 an toàn và chi phí (backend `9725739` `8d2c349` `d200bbc` `cb0b2d8` `518c0bb` `ec36009`, web `b976ed9`
+  `6427273`): token và chi phí mỗi câu trả lời ở `ai_message.usage`, giờ đặt sau lịch sử để prompt cache được;
+  thông tin cá nhân (SĐT, giấy tờ, email, thẻ, STK) được cảnh báo trên web và thay bằng nhãn ở backend; câu
+  injection bị từ chối, Llama Guard 4 lọc câu độc hại song song vòng đầu; nhãn "Dự đoán"/"Ước tính" kèm độ tin
+  cậy và lý do, "Nội dung do AI tạo" dưới câu trả lời; test mọi endpoint (trừ health, provinces) cần token.
+- Còn lại có chủ đích (`shortcut:` trong code): job hoá đơn tính lại mọi kỳ mỗi giờ; giới hạn voice đếm theo process;
+  nhận diện thông tin cá nhân theo mẫu (không có NER cho tên, địa chỉ).
 
 Lưu ý khi làm tiếp:
 - Nguồn dữ liệu (người dùng chốt 2026-11-19): số theo thiết bị chỉ lấy từ ước lượng NILM (`tb_device_estimate`,
@@ -173,5 +182,8 @@ Lưu ý khi làm tiếp:
   `docker exec -d wattprint-api sh -c 'cd /code && python -m scripts.replay_refit > /tmp/replay.log 2>&1'`
   (container không có `pkill`; tìm PID qua `/proc/*/cmdline`).
 - Web: commit cần `PATH=$HOME/.local/node-v22/bin:$PATH` (husky), commitlint giới hạn 100 ký tự/dòng thân.
+- Sau khi máy khởi động lại: `docker compose up -d` (container `db`/`api`/`keycloak` có thể mất, volume vẫn còn),
+  `docker compose up -d --no-deps --force-recreate insight` nếu nó lặp "name resolution", chạy lại replay (lệnh ở
+  trên), rồi bật lại hai dev server web.
 - Self-test: script Playwright ở scratchpad (`selftest2.mjs`), đăng nhập `refit.house2@wattprint.local` với
   `DEMO_PASSWORD`; chụp với `caret: "initial"` (mặc định Playwright chèn style gây hydration mismatch giả).
