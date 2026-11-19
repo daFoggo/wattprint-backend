@@ -1,4 +1,5 @@
 from .exceptions import (
+    AudioTooLargeError,
     ConversationNotFoundError,
     CopilotUnavailableError,
     MessageNotFoundError,
@@ -8,6 +9,7 @@ from .exceptions import (
 )
 
 __all__ = [
+    "AudioTooLargeError",
     "ConversationNotFoundError",
     "CopilotUnavailableError",
     "MessageNotFoundError",

@@ -26,6 +26,12 @@ class PlanNotFoundError(NotFoundError):
     message = "No such plan"
 
 
+class AudioTooLargeError(AppError):
+    status_code = 413
+    code = "audio_too_large"
+    message = "The recording is over 10 MB"
+
+
 class RateLimitedError(AppError):
     status_code = 429
     code = "copilot_rate_limited"

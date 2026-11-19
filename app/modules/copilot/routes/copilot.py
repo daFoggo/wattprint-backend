@@ -1,10 +1,12 @@
 import logging
 import uuid
 from collections.abc import AsyncIterator
+from typing import Annotated, Literal
 
-from fastapi import APIRouter
-from fastapi.responses import StreamingResponse
+from fastapi import APIRouter, Header, Query, Request
+from fastapi.responses import Response, StreamingResponse
 
+from app.common.exceptions import UnprocessableError
 from app.dependencies import DbSession
 from app.modules.home.api import Membership
 
@@ -16,7 +18,10 @@ from ..schemas import (
     ConversationUpdate,
     FeedbackIn,
     PlanRead,
+    SpeechIn,
+    Transcript,
 )
+from ..utils import AudioTooLargeError
 
 router = APIRouter()
 log = logging.getLogger("copilot")
@@ -98,3 +103,40 @@ async def accept_plan(plan_id: uuid.UUID, member: Membership, db: DbSession) -> 
     return PlanRead.model_validate(
         await services.accept_plan(db, member.user_id, member.home_id, plan_id)
     )
+
+
+MAX_AUDIO = 10 * 1024 * 1024  # about 10 minutes of Opus: far more than one question
+
+
+@router.post(
+    "/voice/transcribe",
+    summary="Speech to text: the request body is the recording (Content-Type audio/webm, "
+    "audio/ogg, audio/mp4, audio/mpeg or audio/wav), at most 10 MB",
+)
+async def transcribe(
+    request: Request,
+    _: Membership,
+    content_type: Annotated[str, Header()],
+    lang: Annotated[Literal["vi", "en"], Query()] = "vi",
+) -> Transcript:
+    kind = content_type.split(";")[0].strip().lower()  # "audio/webm;codecs=opus"
+    if kind not in services.EXT:
+        raise UnprocessableError("Unsupported audio type", code="audio_type_unsupported")
+    audio = bytearray()
+    async for chunk in request.stream():
+        audio += chunk
+        if len(audio) > MAX_AUDIO:
+            raise AudioTooLargeError
+    if not audio:
+        raise UnprocessableError("The recording is empty", code="audio_empty")
+    return Transcript.model_validate(await services.transcribe(bytes(audio), kind, lang))
+
+
+@router.post(
+    "/voice/speech",
+    summary="Text to speech: Wappi's voice reading the text, as MP3",
+    response_class=Response,
+    responses={200: {"content": {"audio/mpeg": {}}}},
+)
+async def speech(body: SpeechIn, _: Membership) -> Response:
+    return Response(await services.speech(body.text), media_type="audio/mpeg")

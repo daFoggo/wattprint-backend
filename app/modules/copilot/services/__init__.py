@@ -9,8 +9,10 @@ from .conversations import (
     update_conversation,
 )
 from .upkeep import measure_plans, prune_scope_tokens
+from .voice import EXT, speech, transcribe
 
 __all__ = [
+    "EXT",
     "accept_plan",
     "answer",
     "ask",
@@ -21,5 +23,7 @@ __all__ = [
     "measure_plans",
     "prune_scope_tokens",
     "rate",
+    "speech",
+    "transcribe",
     "update_conversation",
 ]

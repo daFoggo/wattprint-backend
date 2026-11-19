@@ -207,3 +207,42 @@ async def test_an_unexpected_failure_still_ends_the_stream(client, make_member, 
         "error",
         {"code": "copilot_failed", "message": "The answer failed", "reply": None},
     )
+
+
+async def test_voice_routes_check_the_audio_and_need_the_key(client, make_member, monkeypatch):
+    from app.config import settings
+    from app.modules.copilot import services
+
+    me = await make_member("member")
+    url = "/api/v1/copilot/voice/transcribe"
+    webm = {**me.headers, "Content-Type": "audio/webm;codecs=opus"}
+    monkeypatch.setattr(settings, "astralx_api_key", "")
+    r = await client.post(url, content=b"x", headers=webm)
+    assert (r.status_code, r.json()["code"]) == (503, "voice_unavailable")
+    r = await client.post("/api/v1/copilot/voice/speech", json={"text": "Chào"}, headers=me.headers)
+    assert r.status_code == 503
+
+    async def fake_transcribe(audio, kind, lang):
+        assert (audio, kind, lang) == (b"opus", "audio/webm", "en")
+        return {"text": "hello", "language": "english", "duration": 1.2}
+
+    async def fake_speech(text):
+        return b"ID3" + text.encode()
+
+    monkeypatch.setattr(services, "transcribe", fake_transcribe)
+    monkeypatch.setattr(services, "speech", fake_speech)
+    r = await client.post(f"{url}?lang=en", content=b"opus", headers=webm)
+    assert r.json() == {"text": "hello", "language": "english", "duration": 1.2}
+    text_only = {**me.headers, "Content-Type": "text/plain"}
+    assert (await client.post(url, content=b"x", headers=text_only)).status_code == 422
+    assert (await client.post(url, content=b"", headers=webm)).status_code == 422
+    big = b"0" * (10 * 1024 * 1024 + 1)
+    assert (await client.post(url, content=big, headers=webm)).status_code == 413
+    r = await client.post("/api/v1/copilot/voice/speech", json={"text": "Chào"}, headers=me.headers)
+    assert (r.status_code, r.headers["content-type"], r.content) == (
+        200,
+        "audio/mpeg",
+        b"ID3" + "Chào".encode(),
+    )
+    r = await client.post("/api/v1/copilot/voice/speech", json={"text": " "}, headers=me.headers)
+    assert r.status_code == 422
