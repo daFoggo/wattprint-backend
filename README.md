@@ -49,6 +49,12 @@ connection in text2sql), `TEXT2SQL_SERVICE_KEY` (sent as `X-Service-Key`), `ASTR
 (`BACKEND_DOCKER_BIND=172.17.0.1`, `BACKEND_DOCKER_PORT=11101` in its `.env`) so the containers reach it as
 `host.docker.internal:11101`. Plan and decisions: `docs/superpowers/plans/2026-11-19-real-dashboard-apis.md`.
 
+Safety: personal data in a question (phone, ID, email, card, account numbers) is replaced by a label
+before it is stored or sent (`services/privacy.py`); a question asking the model to drop its rules is
+declined, and `COPILOT_GUARD_MODEL` (Llama Guard 4) screens harmful ones while the model's first round
+runs (`services/guard.py`). Whatever the model is told, its tools only read the asking home. Each
+answer's tokens and cost are in `ai.ai_message.usage`; answers read aloud are kept in `ai.ai_speech`.
+
 Keycloak console: http://localhost:11095 (user `admin`, `KEYCLOAK_ADMIN_PASSWORD`).
 
 ## Layout
