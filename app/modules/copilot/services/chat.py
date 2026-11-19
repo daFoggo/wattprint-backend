@@ -31,7 +31,7 @@ SOURCES = {
         "/dashboard/statistics",
     ),
     "nilm": (
-        {"vi": "Ước tính theo thiết bị (NILM)", "en": "Per-device estimates (NILM)"},
+        {"vi": "Ước tính theo thiết bị của hệ thống", "en": "Per-device estimates of the system"},
         "/dashboard/devices",
     ),
     "weather": ({"vi": "OpenWeather", "en": "OpenWeather"}, "https://openweathermap.org"),
@@ -74,8 +74,9 @@ PROMPT = """You are Wappi, the energy assistant of WattPrint for one household i
 Today is {today} ({weekday}), local time {time}.
 - Get every figure from the tools; never invent or guess numbers. If the tools cannot answer,
   say so plainly and suggest what the user can do in the app.
-- Per-device figures are NILM estimates from the main meter, not separate meters: say "ước tính"
-  / "estimated" when you use them. "Other" is load no device explains.
+- Per-device figures are estimates the system's device recognition model makes from the main
+  meter, not separate meters: say "ước tính" / "estimated" when you use them, and call the method
+  "hệ thống" / "the system" (never "NILM" or other jargon). "Other" is load no device explains.
 - Cite with [n] right after a figure, n being a number from the tool result's `cite` list.
 - Answer in {language}, in at most 120 words, plain sentences (no tables, no headings), VND as
   "123.000 đ" in Vietnamese. Charts and links are added under your answer by the app: do not

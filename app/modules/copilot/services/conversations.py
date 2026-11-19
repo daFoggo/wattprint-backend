@@ -97,9 +97,10 @@ async def delete_conversation(s, user_id, home_id, conversation_id) -> None:
     await s.commit()
 
 
-async def rate(s, user_id, home_id, message_id: uuid.UUID, value: str | None) -> None:
-    found = await s.scalar(
-        select(Message.id)
+async def answer_text(s, user_id, home_id, message_id: uuid.UUID) -> str:
+    """The text of one of Wappi's answers to this user in this home."""
+    text = await s.scalar(
+        select(Message.content)
         .join(Conversation, Conversation.id == Message.conversation_id)
         .where(
             Message.id == message_id,
@@ -108,8 +109,13 @@ async def rate(s, user_id, home_id, message_id: uuid.UUID, value: str | None) ->
             Conversation.home_id == home_id,
         )
     )
-    if found is None:
+    if text is None:
         raise MessageNotFoundError
+    return text
+
+
+async def rate(s, user_id, home_id, message_id: uuid.UUID, value: str | None) -> None:
+    await answer_text(s, user_id, home_id, message_id)
     await s.execute(update(Message).where(Message.id == message_id).values(feedback=value))
     await s.commit()
 

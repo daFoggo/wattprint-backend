@@ -10,6 +10,7 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     Integer,
+    LargeBinary,
     Numeric,
     String,
     Text,
@@ -89,6 +90,21 @@ class Message(Base):
     content: Mapped[str] = mapped_column(Text)
     reply: Mapped[dict[str, Any] | None] = mapped_column(JSONB)  # the structured assistant Reply
     feedback: Mapped[str | None] = mapped_column(String(8))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=_NOW)
+
+
+class Speech(Base):
+    """An answer read aloud, kept so that hearing it again is not voiced (and paid) again."""
+
+    __tablename__ = "ai_speech"
+    __table_args__ = {"schema": "ai"}
+
+    message_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("ai.ai_message.id", ondelete="CASCADE"), primary_key=True
+    )
+    lang: Mapped[str] = mapped_column(String(2), primary_key=True)
+    voice: Mapped[str] = mapped_column(String(64), primary_key=True)  # model/voice it was read in
+    audio: Mapped[bytes] = mapped_column(LargeBinary)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=_NOW)
 
 

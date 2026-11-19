@@ -6,7 +6,6 @@ from .schema_copilot import (
     FeedbackIn,
     MessageRead,
     PlanRead,
-    SpeechIn,
     Transcript,
 )
 
@@ -18,6 +17,5 @@ __all__ = [
     "FeedbackIn",
     "MessageRead",
     "PlanRead",
-    "SpeechIn",
     "Transcript",
 ]

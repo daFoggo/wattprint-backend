@@ -210,28 +210,40 @@ async def test_an_unexpected_failure_still_ends_the_stream(client, make_member, 
     )
 
 
-async def test_voice_routes_check_the_audio_and_need_the_key(client, make_member, monkeypatch):
+async def test_voice_routes_check_the_audio_and_need_the_key(
+    client, make_member, monkeypatch, script
+):
     from app.config import settings
     from app.modules.copilot import services
+    from app.modules.copilot.services import voice
 
+    turns, _ = script
     me = await make_member("member")
+    turns += [["Chào. Mình là Wappi."]]
+    _, events = await ask(client, me, "Xin chào")
+    speech = f"/api/v1/copilot/messages/{events[-1][1]['message_id']}/speech"
     url = "/api/v1/copilot/voice/transcribe"
     webm = {**me.headers, "Content-Type": "audio/webm;codecs=opus"}
     monkeypatch.setattr(settings, "astralx_api_key", "")
     r = await client.post(url, content=b"x", headers=webm)
     assert (r.status_code, r.json()["code"]) == (503, "voice_unavailable")
-    r = await client.post("/api/v1/copilot/voice/speech", json={"text": "Chào"}, headers=me.headers)
-    assert r.status_code == 503
+    assert (await client.get(speech, headers=me.headers)).status_code == 503
 
     async def fake_transcribe(audio, kind, lang):
         assert (audio, kind, lang) == (b"opus", "audio/webm", "en")
         return {"text": "hello", "language": "english", "duration": 1.2}
 
-    async def fake_speech(text):
-        return b"ID3" + text.encode()
+    voiced: list[str] = []
 
+    async def fake_voice(client, text):
+        voiced.append(text)
+        if text == "boom.":
+            raise services.voice.VoiceUnavailableError
+        return text.encode()
+
+    monkeypatch.setattr(settings, "astralx_api_key", "k")
     monkeypatch.setattr(services, "transcribe", fake_transcribe)
-    monkeypatch.setattr(services, "speech", fake_speech)
+    monkeypatch.setattr(voice, "_voice", fake_voice)
     r = await client.post(f"{url}?lang=en", content=b"opus", headers=webm)
     assert r.json() == {"text": "hello", "language": "english", "duration": 1.2}
     text_only = {**me.headers, "Content-Type": "text/plain"}
@@ -239,14 +251,33 @@ async def test_voice_routes_check_the_audio_and_need_the_key(client, make_member
     assert (await client.post(url, content=b"", headers=webm)).status_code == 422
     big = b"0" * (10 * 1024 * 1024 + 1)
     assert (await client.post(url, content=big, headers=webm)).status_code == 413
-    r = await client.post("/api/v1/copilot/voice/speech", json={"text": "Chào"}, headers=me.headers)
+    r = await client.get(speech, headers=me.headers)
     assert (r.status_code, r.headers["content-type"], r.content) == (
         200,
         "audio/mpeg",
-        b"ID3" + "Chào".encode(),
+        "Chào. Mình là Wappi.".encode(),
     )
-    r = await client.post("/api/v1/copilot/voice/speech", json={"text": " "}, headers=me.headers)
-    assert r.status_code == 422
+    # Someone else's answer, or a question, is not read.
+    other = await make_member("member")
+    assert (await client.get(speech, headers=other.headers)).status_code == 404
+    question = f"/api/v1/copilot/messages/{events[0][1]['conversation_id']}/speech"
+    assert (await client.get(question, headers=me.headers)).status_code == 404
+
+    # Heard again: the kept reading, not voiced again.
+    n = len(voiced)
+    assert (await client.get(speech, headers=me.headers)).content == "Chào. Mình là Wappi.".encode()
+    assert len(voiced) == n
+
+    # The voice failing on the first piece is an error; on a later one, the reading stops there and
+    # is not kept.
+    en = f"{speech}?lang=en"
+    monkeypatch.setattr(voice, "pieces", lambda text: ["boom.", "x"])
+    assert (await client.get(en, headers=me.headers)).status_code == 503
+    monkeypatch.setattr(voice, "pieces", lambda text: ["Một.", "boom.", "Ba."])
+    r = await client.get(en, headers=me.headers)
+    assert (r.status_code, r.content) == (200, "Một.".encode())
+    monkeypatch.setattr(voice, "pieces", lambda text: ["Một.", "Ba."])
+    assert (await client.get(en, headers=me.headers)).content == "Một.Ba.".encode()
 
 
 async def test_a_plan_survives_a_later_failing_tool(client, make_member, script, monkeypatch):
@@ -285,15 +316,13 @@ async def test_voice_is_rate_limited_per_user(client, make_member, monkeypatch):
     from app.modules.copilot import services
     from app.modules.copilot.routes import copilot as routes
 
-    async def fake_speech(text):
-        return b"ID3"
+    async def fake_transcribe(audio, kind, lang):
+        return {"text": "", "language": None, "duration": None}
 
-    monkeypatch.setattr(services, "speech", fake_speech)
+    monkeypatch.setattr(services, "transcribe", fake_transcribe)
     monkeypatch.setattr(routes, "VOICE_PER_MINUTE", 2)
     me = await make_member("member")
-    url = "/api/v1/copilot/voice/speech"
-    codes = [
-        (await client.post(url, json={"text": "a"}, headers=me.headers)).status_code
-        for _ in range(3)
-    ]
+    url = "/api/v1/copilot/voice/transcribe"
+    webm = {**me.headers, "Content-Type": "audio/webm"}
+    codes = [(await client.post(url, content=b"x", headers=webm)).status_code for _ in range(3)]
     assert codes == [200, 200, 429]

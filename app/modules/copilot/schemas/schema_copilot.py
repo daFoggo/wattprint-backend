@@ -53,12 +53,6 @@ class FeedbackIn(BaseModel):
     value: Literal["up", "down"] | None
 
 
-class SpeechIn(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    text: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=1500)]
-
-
 class Transcript(BaseModel):
     text: str
     language: str | None

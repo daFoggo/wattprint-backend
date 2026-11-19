@@ -20,10 +20,9 @@ from ..schemas import (
     ConversationUpdate,
     FeedbackIn,
     PlanRead,
-    SpeechIn,
     Transcript,
 )
-from ..utils import AudioTooLargeError, RateLimitedError
+from ..utils import AudioTooLargeError, RateLimitedError, VoiceUnavailableError
 
 router = APIRouter()
 log = logging.getLogger("copilot")
@@ -153,12 +152,43 @@ async def transcribe(
     return Transcript.model_validate(await services.transcribe(bytes(audio), kind, lang))
 
 
-@router.post(
-    "/voice/speech",
-    summary="Text to speech: Wappi's voice reading the text, as MP3",
-    response_class=Response,
+@router.get(
+    "/messages/{message_id}/speech",
+    summary="One of Wappi's answers read aloud: an MP3 stream that starts after its first sentence",
+    response_class=StreamingResponse,
     responses={200: {"content": {"audio/mpeg": {}}}},
 )
-async def speech(body: SpeechIn, member: Membership) -> Response:
+async def speech(
+    message_id: uuid.UUID,
+    member: Membership,
+    db: DbSession,
+    lang: Annotated[Literal["vi", "en"], Query()] = "vi",
+) -> StreamingResponse:
+    text = await services.answer_text(db, member.user_id, member.home_id, message_id)
+    kept = await services.kept_speech(db, message_id, lang)
+    await db.close()
+    if kept is not None:  # heard before: no new reading, nothing paid, not counted
+        return Response(kept, media_type="audio/mpeg", headers={"Cache-Control": "no-store"})
     _voice_quota(member.user_id)
-    return Response(await services.speech(body.text), media_type="audio/mpeg")
+    audio = services.speech(text, lang)
+    first = await anext(
+        audio, b""
+    )  # a failure before any sound is an error status, not a cut stream
+
+    async def stream() -> AsyncIterator[bytes]:
+        read = [first]
+        try:
+            yield first
+            async for piece in audio:
+                read.append(piece)
+                yield piece
+        except VoiceUnavailableError:
+            return  # logged; the reading ends where the voice failed, and is not kept
+        finally:
+            await audio.aclose()  # the listener left: voice nothing more
+        if first:
+            await services.keep_speech(message_id, lang, b"".join(read))
+
+    return StreamingResponse(
+        stream(), media_type="audio/mpeg", headers={"Cache-Control": "no-store"}
+    )

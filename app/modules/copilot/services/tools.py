@@ -103,8 +103,16 @@ async def devices_breakdown(ctx: Ctx, days: int = 30) -> Outcome:
         for p in parts
     ]
     return Outcome(
-        data={"days": days, "devices": rows, "note": "NILM estimates; 'Other' = not recognised"},
-        detail=f"NILM · {days} {_vi(ctx, 'ngày', 'days')}",
+        data={
+            "days": days,
+            "devices": rows,
+            "note": "estimates of the device recognition model; 'Other' = not recognised",
+        },
+        detail=_vi(
+            ctx,
+            f"Mô hình nhận diện thiết bị · {days} ngày",
+            f"Device recognition model · {days} days",
+        ),
         tier="estimated",
         sources=["nilm"],
         widgets=[
@@ -201,7 +209,7 @@ async def bills_past(ctx: Ctx) -> Outcome:
             for b in bills
         ]
         or {"error": "no ended billing cycle yet"},
-        detail="tb_bill",
+        detail=_vi(ctx, "Hóa đơn các kỳ trước", "Past bills"),
         sources=["tariff", "meter"],
         links=["bill"],
     )
@@ -305,7 +313,7 @@ async def cohort(ctx: Ctx) -> Outcome:
             "percentiles_kwh": {"p10": _f(c.p10, 1), "p90": _f(c.p90, 1)},
             "median_kwh": round(median, 1),
         },
-        detail=f"cohort_stat · {c.homes} {_vi(ctx, 'hộ', 'homes')}",
+        detail=_vi(ctx, f"Nhà tương tự · {c.homes} hộ", f"Similar homes · {c.homes} homes"),
         sources=["cohort"],
         widgets=[
             {
@@ -338,7 +346,7 @@ async def alerts(ctx: Ctx) -> Outcome:
             for a, d in rows
         ]
         or {"note": "no open alerts"},
-        detail="tb_alert",
+        detail=_vi(ctx, "Cảnh báo của hệ thống", "System alerts"),
         tier="estimated",
         sources=["nilm"],
         links=["devices"],
@@ -444,7 +452,7 @@ async def query_data(ctx: Ctx, question: str) -> Outcome:
             "row_count": len(rows),
             "summary": answer,
         },
-        detail="text2sql · copilot_ro",
+        detail=_vi(ctx, "Truy vấn chỉ đọc dữ liệu nhà bạn", "Read-only query of your home's data"),
         tier="estimated",
         sources=["meter"],
         sql=sql,
@@ -478,7 +486,7 @@ async def propose_plan(ctx: Ctx, title: str, tasks: list[dict[str, Any]]) -> Out
     await ctx.session.commit()  # the reply names it: a later failing tool must not roll it back
     return Outcome(
         data={"plan_id": str(plan.id), "kwh_per_month": kwh, "vnd_per_month": vnd},
-        detail="tb_suggestion",
+        detail=_vi(ctx, "Kế hoạch tiết kiệm", "Savings plan"),
         tier="estimated",
         sources=["tariff"],
         widgets=[
