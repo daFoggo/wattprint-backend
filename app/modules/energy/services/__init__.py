@@ -7,6 +7,7 @@ from .devices import (
     analyzed_until,
     device_detail,
     devices,
+    on_w,
     runs,
 )
 from .meter import (
@@ -32,6 +33,7 @@ __all__ = [
     "analyzed_until",
     "device_detail",
     "devices",
+    "on_w",
     "runs",
     "DeviceEnergy",
     "LatestPower",

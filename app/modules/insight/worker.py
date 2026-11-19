@@ -30,6 +30,8 @@ JOBS = [
     Job("bills", 3600, jobs.bills),
     Job("forecasts", 86_400, jobs.forecasts),
     Job("cohorts", 86_400, jobs.cohorts),
+    Job("alerts", 300, jobs.alerts),
+    Job("mail", 300, jobs.mail),
 ]
 
 

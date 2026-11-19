@@ -65,7 +65,7 @@ def local_midnight(day: date) -> datetime:
     return datetime(day.year, day.month, day.day, tzinfo=LOCAL).astimezone(UTC)
 
 
-def _on_w(code: str) -> float:
+def on_w(code: str) -> float:
     return OTHER_ON_W if code == "other" else ON_W.get(code, DEFAULT_ON_W)
 
 
@@ -84,7 +84,7 @@ async def _rows(session: AsyncSession, home_id: uuid.UUID) -> list[DeviceRow]:
         ),
         {"h": home_id},
     )
-    return [DeviceRow(**r._mapping, on_w=_on_w(r.type)) for r in result]
+    return [DeviceRow(**r._mapping, on_w=on_w(r.type)) for r in result]
 
 
 async def _fill(session: AsyncSession, rows: list[DeviceRow], now: datetime) -> None:

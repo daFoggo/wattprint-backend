@@ -4,10 +4,13 @@ from .services import (
     DeviceEnergy,
     LatestPower,
     Point,
+    analyzed_until,
     backfill_aggregates,
     device_breakdown,
     latest_power,
     meter_series,
+    on_w,
+    runs,
 )
 
 __all__ = [
@@ -18,10 +21,13 @@ __all__ = [
     "Point",
     "Series",
     "WeatherHourly",
+    "analyzed_until",
     "backfill_aggregates",
     "device_breakdown",
     "device_estimate_table",
     "latest_power",
     "meter_series",
+    "on_w",
     "reading_table",
+    "runs",
 ]

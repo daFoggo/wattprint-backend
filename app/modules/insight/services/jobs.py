@@ -13,6 +13,8 @@ from app.modules.home.api import Home
 
 from ..models import ForecastSnapshot
 from .cohort import refresh_cohorts
+from .detectors import detect
+from .mail import mail_alerts, mail_weekly
 
 log = logging.getLogger("insight.jobs")
 
@@ -63,3 +65,12 @@ async def forecasts(now: datetime) -> None:
 async def cohorts(now: datetime) -> None:
     async with SessionLocal() as s, s.begin():
         await refresh_cohorts(s, now)
+
+
+async def alerts(now: datetime) -> None:
+    await each_home(lambda s, h: detect(s, h, now))
+
+
+async def mail(now: datetime) -> None:
+    await mail_alerts(now)
+    await mail_weekly(now)
