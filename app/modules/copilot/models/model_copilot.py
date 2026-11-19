@@ -89,6 +89,8 @@ class Message(Base):
     role: Mapped[str] = mapped_column(String(16))
     content: Mapped[str] = mapped_column(Text)
     reply: Mapped[dict[str, Any] | None] = mapped_column(JSONB)  # the structured assistant Reply
+    # An answer's model rounds, tokens (prompt, cached, completion) and cost in USD.
+    usage: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
     feedback: Mapped[str | None] = mapped_column(String(8))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=_NOW)
 

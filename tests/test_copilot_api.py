@@ -25,6 +25,8 @@ def script(monkeypatch):
 
     async def stream(messages, tools, turn):
         seen.append(list(messages))
+        turn.usage = {"prompt_tokens": 100, "completion_tokens": 10, "cost": 0.001}
+        turn.usage["prompt_tokens_details"] = {"cached_tokens": 60}
         step = turns.pop(0)
         if isinstance(step, Exception):
             raise step
@@ -94,12 +96,19 @@ async def test_chat_streams_tools_and_stores_the_reply(client, make_member, scri
                 {"m": done["message_id"]},
             )
         ).all()
+        usage = await s.scalar(
+            text("SELECT usage FROM ai.ai_message WHERE id = :m"), {"m": done["message_id"]}
+        )
     assert calls == [("compare_periods", True)]
+    assert usage == {"rounds": 2, "prompt": 200, "cached": 120, "completion": 20, "cost": 0.002}
 
     # the follow-up sees the earlier turn
     turns += [["Vẫn vậy."]]
     r, events = await ask(client, me, "Còn tuần trước?", conversation_id=conv)
-    assert [m["content"] for m in seen[-1][1:]] == [
+    # the prompt then the history stay the same across questions (cached); the clock comes last
+    assert [m["role"] for m in seen[-1]] == ["system", "user", "assistant", "system", "user"]
+    assert seen[-1][0] == seen[0][0] and seen[-1][3]["content"].startswith("Today is ")
+    assert [m["content"] for m in seen[-1][1:] if m["role"] != "system"] == [
         "Kỳ này so với kỳ trước?",
         "Tuần này dùng 0 kWh [1].",
         "Còn tuần trước?",

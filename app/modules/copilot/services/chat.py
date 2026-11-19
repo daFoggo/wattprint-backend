@@ -71,7 +71,6 @@ INTENTS = {
 }
 
 PROMPT = """You are Wappi, the energy assistant of WattPrint for one household in Vietnam.
-Today is {today} ({weekday}), local time {time}.
 - Get every figure from the tools; never invent or guess numbers. If the tools cannot answer,
   say so plainly and suggest what the user can do in the app.
 - Per-device figures are estimates the system's device recognition model makes from the main
@@ -121,17 +120,18 @@ class FollowUps:
         return self.answer.strip(), [q for q in lines if q][:3]
 
 
-def _system(lang: str, now: datetime) -> dict[str, str]:
+def _system(lang: str) -> dict[str, str]:
+    language = "Vietnamese" if lang == "vi" else "English"
+    return {"role": "system", "content": PROMPT.format(language=language, follow=FOLLOW)}
+
+
+def _clock(now: datetime) -> dict[str, str]:
+    """The date and time, after the history: what comes before it stays the same from one
+    question to the next, so the provider can cache it."""
     local = now.astimezone(ICT)
     return {
         "role": "system",
-        "content": PROMPT.format(
-            today=local.date().isoformat(),
-            weekday=local.strftime("%A"),
-            time=local.strftime("%H:%M"),
-            language="Vietnamese" if lang == "vi" else "English",
-            follow=FOLLOW,
-        ),
+        "content": f"Today is {local.date().isoformat()} ({local:%A}), local time {local:%H:%M}.",
     }
 
 
@@ -159,6 +159,16 @@ class Answer:
         self.steps: list[dict[str, str]] = []
         self.calls: list[tuple[str, dict, Outcome, bool, int]] = []
         self.sources: list[str] = []
+        self.usage = {"rounds": 0, "prompt": 0, "cached": 0, "completion": 0, "cost": 0.0}
+
+    def count(self, usage: dict[str, Any]) -> None:
+        """Adds one model round's tokens and cost (USD, as OpenRouter bills them)."""
+        u = self.usage
+        u["rounds"] += 1
+        u["prompt"] += usage.get("prompt_tokens") or 0
+        u["cached"] += (usage.get("prompt_tokens_details") or {}).get("cached_tokens") or 0
+        u["completion"] += usage.get("completion_tokens") or 0
+        u["cost"] += usage.get("cost") or 0.0
 
     def cite(self, keys: list[str]) -> list[int]:
         for k in keys:
@@ -216,8 +226,9 @@ async def answer(
     async with SessionLocal() as s:
         question = await s.scalar(select(Message.content).where(Message.id == question_id))
         messages = [
-            _system(lang, now),
+            _system(lang),
             *await history(s, conversation_id, question_id),
+            _clock(now),
             {"role": "user", "content": question},
         ]
         ctx = Ctx(s, home_id, now, lang)
@@ -232,6 +243,7 @@ async def answer(
                 ):
                     if out := follow.feed(delta):
                         yield event("token", {"text": out})
+                state.count(turn.usage)
                 if not turn.calls:
                     break
                 if turn.text and not follow.answer.endswith("\n"):
@@ -266,12 +278,13 @@ async def answer(
                         {"cite": state.cite(outcome.sources), "data": outcome.data},
                         ensure_ascii=False,
                         default=str,
+                        separators=(",", ":"),  # no spaces the model pays for
                     )[:TOOL_CHARS]
                     messages.append(
                         {"role": "tool", "tool_call_id": c.id or f"call_{i}", "content": content}
                     )
         except CopilotUnavailableError as e:
-            log.warning("copilot answer failed: %s", e.message)
+            log.warning("copilot answer failed: %s (usage %s)", e.message, state.usage)
             await s.rollback()
             partial = state.reply("", [])
             yield event("error", {"code": e.code, "message": e.message, "reply": partial})
@@ -285,6 +298,7 @@ async def answer(
                 role="assistant",
                 content=text,
                 reply=reply,
+                usage=state.usage,
             )
         )
         await s.flush()
@@ -305,4 +319,5 @@ async def answer(
             .values(updated_at=func.now())
         )
         await s.commit()
+    log.info("copilot answer %s: %s", reply_id, state.usage)
     yield event("done", {"message_id": reply_id, "reply": reply})

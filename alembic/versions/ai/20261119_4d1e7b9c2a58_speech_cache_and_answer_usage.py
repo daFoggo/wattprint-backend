@@ -1,4 +1,5 @@
-"""ai_speech: answers read aloud, kept so hearing one again is not voiced again
+"""ai_speech: answers read aloud, kept so hearing one again is not voiced again; the tokens and
+cost of each answer (ai_message.usage)
 
 Revision ID: 4d1e7b9c2a58
 Revises: 9b4e2d7f1a63
@@ -37,7 +38,9 @@ def upgrade() -> None:
         schema="ai",
     )
     op.execute("GRANT SELECT, INSERT, UPDATE, DELETE ON ai.ai_speech TO wattprint_app")
+    op.add_column("ai_message", sa.Column("usage", sa.dialects.postgresql.JSONB), schema="ai")
 
 
 def downgrade() -> None:
+    op.drop_column("ai_message", "usage", schema="ai")
     op.drop_table("ai_speech", schema="ai")

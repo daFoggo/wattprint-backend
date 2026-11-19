@@ -30,6 +30,7 @@ class Turn:
 
     text: str = ""
     calls: list[Call] = field(default_factory=list)
+    usage: dict[str, Any] = field(default_factory=dict)  # OpenRouter's: tokens, cached, cost
 
 
 async def stream(
@@ -43,6 +44,7 @@ async def stream(
         "messages": messages,
         "stream": True,
         "temperature": 0.2,
+        "usage": {"include": True},  # tokens and cost in the last chunk
     }
     if tools:
         body["tools"] = tools
@@ -70,6 +72,8 @@ async def stream(
                 chunk = json.loads(data)
                 if "error" in chunk:
                     raise CopilotUnavailableError(str(chunk["error"].get("message", "")))
+                if usage := chunk.get("usage"):
+                    turn.usage = usage
                 for choice in chunk.get("choices", []):
                     delta = choice.get("delta") or {}
                     if text := delta.get("content"):
