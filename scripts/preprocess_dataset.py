@@ -1,7 +1,7 @@
 """Execute the EDA notebook to produce clipped, preprocessed REFIT CSVs."""
-from pathlib import Path
 import subprocess
 import sys
+from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 NOTEBOOK = ROOT / "dataset" / "scripts" / "eda.ipynb"
