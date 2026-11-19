@@ -12,6 +12,7 @@ from app.modules.billing.api import MODEL_VERSION, forecast_bill, refresh_bills
 from app.modules.home.api import Home
 
 from ..models import ForecastSnapshot
+from .cohort import refresh_cohorts
 
 log = logging.getLogger("insight.jobs")
 
@@ -57,3 +58,8 @@ async def _snapshot(session: AsyncSession, home_id: uuid.UUID, now: datetime) ->
 async def forecasts(now: datetime) -> None:
     """One forecast of the running cycle per home per run (daily), kept to track its accuracy."""
     await each_home(lambda s, h: _snapshot(s, h, now))
+
+
+async def cohorts(now: datetime) -> None:
+    async with SessionLocal() as s, s.begin():
+        await refresh_cohorts(s, now)
