@@ -247,3 +247,53 @@ async def test_voice_routes_check_the_audio_and_need_the_key(client, make_member
     )
     r = await client.post("/api/v1/copilot/voice/speech", json={"text": " "}, headers=me.headers)
     assert r.status_code == 422
+
+
+async def test_a_plan_survives_a_later_failing_tool(client, make_member, script, monkeypatch):
+    from app.modules.copilot.services import tools
+
+    turns, _ = script
+    me = await make_member("owner")
+
+    async def broken(ctx, nights=14):
+        raise RuntimeError("statement timeout")
+
+    monkeypatch.setitem(tools.TOOLS, "standby", (broken, tools.TOOLS["standby"][1]))
+    task = {"label": "Rút sạc qua đêm", "detail": "", "kwh_month": 2}
+    turns += [
+        ("propose_plan", {"title": "P", "tasks": [task]}),
+        ("standby", {}),
+        ["Đã lưu."],
+    ]
+    _, events = await ask(client, me, "Kế hoạch")
+    plan = next(w for w in events[-1][1]["reply"]["widgets"] if w["kind"] == "plan")
+    r = await client.post(f"/api/v1/copilot/plans/{plan['id']}/accept", headers=me.headers)
+    assert r.json()["status"] == "accepted"
+
+
+async def test_null_fields_leave_a_conversation_as_it_is(client, make_member, script):
+    turns, _ = script
+    me = await make_member("owner")
+    turns += [["Chào."]]
+    _, events = await ask(client, me, "Xin chào")
+    url = f"/api/v1/copilot/conversations/{events[0][1]['conversation_id']}"
+    r = await client.patch(url, json={"pinned": None, "title": None}, headers=me.headers)
+    assert (r.status_code, r.json()["pinned"], r.json()["title"]) == (200, False, "Xin chào")
+
+
+async def test_voice_is_rate_limited_per_user(client, make_member, monkeypatch):
+    from app.modules.copilot import services
+    from app.modules.copilot.routes import copilot as routes
+
+    async def fake_speech(text):
+        return b"ID3"
+
+    monkeypatch.setattr(services, "speech", fake_speech)
+    monkeypatch.setattr(routes, "VOICE_PER_MINUTE", 2)
+    me = await make_member("member")
+    url = "/api/v1/copilot/voice/speech"
+    codes = [
+        (await client.post(url, json={"text": "a"}, headers=me.headers)).status_code
+        for _ in range(3)
+    ]
+    assert codes == [200, 200, 429]

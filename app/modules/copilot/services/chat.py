@@ -222,6 +222,9 @@ async def answer(
         ctx = Ctx(s, home_id, now, lang)
         try:
             for round_no in range(MAX_ROUNDS + 1):
+                # Commit what the tools wrote (a plan) and give the connection back while the model
+                # thinks: an answer can take a minute, and the pool is shared with every request.
+                await s.commit()
                 turn = llm.Turn()
                 async for delta in llm.stream(
                     messages, SPECS if round_no < MAX_ROUNDS else None, turn

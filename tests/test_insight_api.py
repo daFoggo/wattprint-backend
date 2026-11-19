@@ -169,3 +169,36 @@ async def test_an_alert_raised_again_the_same_day_is_not_mailed_again(make_membe
     await _alert(me.home_id)
     await mail.mail_alerts(datetime.now(UTC))
     assert sent == ["WattPrint: Có tải lạ đang chạy"]
+
+
+async def test_a_refused_address_does_not_re_mail_the_others(make_member, monkeypatch):
+    from datetime import UTC, datetime
+
+    from app.modules.insight.services import mail
+
+    owner = await make_member("owner")
+    other = await make_member("member", home_id=owner.home_id)
+    async with SessionLocal() as s:
+        bad = await s.scalar(
+            text("SELECT email FROM public.tb_users WHERE id = :u"), {"u": other.user_id}
+        )
+    sent, refuse = [], {bad}
+
+    async def fake_send(to, subject, body):
+        if to in refuse:
+            raise OSError("550 mailbox unavailable")
+        sent.append(to)
+
+    monkeypatch.setattr(mail, "send", fake_send)
+    alert = await _alert(owner.home_id)
+    await mail.mail_alerts(datetime.now(UTC))
+    await mail.mail_alerts(datetime.now(UTC))  # retried for the refused member only
+    assert len(sent) == 1
+    refuse.clear()
+    await mail.mail_alerts(datetime.now(UTC))
+    assert sorted(sent) == sorted([sent[0], bad])
+    async with SessionLocal() as s:
+        done = await s.scalar(
+            text("SELECT notified_at IS NOT NULL FROM public.tb_alert WHERE id = :a"), {"a": alert}
+        )
+    assert done

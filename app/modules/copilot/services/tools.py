@@ -475,7 +475,7 @@ async def propose_plan(ctx: Ctx, title: str, tasks: list[dict[str, Any]]) -> Out
         expected_amount=Decimal(vnd) if vnd is not None else None,
     )
     ctx.session.add(plan)
-    await ctx.session.flush()
+    await ctx.session.commit()  # the reply names it: a later failing tool must not roll it back
     return Outcome(
         data={"plan_id": str(plan.id), "kwh_per_month": kwh, "vnd_per_month": vnd},
         detail="tb_suggestion",

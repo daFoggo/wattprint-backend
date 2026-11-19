@@ -117,10 +117,11 @@ async def mail_alerts(now: datetime) -> None:
         )
     for alert_id in ids:
         try:
-            async with SessionLocal() as s, s.begin():  # a failed send rolls its log rows back
+            async with SessionLocal() as s, s.begin():
                 a = await s.get(Alert, alert_id, with_for_update={"skip_locked": True})
                 if a is None or a.notified_at is not None:
                     continue
+                missed = False
                 if now - a.ts <= FRESH:
                     device = a.device_id and await s.scalar(
                         text("SELECT name FROM public.tb_device WHERE id = :d"), {"d": a.device_id}
@@ -131,11 +132,19 @@ async def mail_alerts(now: datetime) -> None:
                     ref = f"{a.home_id}:{a.dedup_key}:{now.astimezone(ICT).date()}"
                     for m in await _members(s, a.home_id):
                         wants = m.tier if a.kind == "tier_near" else m.anomaly
-                        if wants and await _claim(s, m.id, "alert", ref):
-                            await send(m.email, f"WattPrint: {subject}", body)
-                await s.execute(
-                    update(Alert).where(Alert.id == a.id).values(notified_at=func.now())
-                )
+                        try:
+                            # Each member on their own: a refused address rolls back only its log
+                            # row, so the others are not mailed again on the next run.
+                            async with s.begin_nested():
+                                if wants and await _claim(s, m.id, "alert", ref):
+                                    await send(m.email, f"WattPrint: {subject}", body)
+                        except Exception:
+                            log.exception("alert %s not mailed to %s", alert_id, m.id)
+                            missed = True
+                if not missed:  # else the next run retries the members not mailed yet
+                    await s.execute(
+                        update(Alert).where(Alert.id == a.id).values(notified_at=func.now())
+                    )
         except Exception:
             log.exception("alert %s not mailed", alert_id)
 

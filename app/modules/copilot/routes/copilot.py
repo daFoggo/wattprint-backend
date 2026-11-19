@@ -1,5 +1,7 @@
 import logging
+import time
 import uuid
+from collections import defaultdict, deque
 from collections.abc import AsyncIterator
 from typing import Annotated, Literal
 
@@ -21,7 +23,7 @@ from ..schemas import (
     SpeechIn,
     Transcript,
 )
-from ..utils import AudioTooLargeError
+from ..utils import AudioTooLargeError, RateLimitedError
 
 router = APIRouter()
 log = logging.getLogger("copilot")
@@ -81,7 +83,7 @@ async def update_conversation(
     conversation_id: uuid.UUID, body: ConversationUpdate, member: Membership, db: DbSession
 ) -> ConversationSummary:
     c = await services.update_conversation(
-        db, member.user_id, member.home_id, conversation_id, body.model_dump(exclude_unset=True)
+        db, member.user_id, member.home_id, conversation_id, body.model_dump(exclude_none=True)
     )
     return ConversationSummary.model_validate(c)
 
@@ -106,6 +108,24 @@ async def accept_plan(plan_id: uuid.UUID, member: Membership, db: DbSession) -> 
 
 
 MAX_AUDIO = 10 * 1024 * 1024  # about 10 minutes of Opus: far more than one question
+VOICE_PER_MINUTE = 30  # speech to text and text to speech calls per user (each one is paid)
+_voice_calls: dict[uuid.UUID, deque[float]] = defaultdict(deque)
+
+
+def _voice_quota(user_id: uuid.UUID) -> None:
+    # shortcut: counted per API process, so N processes allow N times as much; move the count to the
+    # database or Redis when the API runs several workers.
+    now = time.monotonic()
+    calls = _voice_calls[user_id]
+    while calls and now - calls[0] > 60:
+        calls.popleft()
+    if len(calls) >= VOICE_PER_MINUTE:
+        raise RateLimitedError(
+            "Too many voice requests in a minute",
+            code="voice_rate_limited",
+            headers={"Retry-After": "60"},
+        )
+    calls.append(now)
 
 
 @router.post(
@@ -115,10 +135,11 @@ MAX_AUDIO = 10 * 1024 * 1024  # about 10 minutes of Opus: far more than one ques
 )
 async def transcribe(
     request: Request,
-    _: Membership,
+    member: Membership,
     content_type: Annotated[str, Header()],
     lang: Annotated[Literal["vi", "en"], Query()] = "vi",
 ) -> Transcript:
+    _voice_quota(member.user_id)
     kind = content_type.split(";")[0].strip().lower()  # "audio/webm;codecs=opus"
     if kind not in services.EXT:
         raise UnprocessableError("Unsupported audio type", code="audio_type_unsupported")
@@ -138,5 +159,6 @@ async def transcribe(
     response_class=Response,
     responses={200: {"content": {"audio/mpeg": {}}}},
 )
-async def speech(body: SpeechIn, _: Membership) -> Response:
+async def speech(body: SpeechIn, member: Membership) -> Response:
+    _voice_quota(member.user_id)
     return Response(await services.speech(body.text), media_type="audio/mpeg")

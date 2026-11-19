@@ -15,6 +15,8 @@ log = logging.getLogger(__name__)
 MAX_CYCLES = 25  # two years of history plus the running cycle
 
 
+# shortcut: every stored cycle (up to 25) is recomputed on each hourly run, ~0.1 s a home; at
+# hundreds of homes recompute only the running and the last cycle, and all of them daily.
 async def refresh_bills(session: AsyncSession, home_id: uuid.UUID, now: datetime | None = None):
     """Store the bill of every cycle from the home's first reading to the running one.
 
