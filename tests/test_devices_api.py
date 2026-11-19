@@ -98,7 +98,9 @@ async def test_devices_list_power_now_today_and_week(client, home):
     assert kettle["week_kwh"][-1] + kettle["week_kwh"][-2] == pytest.approx(boil_kwh, rel=1e-3)
 
 
-async def test_device_detail_has_the_run_and_404s_for_another_home(client, home, make_token):
+async def test_device_detail_has_the_run_and_404s_for_another_home(
+    client, home, make_token, make_member
+):
     token, _hid, ids, now = home
     r = await client.get(f"/api/v1/energy/devices/{ids['kettle'][0]}", headers=bearer(token))
     assert r.status_code == 200
@@ -113,6 +115,9 @@ async def test_device_detail_has_the_run_and_404s_for_another_home(client, home,
     stranger = make_token(sub=str(uuid.uuid4()))
     other = await client.get(f"/api/v1/energy/devices/{ids['kettle'][0]}", headers=bearer(stranger))
     assert other.status_code == 404  # no home at all
+    neighbour = await make_member("owner")  # a home of their own, not this one
+    r = await client.get(f"/api/v1/energy/devices/{ids['kettle'][0]}", headers=neighbour.headers)
+    assert r.status_code == 404 and r.json()["code"] == "device_not_found"
     missing = await client.get(f"/api/v1/energy/devices/{uuid.uuid4()}", headers=bearer(token))
     assert missing.status_code == 404 and missing.json()["code"] == "device_not_found"
 

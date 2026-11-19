@@ -1,4 +1,5 @@
 import asyncio
+import re
 import uuid
 from types import SimpleNamespace
 
@@ -7,6 +8,7 @@ import pytest
 from sqlalchemy import select, update
 
 from app.database import SessionLocal
+from app.main import app
 from app.models import User
 from app.modules.auth.services import token as security
 
@@ -158,3 +160,17 @@ async def test_verified_email_claims_a_profile_created_before_first_login(client
     assert row.keycloak_sub == sub
     other = make_token(email=email, email_verified=True)  # already claimed: not again
     assert (await client.get("/api/v1/users/me", headers=bearer(other))).status_code == 409
+
+
+PUBLIC = {("GET", "/api/v1/health"), ("GET", "/api/v1/homes/provinces")}
+
+
+async def test_every_endpoint_but_the_public_ones_needs_a_token(client):
+    """A route added without its auth dependency fails here."""
+    paths = app.openapi()["paths"]
+    for path, ops in paths.items():
+        for method in ops:
+            url = re.sub(r"\{[^}]+\}", str(uuid.uuid4()), path)
+            r = await client.request(method.upper(), url)
+            expected = 200 if (method.upper(), path) in PUBLIC else 401
+            assert r.status_code == expected, (method, path, r.status_code)
