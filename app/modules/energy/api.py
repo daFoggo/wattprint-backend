@@ -11,6 +11,7 @@ from .services import (
     meter_series,
     on_w,
     runs,
+    weather_at,
 )
 
 __all__ = [
@@ -30,4 +31,5 @@ __all__ = [
     "on_w",
     "reading_table",
     "runs",
+    "weather_at",
 ]

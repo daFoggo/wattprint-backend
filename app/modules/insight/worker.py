@@ -32,6 +32,7 @@ JOBS = [
     Job("cohorts", 86_400, jobs.cohorts),
     Job("alerts", 300, jobs.alerts),
     Job("mail", 300, jobs.mail),
+    Job("upkeep", 3600, jobs.upkeep),
 ]
 
 

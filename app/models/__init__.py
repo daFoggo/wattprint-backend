@@ -1,5 +1,14 @@
 from ..modules.auth.models import User
 from ..modules.billing.models import Bill, BillItem, TariffPlan, TariffTier, TariffVersion
+from ..modules.copilot.models import (
+    Conversation,
+    Message,
+    SavingsMeasure,
+    ScopeToken,
+    Suggestion,
+    SuggestionFeedback,
+    ToolCall,
+)
 from ..modules.energy.models import InferenceRun, Series, WeatherHourly
 from ..modules.home.models import (
     Device,
@@ -14,15 +23,6 @@ from ..modules.home.models import (
 from ..modules.insight.models import Alert, CohortStat, DeviceCycle, ForecastSnapshot
 from ..modules.nilm.models import NilmModel
 from ..modules.ops.models import IngestBatch, IngestCheckpoint
-from .copilot import (
-    Conversation,
-    Message,
-    SavingsMeasure,
-    ScopeToken,
-    Suggestion,
-    SuggestionFeedback,
-    ToolCall,
-)
 from .knowledge import Chunk, Document
 
 __all__ = [

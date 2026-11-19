@@ -1,0 +1,209 @@
+import json
+import uuid
+
+import pytest
+from sqlalchemy import text
+
+from app.database import SessionLocal
+from app.modules.copilot.services import chat, llm
+from app.modules.copilot.utils import CopilotUnavailableError
+
+
+def sse(body: str) -> list[tuple[str, dict]]:
+    out = []
+    for block in body.strip().split("\n\n"):
+        name, data = block.split("\n")
+        out.append((name.removeprefix("event: "), json.loads(data.removeprefix("data: "))))
+    return out
+
+
+@pytest.fixture
+def script(monkeypatch):
+    """The model's turns, in order: each a list of text pieces, or a tool call (name, args)."""
+    turns: list = []
+    seen: list[list[dict]] = []
+
+    async def stream(messages, tools, turn):
+        seen.append(list(messages))
+        step = turns.pop(0)
+        if isinstance(step, Exception):
+            raise step
+        if isinstance(step, tuple):
+            turn.calls = [llm.Call("c1", step[0], json.dumps(step[1]))]
+            return
+        for piece in step:
+            turn.text += piece
+            yield piece
+
+    monkeypatch.setattr(llm, "stream", stream)
+    return turns, seen
+
+
+async def ask(client, member, question="Kỳ này so với kỳ trước?", **extra):
+    r = await client.post(
+        "/api/v1/copilot/chat", json={"question": question, **extra}, headers=member.headers
+    )
+    return r, sse(r.text) if r.status_code == 200 else []
+
+
+def test_follow_ups_are_split_even_across_pieces():
+    f = chat.FollowUps()
+    shown = "".join(
+        f.feed(p) for p in ["Dùng 10 kWh [1].\nFOL", "LOW-U", "PS:\n- Vì sao?\n", "2. Còn gì?"]
+    )
+    assert shown == "Dùng 10 kWh [1].\n"
+    assert f.close() == ("Dùng 10 kWh [1].", ["Vì sao?", "Còn gì?"])
+    g = chat.FollowUps()
+    assert g.feed("Hết FOL") == "Hết "
+    assert g.close() == ("Hết FOL", [])  # held back, never the marker: kept
+
+
+async def test_chat_streams_tools_and_stores_the_reply(client, make_member, script):
+    turns, seen = script
+    me = await make_member("owner")
+    turns += [
+        ("compare_periods", {"period": "week"}),
+        ["Tuần này ", "dùng 0 kWh [1].\nFOLLOW-UPS:\nVì sao?"],
+    ]
+    r, events = await ask(client, me)
+    assert r.status_code == 200
+    names = [n for n, _ in events]
+    assert names == ["meta", "step", "token", "token", "done"]
+    meta, done = events[0][1], events[-1][1]
+    reply = done["reply"]
+    assert reply["text"] == "Tuần này dùng 0 kWh [1]."
+    assert reply["followUps"] == ["Vì sao?"]
+    assert reply["tier"] == "measured" and reply["intent"] == "bill"
+    assert reply["sources"][0]["url"] == "/dashboard/statistics"
+    kinds = [w["kind"] for w in reply["widgets"]]
+    assert kinds == ["compare", "links"]
+    # the tool's result went back to the model, with its citation number
+    tool_msg = seen[1][-1]
+    assert tool_msg["role"] == "tool" and json.loads(tool_msg["content"])["cite"] == [1]
+
+    conv = meta["conversation_id"]
+    r = await client.get(f"/api/v1/copilot/conversations/{conv}", headers=me.headers)
+    msgs = r.json()["messages"]
+    assert [m["role"] for m in msgs] == ["user", "assistant"]
+    assert msgs[1]["id"] == done["message_id"] and msgs[1]["reply"]["text"] == reply["text"]
+    async with SessionLocal() as s:
+        calls = (
+            await s.execute(
+                text("SELECT tool, ok FROM ai.ai_tool_call WHERE message_id = :m"),
+                {"m": done["message_id"]},
+            )
+        ).all()
+    assert calls == [("compare_periods", True)]
+
+    # the follow-up sees the earlier turn
+    turns += [["Vẫn vậy."]]
+    r, events = await ask(client, me, "Còn tuần trước?", conversation_id=conv)
+    assert [m["content"] for m in seen[-1][1:]] == [
+        "Kỳ này so với kỳ trước?",
+        "Tuần này dùng 0 kWh [1].",
+        "Còn tuần trước?",
+    ]
+
+
+async def test_conversations_are_private_and_editable(client, make_member, script):
+    turns, _ = script
+    me = await make_member("owner")
+    housemate = await make_member("member", home_id=me.home_id)
+    turns += [["Chào."]]
+    _, events = await ask(client, me, "Xin chào")
+    conv = events[0][1]["conversation_id"]
+    reply_id = events[-1][1]["message_id"]
+    base = "/api/v1/copilot/conversations"
+
+    for path in (f"{base}/{conv}",):
+        assert (await client.get(path, headers=housemate.headers)).status_code == 404
+    r, _ = await ask(client, housemate, "Của ai?", conversation_id=conv)
+    assert (r.status_code, r.json()["code"]) == (404, "conversation_not_found")
+    assert (await client.get(base, headers=housemate.headers)).json() == []
+
+    r = await client.patch(
+        f"{base}/{conv}", json={"title": " Mới ", "pinned": True}, headers=me.headers
+    )
+    assert (r.json()["title"], r.json()["pinned"]) == ("Mới", True)
+    fb = f"/api/v1/copilot/messages/{reply_id}/feedback"
+    assert (await client.put(fb, json={"value": "up"}, headers=me.headers)).status_code == 204
+    assert (
+        await client.put(fb, json={"value": "up"}, headers=housemate.headers)
+    ).status_code == 404
+    msgs = (await client.get(f"{base}/{conv}", headers=me.headers)).json()["messages"]
+    assert msgs[1]["feedback"] == "up"
+    assert (await client.delete(f"{base}/{conv}", headers=me.headers)).status_code == 204
+    assert (await client.get(f"{base}/{conv}", headers=me.headers)).status_code == 404
+
+
+async def test_llm_failure_is_an_error_event_and_nothing_is_stored(client, make_member, script):
+    turns, _ = script
+    me = await make_member("owner")
+    turns += [("compare_periods", {"period": "week"}), CopilotUnavailableError("down")]
+    _, events = await ask(client, me)
+    name, data = events[-1]
+    assert name == "error" and data["code"] == "copilot_unavailable"
+    assert [w["kind"] for w in data["reply"]["widgets"]] == ["compare", "links"]
+    conv = events[0][1]["conversation_id"]
+    msgs = (await client.get(f"/api/v1/copilot/conversations/{conv}", headers=me.headers)).json()
+    assert [m["role"] for m in msgs["messages"]] == ["user"]
+
+
+async def test_bad_tool_calls_reach_the_model_not_the_user(client, make_member, script):
+    turns, seen = script
+    me = await make_member("owner")
+    turns += [("compare_periods", {"nope": 1}), ["Không đọc được."]]
+    _, events = await ask(client, me)
+    assert events[-1][0] == "done"
+    assert "invalid call" in json.loads(seen[1][-1]["content"])["data"]["error"]
+
+
+async def test_questions_are_rate_limited_and_bounded(client, make_member, script):
+    turns, _ = script
+    me = await make_member("owner")
+    r, _ = await ask(client, me, "x" * 2001)
+    assert r.status_code == 422
+    async with SessionLocal() as s, s.begin():
+        conv = await s.scalar(
+            text("INSERT INTO ai.ai_conversation (home_id, user_id) VALUES (:h, :u) RETURNING id"),
+            {"h": me.home_id, "u": me.user_id},
+        )
+        await s.execute(
+            text(
+                "INSERT INTO ai.ai_message (conversation_id, role, content) "
+                "SELECT :c, 'user', 'q' FROM generate_series(1, 20)"
+            ),
+            {"c": conv},
+        )
+    r, _ = await ask(client, me)
+    assert (r.status_code, r.json()["code"]) == (429, "copilot_rate_limited")
+
+
+async def test_a_proposed_plan_is_accepted_once_by_its_home(client, make_member, script):
+    turns, _ = script
+    me = await make_member("owner")
+    other = await make_member("owner")
+    task = {"label": "Tắt TV ở chế độ chờ", "detail": "Rút phích qua đêm", "kwh_month": 4.5}
+    turns += [("propose_plan", {"title": "Tiết kiệm", "tasks": [task]}), ["Đã lưu kế hoạch."]]
+    _, events = await ask(client, me, "Lập kế hoạch tiết kiệm")
+    reply = events[-1][1]["reply"]
+    plan = next(w for w in reply["widgets"] if w["kind"] == "plan")
+    assert (reply["intent"], plan["kwh"], plan["status"]) == ("plan", 4.5, "proposed")
+    url = f"/api/v1/copilot/plans/{plan['id']}/accept"
+    assert (await client.post(url, headers=other.headers)).status_code == 404
+    r = await client.post(url, headers=me.headers)
+    assert r.json() == {"id": plan["id"], "status": "accepted"}
+    assert (await client.post(url, headers=me.headers)).json()["status"] == "accepted"
+    missing = f"/api/v1/copilot/plans/{uuid.uuid4()}/accept"
+    assert (await client.post(missing, headers=me.headers)).status_code == 404
+
+
+async def test_an_unexpected_failure_still_ends_the_stream(client, make_member, script):
+    turns, _ = script
+    me = await make_member("owner")
+    turns += [RuntimeError("boom")]
+    _, events = await ask(client, me)
+    assert events[-1] == (
+        "error",
+        {"code": "copilot_failed", "message": "The answer failed", "reply": None},
+    )

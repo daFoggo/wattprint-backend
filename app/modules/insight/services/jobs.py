@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import SessionLocal
 from app.modules.billing.api import MODEL_VERSION, forecast_bill, refresh_bills
+from app.modules.copilot.api import measure_plans, prune_scope_tokens
 from app.modules.home.api import Home
 
 from ..models import ForecastSnapshot
@@ -74,3 +75,10 @@ async def alerts(now: datetime) -> None:
 async def mail(now: datetime) -> None:
     await mail_alerts(now)
     await mail_weekly(now)
+
+
+async def upkeep(now: datetime) -> None:
+    """Expired copilot scope tokens out; plans tried for 14 days measured."""
+    async with SessionLocal() as s, s.begin():
+        await prune_scope_tokens(s)
+        await measure_plans(s, now)

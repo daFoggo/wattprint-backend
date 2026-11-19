@@ -5,6 +5,7 @@ from .common.exceptions import register_exception_handlers
 from .config import settings
 from .modules.auth.routes import router as auth_router
 from .modules.billing.routes import router as billing_router
+from .modules.copilot.routes import router as copilot_router
 from .modules.energy.routes import router as energy_router
 from .modules.home.routes import router as home_router
 from .modules.insight.routes import router as insight_router
@@ -38,6 +39,7 @@ for router in (
     energy_router,
     billing_router,
     insight_router,
+    copilot_router,
     ops_router,
 ):
     app.include_router(router, prefix="/api/v1")
