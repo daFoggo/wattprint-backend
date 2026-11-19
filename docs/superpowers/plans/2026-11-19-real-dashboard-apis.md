@@ -134,3 +134,22 @@ Mọi chuỗi mới vào `messages/{vi,en}`.
 | M10 | Audit toàn bộ, dọn, docs | ponytail-audit cả hai repo không còn mục nghiêm trọng; `pnpm check`, `pnpm build`, `pytest` pass; tự click khi đăng nhập |
 
 Sau mỗi bước: chạy test, `ponytail-review` phần thay đổi, sửa rồi mới sang bước sau.
+
+## 6. Tiến độ (nhánh `feat/real-dashboard-apis`, commit cục bộ, chưa push)
+
+- [x] M0–M2 (backend `ac63ba4`, web `adc9f76`): migration `9b4e2d7f1a63`, cài đặt/tuỳ chọn/tỉnh, thời tiết
+  qua backend (OpenWeather, key ở backend `.env`; không lưu `tb_weather_hourly` vì chưa có ai đọc).
+- [x] M3–M4 (backend `afbc9c4`, web `bca95ef`): lịch sử hoá đơn, dự báo theo thứ, worker `insight`
+  (`app/modules/insight/worker.py`, job ở `services/jobs.py`; đang chạy: `bills` mỗi giờ, `forecasts` mỗi ngày).
+- [ ] M5 cohort, M6 cảnh báo + email, M7 copilot backend + text2sql, M8 voice, M9 copilot web, M10 audit cuối.
+
+Lưu ý khi làm tiếp:
+- Chạy **toàn bộ** `docker compose exec -T api pytest -q` trước mỗi commit (migration từng làm hỏng fixture cũ ở
+  `tests/db/test_domain_tables.py`, `test_roles.py` ma trận quyền: bảng mới phải thêm vào `expected_*`).
+- Test chèn số đo vào quá khứ phải `backfill` aggregate (`app.modules.energy.services.aggregates`).
+- Đổi `.env`/compose thì `docker compose up -d --no-deps api` rồi chạy lại replay:
+  `docker exec -d wattprint-api sh -c 'cd /code && python -m scripts.replay_refit > /tmp/replay.log 2>&1'`
+  (container không có `pkill`; tìm PID qua `/proc/*/cmdline`).
+- Web: commit cần `PATH=$HOME/.local/node-v22/bin:$PATH` (husky), commitlint giới hạn 100 ký tự/dòng thân.
+- Self-test: script Playwright ở scratchpad (`selftest2.mjs`), đăng nhập `refit.house2@wattprint.local` với
+  `DEMO_PASSWORD`; chụp với `caret: "initial"` (mặc định Playwright chèn style gây hydration mismatch giả).
