@@ -100,6 +100,13 @@ def _cycle_amount(segments: list[_Segment], kwh: Decimal) -> Decimal:
     return sum((_tier_amount(t, k) for _, t, k in _parts(segments, kwh)), Decimal(0))
 
 
+def _amounts(segments: list[_Segment], kwh: Decimal) -> tuple[Decimal, Decimal]:
+    """(amount before VAT, VAT) of the cycle for kwh; each segment at its own VAT rate."""
+    parts = [(s, _tier_amount(t, k)) for s, t, k in _parts(segments, kwh)]
+    before_vat = sum((a for _, a in parts), Decimal(0))
+    return before_vat, _round(sum((a * s.version.vat_rate for s, a in parts), Decimal(0)))
+
+
 async def _segments(session, plan_code: str, start: date, end: date) -> list[_Segment]:
     """The cycle's days grouped by the tariff version valid on each (the later valid_from wins
     where versions overlap). A day without a valid version keeps the one before it."""
@@ -240,9 +247,7 @@ async def _price(
     else:
         status = "open"
 
-    parts = [(s, _tier_amount(t, k)) for s, t, k in _parts(segments, kwh_total)]
-    before_vat = sum((a for _, a in parts), Decimal(0))
-    vat = _round(sum((a * s.version.vat_rate for s, a in parts), Decimal(0)))
+    before_vat, vat = _amounts(segments, kwh_total)
 
     values = dict(
         period_end=period_end,

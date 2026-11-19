@@ -31,3 +31,39 @@ class CurrentBill(BaseModel):
     tiers: list[TierUse]
     today_kwh: float
     today_amount: float
+
+
+class PastBill(BaseModel):
+    """One ended billing cycle as stored in tb_bill. coverage < 0.95 means readings are missing."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    period_start: date
+    period_end: date
+    kwh: float
+    amount: float
+    coverage: float
+    tariff_straddle: bool
+
+
+class TierCross(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    tier_no: int
+    from_kwh: float
+    price_per_kwh: float
+    on: date
+
+
+class Forecast(BaseModel):
+    """The running cycle at its end if the home keeps its usual weekday pattern."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    period_start: date
+    period_end: date
+    kwh: float
+    amount: float
+    tier_no: int
+    next: TierCross | None
+    basis_days: int

@@ -783,3 +783,81 @@ async def test_billing_downgrade_upgrade(throwaway_dsn):
             assert await c.scalar(text("SELECT count(*) FROM public.tb_tariff_tier")) == 11
     finally:
         await engine.dispose()
+
+
+async def test_refresh_bills_stores_every_cycle_and_follows_a_new_cycle_day(bdb, bsession):
+    from app.modules.billing.services import bill_history, refresh_bills
+
+    c, _ = bdb
+    now = local_midnight(date(2026, 11, 10)) + timedelta(hours=12)
+    async with home(c, bsession, cycle_day=1) as h:
+        await load(c, h["main"], local_midnight(date(2026, 9, 3)), 60)
+        await load(c, h["main"], local_midnight(date(2026, 10, 5)), 60)
+        await backfill(c, local_midnight(date(2026, 9, 1)), now)
+        await refresh_bills(bsession, h["id"], now)
+        await bsession.commit()
+        stored = (
+            await bsession.execute(
+                select(Bill.period_start, Bill.kwh_total, Bill.status)
+                .where(Bill.home_id == h["id"])
+                .order_by(Bill.period_start)
+            )
+        ).all()
+        assert [(s, float(k)) for s, k, _ in stored] == [
+            (date(2026, 9, 1), 1.0),
+            (date(2026, 10, 1), 1.0),
+            (date(2026, 11, 1), 0.0),  # the running cycle
+        ]
+        past = await bill_history(bsession, h["id"], now)
+        assert [b.period_start for b in past] == [date(2026, 9, 1), date(2026, 10, 1)]
+
+        # The owner moves the cycle to the 15th: bills on the old days go, new ones replace them.
+        await c.execute(
+            text("UPDATE public.tb_home SET billing_cycle_day = 15 WHERE id = :h"), {"h": h["id"]}
+        )
+        bsession.expire_all()
+        await refresh_bills(bsession, h["id"], now)
+        await bsession.commit()
+        starts = list(
+            await bsession.scalars(
+                select(Bill.period_start)
+                .where(Bill.home_id == h["id"])
+                .order_by(Bill.period_start)
+            )
+        )
+        assert starts == [date(2026, 8, 15), date(2026, 9, 15), date(2026, 10, 15)]
+
+
+async def test_refresh_bills_without_readings_stores_nothing(bdb, bsession):
+    from app.modules.billing.services import refresh_bills
+
+    c, _ = bdb
+    async with home(c, bsession) as h:
+        await refresh_bills(bsession, h["id"])
+        await bsession.commit()
+        assert not (await bsession.scalars(select(Bill).where(Bill.home_id == h["id"]))).all()
+
+
+async def test_forecast_bill_projects_the_cycle_and_the_next_tier(bdb, bsession):
+    from app.modules.billing.services import forecast_bill
+
+    c, _ = bdb
+    now = local_midnight(date(2026, 11, 10)) + timedelta(hours=12)
+    async with home(c, bsession, cycle_day=1) as h:
+        assert await forecast_bill(bsession, h["id"], now) is None  # no history yet
+        for i in range(10):  # 31/10 .. 9/11, 24 kWh a day
+            await load(c, h["main"], local_midnight(date(2026, 10, 31) + timedelta(days=i)), 1440)
+        await load(c, h["main"], local_midnight(date(2026, 11, 10)), 720)  # 12 kWh today so far
+        await backfill(c, local_midnight(date(2026, 10, 31)), now)
+        f = await forecast_bill(bsession, h["id"], now)
+        # 9 days * 24 + 12 so far, 12 more today, 20 days * 24 to the 30th
+        assert f.kwh == Decimal("720.000") and f.basis_days == 10
+        assert f.period_end == date(2026, 11, 30)
+        bill = await current_bill(bsession, h["id"], now)
+        assert f.next is not None and f.next.tier_no == bill.tier_no + 1
+        # the day the running kWh passes the next tier's floor: 228 + 12 (today) + 24 a day
+        cum, day = Decimal(240), date(2026, 11, 10)
+        while cum <= f.next.from_kwh:
+            day, cum = day + timedelta(days=1), cum + 24
+        assert f.next.on == day
+        assert f.amount > Decimal(bill.amount_total)

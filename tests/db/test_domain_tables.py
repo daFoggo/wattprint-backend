@@ -79,8 +79,9 @@ async def mk_series(c, home_id) -> uuid.UUID:
 async def mk_alert(c, home_id, device_id=None) -> uuid.UUID:
     return await c.scalar(
         text(
-            "INSERT INTO public.tb_alert (home_id, device_id, kind, severity, ts) "
-            "VALUES (:h, :d, 'long_run', 'info', now()) RETURNING id"
+            "INSERT INTO public.tb_alert (home_id, device_id, kind, severity, ts, dedup_key) "
+            "VALUES (:h, :d, 'longer_than_usual', 'info', now(), gen_random_uuid()::text) "
+            "RETURNING id"
         ),
         {"h": home_id, "d": device_id},
     )
@@ -314,8 +315,9 @@ async def test_ingest_batch_defaults_and_home_set_null(conn):
 def _alert(**over):
     cols = {"severity": "info", "status": "open", **over}
     return (
-        "INSERT INTO public.tb_alert (home_id, kind, severity, status, ts) "
-        f"VALUES (:h, 'k', '{cols['severity']}', '{cols['status']}', now())"
+        "INSERT INTO public.tb_alert (home_id, kind, severity, status, ts, dedup_key) "
+        f"VALUES (:h, 'standby_high', '{cols['severity']}', '{cols['status']}', now(), "
+        "gen_random_uuid()::text)"
     )
 
 
@@ -533,7 +535,13 @@ async def test_orm_round_trip_every_model(session):
 
     t0 = NOW
     alert = Alert(
-        home_id=h, device_id=d, kind="long_run", severity="warning", ts=t0, payload={"minutes": 13}
+        home_id=h,
+        device_id=d,
+        kind="longer_than_usual",
+        severity="warning",
+        ts=t0,
+        payload={"minutes": 13},
+        dedup_key="test",
     )
     cycle = DeviceCycle(
         home_id=h,
