@@ -1,0 +1,665 @@
+{
+  "command": "uv run python dataset/research_v1/concurrent/analyze.py --reference-dir /home/cuongpd/ptit_udu_s4u/wattprint-backend/dataset/research_v1/baseline --candidate-dir dataset/research_v1/model/predictions",
+  "reference_dir": "/home/cuongpd/ptit_udu_s4u/wattprint-backend/dataset/research_v1/baseline",
+  "candidate_dir": "dataset/research_v1/model/predictions",
+  "outputs": [
+    "stratum_counts.csv",
+    "stratum_metrics.csv",
+    "high_error_cases.csv"
+  ],
+  "concurrency_definition": "At each 15-second row, count comparable labeled channels with y_true_w >= threshold; thresholds W: {\"Dishwash\": 10.0, \"Freezer\": 50.0, \"Fridge\": 50.0, \"Kettle\": 1000.0, \"Microwave\": 200.0, \"Toaster\": 200.0, \"WashMach\": 20.0}",
+  "strata": [
+    "0",
+    "1",
+    "2",
+    "3+"
+  ],
+  "f1_prediction_on": "p_on >= frozen source-house event threshold; event threshold comes from NPZ when present, else embedded baseline House 2/5 thresholds, else 0.5; if p_on is absent, use predicted watts >= actual ON threshold.",
+  "high_error_case_definition": "Top 200 window/device pairs per model and source-target file, ranked by absolute kWh error; category uses actual ON watt thresholds and frozen event threshold.",
+  "files": [
+    "source2_target2.npz",
+    "source2_target3.npz",
+    "source2_target5.npz",
+    "source2_target6.npz",
+    "source5_target2.npz",
+    "source5_target3.npz",
+    "source5_target5.npz",
+    "source5_target6.npz"
+  ],
+  "summary_counts": [
+    {
+      "model": "reference",
+      "source_house": 2,
+      "target_house": 2,
+      "stratum": "actual_concurrent_on",
+      "stratum_value": "0",
+      "sample_count": 17192,
+      "window_count_with_any_samples": 123
+    },
+    {
+      "model": "reference",
+      "source_house": 2,
+      "target_house": 2,
+      "stratum": "actual_concurrent_on",
+      "stratum_value": "1",
+      "sample_count": 13570,
+      "window_count_with_any_samples": 118
+    },
+    {
+      "model": "reference",
+      "source_house": 2,
+      "target_house": 2,
+      "stratum": "actual_concurrent_on",
+      "stratum_value": "2",
+      "sample_count": 1944,
+      "window_count_with_any_samples": 47
+    },
+    {
+      "model": "reference",
+      "source_house": 2,
+      "target_house": 2,
+      "stratum": "actual_concurrent_on",
+      "stratum_value": "3+",
+      "sample_count": 62,
+      "window_count_with_any_samples": 7
+    },
+    {
+      "model": "candidate",
+      "source_house": 2,
+      "target_house": 2,
+      "stratum": "actual_concurrent_on",
+      "stratum_value": "0",
+      "sample_count": 17192,
+      "window_count_with_any_samples": 123
+    },
+    {
+      "model": "candidate",
+      "source_house": 2,
+      "target_house": 2,
+      "stratum": "actual_concurrent_on",
+      "stratum_value": "1",
+      "sample_count": 13570,
+      "window_count_with_any_samples": 118
+    },
+    {
+      "model": "candidate",
+      "source_house": 2,
+      "target_house": 2,
+      "stratum": "actual_concurrent_on",
+      "stratum_value": "2",
+      "sample_count": 1944,
+      "window_count_with_any_samples": 47
+    },
+    {
+      "model": "candidate",
+      "source_house": 2,
+      "target_house": 2,
+      "stratum": "actual_concurrent_on",
+      "stratum_value": "3+",
+      "sample_count": 62,
+      "window_count_with_any_samples": 7
+    },
+    {
+      "model": "reference",
+      "source_house": 2,
+      "target_house": 3,
+      "stratum": "actual_concurrent_on",
+      "stratum_value": "0",
+      "sample_count": 16270,
+      "window_count_with_any_samples": 113
+    },
+    {
+      "model": "reference",
+      "source_house": 2,
+      "target_house": 3,
+      "stratum": "actual_concurrent_on",
+      "stratum_value": "1",
+      "sample_count": 14845,
+      "window_count_with_any_samples": 114
+    },
+    {
+      "model": "reference",
+      "source_house": 2,
+      "target_house": 3,
+      "stratum": "actual_concurrent_on",
+      "stratum_value": "2",
+      "sample_count": 1578,
+      "window_count_with_any_samples": 30
+    },
+    {
+      "model": "reference",
+      "source_house": 2,
+      "target_house": 3,
+      "stratum": "actual_concurrent_on",
+      "stratum_value": "3+",
+      "sample_count": 75,
+      "window_count_with_any_samples": 2
+    },
+    {
+      "model": "candidate",
+      "source_house": 2,
+      "target_house": 3,
+      "stratum": "actual_concurrent_on",
+      "stratum_value": "0",
+      "sample_count": 16270,
+      "window_count_with_any_samples": 113
+    },
+    {
+      "model": "candidate",
+      "source_house": 2,
+      "target_house": 3,
+      "stratum": "actual_concurrent_on",
+      "stratum_value": "1",
+      "sample_count": 14845,
+      "window_count_with_any_samples": 114
+    },
+    {
+      "model": "candidate",
+      "source_house": 2,
+      "target_house": 3,
+      "stratum": "actual_concurrent_on",
+      "stratum_value": "2",
+      "sample_count": 1578,
+      "window_count_with_any_samples": 30
+    },
+    {
+      "model": "candidate",
+      "source_house": 2,
+      "target_house": 3,
+      "stratum": "actual_concurrent_on",
+      "stratum_value": "3+",
+      "sample_count": 75,
+      "window_count_with_any_samples": 2
+    },
+    {
+      "model": "reference",
+      "source_house": 2,
+      "target_house": 5,
+      "stratum": "actual_concurrent_on",
+      "stratum_value": "0",
+      "sample_count": 15274,
+      "window_count_with_any_samples": 122
+    },
+    {
+      "model": "reference",
+      "source_house": 2,
+      "target_house": 5,
+      "stratum": "actual_concurrent_on",
+      "stratum_value": "1",
+      "sample_count": 15469,
+      "window_count_with_any_samples": 127
+    },
+    {
+      "model": "reference",
+      "source_house": 2,
+      "target_house": 5,
+      "stratum": "actual_concurrent_on",
+      "stratum_value": "2",
+      "sample_count": 1936,
+      "window_count_with_any_samples": 53
+    },
+    {
+      "model": "reference",
+      "source_house": 2,
+      "target_house": 5,
+      "stratum": "actual_concurrent_on",
+      "stratum_value": "3+",
+      "sample_count": 89,
+      "window_count_with_any_samples": 12
+    },
+    {
+      "model": "candidate",
+      "source_house": 2,
+      "target_house": 5,
+      "stratum": "actual_concurrent_on",
+      "stratum_value": "0",
+      "sample_count": 15274,
+      "window_count_with_any_samples": 122
+    },
+    {
+      "model": "candidate",
+      "source_house": 2,
+      "target_house": 5,
+      "stratum": "actual_concurrent_on",
+      "stratum_value": "1",
+      "sample_count": 15469,
+      "window_count_with_any_samples": 127
+    },
+    {
+      "model": "candidate",
+      "source_house": 2,
+      "target_house": 5,
+      "stratum": "actual_concurrent_on",
+      "stratum_value": "2",
+      "sample_count": 1936,
+      "window_count_with_any_samples": 53
+    },
+    {
+      "model": "candidate",
+      "source_house": 2,
+      "target_house": 5,
+      "stratum": "actual_concurrent_on",
+      "stratum_value": "3+",
+      "sample_count": 89,
+      "window_count_with_any_samples": 12
+    },
+    {
+      "model": "reference",
+      "source_house": 2,
+      "target_house": 6,
+      "stratum": "actual_concurrent_on",
+      "stratum_value": "0",
+      "sample_count": 31803,
+      "window_count_with_any_samples": 128
+    },
+    {
+      "model": "reference",
+      "source_house": 2,
+      "target_house": 6,
+      "stratum": "actual_concurrent_on",
+      "stratum_value": "1",
+      "sample_count": 943,
+      "window_count_with_any_samples": 53
+    },
+    {
+      "model": "reference",
+      "source_house": 2,
+      "target_house": 6,
+      "stratum": "actual_concurrent_on",
+      "stratum_value": "2",
+      "sample_count": 22,
+      "window_count_with_any_samples": 4
+    },
+    {
+      "model": "reference",
+      "source_house": 2,
+      "target_house": 6,
+      "stratum": "actual_concurrent_on",
+      "stratum_value": "3+",
+      "sample_count": 0,
+      "window_count_with_any_samples": 0
+    },
+    {
+      "model": "candidate",
+      "source_house": 2,
+      "target_house": 6,
+      "stratum": "actual_concurrent_on",
+      "stratum_value": "0",
+      "sample_count": 31803,
+      "window_count_with_any_samples": 128
+    },
+    {
+      "model": "candidate",
+      "source_house": 2,
+      "target_house": 6,
+      "stratum": "actual_concurrent_on",
+      "stratum_value": "1",
+      "sample_count": 943,
+      "window_count_with_any_samples": 53
+    },
+    {
+      "model": "candidate",
+      "source_house": 2,
+      "target_house": 6,
+      "stratum": "actual_concurrent_on",
+      "stratum_value": "2",
+      "sample_count": 22,
+      "window_count_with_any_samples": 4
+    },
+    {
+      "model": "candidate",
+      "source_house": 2,
+      "target_house": 6,
+      "stratum": "actual_concurrent_on",
+      "stratum_value": "3+",
+      "sample_count": 0,
+      "window_count_with_any_samples": 0
+    },
+    {
+      "model": "reference",
+      "source_house": 5,
+      "target_house": 2,
+      "stratum": "actual_concurrent_on",
+      "stratum_value": "0",
+      "sample_count": 17192,
+      "window_count_with_any_samples": 123
+    },
+    {
+      "model": "reference",
+      "source_house": 5,
+      "target_house": 2,
+      "stratum": "actual_concurrent_on",
+      "stratum_value": "1",
+      "sample_count": 13570,
+      "window_count_with_any_samples": 118
+    },
+    {
+      "model": "reference",
+      "source_house": 5,
+      "target_house": 2,
+      "stratum": "actual_concurrent_on",
+      "stratum_value": "2",
+      "sample_count": 1944,
+      "window_count_with_any_samples": 47
+    },
+    {
+      "model": "reference",
+      "source_house": 5,
+      "target_house": 2,
+      "stratum": "actual_concurrent_on",
+      "stratum_value": "3+",
+      "sample_count": 62,
+      "window_count_with_any_samples": 7
+    },
+    {
+      "model": "candidate",
+      "source_house": 5,
+      "target_house": 2,
+      "stratum": "actual_concurrent_on",
+      "stratum_value": "0",
+      "sample_count": 17192,
+      "window_count_with_any_samples": 123
+    },
+    {
+      "model": "candidate",
+      "source_house": 5,
+      "target_house": 2,
+      "stratum": "actual_concurrent_on",
+      "stratum_value": "1",
+      "sample_count": 13570,
+      "window_count_with_any_samples": 118
+    },
+    {
+      "model": "candidate",
+      "source_house": 5,
+      "target_house": 2,
+      "stratum": "actual_concurrent_on",
+      "stratum_value": "2",
+      "sample_count": 1944,
+      "window_count_with_any_samples": 47
+    },
+    {
+      "model": "candidate",
+      "source_house": 5,
+      "target_house": 2,
+      "stratum": "actual_concurrent_on",
+      "stratum_value": "3+",
+      "sample_count": 62,
+      "window_count_with_any_samples": 7
+    },
+    {
+      "model": "reference",
+      "source_house": 5,
+      "target_house": 3,
+      "stratum": "actual_concurrent_on",
+      "stratum_value": "0",
+      "sample_count": 16270,
+      "window_count_with_any_samples": 113
+    },
+    {
+      "model": "reference",
+      "source_house": 5,
+      "target_house": 3,
+      "stratum": "actual_concurrent_on",
+      "stratum_value": "1",
+      "sample_count": 14845,
+      "window_count_with_any_samples": 114
+    },
+    {
+      "model": "reference",
+      "source_house": 5,
+      "target_house": 3,
+      "stratum": "actual_concurrent_on",
+      "stratum_value": "2",
+      "sample_count": 1578,
+      "window_count_with_any_samples": 30
+    },
+    {
+      "model": "reference",
+      "source_house": 5,
+      "target_house": 3,
+      "stratum": "actual_concurrent_on",
+      "stratum_value": "3+",
+      "sample_count": 75,
+      "window_count_with_any_samples": 2
+    },
+    {
+      "model": "candidate",
+      "source_house": 5,
+      "target_house": 3,
+      "stratum": "actual_concurrent_on",
+      "stratum_value": "0",
+      "sample_count": 16270,
+      "window_count_with_any_samples": 113
+    },
+    {
+      "model": "candidate",
+      "source_house": 5,
+      "target_house": 3,
+      "stratum": "actual_concurrent_on",
+      "stratum_value": "1",
+      "sample_count": 14845,
+      "window_count_with_any_samples": 114
+    },
+    {
+      "model": "candidate",
+      "source_house": 5,
+      "target_house": 3,
+      "stratum": "actual_concurrent_on",
+      "stratum_value": "2",
+      "sample_count": 1578,
+      "window_count_with_any_samples": 30
+    },
+    {
+      "model": "candidate",
+      "source_house": 5,
+      "target_house": 3,
+      "stratum": "actual_concurrent_on",
+      "stratum_value": "3+",
+      "sample_count": 75,
+      "window_count_with_any_samples": 2
+    },
+    {
+      "model": "reference",
+      "source_house": 5,
+      "target_house": 5,
+      "stratum": "actual_concurrent_on",
+      "stratum_value": "0",
+      "sample_count": 15274,
+      "window_count_with_any_samples": 122
+    },
+    {
+      "model": "reference",
+      "source_house": 5,
+      "target_house": 5,
+      "stratum": "actual_concurrent_on",
+      "stratum_value": "1",
+      "sample_count": 15469,
+      "window_count_with_any_samples": 127
+    },
+    {
+      "model": "reference",
+      "source_house": 5,
+      "target_house": 5,
+      "stratum": "actual_concurrent_on",
+      "stratum_value": "2",
+      "sample_count": 1936,
+      "window_count_with_any_samples": 53
+    },
+    {
+      "model": "reference",
+      "source_house": 5,
+      "target_house": 5,
+      "stratum": "actual_concurrent_on",
+      "stratum_value": "3+",
+      "sample_count": 89,
+      "window_count_with_any_samples": 12
+    },
+    {
+      "model": "candidate",
+      "source_house": 5,
+      "target_house": 5,
+      "stratum": "actual_concurrent_on",
+      "stratum_value": "0",
+      "sample_count": 15274,
+      "window_count_with_any_samples": 122
+    },
+    {
+      "model": "candidate",
+      "source_house": 5,
+      "target_house": 5,
+      "stratum": "actual_concurrent_on",
+      "stratum_value": "1",
+      "sample_count": 15469,
+      "window_count_with_any_samples": 127
+    },
+    {
+      "model": "candidate",
+      "source_house": 5,
+      "target_house": 5,
+      "stratum": "actual_concurrent_on",
+      "stratum_value": "2",
+      "sample_count": 1936,
+      "window_count_with_any_samples": 53
+    },
+    {
+      "model": "candidate",
+      "source_house": 5,
+      "target_house": 5,
+      "stratum": "actual_concurrent_on",
+      "stratum_value": "3+",
+      "sample_count": 89,
+      "window_count_with_any_samples": 12
+    },
+    {
+      "model": "reference",
+      "source_house": 5,
+      "target_house": 6,
+      "stratum": "actual_concurrent_on",
+      "stratum_value": "0",
+      "sample_count": 31803,
+      "window_count_with_any_samples": 128
+    },
+    {
+      "model": "reference",
+      "source_house": 5,
+      "target_house": 6,
+      "stratum": "actual_concurrent_on",
+      "stratum_value": "1",
+      "sample_count": 943,
+      "window_count_with_any_samples": 53
+    },
+    {
+      "model": "reference",
+      "source_house": 5,
+      "target_house": 6,
+      "stratum": "actual_concurrent_on",
+      "stratum_value": "2",
+      "sample_count": 22,
+      "window_count_with_any_samples": 4
+    },
+    {
+      "model": "reference",
+      "source_house": 5,
+      "target_house": 6,
+      "stratum": "actual_concurrent_on",
+      "stratum_value": "3+",
+      "sample_count": 0,
+      "window_count_with_any_samples": 0
+    },
+    {
+      "model": "candidate",
+      "source_house": 5,
+      "target_house": 6,
+      "stratum": "actual_concurrent_on",
+      "stratum_value": "0",
+      "sample_count": 31803,
+      "window_count_with_any_samples": 128
+    },
+    {
+      "model": "candidate",
+      "source_house": 5,
+      "target_house": 6,
+      "stratum": "actual_concurrent_on",
+      "stratum_value": "1",
+      "sample_count": 943,
+      "window_count_with_any_samples": 53
+    },
+    {
+      "model": "candidate",
+      "source_house": 5,
+      "target_house": 6,
+      "stratum": "actual_concurrent_on",
+      "stratum_value": "2",
+      "sample_count": 22,
+      "window_count_with_any_samples": 4
+    },
+    {
+      "model": "candidate",
+      "source_house": 5,
+      "target_house": 6,
+      "stratum": "actual_concurrent_on",
+      "stratum_value": "3+",
+      "sample_count": 0,
+      "window_count_with_any_samples": 0
+    }
+  ],
+  "macro_by_model_and_concurrency": [
+    {
+      "model": "candidate",
+      "actual_concurrent_on": "0",
+      "group_count": 46,
+      "macro_f1_on_off": 0.0,
+      "macro_absolute_percentage_error": 150704.91042886593
+    },
+    {
+      "model": "candidate",
+      "actual_concurrent_on": "1",
+      "group_count": 46,
+      "macro_f1_on_off": 0.3144881368981445,
+      "macro_absolute_percentage_error": 5546.459723248383
+    },
+    {
+      "model": "candidate",
+      "actual_concurrent_on": "2",
+      "group_count": 46,
+      "macro_f1_on_off": 0.4113290425412716,
+      "macro_absolute_percentage_error": 126.95208732111203
+    },
+    {
+      "model": "candidate",
+      "actual_concurrent_on": "3+",
+      "group_count": 46,
+      "macro_f1_on_off": 0.39058728516565705,
+      "macro_absolute_percentage_error": 234.18525227132162
+    },
+    {
+      "model": "reference",
+      "actual_concurrent_on": "0",
+      "group_count": 46,
+      "macro_f1_on_off": 0.0,
+      "macro_absolute_percentage_error": 62412.06108736605
+    },
+    {
+      "model": "reference",
+      "actual_concurrent_on": "1",
+      "group_count": 46,
+      "macro_f1_on_off": 0.48758573666618216,
+      "macro_absolute_percentage_error": 4923.383743560548
+    },
+    {
+      "model": "reference",
+      "actual_concurrent_on": "2",
+      "group_count": 46,
+      "macro_f1_on_off": 0.5559572595833766,
+      "macro_absolute_percentage_error": 91.18902035061598
+    },
+    {
+      "model": "reference",
+      "actual_concurrent_on": "3+",
+      "group_count": 46,
+      "macro_f1_on_off": 0.5312814017919718,
+      "macro_absolute_percentage_error": 151.08872958596942
+    }
+  ]
+}

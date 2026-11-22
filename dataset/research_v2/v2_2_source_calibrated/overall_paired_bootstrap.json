@@ -1,0 +1,13 @@
+{
+  "replicates": 200,
+  "seed": 17,
+  "resample_unit": "same 256-step windows within each target house, paired across both source models",
+  "delta_macro_f1_ci95": [
+    -0.03505774351698946,
+    0.025386094462322262
+  ],
+  "delta_mean_absolute_kwh_ci95": [
+    -0.24298093809021254,
+    0.005271367737838287
+  ]
+}

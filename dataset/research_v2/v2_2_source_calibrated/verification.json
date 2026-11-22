@@ -1,0 +1,15 @@
+{
+  "status": "passed",
+  "sources": {
+    "2": {
+      "checkpoint_sha256": "5297450ebbb8ba35c991ac0b73056d9dce1470c8b9870025e3ee13b190efb29d",
+      "real_window_max_abs_w": 0.038726806640625,
+      "real_window_max_abs_p": 4.121661186218262e-05
+    },
+    "5": {
+      "checkpoint_sha256": "5e08e56c81a2aa84ec57e2badddd379ac8b018eac209d15783e6876ea7c3fdc1",
+      "real_window_max_abs_w": 0.02507781982421875,
+      "real_window_max_abs_p": 5.930662155151367e-05
+    }
+  }
+}

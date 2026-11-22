@@ -1,0 +1,65 @@
+{
+  "comparisons": [
+    {
+      "source_house": 2,
+      "target_house": 3,
+      "replicates": 200,
+      "seed": 17,
+      "resample_unit": "paired 256-step window",
+      "delta_macro_f1_ci95": [
+        -0.13488074326649055,
+        -0.024961357982024018
+      ],
+      "delta_mean_absolute_kwh_ci95": [
+        -0.3349393045374503,
+        0.5310098082050293
+      ]
+    },
+    {
+      "source_house": 2,
+      "target_house": 6,
+      "replicates": 200,
+      "seed": 17,
+      "resample_unit": "paired 256-step window",
+      "delta_macro_f1_ci95": [
+        -0.011825345032116852,
+        0.1334824398715916
+      ],
+      "delta_mean_absolute_kwh_ci95": [
+        -0.21447198927868158,
+        -0.07589638646808453
+      ]
+    },
+    {
+      "source_house": 5,
+      "target_house": 3,
+      "replicates": 200,
+      "seed": 17,
+      "resample_unit": "paired 256-step window",
+      "delta_macro_f1_ci95": [
+        -0.03798995438295928,
+        0.10059745158086796
+      ],
+      "delta_mean_absolute_kwh_ci95": [
+        -0.7250226973740307,
+        -0.1296155007885924
+      ]
+    },
+    {
+      "source_house": 5,
+      "target_house": 6,
+      "replicates": 200,
+      "seed": 17,
+      "resample_unit": "paired 256-step window",
+      "delta_macro_f1_ci95": [
+        -0.08138170088600863,
+        0.02530443467875149
+      ],
+      "delta_mean_absolute_kwh_ci95": [
+        -0.013438455937430246,
+        0.172521361913532
+      ]
+    }
+  ],
+  "note": "Calibration choices use the other source house only. Development had already inspected H3/H6 test results, so treat as exploratory."
+}

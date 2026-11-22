@@ -1,0 +1,269 @@
+{
+  "comparisons": [
+    {
+      "version": "v2.0",
+      "target_house": 2,
+      "baseline_source_house": 5,
+      "baseline_macro_f1": 0.3950103320326452,
+      "candidate_macro_f1": 0.2937808832986885,
+      "baseline_mean_abs_kwh": 2.1734599031456874,
+      "candidate_mean_abs_kwh": 3.771895427628498,
+      "paired_bootstrap": {
+        "replicates": 200,
+        "seed": 17,
+        "resample_unit": "paired 256-step window",
+        "delta_macro_f1_ci95": [
+          -0.16126759342952582,
+          0.016684990931466782
+        ],
+        "delta_mean_absolute_kwh_ci95": [
+          0.742600523494184,
+          2.378977935963
+        ]
+      }
+    },
+    {
+      "version": "v2.1",
+      "target_house": 2,
+      "baseline_source_house": 5,
+      "baseline_macro_f1": 0.3950103320326452,
+      "candidate_macro_f1": 0.2819692779908009,
+      "baseline_mean_abs_kwh": 2.1734599031456874,
+      "candidate_mean_abs_kwh": 2.779794003150178,
+      "paired_bootstrap": {
+        "replicates": 200,
+        "seed": 17,
+        "resample_unit": "paired 256-step window",
+        "delta_macro_f1_ci95": [
+          -0.17956712266856395,
+          -0.004549597326883653
+        ],
+        "delta_mean_absolute_kwh_ci95": [
+          -0.27670576415645576,
+          1.2030399811376506
+        ]
+      }
+    },
+    {
+      "version": "v2.0",
+      "target_house": 3,
+      "baseline_source_house": 2,
+      "baseline_macro_f1": 0.44512554104281826,
+      "candidate_macro_f1": 0.22869398034489583,
+      "baseline_mean_abs_kwh": 0.4354107184483897,
+      "candidate_mean_abs_kwh": 2.6350163307260206,
+      "paired_bootstrap": {
+        "replicates": 200,
+        "seed": 17,
+        "resample_unit": "paired 256-step window",
+        "delta_macro_f1_ci95": [
+          -0.3370039561147673,
+          -0.11408930456776076
+        ],
+        "delta_mean_absolute_kwh_ci95": [
+          1.0715341994228462,
+          3.159388185054377
+        ]
+      }
+    },
+    {
+      "version": "v2.0",
+      "target_house": 3,
+      "baseline_source_house": 5,
+      "baseline_macro_f1": 0.31869693107678904,
+      "candidate_macro_f1": 0.22869398034489583,
+      "baseline_mean_abs_kwh": 1.5643583751869203,
+      "candidate_mean_abs_kwh": 2.6350163307260206,
+      "paired_bootstrap": {
+        "replicates": 200,
+        "seed": 17,
+        "resample_unit": "paired 256-step window",
+        "delta_macro_f1_ci95": [
+          -0.1730451003123515,
+          -0.007146829806006377
+        ],
+        "delta_mean_absolute_kwh_ci95": [
+          0.6846908049890771,
+          1.6005154466178888
+        ]
+      }
+    },
+    {
+      "version": "v2.1",
+      "target_house": 3,
+      "baseline_source_house": 2,
+      "baseline_macro_f1": 0.44512554104281826,
+      "candidate_macro_f1": 0.3197506788538634,
+      "baseline_mean_abs_kwh": 0.4354107184483897,
+      "candidate_mean_abs_kwh": 2.0973561331958464,
+      "paired_bootstrap": {
+        "replicates": 200,
+        "seed": 17,
+        "resample_unit": "paired 256-step window",
+        "delta_macro_f1_ci95": [
+          -0.22367779297185478,
+          -0.01623579795079986
+        ],
+        "delta_mean_absolute_kwh_ci95": [
+          0.4516273999353871,
+          2.3843695549449575
+        ]
+      }
+    },
+    {
+      "version": "v2.1",
+      "target_house": 3,
+      "baseline_source_house": 5,
+      "baseline_macro_f1": 0.31869693107678904,
+      "candidate_macro_f1": 0.3197506788538634,
+      "baseline_mean_abs_kwh": 1.5643583751869203,
+      "candidate_mean_abs_kwh": 2.0973561331958464,
+      "paired_bootstrap": {
+        "replicates": 200,
+        "seed": 17,
+        "resample_unit": "paired 256-step window",
+        "delta_macro_f1_ci95": [
+          -0.07502087583203618,
+          0.09380542876333701
+        ],
+        "delta_mean_absolute_kwh_ci95": [
+          -0.0768731197342276,
+          1.0321116750439008
+        ]
+      }
+    },
+    {
+      "version": "v2.0",
+      "target_house": 5,
+      "baseline_source_house": 2,
+      "baseline_macro_f1": 0.4554914533528047,
+      "candidate_macro_f1": 0.322649671816992,
+      "baseline_mean_abs_kwh": 0.8964049677471023,
+      "candidate_mean_abs_kwh": 2.459463471741064,
+      "paired_bootstrap": {
+        "replicates": 200,
+        "seed": 17,
+        "resample_unit": "paired 256-step window",
+        "delta_macro_f1_ci95": [
+          -0.20368589072459783,
+          -0.05970484666518221
+        ],
+        "delta_mean_absolute_kwh_ci95": [
+          1.056220778139929,
+          2.184231502811114
+        ]
+      }
+    },
+    {
+      "version": "v2.1",
+      "target_house": 5,
+      "baseline_source_house": 2,
+      "baseline_macro_f1": 0.4554914533528047,
+      "candidate_macro_f1": 0.36499375434064363,
+      "baseline_mean_abs_kwh": 0.8964049677471023,
+      "candidate_mean_abs_kwh": 2.101969608418564,
+      "paired_bootstrap": {
+        "replicates": 200,
+        "seed": 17,
+        "resample_unit": "paired 256-step window",
+        "delta_macro_f1_ci95": [
+          -0.16431785281825692,
+          -0.022100294219250936
+        ],
+        "delta_mean_absolute_kwh_ci95": [
+          0.714378519076854,
+          1.425885661536207
+        ]
+      }
+    },
+    {
+      "version": "v2.0",
+      "target_house": 6,
+      "baseline_source_house": 2,
+      "baseline_macro_f1": 0.47691291281280385,
+      "candidate_macro_f1": 0.09570931580981831,
+      "baseline_mean_abs_kwh": 0.6195670645770301,
+      "candidate_mean_abs_kwh": 0.9999136574733007,
+      "paired_bootstrap": {
+        "replicates": 200,
+        "seed": 17,
+        "resample_unit": "paired 256-step window",
+        "delta_macro_f1_ci95": [
+          -0.4654736163444673,
+          -0.21027506049108627
+        ],
+        "delta_mean_absolute_kwh_ci95": [
+          0.07483123903861269,
+          0.6296303932624869
+        ]
+      }
+    },
+    {
+      "version": "v2.0",
+      "target_house": 6,
+      "baseline_source_house": 5,
+      "baseline_macro_f1": 0.44590518479437113,
+      "candidate_macro_f1": 0.09570931580981831,
+      "baseline_mean_abs_kwh": 0.2601518327282818,
+      "candidate_mean_abs_kwh": 0.9999136574733007,
+      "paired_bootstrap": {
+        "replicates": 200,
+        "seed": 17,
+        "resample_unit": "paired 256-step window",
+        "delta_macro_f1_ci95": [
+          -0.4368792618789102,
+          -0.20488923097033734
+        ],
+        "delta_mean_absolute_kwh_ci95": [
+          0.5236576689779758,
+          0.8794779580458999
+        ]
+      }
+    },
+    {
+      "version": "v2.1",
+      "target_house": 6,
+      "baseline_source_house": 2,
+      "baseline_macro_f1": 0.47691291281280385,
+      "candidate_macro_f1": 0.36870019841592355,
+      "baseline_mean_abs_kwh": 0.6195670645770301,
+      "candidate_mean_abs_kwh": 0.8618746228434802,
+      "paired_bootstrap": {
+        "replicates": 200,
+        "seed": 17,
+        "resample_unit": "paired 256-step window",
+        "delta_macro_f1_ci95": [
+          -0.2310718002532546,
+          0.060702047164940424
+        ],
+        "delta_mean_absolute_kwh_ci95": [
+          0.02333968942752108,
+          0.5056542587140576
+        ]
+      }
+    },
+    {
+      "version": "v2.1",
+      "target_house": 6,
+      "baseline_source_house": 5,
+      "baseline_macro_f1": 0.44590518479437113,
+      "candidate_macro_f1": 0.36870019841592355,
+      "baseline_mean_abs_kwh": 0.2601518327282818,
+      "candidate_mean_abs_kwh": 0.8618746228434802,
+      "paired_bootstrap": {
+        "replicates": 200,
+        "seed": 17,
+        "resample_unit": "paired 256-step window",
+        "delta_macro_f1_ci95": [
+          -0.1936332495706115,
+          0.0790329532236101
+        ],
+        "delta_mean_absolute_kwh_ci95": [
+          0.34751315449364484,
+          0.9237900457065553
+        ]
+      }
+    }
+  ],
+  "note": "v2.0 versus v2.1 is a multi-change exploratory comparison; production source bundles have less training-house coverage than LOHO TCN models. No target was used for training or model selection."
+}

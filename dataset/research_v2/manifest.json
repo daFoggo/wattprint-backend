@@ -1,0 +1,128 @@
+{
+  "version": "research-v2.0.0",
+  "folds": {
+    "2": {
+      "checkpoint": "weights/loho_target2_v2.0.0.pt",
+      "sha256": "6511ba9b0994f3140a686c6654a1b6bef0dcaa49ef47f2c174c0aaf714700ab4",
+      "prediction": "predictions/loho_target2.npz",
+      "training": {
+        "outer_target_house": 2,
+        "outer_source_houses": [
+          3,
+          5,
+          6
+        ],
+        "inner_validation_house": 3,
+        "inner_fit_houses": [
+          5,
+          6
+        ],
+        "seeds": [
+          11,
+          22
+        ],
+        "best_epochs": [
+          8,
+          8
+        ],
+        "final_epochs": 8,
+        "epochs_cap": 8,
+        "windows_per_epoch": 256,
+        "threshold_rule": "maximize inner grouped-validation F1 per label on 0.05..0.95 grid"
+      }
+    },
+    "3": {
+      "checkpoint": "weights/loho_target3_v2.0.0.pt",
+      "sha256": "9d252caa6825fde5ce75e7c5b4f1830843d3ac88dbe652d0e0796e402ca430ea",
+      "prediction": "predictions/loho_target3.npz",
+      "training": {
+        "outer_target_house": 3,
+        "outer_source_houses": [
+          2,
+          5,
+          6
+        ],
+        "inner_validation_house": 2,
+        "inner_fit_houses": [
+          5,
+          6
+        ],
+        "seeds": [
+          11,
+          22
+        ],
+        "best_epochs": [
+          8,
+          8
+        ],
+        "final_epochs": 8,
+        "epochs_cap": 8,
+        "windows_per_epoch": 256,
+        "threshold_rule": "maximize inner grouped-validation F1 per label on 0.05..0.95 grid"
+      }
+    },
+    "5": {
+      "checkpoint": "weights/loho_target5_v2.0.0.pt",
+      "sha256": "110197c97efe53625d3a68f1a3a257d1cbf69027cf53d1086341bad4196da28c",
+      "prediction": "predictions/loho_target5.npz",
+      "training": {
+        "outer_target_house": 5,
+        "outer_source_houses": [
+          2,
+          3,
+          6
+        ],
+        "inner_validation_house": 2,
+        "inner_fit_houses": [
+          3,
+          6
+        ],
+        "seeds": [
+          11,
+          22
+        ],
+        "best_epochs": [
+          8,
+          8
+        ],
+        "final_epochs": 8,
+        "epochs_cap": 8,
+        "windows_per_epoch": 256,
+        "threshold_rule": "maximize inner grouped-validation F1 per label on 0.05..0.95 grid"
+      }
+    },
+    "6": {
+      "checkpoint": "weights/loho_target6_v2.0.0.pt",
+      "sha256": "03608b8e8cc3a7fceab17afd34a2283a18b1efcf8a6c101aeede5a6d40253c77",
+      "prediction": "predictions/loho_target6.npz",
+      "training": {
+        "outer_target_house": 6,
+        "outer_source_houses": [
+          2,
+          3,
+          5
+        ],
+        "inner_validation_house": 2,
+        "inner_fit_houses": [
+          3,
+          5
+        ],
+        "seeds": [
+          11,
+          22
+        ],
+        "best_epochs": [
+          8,
+          8
+        ],
+        "final_epochs": 8,
+        "epochs_cap": 8,
+        "windows_per_epoch": 256,
+        "threshold_rule": "maximize inner grouped-validation F1 per label on 0.05..0.95 grid"
+      }
+    }
+  },
+  "command": "uv run --group nilm python dataset/research_v2/run.py --epochs 8 --windows-per-epoch 256",
+  "protocol": "grouped inner validation, outer leave-one-house-out, frozen target-independent thresholds",
+  "baseline_window_manifest": "dataset/research_v1/baseline/manifest.json"
+}

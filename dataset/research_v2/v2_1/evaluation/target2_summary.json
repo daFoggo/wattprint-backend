@@ -1,0 +1,61 @@
+{
+  "evaluation_version": "1.0.0",
+  "inputs": [
+    "/home/cuongpd/ptit_udu_s4u/wattprint-backend/dataset/research_v2/v2_1/predictions/loho_target2.npz"
+  ],
+  "labels": [
+    "Fridge",
+    "WashMach",
+    "Dishwash",
+    "Microwave",
+    "Toaster",
+    "Kettle"
+  ],
+  "houses": [
+    "2"
+  ],
+  "samples": 32768,
+  "sample_seconds": 15.0,
+  "on_threshold_w": {
+    "Fridge": 50.0,
+    "WashMach": 20.0,
+    "Dishwash": 10.0,
+    "Microwave": 200.0,
+    "Toaster": 200.0,
+    "Kettle": 1000.0
+  },
+  "event_thresholds": [
+    0.05000000074505806,
+    0.4000000059604645,
+    0.4000000059604645,
+    0.699999988079071,
+    0.6499999761581421,
+    0.6000000238418579
+  ],
+  "macro": {
+    "house_device_groups": 6,
+    "macro_f1_on_off": 0.2819692779908009,
+    "macro_absolute_percentage_error": 60.32436489131616
+  },
+  "block_bootstrap": {
+    "iterations": 200,
+    "block_seconds": 3600,
+    "seed": 17,
+    "macro_f1_on_off_ci95": {
+      "low_95": 0.25429516566924715,
+      "high_95": 0.31401885575115995
+    },
+    "macro_absolute_percentage_error_ci95": {
+      "low_95": 47.20444326357149,
+      "high_95": 5363.504025617218
+    },
+    "note": "Percentile intervals resample contiguous fixed-duration blocks within each house; device macro metrics are computed per replicate."
+  },
+  "aggregate_power_bins_w": [
+    0,
+    100,
+    500,
+    1500,
+    null
+  ]
+}

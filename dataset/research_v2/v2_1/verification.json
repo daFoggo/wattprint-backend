@@ -1,0 +1,68 @@
+{
+  "status": "passed",
+  "folds": {
+    "2": {
+      "checkpoint_sha256": "ade571eb2394a87cc984d343eeec113bcae4f74f54e82f6de04e0eb61f0a7518",
+      "sample_count": 32768,
+      "labels": [
+        "Fridge",
+        "WashMach",
+        "Dishwash",
+        "Microwave",
+        "Toaster",
+        "Kettle"
+      ],
+      "standalone_probability_max_abs_difference": 1.7881393432617188e-07,
+      "standalone_watt_max_abs_difference": 0.0001068115234375
+    },
+    "3": {
+      "checkpoint_sha256": "c5d2495139f871aaf90025b9e674c931a193dc286602a1c8a00e96054d0f9025",
+      "sample_count": 32768,
+      "labels": [
+        "Fridge",
+        "WashMach",
+        "Dishwash",
+        "Microwave",
+        "Toaster",
+        "Kettle"
+      ],
+      "standalone_probability_max_abs_difference": 1.7881393432617188e-07,
+      "standalone_watt_max_abs_difference": 1.52587890625e-05
+    },
+    "5": {
+      "checkpoint_sha256": "1c81a904f0dd957487b40731b3ae2af912b479f071408b73f0732cc439bf7f4a",
+      "sample_count": 32768,
+      "labels": [
+        "Fridge",
+        "WashMach",
+        "Dishwash",
+        "Microwave",
+        "Toaster",
+        "Kettle"
+      ],
+      "standalone_probability_max_abs_difference": 1.7881393432617188e-07,
+      "standalone_watt_max_abs_difference": 1.1444091796875e-05
+    },
+    "6": {
+      "checkpoint_sha256": "7542d88f9c0052520bcdc803c6c17471695a22748a48cbc1c3a9bc6d38dbd6e6",
+      "sample_count": 32768,
+      "labels": [
+        "WashMach",
+        "Dishwash",
+        "Microwave",
+        "Toaster",
+        "Kettle"
+      ],
+      "standalone_probability_max_abs_difference": 1.043081283569336e-07,
+      "standalone_watt_max_abs_difference": 2.288818359375e-05
+    }
+  },
+  "checks": [
+    "outer train excludes target house",
+    "checkpoint hashes",
+    "baseline target row alignment",
+    "finite predictions",
+    "House6 label scope",
+    "standalone inference on a real 256-sample window"
+  ]
+}

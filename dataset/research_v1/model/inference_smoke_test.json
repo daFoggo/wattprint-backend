@@ -1,0 +1,10 @@
+{
+  "input": "first real held-out target-House-3 256-sample window reconstructed from baseline/source2_target3.npz aggregate_w and timestamp arrays",
+  "input_shape": [1, 9, 256],
+  "calendar_feature_max_abs_difference_vs_training_helper": 0.0,
+  "v1_standalone_vs_backend_engine_max_abs_w": 0.0,
+  "v2_blend_vs_saved_prediction_max_abs_w": 0.01541900634765625,
+  "v1_output_shape": [1, 6, 256],
+  "v2_blend_output_shape": [1, 6, 256],
+  "notes": "The v2 blend difference is from inference batch/implementation numerical ordering; it is below 0.016 W. Standalone module import and direct-script zero-input smoke checks also passed."
+}

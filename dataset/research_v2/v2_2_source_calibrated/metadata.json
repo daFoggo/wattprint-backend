@@ -1,0 +1,89 @@
+{
+  "version": "v2.2_source_calibrated",
+  "sources": {
+    "2": {
+      "calibration_house": 5,
+      "calibration_window_count": 128,
+      "on_positive_counts": [
+        15753,
+        1983,
+        1181,
+        300,
+        146,
+        255
+      ],
+      "labels": [
+        "Fridge",
+        "WashMach",
+        "Dishwash",
+        "Microwave",
+        "Toaster",
+        "Kettle"
+      ],
+      "event_thresholds": [
+        0.30000001192092896,
+        0.20000000298023224,
+        0.15000000596046448,
+        0.05000000074505806,
+        0.20000000298023224,
+        0.30000001192092896
+      ],
+      "power_scale": [
+        1.0983645915985107,
+        0.9892044067382812,
+        0.710407555103302,
+        2.0,
+        1.0827823877334595,
+        1.090461015701294
+      ],
+      "checkpoint": "weights/house2.pt",
+      "checkpoint_sha256": "5297450ebbb8ba35c991ac0b73056d9dce1470c8b9870025e3ee13b190efb29d"
+    },
+    "5": {
+      "calibration_house": 2,
+      "calibration_window_count": 128,
+      "on_positive_counts": [
+        12549,
+        1338,
+        3339,
+        100,
+        37,
+        281
+      ],
+      "labels": [
+        "Fridge",
+        "WashMach",
+        "Dishwash",
+        "Microwave",
+        "Toaster",
+        "Kettle"
+      ],
+      "event_thresholds": [
+        0.3499999940395355,
+        0.10000000149011612,
+        0.44999998807907104,
+        0.30000001192092896,
+        0.3499999940395355,
+        0.44999998807907104
+      ],
+      "power_scale": [
+        0.8253504633903503,
+        0.9024755358695984,
+        1.315461277961731,
+        0.5,
+        0.5475143790245056,
+        0.9919024705886841
+      ],
+      "checkpoint": "weights/house5.pt",
+      "checkpoint_sha256": "5e08e56c81a2aa84ec57e2badddd379ac8b018eac209d15783e6876ea7c3fdc1"
+    }
+  },
+  "threshold_grid": "0.05..0.95 step 0.05, source-other-house F1 maximum",
+  "power_adjustment": "sqrt(true energy / predicted energy), clipped 0.5..2.0",
+  "targets": [
+    3,
+    6
+  ],
+  "target_data_used_for_calibration": false,
+  "command": "uv run --group nilm python dataset/research_v2/calibrate_sources.py"
+}

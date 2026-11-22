@@ -31,3 +31,8 @@ keycloak/providers/*.jar
 
 # NILM model bundles per home (dataset/models/nilm/<home>/nilm_pipeline.pt), registered in tb_nilm_model
 dataset/models/
+.env.bak*
+# Research weights and arrays (large; regenerate with the run scripts)
+dataset/research_*/**/*.pt
+dataset/research_*/**/*.npz
+__pycache__/

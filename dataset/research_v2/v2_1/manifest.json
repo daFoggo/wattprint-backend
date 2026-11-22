@@ -1,0 +1,136 @@
+{
+  "version": "research-v2.1.0",
+  "folds": {
+    "2": {
+      "checkpoint": "weights/loho_target2_v2.1.0.pt",
+      "sha256": "ade571eb2394a87cc984d343eeec113bcae4f74f54e82f6de04e0eb61f0a7518",
+      "prediction": "predictions/loho_target2.npz",
+      "training": {
+        "outer_target_house": 2,
+        "outer_source_houses": [
+          3,
+          5,
+          6
+        ],
+        "inner_validation_house": 3,
+        "inner_fit_houses": [
+          5,
+          6
+        ],
+        "seeds": [
+          11,
+          22
+        ],
+        "best_epochs": [
+          11,
+          6
+        ],
+        "final_epochs": 8,
+        "epochs_cap": 16,
+        "windows_per_epoch": 512,
+        "threshold_rule": "maximize inner grouped-validation F1 per label on 0.05..0.95 grid",
+        "energy_calibration_rule": "inner grouped-validation true/predicted energy ratio clipped 0.1..3.0",
+        "background_recomposition_probability": 0.5
+      }
+    },
+    "3": {
+      "checkpoint": "weights/loho_target3_v2.1.0.pt",
+      "sha256": "c5d2495139f871aaf90025b9e674c931a193dc286602a1c8a00e96054d0f9025",
+      "prediction": "predictions/loho_target3.npz",
+      "training": {
+        "outer_target_house": 3,
+        "outer_source_houses": [
+          2,
+          5,
+          6
+        ],
+        "inner_validation_house": 2,
+        "inner_fit_houses": [
+          5,
+          6
+        ],
+        "seeds": [
+          11,
+          22
+        ],
+        "best_epochs": [
+          7,
+          11
+        ],
+        "final_epochs": 9,
+        "epochs_cap": 16,
+        "windows_per_epoch": 512,
+        "threshold_rule": "maximize inner grouped-validation F1 per label on 0.05..0.95 grid",
+        "energy_calibration_rule": "inner grouped-validation true/predicted energy ratio clipped 0.1..3.0",
+        "background_recomposition_probability": 0.5
+      }
+    },
+    "5": {
+      "checkpoint": "weights/loho_target5_v2.1.0.pt",
+      "sha256": "1c81a904f0dd957487b40731b3ae2af912b479f071408b73f0732cc439bf7f4a",
+      "prediction": "predictions/loho_target5.npz",
+      "training": {
+        "outer_target_house": 5,
+        "outer_source_houses": [
+          2,
+          3,
+          6
+        ],
+        "inner_validation_house": 2,
+        "inner_fit_houses": [
+          3,
+          6
+        ],
+        "seeds": [
+          11,
+          22
+        ],
+        "best_epochs": [
+          12,
+          14
+        ],
+        "final_epochs": 13,
+        "epochs_cap": 16,
+        "windows_per_epoch": 512,
+        "threshold_rule": "maximize inner grouped-validation F1 per label on 0.05..0.95 grid",
+        "energy_calibration_rule": "inner grouped-validation true/predicted energy ratio clipped 0.1..3.0",
+        "background_recomposition_probability": 0.5
+      }
+    },
+    "6": {
+      "checkpoint": "weights/loho_target6_v2.1.0.pt",
+      "sha256": "7542d88f9c0052520bcdc803c6c17471695a22748a48cbc1c3a9bc6d38dbd6e6",
+      "prediction": "predictions/loho_target6.npz",
+      "training": {
+        "outer_target_house": 6,
+        "outer_source_houses": [
+          2,
+          3,
+          5
+        ],
+        "inner_validation_house": 2,
+        "inner_fit_houses": [
+          3,
+          5
+        ],
+        "seeds": [
+          11,
+          22
+        ],
+        "best_epochs": [
+          9,
+          16
+        ],
+        "final_epochs": 12,
+        "epochs_cap": 16,
+        "windows_per_epoch": 512,
+        "threshold_rule": "maximize inner grouped-validation F1 per label on 0.05..0.95 grid",
+        "energy_calibration_rule": "inner grouped-validation true/predicted energy ratio clipped 0.1..3.0",
+        "background_recomposition_probability": 0.5
+      }
+    }
+  },
+  "command": "uv run --group nilm python dataset/research_v2/run_v21.py --epochs 16 --windows-per-epoch 512",
+  "protocol": "grouped inner validation, outer leave-one-house-out, frozen target-independent thresholds",
+  "baseline_window_manifest": "dataset/research_v1/baseline/manifest.json"
+}

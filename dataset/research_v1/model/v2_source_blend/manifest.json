@@ -1,0 +1,68 @@
+{
+  "model_version": "v2_source_blend",
+  "purpose": "fixed equal-weight source-model blend evaluated only on unseen Houses 3 and 6",
+  "source_checkpoints": {
+    "2": "weights/house2.pt",
+    "5": "weights/house5.pt"
+  },
+  "training": "none; blend references frozen source checkpoints",
+  "selection": "equal source weights and normalized-threshold decision fixed before target evaluation",
+  "output_contract": "wattprint-nilm/2 source bundles; equal raw-watt mean, ON decision mean(p_on/source threshold)>=1; p_on stored as score/(1+score) with cutoff .5",
+  "source_event_thresholds": {
+    "2": [
+      0.36000001430511475,
+      0.18000000715255737,
+      0.46000000834465027,
+      0.18000000715255737,
+      0.3199999928474426,
+      0.3799999952316284
+    ],
+    "5": [
+      0.47999998927116394,
+      0.10000000149011612,
+      0.30000001192092896,
+      0.20000000298023224,
+      0.23999999463558197,
+      0.6000000238418579
+    ]
+  },
+  "predictions": {
+    "blend2_5_target3.npz": {
+      "sources": [
+        2,
+        5
+      ],
+      "source_weight": 0.5,
+      "target_house": 3,
+      "held_out_split": "test",
+      "labels": [
+        "Fridge",
+        "WashMach",
+        "Dishwash",
+        "Microwave",
+        "Toaster",
+        "Kettle"
+      ],
+      "on_rule": "mean(p_on_source / source_validation_threshold) >= 1; stored p_on=score/(1+score), cutoff 0.5",
+      "power_rule": "0.5 * source2_watts + 0.5 * source5_watts"
+    },
+    "blend2_5_target6.npz": {
+      "sources": [
+        2,
+        5
+      ],
+      "source_weight": 0.5,
+      "target_house": 6,
+      "held_out_split": "test",
+      "labels": [
+        "WashMach",
+        "Dishwash",
+        "Microwave",
+        "Toaster",
+        "Kettle"
+      ],
+      "on_rule": "mean(p_on_source / source_validation_threshold) >= 1; stored p_on=score/(1+score), cutoff 0.5",
+      "power_rule": "0.5 * source2_watts + 0.5 * source5_watts"
+    }
+  }
+}

@@ -1,0 +1,83 @@
+{
+  "model_version": "research-v1",
+  "source_house": 2,
+  "architecture": {
+    "detector": "GRUDetector",
+    "regressor": "NILMFormerRegressor",
+    "ensemble": "mean detector probabilities; median regressor power; soft probability gate",
+    "input": "(B, 9, 256) float32: aggregate watts plus 8 wall-clock sine/cosine features",
+    "output": "(B, C, 256) appliance watts"
+  },
+  "training": {
+    "seeds": [
+      11,
+      22
+    ],
+    "seed_selection": "fixed in advance; two independently initialized members",
+    "fit_partition": "train only for validation stage; all pre-test source windows including prior gap for final fit",
+    "validation_partition": "source-house temporal val only",
+    "epochs_cap": 12,
+    "patience": 3,
+    "selected_epochs": [
+      12,
+      12
+    ],
+    "final_epochs": 12,
+    "train_windows": 4690,
+    "validation_windows": 1465,
+    "final_fit_windows": 6175,
+    "final_fit_through": "2015-01-24 15:54:00",
+    "thresholds": "per-label F1 maximization on source validation probabilities, grid 0.02..0.98",
+    "augmentation": {
+      "aggregate_gain_uniform": [
+        0.9,
+        1.1
+      ],
+      "aggregate_gaussian_noise_std_w": 15.0,
+      "labels_and_calendar_features_unchanged": true
+    },
+    "windows_per_epoch_cap": 512,
+    "event_thresholds": [
+      0.3799999952316284,
+      0.6000000238418579,
+      0.8799999952316284,
+      0.6000000238418579,
+      0.41999998688697815,
+      0.7799999713897705
+    ]
+  },
+  "data_contract": {
+    "preprocessing": "dataset.training.train_house.load; source-house only",
+    "sample_seconds": 15,
+    "window": 256,
+    "labels": [
+      "Fridge",
+      "WashMach",
+      "Dishwash",
+      "Microwave",
+      "Toaster",
+      "Kettle"
+    ],
+    "on_threshold_w": [
+      50.0,
+      20.0,
+      10.0,
+      200.0,
+      200.0,
+      1000.0
+    ]
+  },
+  "seed_validation": {
+    "source_house": 2,
+    "per_seed_best_epoch": [
+      12,
+      12
+    ],
+    "per_seed_best_loss": [
+      21.76697784273521,
+      21.857710589533266
+    ]
+  },
+  "checkpoint": "nilm_pipeline.pt",
+  "checkpoint_sha256": "7d2e0fa2f2dbb07954ef0210dbaeb00e3a210dd5513f173f9c88e8b14a737400"
+}

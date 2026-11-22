@@ -1,0 +1,61 @@
+{
+  "comparisons": [
+    {
+      "target_house": 2,
+      "replicates": 200,
+      "seed": 17,
+      "resample_unit": "paired 256-step window",
+      "delta_macro_f1_ci95": [
+        -0.03125229879969085,
+        0.005316457306791366
+      ],
+      "delta_mean_absolute_kwh_ci95": [
+        -1.8327253222155073,
+        -0.36980400633377314
+      ]
+    },
+    {
+      "target_house": 3,
+      "replicates": 200,
+      "seed": 17,
+      "resample_unit": "paired 256-step window",
+      "delta_macro_f1_ci95": [
+        0.06009944814775697,
+        0.13262652586677692
+      ],
+      "delta_mean_absolute_kwh_ci95": [
+        -1.2519942907616495,
+        -0.1549566608853637
+      ]
+    },
+    {
+      "target_house": 5,
+      "replicates": 200,
+      "seed": 17,
+      "resample_unit": "paired 256-step window",
+      "delta_macro_f1_ci95": [
+        -0.015725515433079932,
+        0.08801069183065237
+      ],
+      "delta_mean_absolute_kwh_ci95": [
+        -1.0607483224322398,
+        0.06961191940354186
+      ]
+    },
+    {
+      "target_house": 6,
+      "replicates": 200,
+      "seed": 17,
+      "resample_unit": "paired 256-step window",
+      "delta_macro_f1_ci95": [
+        0.17572963019122942,
+        0.3277244310159301
+      ],
+      "delta_mean_absolute_kwh_ci95": [
+        -0.2892187763191759,
+        0.20380749955773356
+      ]
+    }
+  ],
+  "note": "Exploratory iteration; v2.1 design was informed by v2.0 diagnostics, not an untouched confirmatory test."
+}
