@@ -104,12 +104,13 @@
       "serviceAccountsEnabled": false,
       "redirectUris": [
         "http://localhost:11092/auth/callback",
-        "http://localhost:11091/auth/callback"
+        "http://localhost:11091/auth/callback",
+        "https://wattprint.ptitai.org/auth/callback"
       ],
       "webOrigins": [],
       "attributes": {
         "pkce.code.challenge.method": "S256",
-        "post.logout.redirect.uris": "http://localhost:11092/sign-in##http://localhost:11092/en/sign-in##http://localhost:11091/sign-in##http://localhost:11091/en/sign-in"
+        "post.logout.redirect.uris": "http://localhost:11092/sign-in##http://localhost:11092/en/sign-in##http://localhost:11091/sign-in##http://localhost:11091/en/sign-in##https://wattprint.ptitai.org/sign-in##https://wattprint.ptitai.org/en/sign-in"
       },
       "protocolMappers": [
         {
