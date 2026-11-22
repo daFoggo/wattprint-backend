@@ -21,13 +21,15 @@ from pathlib import Path
 import pandas as pd
 from sqlalchemy import text
 
-from app.database import SessionLocal
+from app.database import SessionLocal, engine
 from app.modules.energy.api import weather_inputs
 from app.modules.ops.api import ingest_readings, scenarios_between
 from scripts import refit, scenarios
 
 WINDOW = timedelta(hours=6)  # ~2.7k readings per ingest call
 TAIL_S = 5
+# Two replays race on every insert and the one without the newest scenario code can win.
+LOCK = text("SELECT pg_try_advisory_lock(hashtextextended('replay_refit', 0))")
 
 
 @dataclass
@@ -107,7 +109,23 @@ async def homes(data_dir: Path) -> list[Home]:
     return out
 
 
+async def take_replay_lock(conn) -> bool:
+    """True when no other replay holds the lock; it stays held while `conn` is open."""
+    got = await conn.scalar(LOCK)
+    await conn.commit()
+    return bool(got)
+
+
 async def main(once: bool) -> None:
+    # shortcut: a database restart drops the lock while the replay keeps going;
+    # re-check it per tail if replays get started by a supervisor.
+    async with engine.connect() as lock:
+        if not await take_replay_lock(lock):
+            sys.exit("Another scripts.replay_refit is running: stop it first")
+        await _run(once)
+
+
+async def _run(once: bool) -> None:
     # Not __file__: piped in through `python -` the script has none.
     data_dir = Path(os.environ.get("REFIT_SEED_DIR") or "dataset")
     hs = await homes(data_dir)

@@ -33,6 +33,9 @@ docker compose exec -d api python -m scripts.replay_refit        # keeps their m
 docker compose up -d nilm                                        # NILM worker: device estimates, ~1 min behind
 ```
 
+Only one replay runs at a time: a second one exits at once (with `-d` its message is not shown). To run new
+replay code, stop the old one first: `docker compose restart api`, then start it again.
+
 The seed needs `dataset/CLEAN_House<n>.csv` (REFIT Cleaned), the model bundles in `dataset/models/nilm/`
 and `DEMO_PASSWORD` in `.env`. Each home gets its own model (`tb_nilm_model`). Plan and decisions:
 `docs/superpowers/plans/2026-11-17-nilm-pipeline-multi-home.md`.

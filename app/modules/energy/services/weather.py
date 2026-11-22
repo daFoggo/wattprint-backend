@@ -12,6 +12,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
+from app.modules.ops.api import scenarios_between
 
 from ..models import HomeWeatherHourly as W
 from ..utils import WeatherUnavailableError
@@ -159,13 +160,19 @@ async def stored_weather(
             select(W).where(W.home_id == home_id, W.ts >= hour, W.ts <= hour + timedelta(hours=24))
         )
     }
+    cold: dict[datetime, float] = {}  # the card shows the weather the model is given
+    for sc in await scenarios_between(s, home_id, hour, hour + timedelta(hours=24)):
+        if sc.name == "cold_spell":
+            for ts in rows:
+                if sc.starts_at <= ts and (sc.ends_at is None or ts < sc.ends_at):
+                    cold[ts] = cold.get(ts, 0.0) + float(sc.params.get("delta_c", 0))
     cur = rows.get(hour)
     if cur is None or cur.temp_c is None:
         return None
     slots = [
         Slot(
             dt=int(r.ts.timestamp()),
-            temp=float(r.temp_c),
+            temp=float(r.temp_c) - cold.get(r.ts, 0.0),
             pop=1.0 if (r.precip_mm or 0) >= 0.2 else 0.0,
             sky=_stored_sky(r.cloud_pct, r.precip_mm, r.is_day, lang),
         )
@@ -174,8 +181,9 @@ async def stored_weather(
     ]
     now_ = Now(
         dt=int(hour.timestamp()),
-        temp=float(cur.temp_c),
-        feels_like=float(cur.apparent_c if cur.apparent_c is not None else cur.temp_c),
+        temp=float(cur.temp_c) - cold.get(hour, 0.0),
+        feels_like=float(cur.apparent_c if cur.apparent_c is not None else cur.temp_c)
+        - cold.get(hour, 0.0),
         humidity=int(round(cur.humidity_pct or 0)),
         wind_speed=float(cur.wind_ms or 0),
         sky=_stored_sky(cur.cloud_pct, cur.precip_mm, cur.is_day, lang),

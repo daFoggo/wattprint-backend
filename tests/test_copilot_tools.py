@@ -72,3 +72,16 @@ def test_bill_forecast_carries_range():
     assert data["change"]["parts_vnd"]["weather"] == 28000.0
     assert data["method"].startswith("contextual model")
     assert data["simulated"] == ["heater"] and data["accuracy"]["error_pct"] == 0.041
+
+
+def test_explain_usage_compares_only_hours_known_in_both_periods():
+    import numpy as np
+
+    cur = frame([2.0, 2.0, 2.0], [0.1, 0.1, 0.1])
+    prev = frame([1.0, np.nan, 1.0], [0.1, 0.1, 0.1])
+    lo, prev_lo = pd.Timestamp("2026-11-10", tz="UTC"), pd.Timestamp("2026-10-10", tz="UTC")
+    cur.index = pd.date_range(lo, periods=3, freq="h")
+    prev.index = pd.date_range(prev_lo, periods=3, freq="h")
+    a, b = tools.align(cur, prev, lo, prev_lo)
+    assert len(a) == len(b) == 2
+    assert tools.explain_parts(a, b)["change_kwh"] == 2.0  # 4 - 2, the gap hour left out of both

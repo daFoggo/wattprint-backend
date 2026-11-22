@@ -111,3 +111,33 @@ async def test_demo_home_weather_comes_from_the_recording_site(client, make_memb
     assert body["next"][0]["sky"]["icon"] == "10n" and body["next"][0]["pop"] == 1.0
     en = await client.get("/api/v1/energy/weather?lang=en", headers=owner.headers)
     assert en.json()["province"] == "Recording site (Loughborough, UK)"
+
+
+async def test_the_card_shows_the_cold_spell_the_model_uses(client, make_member):
+    from datetime import UTC, datetime, timedelta
+
+    from sqlalchemy import text
+
+    from app.database import SessionLocal
+
+    owner = await make_member("owner")
+    hour = datetime.now(UTC).replace(minute=0, second=0, microsecond=0)
+    async with SessionLocal() as s, s.begin():
+        for i in range(0, 26):
+            await s.execute(
+                text(
+                    "INSERT INTO public.tb_home_weather_hourly (home_id, ts, temp_c, humidity_pct, "
+                    "apparent_c, cloud_pct, radiation_wm2, precip_mm, is_day, wind_ms) "
+                    "VALUES (:h, :t, 10, 80, 10, 0, 0, 0, true, 1)"
+                ),
+                {"h": owner.home_id, "t": hour + timedelta(hours=i)},
+            )
+        await s.execute(
+            text(
+                "INSERT INTO public.tb_demo_scenario (home_id, name, starts_at, ends_at, params, "
+                "train) VALUES (:h, 'cold_spell', :a, :b, '{\"delta_c\": 8}', false)"
+            ),
+            {"h": owner.home_id, "a": hour - timedelta(hours=1), "b": hour + timedelta(days=2)},
+        )
+    body = (await client.get("/api/v1/energy/weather", headers=owner.headers)).json()
+    assert body["now"]["temp"] == 2.0 and body["next"][0]["temp"] == 2.0

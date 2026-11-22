@@ -9,6 +9,7 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime, timedelta, timezone
 from decimal import Decimal
+from types import SimpleNamespace
 from typing import Any
 
 import httpx
@@ -18,7 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.modules.billing.api import bill_history, current_bill, forecast_bill
-from app.modules.energy.api import device_breakdown, weather_at
+from app.modules.energy.api import device_breakdown, stored_weather, weather_at
 from app.modules.expect.api import expected, hourly_actual
 from app.modules.home.api import Device, Home, Province
 from app.modules.insight.api import (
@@ -281,12 +282,23 @@ def explain_parts(cur: pd.DataFrame, prev: pd.DataFrame) -> dict[str, Any]:
     }
 
 
+def align(
+    cur: pd.DataFrame, prev: pd.DataFrame, lo: datetime, prev_lo: datetime
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """The two periods on the same hours from their start, each known in both: a recording gap
+    in one must not read as a change in usage."""
+    a = cur.dropna(subset=["kwh"]).set_axis(cur.dropna(subset=["kwh"]).index - lo)
+    b = prev.dropna(subset=["kwh"]).set_axis(prev.dropna(subset=["kwh"]).index - prev_lo)
+    both = a.index.intersection(b.index)
+    return a.loc[both], b.loc[both]
+
+
 async def _period_frame(ctx: Ctx, lo: datetime, hi: datetime) -> pd.DataFrame:
     exp = await expected(ctx.session, ctx.home_id, lo, hi)
     if exp.empty:
         return exp
     exp["kwh"] = (await hourly_actual(ctx.session, ctx.home_id, lo, hi)).reindex(exp.index)
-    return exp.dropna(subset=["kwh"])
+    return exp
 
 
 async def explain_usage(ctx: Ctx, period: str = "cycle") -> Outcome:
@@ -314,6 +326,7 @@ async def explain_usage(ctx: Ctx, period: str = "cycle") -> Outcome:
         ).astimezone(UTC)
     cur = await _period_frame(ctx, lo, lo + span)
     prev = await _period_frame(ctx, prev_lo, prev_lo + span)
+    cur, prev = align(cur, prev, lo, prev_lo) if not (cur.empty or prev.empty) else (cur, prev)
     if cur.empty or prev.empty:
         return Outcome(
             {"error": "no expected-usage model for this home yet (it needs 28 full days)"},
@@ -397,12 +410,19 @@ async def compare_periods(ctx: Ctx, period: str = "week") -> Outcome:
 async def weather(ctx: Ctx) -> Outcome:
     home = await ctx.session.get(Home, ctx.home_id)
     province = await ctx.session.get(Province, home.province_code) if home.province_code else None
-    if province is None:
-        return Outcome({"error": "the home has no province set (Settings)"}, "OpenWeather")
-    try:
-        w = await weather_at(province.lat, province.lon, ctx.lang)
-    except Exception:  # WeatherUnavailableError, or no key
-        return Outcome({"error": "weather is unavailable right now"}, "OpenWeather")
+    if province is None:  # a demo home: its recording site's weather, as the card shows it
+        stored = await stored_weather(
+            ctx.session, ctx.home_id, ctx.now or datetime.now(UTC), ctx.lang
+        )
+        if stored is None:
+            return Outcome({"error": "the home has no province set (Settings)"}, "OpenWeather")
+        place, w = stored
+        province = SimpleNamespace(name=place)
+    else:
+        try:
+            w = await weather_at(province.lat, province.lon, ctx.lang)
+        except Exception:  # WeatherUnavailableError, or no key
+            return Outcome({"error": "weather is unavailable right now"}, "OpenWeather")
     return Outcome(
         data={
             "place": province.name,

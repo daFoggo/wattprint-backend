@@ -118,6 +118,13 @@ def project(
     return path
 
 
+def trusted(b: Bundle) -> bool:
+    """Whether the model may forecast the bill: not when its backtest lost to the weekday average
+    (spec §12b; its anomalies and explanations still come from it)."""
+    bt = b.metrics.get("backtest") or {}
+    return not ("mape_ctx" in bt and "mape_v1" in bt and bt["mape_ctx"] > bt["mape_v1"])
+
+
 def cycle_end_draws(
     kwh_now: float,
     p50_days: list[float],
@@ -168,17 +175,21 @@ def change_parts(
     return parts
 
 
-async def _snapshot_before(session: AsyncSession, home_id: uuid.UUID, today: date):
-    """The latest forecast kept on the day before today (the insight worker keeps one a day)."""
+async def _snapshot_before(
+    session: AsyncSession, home_id: uuid.UUID, today: date, period_end: date
+):
+    """The latest forecast of this cycle kept on the day before today (one is kept a day)."""
     return (
         await session.execute(
             text(
                 "SELECT amount, drivers FROM public.tb_forecast_snapshot WHERE home_id = :h "
-                "AND generated_at >= :a AND generated_at < :b AND drivers IS NOT NULL "
+                "AND horizon_date = :end AND generated_at >= :a AND generated_at < :b "
+                "AND drivers IS NOT NULL "
                 "ORDER BY generated_at DESC LIMIT 1"
             ),
             {
                 "h": home_id,
+                "end": period_end,
                 "a": _local_midnight(today - timedelta(days=1)),
                 "b": _local_midnight(today),
             },
@@ -186,7 +197,17 @@ async def _snapshot_before(session: AsyncSession, home_id: uuid.UUID, today: dat
     ).first()
 
 
-async def _accuracy(session: AsyncSession, home_id: uuid.UUID, b: Bundle | None) -> Accuracy | None:
+def backtest_accuracy(b: Bundle | None, method: str) -> Accuracy | None:
+    """The backtest error of the method whose figure is shown (the weekday average's, when the
+    forecast fell back to it)."""
+    bt = (b.metrics.get("backtest") if b else None) or {}
+    key = "mape_ctx" if method == "context" else "mape_v1"
+    return Accuracy("backtest", float(bt[key]), int(bt.get("cycles", 0))) if key in bt else None
+
+
+async def _accuracy(
+    session: AsyncSession, home_id: uuid.UUID, b: Bundle | None, method: str
+) -> Accuracy | None:
     """The last closed cycle against its forecast nearest mid-cycle; else the model's backtest."""
     row = (
         await session.execute(
@@ -204,10 +225,7 @@ async def _accuracy(session: AsyncSession, home_id: uuid.UUID, b: Bundle | None)
     if row is not None:
         err = abs(float(row.forecast) - float(row.actual)) / float(row.actual)
         return Accuracy("cycle", round(err, 4), 1)
-    backtest = (b.metrics.get("backtest") if b else None) or {}
-    if "mape_ctx" in backtest:
-        return Accuracy("backtest", float(backtest["mape_ctx"]), int(backtest.get("cycles", 0)))
-    return None
+    return backtest_accuracy(b, method)
 
 
 async def _context(
@@ -271,7 +289,7 @@ async def forecast_bill(
     start = _cycle_start(today, home.billing_cycle_day or 1)
     bill, segments, _ = await _price(session, home_id, start, now)
     b = await active_bundle(session, home_id)
-    ctx = await _context(session, home_id, now, bill, segments, b) if b else None
+    ctx = await _context(session, home_id, now, bill, segments, b) if b and trusted(b) else None
     if ctx is None:
         history = await _daily_kwh(
             session,
@@ -322,7 +340,7 @@ async def forecast_bill(
         high = max(kwh, _round(Decimal(str(p90)), "0.001"))
     change = None
     if ctx is not None and kwh > 0:
-        snap = await _snapshot_before(session, home_id, today)
+        snap = await _snapshot_before(session, home_id, today, bill["period_end"])
         if snap is not None:
             moved = total - Decimal(snap.amount)
             if abs(moved) >= min(CHANGE_MIN_VND, CHANGE_MIN_SHARE * Decimal(snap.amount)):
@@ -348,7 +366,7 @@ async def forecast_bill(
         amount_p10=amount(low),
         amount_p90=amount(high),
         change=change,
-        accuracy=await _accuracy(session, home_id, b),
+        accuracy=await _accuracy(session, home_id, b, "weekday" if ctx is None else "context"),
         simulated=sorted({sc.name for sc in active}),
         drivers=None if ctx is None else ctx["drivers"],
     )

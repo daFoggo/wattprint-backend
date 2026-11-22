@@ -108,3 +108,51 @@ def test_a_level_change_is_owed_to_the_trend():
     gap = predict(b, later)["c_trend"].sum() - predict(b, now)["c_trend"].sum()
     rise = predict(b, later)["p50_raw"].sum() - predict(b, now)["p50_raw"].sum()
     assert gap == pytest.approx(rise, rel=0.35) and rise > 0
+
+
+def test_a_model_is_relearnt_weekly_not_daily():
+    from datetime import UTC, datetime, timedelta
+
+    from app.modules.expect.services.refresh import due
+
+    now = datetime(2026, 11, 22, tzinfo=UTC)
+    assert due(None, now)
+    assert not due(now - timedelta(days=6), now)
+    assert due(now - timedelta(days=7), now)
+
+
+async def test_training_twice_in_a_minute_keeps_a_model_active(monkeypatch):
+    from datetime import UTC, datetime
+
+    from sqlalchemy import text
+
+    from app.database import SessionLocal
+    from app.modules.expect.services import refresh
+
+    x, y = synthetic(35)
+
+    async def frame(*a, **k):
+        return x
+
+    async def actual(*a, **k):
+        return y.copy()
+
+    async def none(*a, **k):
+        return y.astype(bool) & False
+
+    monkeypatch.setattr(refresh, "feature_frame", frame)
+    monkeypatch.setattr(refresh, "hourly_actual", actual)
+    monkeypatch.setattr(refresh, "excluded_hours", none)
+    async with SessionLocal() as s, s.begin():
+        hid = await s.scalar(text("INSERT INTO public.tb_home (name) VALUES ('m') RETURNING id"))
+    now = datetime(2026, 11, 22, 3, 0, 5, tzinfo=UTC)
+    for _ in range(2):
+        async with SessionLocal() as s, s.begin():
+            await refresh.train_home(s, hid, now, force=True)
+    async with SessionLocal() as s, s.begin():
+        n = await s.scalar(
+            text("SELECT count(*) FROM public.tb_expect_model WHERE home_id = :h AND active"),
+            {"h": hid},
+        )
+        await s.execute(text("DELETE FROM public.tb_home WHERE id = :h"), {"h": hid})
+    assert n == 1
