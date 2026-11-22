@@ -8,6 +8,7 @@ x-copilot-env: &copilot-env
   TEXT2SQL_SERVICE_KEY: ${TEXT2SQL_SERVICE_KEY:-}
   ASTRALX_API_KEY: ${ASTRALX_API_KEY:-}
   OPENWEATHER_API_KEY: ${OPENWEATHER_API_KEY:-}
+  COPILOT_DATABASE_URL: postgresql+asyncpg://wattprint_copilot_ro:${COPILOT_DB_PASSWORD:-}@db:11096/${POSTGRES_DB}
 
 services:
   db:
@@ -154,6 +155,7 @@ services:
       SMTP_USER: ${SMTP_USER:-}
       SMTP_PASSWORD: ${SMTP_PASSWORD:-}
       SMTP_STARTTLS: ${SMTP_STARTTLS:-false}
+      <<: *copilot-env # the watches job runs custom queries as the copilot role
     depends_on:
       db:
         condition: service_healthy
@@ -176,6 +178,7 @@ services:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:11096/${POSTGRES_DB}
       NILM_MODEL_DIR: /data/models/nilm
       NILM_THREADS: ${NILM_THREADS:-4}
+      NILM_HISTORY_DAYS: ${NILM_HISTORY_DAYS:-365} # a home's first pass; homes with a checkpoint go on from it
     depends_on:
       db:
         condition: service_healthy
@@ -183,6 +186,7 @@ services:
         condition: service_started # runs the migrations
     volumes:
       - ./app:/code/app
+      - ./scripts:/code/scripts # scripts.backfill_nilm needs torch, which only this image has
       - ./dataset:/data:ro
     restart: unless-stopped
     command: python -m app.modules.nilm.worker

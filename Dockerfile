@@ -3,6 +3,9 @@ COPY --from=ghcr.io/astral-sh/uv:0.13.7 /uv /usr/local/bin/uv
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 UV_COMPILE_BYTECODE=1 \
     UV_PROJECT_ENVIRONMENT=/opt/venv PATH="/opt/venv/bin:$PATH"
 WORKDIR /code
+# LightGBM (the expected-usage model, app/modules/expect) needs the OpenMP runtime.
+RUN apt-get update && apt-get install -y --no-install-recommends libgomp1 \
+    && rm -rf /var/lib/apt/lists/*
 COPY pyproject.toml uv.lock* ./
 RUN uv sync --locked --no-install-project
 # The NILM worker image (compose service `nilm`) adds CPU-only torch; the API image stays without it.

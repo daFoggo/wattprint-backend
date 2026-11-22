@@ -1,6 +1,7 @@
 import inspect
 import json
 import logging
+import math
 import statistics
 import time
 import uuid
@@ -11,16 +12,40 @@ from decimal import Decimal
 from typing import Any
 
 import httpx
+import pandas as pd
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.modules.billing.api import bill_history, current_bill, forecast_bill
 from app.modules.energy.api import device_breakdown, weather_at
+from app.modules.expect.api import expected, hourly_actual
 from app.modules.home.api import Device, Home, Province
-from app.modules.insight.api import cohort_for, list_alerts
+from app.modules.insight.api import (
+    WatchError,
+    cancel_watch,
+    cohort_for,
+    create_watch,
+    list_alerts,
+    list_watches,
+)
 
 from ..models import ScopeToken, Suggestion
+from ..schemas import (
+    ChartSeries,
+    ChartWidget,
+    CompareWidget,
+    DevicesWidget,
+    ForecastWidget,
+    PeersWidget,
+    PlanTask,
+    PlanWidget,
+    Slice,
+    StandbyWidget,
+    WatchWidget,
+    WeatherWidget,
+    Widget,
+)
 
 log = logging.getLogger("copilot.tools")
 ICT = timezone(timedelta(hours=7))
@@ -34,6 +59,10 @@ class Ctx:
     home_id: uuid.UUID
     now: datetime
     lang: str
+    # A long tool's progress, shown as steps while it runs: report(label, detail).
+    report: Callable[[str, str], None] = lambda label, detail: None
+    user_id: uuid.UUID | None = None  # who asks: a watch is theirs
+    question: str = ""
 
 
 @dataclass
@@ -44,7 +73,7 @@ class Outcome:
     detail: str  # the trace's line under the step
     tier: str = "measured"
     sources: list[str] = field(default_factory=list)
-    widgets: list[dict[str, Any]] = field(default_factory=list)
+    widgets: list[Widget] = field(default_factory=list)
     links: list[str] = field(default_factory=list)
     sql: str | None = None
 
@@ -116,10 +145,7 @@ async def devices_breakdown(ctx: Ctx, days: int = 30) -> Outcome:
         tier="estimated",
         sources=["nilm"],
         widgets=[
-            {
-                "kind": "devices",
-                "slices": [{"id": r["id"], "label": r["name"], "value": r["kwh"]} for r in rows],
-            }
+            DevicesWidget(slices=[Slice(id=r["id"], label=r["name"], value=r["kwh"]) for r in rows])
         ],
         links=["devices"],
     )
@@ -156,6 +182,53 @@ async def bill_now(ctx: Ctx) -> Outcome:
     )
 
 
+def forecast_data(b, f) -> dict[str, Any]:
+    """What Wappi reads of a forecast: the middle, the P10–P90 range, the tier's odds and why it
+    moved since yesterday (VND parts)."""
+    return {
+        "period_end": str(f.period_end),
+        "kwh_so_far": _f(b.kwh, 1),
+        "kwh_at_end": _f(f.kwh, 1),
+        "kwh_range": [_f(f.kwh_p10, 1), _f(f.kwh_p90, 1)],
+        "amount_vnd_with_vat_at_end": _f(f.amount, 0),
+        "amount_vnd_range": [_f(f.amount_p10, 0), _f(f.amount_p90, 0)],
+        "tier_at_end": f.tier_no,
+        "next_tier": (
+            {
+                "tier": f.next.tier_no,
+                "from_kwh": _f(f.next.from_kwh, 0),
+                "on": str(f.next.on),
+                "probability": f.next.probability,
+            }
+            if f.next
+            else None
+        ),
+        "change": (
+            {
+                "amount_vnd": _f(f.change.amount, 0),
+                "parts_vnd": {k: _f(v, 0) for k, v in f.change.parts.items()},
+            }
+            if f.change
+            else None
+        ),
+        "accuracy": (
+            {
+                "source": f.accuracy.source,
+                "error_pct": f.accuracy.error_pct,
+                "cycles": f.accuracy.cycles,
+            }
+            if f.accuracy
+            else None
+        ),
+        "simulated": f.simulated or [],
+        "method": (
+            "contextual model (weather, calendar, routine), range P10-P90"
+            if f.method == "context"
+            else f"same weekday average of the last {f.basis_days} full days"
+        ),
+    }
+
+
 async def bill_forecast(ctx: Ctx) -> Outcome:
     try:
         b = await current_bill(ctx.session, ctx.home_id, ctx.now)
@@ -166,33 +239,97 @@ async def bill_forecast(ctx: Ctx) -> Outcome:
         return Outcome({"error": "fewer than 7 full days of readings: no forecast yet"}, "forecast")
     current = next(t for t in b.tiers if t.tier_no == b.tier_no)
     limit = f.next.from_kwh if f.next else current.to_kwh
+    context = f.method == "context"
     return Outcome(
-        data={
-            "period_end": str(f.period_end),
-            "kwh_so_far": _f(b.kwh, 1),
-            "kwh_at_end": _f(f.kwh, 1),
-            "amount_vnd_with_vat_at_end": _f(f.amount, 0),
-            "tier_at_end": f.tier_no,
-            "next_tier": (
-                {"tier": f.next.tier_no, "from_kwh": _f(f.next.from_kwh, 0), "on": str(f.next.on)}
-                if f.next
-                else None
-            ),
-            "method": f"same weekday average of the last {f.basis_days} full days",
-        },
-        detail=_vi(ctx, "Trung bình theo thứ · biểu giá", "Weekday average · tariff"),
+        data=forecast_data(b, f),
+        detail=(
+            _vi(
+                ctx,
+                "Mô hình theo thời tiết, lịch · biểu giá",
+                "Weather and calendar model · tariff",
+            )
+            if context
+            else _vi(ctx, "Trung bình theo thứ · biểu giá", "Weekday average · tariff")
+        ),
         tier="estimated",
-        sources=["tariff", "meter"],
+        sources=["tariff", "meter", "model"] if context else ["tariff", "meter"],
         widgets=[
-            {
-                "kind": "forecast",
-                "used": _f(b.kwh, 1),
-                "limit": _f(limit, 0),
-                "kwh": _f(f.kwh, 1),
-                "vnd": _f(f.amount, 0),
-            }
+            ForecastWidget(
+                used=_f(b.kwh, 1), limit=_f(limit, 0), kwh=_f(f.kwh, 1), vnd=_f(f.amount, 0)
+            )
         ],
         links=["bill"],
+    )
+
+
+GROUPS = ("weather", "calendar", "occupancy", "trend")
+
+
+def explain_parts(cur: pd.DataFrame, prev: pd.DataFrame) -> dict[str, Any]:
+    """Actual against expected for a period, and its change from the previous one split by what
+    moved the model's expectation (weather, calendar, routine, trend); the rest is unexplained."""
+    actual, previous = float(cur["kwh"].sum()), float(prev["kwh"].sum())
+    change = actual - previous
+    parts = {g: float(cur[f"c_{g}"].sum() - prev[f"c_{g}"].sum()) for g in GROUPS}
+    parts["unexplained"] = change - sum(parts.values())
+    return {
+        "actual_kwh": round(actual, 1),
+        "expected_kwh": round(float(cur["p50"].sum()), 1),
+        "previous_actual_kwh": round(previous, 1),
+        "change_kwh": round(change, 1),
+        "parts_kwh": {k: round(v, 2) for k, v in parts.items()},
+    }
+
+
+async def _period_frame(ctx: Ctx, lo: datetime, hi: datetime) -> pd.DataFrame:
+    exp = await expected(ctx.session, ctx.home_id, lo, hi)
+    if exp.empty:
+        return exp
+    exp["kwh"] = (await hourly_actual(ctx.session, ctx.home_id, lo, hi)).reindex(exp.index)
+    return exp.dropna(subset=["kwh"])
+
+
+async def explain_usage(ctx: Ctx, period: str = "cycle") -> Outcome:
+    now = ctx.now or datetime.now(UTC)
+    hour = now.replace(minute=0, second=0, microsecond=0)
+    local = now.astimezone(ICT)
+    midnight = datetime(local.year, local.month, local.day, tzinfo=ICT).astimezone(UTC)
+    if period == "today":
+        span, lo = hour - midnight, midnight
+        prev_lo = lo - timedelta(days=1)
+    elif period == "week":
+        span, lo = timedelta(days=7), midnight - timedelta(days=7)
+        prev_lo = lo - span
+    else:
+        period = "cycle"
+        day = await ctx.session.scalar(select(Home.billing_cycle_day).where(Home.id == ctx.home_id))
+        start = local.date().replace(day=day or 1)
+        if local.date().day < (day or 1):
+            start = (start.replace(day=1) - timedelta(days=1)).replace(day=day or 1)
+        lo = datetime(start.year, start.month, start.day, tzinfo=ICT).astimezone(UTC)
+        span = hour - lo
+        prev_start = (start.replace(day=1) - timedelta(days=1)).replace(day=day or 1)
+        prev_lo = datetime(
+            prev_start.year, prev_start.month, prev_start.day, tzinfo=ICT
+        ).astimezone(UTC)
+    cur = await _period_frame(ctx, lo, lo + span)
+    prev = await _period_frame(ctx, prev_lo, prev_lo + span)
+    if cur.empty or prev.empty:
+        return Outcome(
+            {"error": "no expected-usage model for this home yet (it needs 28 full days)"},
+            _vi(ctx, "Chưa có mô hình mức dùng", "No usage model yet"),
+        )
+    return Outcome(
+        data={
+            "period": period,
+            "from": lo.astimezone(ICT).isoformat(timespec="minutes"),
+            "previous_from": prev_lo.astimezone(ICT).isoformat(timespec="minutes"),
+            **explain_parts(cur, prev),
+        },
+        detail=_vi(ctx, "Mô hình mức dùng · công tơ tổng", "Usage model · main meter"),
+        tier="estimated",
+        sources=["meter", "model"],
+        links=["statistics"],
     )
 
 
@@ -252,7 +389,7 @@ async def compare_periods(ctx: Ctx, period: str = "week") -> Outcome:
         },
         detail=_vi(ctx, f"Công tơ tổng · {n} ngày", f"Main meter · {n} days"),
         sources=["meter"],
-        widgets=[{"kind": "compare", "period": period, "data": data}] if n else [],
+        widgets=[CompareWidget(period=period, data=data)] if n else [],
         links=["statistics"],
     )
 
@@ -288,12 +425,9 @@ async def weather(ctx: Ctx) -> Outcome:
         tier="inferred",
         sources=["weather"],
         widgets=[
-            {
-                "kind": "weather",
-                "temp": round(w.now.temp),
-                "feels": round(w.now.feels_like),
-                "humidity": w.now.humidity,
-            }
+            WeatherWidget(
+                temp=round(w.now.temp), feels=round(w.now.feels_like), humidity=w.now.humidity
+            )
         ],
     )
 
@@ -316,13 +450,7 @@ async def cohort(ctx: Ctx) -> Outcome:
         detail=_vi(ctx, f"Nhà tương tự · {c.homes} hộ", f"Similar homes · {c.homes} homes"),
         sources=["cohort"],
         widgets=[
-            {
-                "kind": "peers",
-                "you": _f(c.kwh, 1),
-                "median": round(median, 1),
-                "days": c.days,
-                "homes": c.homes,
-            }
+            PeersWidget(you=_f(c.kwh, 1), median=round(median, 1), days=c.days, homes=c.homes)
         ],
         links=["statistics"],
     )
@@ -392,14 +520,136 @@ async def standby(ctx: Ctx, nights: int = 14) -> Outcome:
         tier="estimated",
         sources=["meter", "tariff"],
         widgets=[
-            {
-                "kind": "standby",
-                "watts": [round(w) for _, w in watts],
-                "kwh": round(kwh_month, 1),
-                "vnd": round(vnd) if vnd else None,
-            }
+            StandbyWidget(
+                watts=[round(w) for _, w in watts],
+                kwh=round(kwh_month, 1),
+                vnd=round(vnd) if vnd else None,
+            )
         ],
         links=["statistics"],
+    )
+
+
+T2S_STREAM = "/api/v1/text2sql/chat/stream"
+# text2sql's agent tools, as the steps of query_data the user sees while it runs.
+T2S_STEPS = {
+    "get_metric": ("Đọc định nghĩa chỉ số", "Read a metric's definition"),
+    "get_table": ("Xem mô tả bảng", "Read a table's description"),
+    "get_expert_rule": ("Đọc quy tắc", "Read a rule"),
+    "get_column_values": ("Tra giá trị cột", "Look up column values"),
+    "query_metric": ("Tính chỉ số", "Compute a metric"),
+    "run_sql": ("Chạy truy vấn", "Run a query"),
+    "make_chart": ("Dựng biểu đồ", "Build a chart"),
+    "ask_user": ("Cần hỏi lại", "Needs to ask back"),
+}
+
+
+# text2sql chart types the web draws, by the shape it draws them as; any other → a table.
+CHART_TYPES = {
+    "line": "line",
+    "area": "area",
+    "area_stacked": "area",
+    "area_stacked_100": "area",
+    "bar": "bar",
+    "bar_grouped": "bar",
+    "bar_horizontal": "bar",
+    "lollipop": "bar",
+    "pie": "donut",
+    "donut": "donut",
+    "kpi": "kpi",
+}
+MAX_CHART_ROWS = 200
+
+
+def _data_step(steps: list[dict[str, Any]]) -> dict[str, Any]:
+    """The last query that ran cleanly: the data behind the answer."""
+    return next((st for st in reversed(steps) if st.get("sql") and not st.get("error")), {})
+
+
+def _num(v: Any) -> float | None:
+    if isinstance(v, bool) or not isinstance(v, int | float | Decimal):
+        return None
+    return float(v) if math.isfinite(v) else None
+
+
+def _cell(v: Any) -> str | float | None:
+    """A table cell: arrays and JSON as text, NaN and infinities (not JSON) as null."""
+    if isinstance(v, bool):  # before the number check: a bool is an int in Python
+        return str(v).lower()
+    if isinstance(v, list | dict):
+        return json.dumps(v, ensure_ascii=False)
+    if isinstance(v, float) and not math.isfinite(v):
+        return None
+    return v
+
+
+def _drawn_as(spec: dict[str, Any] | None, display: str | None) -> str:
+    """The chart type the rows can be drawn as without reshaping them (text2sql's prepare step)."""
+    if not spec or display == "none":
+        return "table"
+    enc = spec.get("encoding") or {}
+    measures = enc.get("y") or []
+    if (
+        spec.get("transform")
+        or enc.get("series")
+        or not enc.get("x")
+        or not measures
+        or any(m.get("aggregate", "auto") not in ("auto", "none") for m in measures)
+    ):
+        return "table"
+    return CHART_TYPES.get(spec.get("type"), "table")
+
+
+def chart_widget(
+    steps: list[dict[str, Any]], data: dict[str, Any] | None = None
+) -> ChartWidget | None:
+    """text2sql's result as a chart widget: its own chart, or the agent's later chart of the same
+    result; a table when the rows cannot be drawn as they are."""
+    data = _data_step(steps) if data is None else data
+    rows = data.get("rows") or []
+    if not rows:
+        return None
+    columns = list(data.get("columns") or [])
+    rows = [
+        [_cell(r[i] if i < len(r) else None) for i in range(len(columns))]
+        for r in rows[:MAX_CHART_ROWS]
+    ]
+    spec = next(
+        (
+            st["chart"]
+            for st in reversed(steps)
+            if st.get("tool") == "make_chart"
+            and st.get("chart")
+            and st.get("result_id") == data.get("result_id")
+        ),
+        data.get("chart"),
+    )
+    table = ChartWidget(type="table", title=None, labels=[], series=[], columns=columns, rows=rows)
+    drawn = _drawn_as(spec, data.get("display"))
+    if drawn == "table":
+        return table.model_copy(update={"title": (spec or {}).get("title")})
+    enc = spec["encoding"]
+    fields = [enc["x"].get("field"), *(m.get("field") for m in enc["y"])]
+    if any(f not in columns for f in fields):
+        return table
+    x = columns.index(fields[0])
+    labels = ["" if r[x] is None else str(r[x]) for r in rows]
+    if len(set(labels)) < len(labels):  # repeated x: drawing would need text2sql's aggregation
+        return table
+    return table.model_copy(
+        update={
+            "type": drawn,
+            "title": spec.get("title"),
+            "labels": labels,
+            "series": [
+                ChartSeries(
+                    label=m.get("label") or m["field"],
+                    unit=(m.get("format") or {}).get("unit"),
+                    values=[_num(r[columns.index(m["field"])]) for r in rows],
+                )
+                for m in enc["y"]
+            ],
+        }
     )
 
 
@@ -417,13 +667,12 @@ async def query_data(ctx: Ctx, question: str) -> Outcome:
         "connection_id": settings.text2sql_connection_id,
         "question": question[:2000],
         "scope_token": str(token.token),
-        "time_zone": "Asia/Ho_Chi_Minh",  # tb_home.timezone is CHECKed to it
     }
-    sql, columns, rows, answer, status = None, [], [], "", "error"
+    status, answer, steps = "error", "", []
     try:
         async with (
-            httpx.AsyncClient(base_url=settings.text2sql_url, timeout=60) as client,
-            client.stream("POST", "/api/v1/text2sql/chat", json=body, headers=headers) as res,
+            httpx.AsyncClient(base_url=settings.text2sql_url, timeout=120) as client,
+            client.stream("POST", T2S_STREAM, json=body, headers=headers) as res,
         ):
             if res.status_code != 200:
                 await res.aread()
@@ -432,29 +681,34 @@ async def query_data(ctx: Ctx, question: str) -> Outcome:
             async for line in res.aiter_lines():
                 if line.startswith("event: "):
                     event = line[7:]
-                elif line.startswith("data: "):
-                    d = json.loads(line[6:])
-                    if event == "data":
-                        sql, columns, rows = d.get("sql"), d.get("columns", []), d.get("rows", [])
-                    elif event == "token":
-                        answer += d.get("text", "")
-                    elif event == "done":
-                        status = d.get("status", "error")
+                    continue
+                if not line.startswith("data: "):
+                    continue
+                d = json.loads(line[6:])
+                if event == "tool_started":
+                    vi, en = T2S_STEPS.get(d.get("tool"), (d.get("tool"), d.get("tool")))
+                    ctx.report(_vi(ctx, vi, en), d.get("subject") or "")
+                elif event == "tool":
+                    steps.append(d)
+                elif event == "done":
+                    status, answer = d.get("status", "error"), d.get("answer") or ""
     except httpx.HTTPError:
         return Outcome({"error": "text2sql is unreachable"}, "text2sql")
+    last = _data_step(steps)
+    chart = chart_widget(steps, last)
+    sql, columns, rows = last.get("sql"), last.get("columns", []), last.get("rows", [])
     return Outcome(
         data={
             "status": status,
-            "columns": [
-                c.get("label") or c.get("name") if isinstance(c, dict) else c for c in columns
-            ],
+            "columns": columns,
             "rows": rows[:MAX_ROWS_TO_LLM],
-            "row_count": len(rows),
+            "row_count": last.get("row_count", len(rows)),
             "summary": answer,
         },
         detail=_vi(ctx, "Truy vấn chỉ đọc dữ liệu nhà bạn", "Read-only query of your home's data"),
         tier="estimated",
         sources=["meter"],
+        widgets=[chart] if chart else [],
         sql=sql,
     )
 
@@ -490,16 +744,182 @@ async def propose_plan(ctx: Ctx, title: str, tasks: list[dict[str, Any]]) -> Out
         tier="estimated",
         sources=["tariff"],
         widgets=[
-            {
-                "kind": "plan",
-                "id": str(plan.id),
-                "tasks": [{"label": t["label"], "detail": t["detail"]} for t in tasks],
-                "kwh": kwh,
-                "vnd": vnd,
-                "status": "proposed",
-            }
+            PlanWidget(
+                id=str(plan.id),
+                tasks=[PlanTask(label=t["label"], detail=t["detail"]) for t in tasks],
+                kwh=kwh,
+                vnd=vnd,
+                status="proposed",
+            )
         ],
     )
+
+
+T2S_CHAT = "/api/v1/text2sql/chat"
+WATCH_METRICS = (
+    "bill_vnd",
+    "bill_kwh",
+    "forecast_vnd",
+    "today_kwh",
+    "power_w",
+    "device_kwh_today",
+    "custom",
+    "device_on",
+    "device_off",
+    "device_run_min",
+    "device_power_w",
+)
+
+
+async def _one_number_sql(ctx: Ctx, question: str) -> tuple[str | None, str | None]:
+    """(SQL, None) of the last query text2sql ran cleanly for `question`, or (None, why)."""
+    if not settings.text2sql_connection_id:
+        return None, "custom watches are not configured"
+    token = ScopeToken(home_id=ctx.home_id)
+    ctx.session.add(token)
+    await ctx.session.commit()  # text2sql reads it from its own connection
+    headers = (
+        {"X-Service-Key": settings.text2sql_service_key} if settings.text2sql_service_key else {}
+    )
+    body = {
+        "connection_id": settings.text2sql_connection_id,
+        "question": f"{question[:400]} (một con số duy nhất, một dòng)",
+        "scope_token": str(token.token),
+    }
+    try:
+        async with httpx.AsyncClient(base_url=settings.text2sql_url, timeout=120) as client:
+            res = await client.post(T2S_CHAT, json=body, headers=headers)
+    except httpx.HTTPError:
+        return None, "text2sql is unreachable"
+    if res.status_code != 200:
+        return None, f"text2sql answered {res.status_code}"
+    out = res.json()
+    if out.get("clarification_question"):
+        return None, f"needs clarification: {out['clarification_question']}"
+    steps = [st for a in out.get("answers", []) for st in a.get("steps", [])]
+    last = next((st for st in reversed(steps) if st.get("sql") and not st.get("error")), None)
+    return (last["sql"], None) if last else (None, "text2sql found no query for it")
+
+
+def _watch_view(ctx: Ctx, w) -> dict[str, Any]:
+    return {
+        "watch_id": str(w.id),
+        "label": w.label,
+        "condition": f"{'>' if w.op == 'gt' else '<'} {_f(w.threshold, 3)} {w.unit}".strip(),
+        "value_last_checked": _f(w.last_value, 3),
+        "status": w.status,
+        "checks_every_minutes": w.every_s // 60,
+        # The last day watched: an end at local midnight belongs to the day before.
+        "last_day": str((w.ends_at - timedelta(microseconds=1)).astimezone(ICT).date()),
+    }
+
+
+async def create_watch_tool(
+    ctx: Ctx,
+    metric: str,
+    op: str,
+    threshold: float,
+    label: str,
+    device: str | None = None,
+    question: str | None = None,
+    unit: str | None = None,
+    ends_on: str | None = None,
+    repeat: bool = True,
+) -> Outcome:
+    trace = _vi(ctx, "Đặt cảnh báo theo yêu cầu", "Set a requested alert")
+    if ctx.user_id is None:
+        return Outcome({"error": "no user to notify"}, trace)
+    try:
+        end = date.fromisoformat(ends_on) if ends_on else None
+    except ValueError:
+        return Outcome({"error": "ends_on must be YYYY-MM-DD"}, trace)
+    device_id, sql = None, None
+    if metric.startswith("device_"):
+        rows = (
+            await ctx.session.execute(
+                select(Device.id, Device.name).where(Device.home_id == ctx.home_id)
+            )
+        ).all()
+        hits = [r for r in rows if (device or "").strip().lower() in r.name.lower()]
+        if not device or len(hits) != 1:
+            return Outcome(
+                {"error": "name exactly one device", "devices": [r.name for r in rows]}, trace
+            )
+        device_id = hits[0].id
+    if metric == "custom":
+        if not question:
+            return Outcome({"error": "a custom watch needs its question"}, trace)
+        ctx.report(_vi(ctx, "Dựng truy vấn theo dõi", "Build the watch query"), question[:120])
+        sql, why = await _one_number_sql(ctx, question)
+        if sql is None:
+            return Outcome({"error": why}, trace)
+    try:
+        w, value = await create_watch(
+            ctx.session,
+            ctx.user_id,
+            ctx.home_id,
+            metric="sql" if metric == "custom" else metric,
+            op=op,
+            threshold=float(threshold),
+            label=label,
+            now=ctx.now,
+            utterance=ctx.question,
+            unit=unit,
+            device_id=device_id,
+            sql=sql,
+            ends_on=end,
+            repeat=repeat,
+        )
+        await ctx.session.commit()  # the reply says it is saved
+    except WatchError as e:
+        await ctx.session.rollback()
+        return Outcome({"error": e.code, "detail": str(e), "value_now": _f(e.value, 3)}, trace)
+    except Exception:  # a custom query that does not run (syntax, permissions, timeout)
+        log.warning("watch query failed", exc_info=True)
+        await ctx.session.rollback()
+        return Outcome({"error": "the query for this watch does not run; rephrase it"}, trace)
+    return Outcome(
+        data={"saved": True, **_watch_view(ctx, w), "value_now": _f(value, 3)},
+        detail=trace,
+        widgets=[
+            WatchWidget(
+                id=str(w.id),
+                label=w.label,
+                op=w.op,
+                threshold=float(w.threshold),
+                unit=w.unit,
+                value=_f(value, 3),
+                ends_at=w.ends_at,
+            )
+        ],
+        tier="estimated"
+        if metric in ("device_kwh_today", "forecast_vnd", "custom")
+        else "measured",
+        sources=["tariff", "meter"] if metric in ("bill_vnd", "forecast_vnd") else ["meter"],
+        sql=sql,
+    )
+
+
+async def list_watches_tool(ctx: Ctx) -> Outcome:
+    if ctx.user_id is None:
+        return Outcome({"error": "no user"}, "tb_watch")
+    ws = await list_watches(ctx.session, ctx.user_id, ctx.home_id)
+    return Outcome(
+        data={"watches": [_watch_view(ctx, w) for w in ws[:20]]},
+        detail=_vi(ctx, "Các cảnh báo bạn đã đặt", "Alerts you set"),
+    )
+
+
+async def cancel_watch_tool(ctx: Ctx, watch_id: str) -> Outcome:
+    trace = _vi(ctx, "Huỷ cảnh báo", "Cancel an alert")
+    try:
+        wid = uuid.UUID(watch_id)
+    except ValueError:
+        return Outcome({"error": "unknown watch_id; call list_watches"}, trace)
+    if ctx.user_id is None or not await cancel_watch(ctx.session, ctx.user_id, ctx.home_id, wid):
+        return Outcome({"error": "unknown watch_id; call list_watches"}, trace)
+    await ctx.session.commit()
+    return Outcome({"cancelled": True, "watch_id": watch_id}, trace)
 
 
 def _fn(name: str, description: str, properties: dict | None = None, required=()) -> dict:
@@ -537,6 +957,16 @@ TOOLS: dict[str, tuple[Tool, dict]] = {
         _fn("bill_forecast", "The bill at the end of this cycle and when the next tier starts."),
     ),
     "bill_history": (bills_past, _fn("bill_history", "Ended cycles' bills.")),
+    "explain_usage": (
+        explain_usage,
+        _fn(
+            "explain_usage",
+            "Why usage was high or low: actual vs the model's expectation and the change from "
+            "the previous period split by weather, calendar, routine and trend.",
+            {"period": {"type": "string", "enum": ["today", "week", "cycle"]}},
+            ["period"],
+        ),
+    ),
     "compare_periods": (
         compare_periods,
         _fn(
@@ -592,6 +1022,57 @@ TOOLS: dict[str, tuple[Tool, dict]] = {
                 },
             },
             ["title", "tasks"],
+        ),
+    ),
+    "create_watch": (
+        create_watch_tool,
+        _fn(
+            "create_watch",
+            "Save an alert the user asks for ('tell me when this month's bill passes 1 million'): "
+            "the system checks it on its own and notifies the user when it crosses: by default "
+            "again each day, billing cycle or device run (repeat=false only when the user wants "
+            "to be told just once). "
+            "metric: bill_vnd / bill_kwh = the running billing cycle so far (what 'this month' "
+            "means for the bill), forecast_vnd = the cycle's bill at its end, today_kwh, power_w "
+            "= power right now, device_kwh_today (+ device name), per device run (+ device name): "
+            "device_on / device_off (each time it turns on / off; threshold 0), device_run_min "
+            "(a run longer than threshold minutes), device_power_w (a run above threshold W), "
+            "custom (+ question: a "
+            "precise question about this home's data whose answer is ONE number). threshold in "
+            "the metric's unit (VND, kWh, W); 1 triệu = 1000000. ends_on only if the user names "
+            "an end. If the threshold is missing, ask the user instead of calling this. "
+            "Afterwards say in one sentence what you will watch, the threshold, the value now "
+            "and the last day watched.",
+            {
+                "metric": {"type": "string", "enum": list(WATCH_METRICS)},
+                "op": {"type": "string", "enum": ["gt", "lt"]},
+                "threshold": {"type": "number"},
+                "label": {
+                    "type": "string",
+                    "maxLength": 80,
+                    "description": "only what is measured, short, in the user's language, "
+                    "without the condition: 'Tiền điện tháng này', not '... vượt 1 triệu'",
+                },
+                "device": {"type": "string"},
+                "question": {"type": "string", "maxLength": 400},
+                "unit": {"type": "string", "description": "custom only: the number's unit"},
+                "ends_on": {"type": "string", "description": "YYYY-MM-DD, last day watched"},
+                "repeat": {"type": "boolean", "description": "default true"},
+            },
+            ["metric", "op", "threshold", "label"],
+        ),
+    ),
+    "list_watches": (
+        list_watches_tool,
+        _fn("list_watches", "The alerts the user asked to be watched, active first."),
+    ),
+    "cancel_watch": (
+        cancel_watch_tool,
+        _fn(
+            "cancel_watch",
+            "Stop watching one alert the user set (its watch_id from list_watches).",
+            {"watch_id": {"type": "string"}},
+            ["watch_id"],
         ),
     ),
 }

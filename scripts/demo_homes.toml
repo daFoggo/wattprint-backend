@@ -4,7 +4,9 @@
 # Passwords: DEMO_PASSWORD in .env (Keycloak policy: 12+ chars, upper, lower, digit, special).
 # Real accounts to add as members of the first home: DEMO_EXTRA_MEMBERS="a@x.com,b@y.com" in .env.
 
-history_days = 90
+# A year: the expected-usage model (app/modules/expect) needs every season. Re-seeding only adds
+# the older readings; stored ones and each home's shift are kept.
+history_days = 365
 # Model for homes without one of their own (tb_nilm_model with home_id NULL), relative to
 # dataset/models/nilm (NILM_MODEL_DIR in the nilm container).
 shared_model = "house2/nilm_pipeline.pt"
@@ -23,6 +25,18 @@ model = "house5/nilm_pipeline.pt"
 owner = { email = "refit.house5@wattprint.local", name = "REFIT House 5" }
 members = []
 devices = { Fridge = "Fridge-Freezer", WashMach = "Washing Machine", Dishwash = "Dishwasher", Microwave = "Microwave", Toaster = "Toaster", Kettle = "Kettle", Other = "Other" }
+
+# House 5's recording again, with a simulated thermostat heater on cold mornings and evenings
+# (scripts/scenarios.py), so the model learns "colder, more heating". Labelled simulated in the app.
+[[home]]
+house = 5
+key = "5-heat"
+name = "REFIT House 5 · sưởi mô phỏng"
+model = "house5/nilm_pipeline.pt"
+owner = { email = "refit.house5.heat@wattprint.local", name = "REFIT House 5 heater" }
+members = []
+devices = { Fridge = "Fridge-Freezer", WashMach = "Washing Machine", Dishwash = "Dishwasher", Microwave = "Microwave", Toaster = "Toaster", Kettle = "Kettle", Other = "Other" }
+heater = { setpoint_c = 16, w_per_c = 180, max_w = 2000, hours = [[6, 9], [17, 23]] }
 
 # Ready, waiting for their own models (no training yet: the machine is busy). To add one:
 #   uv run python dataset/training/train_house.py --house 3

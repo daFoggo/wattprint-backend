@@ -25,16 +25,29 @@ CHANNEL = "Aggregate"  # demo homes have the main meter only, like a real home
 SEGMENT = "demo"  # etl.tb_watermark.segment of the demo homes
 
 
-def source(house: int) -> str:
-    return f"refit/CLEAN_House{house}.csv"
+def _variant(house: int, key: str | None) -> str | None:
+    """A second demo home on the same recording (key "5-heat"); None for the plain one."""
+    return None if key in (None, str(house)) else key
 
 
-def meter(house: int) -> str:
-    return f"REFIT-H{house}"
+def source(house: int, key: str | None = None) -> str:
+    v = _variant(house, key)
+    return f"refit/CLEAN_House{house}.csv" + (f"#{v}" if v else "")
+
+
+def meter(house: int, key: str | None = None) -> str:
+    v = _variant(house, key)
+    return f"REFIT-H{house}" + (f"-{v.removeprefix(f'{house}-')}" if v else "")
 
 
 def house_of(source_name: str) -> int:
-    return int(source_name.removeprefix("refit/CLEAN_House").removesuffix(".csv"))
+    return int(source_name.split("#")[0].removeprefix("refit/CLEAN_House").removesuffix(".csv"))
+
+
+def key_of(source_name: str) -> str:
+    """The home's key in demo_homes.toml: "5", or "5-heat" for a variant."""
+    base, _, variant = source_name.partition("#")
+    return variant or str(house_of(base))
 
 
 def load(path: Path) -> pd.DataFrame:

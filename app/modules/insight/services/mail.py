@@ -13,7 +13,7 @@ from app.config import settings
 from app.database import SessionLocal
 from app.modules.billing.api import current_bill
 
-from ..models import Alert, NotificationLog
+from ..models import Alert, NotificationLog, Watch
 
 log = logging.getLogger("insight.mail")
 ICT = timezone(timedelta(hours=7))
@@ -45,16 +45,73 @@ def _num(x: float, digits: int = 1) -> str:
     return f"{x:,.{digits}f}".replace(",", " ").replace(".", ",").replace(" ", ".")
 
 
+def _amount(x: float, unit: str) -> str:
+    match unit:
+        case "vnd":
+            return _vnd(x)
+        case "kwh":
+            return f"{_num(x)} kWh"
+        case "w":
+            return f"{_num(x, 0)} W"
+    return _num(x, 0 if x == int(x) else 2)
+
+
 def alert_text(a: Alert, device: str | None) -> tuple[str, str]:
     """Subject and first lines of an alert's mail (the dashboard says the same in vi/en)."""
     p = a.payload
     match a.kind:
+        case "watch_hit":
+            past = "vượt" if p["op"] == "gt" else "xuống dưới"
+            return (
+                f"{p['label']} đã {past} {_amount(p['threshold'], p['unit'])}",
+                f"Giá trị lúc kiểm tra: {_amount(p['value'], p['unit'])}. "
+                + (
+                    f"Wappi sẽ báo lại ở lần kiểm tra sau nếu vẫn {past} mức này "
+                    "(ngày, kỳ hoặc giờ tới)."
+                    if p.get("repeat")
+                    else "Bạn đã nhờ Wappi báo khi điều này xảy ra; cảnh báo này đã tắt."
+                ),
+            )
+        case "device_on" | "device_off":
+            at = datetime.fromisoformat(p["at"]).astimezone(ICT).strftime("%H:%M")
+            did = "bật" if a.kind == "device_on" else "tắt"
+            return (
+                f"{p['device']} vừa {did}",
+                f"Lần chạy bắt đầu lúc {at}. Bạn nhờ Wappi báo mỗi lần thiết bị này {did}.",
+            )
+        case "device_long_run":
+            return (
+                f"{p['device']} chạy quá {_num(p['threshold'], 0)} phút",
+                f"Lần chạy này đã {_num(p['value'], 0)} phút. Kiểm tra xem có ai quên tắt không.",
+            )
+        case "device_high_power":
+            return (
+                f"{p['device']} dùng quá {_num(p['threshold'], 0)} W",
+                f"Lần chạy này lên tới {_num(p['value'], 0)} W.",
+            )
+        case "watch_broken":
+            return (
+                f"Không theo dõi được: {p['label']}",
+                "Wappi kiểm tra không được nhiều lần liên tiếp nên đã dừng theo dõi. "
+                "Hãy nhờ Wappi đặt lại cảnh báo này.",
+            )
         case "longer_than_usual":
             return (
                 f"{device} chạy lâu hơn thường lệ",
                 f"{p['days']} ngày qua mỗi lần chạy khoảng {p['recent_min']} phút, thường lệ "
                 f"{p['usual_min']} phút. Kiểm tra gioăng cửa và dàn nóng.",
             )
+        case "usage_anomaly":
+            start = datetime.fromisoformat(p["start"]).astimezone(ICT).strftime("%H:%M")
+            body = (
+                f"Từ {start} nhà dùng hơn mức thường {_num(p['excess_kwh'])} kWh "
+                f"(≈ {_vnd(p['excess_vnd'])}), dù thời tiết và lịch như dự kiến."
+            )
+            if device:
+                body += f" Dùng nhiều hơn thường lệ nhất: {device}."
+            if p.get("activity_ratio", 1) >= 1.5:
+                body += " Hôm nay nhà có vẻ nhiều hoạt động hơn mọi ngày."
+            return ("Điện dùng cao bất thường hôm nay", body)
         case "unexplained_load":
             return (
                 "Có tải lạ đang chạy",
@@ -89,6 +146,12 @@ async def _members(s: AsyncSession, home_id: uuid.UUID):
             {"h": home_id},
         )
     ).all()
+
+
+async def _watch_owner(s: AsyncSession, a: Alert) -> uuid.UUID | None:
+    if "watch_id" not in a.payload:
+        return None
+    return await s.scalar(select(Watch.user_id).where(Watch.id == uuid.UUID(a.payload["watch_id"])))
 
 
 async def _claim(s: AsyncSession, user_id: uuid.UUID, kind: str, ref: str) -> bool:
@@ -130,8 +193,12 @@ async def mail_alerts(now: datetime) -> None:
                     body += f"\n\nXem trên WattPrint: {settings.dashboard_url}/dashboard\n"
                     # Per day, not per alert: a cause that comes and goes is mailed once a day.
                     ref = f"{a.home_id}:{a.dedup_key}:{now.astimezone(ICT).date()}"
+                    owner = await _watch_owner(s, a)
                     for m in await _members(s, a.home_id):
-                        wants = m.tier if a.kind == "tier_near" else m.anomaly
+                        if owner is not None:  # a watch is one member's: only they are told
+                            wants = m.id == owner
+                        else:
+                            wants = m.tier if a.kind == "tier_near" else m.anomaly
                         try:
                             # Each member on their own: a refused address rolls back only its log
                             # row, so the others are not mailed again on the next run.

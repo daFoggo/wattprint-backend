@@ -28,10 +28,13 @@ class Job:
 
 JOBS = [
     Job("bills", 3600, jobs.bills),
+    Job("expect_train", 86_400, jobs.expect_train),  # before the refresh, so a new home has a model
+    Job("expect", 3600, jobs.expect_refresh),
     Job("forecasts", 86_400, jobs.forecasts),
     Job("cohorts", 86_400, jobs.cohorts),
     Job("alerts", 300, jobs.alerts),
-    Job("mail", 300, jobs.mail),
+    Job("watches", 60, jobs.watches),
+    Job("mail", 60, jobs.mail),  # a watch the user set is mailed within a minute of firing
     Job("upkeep", 3600, jobs.upkeep),
 ]
 

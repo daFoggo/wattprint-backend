@@ -27,6 +27,11 @@ class Settings(BaseSettings):
 
     # Insight worker (app.modules.insight.worker): bills, forecasts, cohorts, alerts, mail.
     insight_poll_s: int = 60
+    # Expected-usage model (app.modules.expect): days of history it learns from.
+    expect_history_days: int = 365
+    # In-context home anomaly: the least excess over the expected band worth an alert (VND).
+    anomaly_min_vnd_3h: int = 2000
+    anomaly_min_vnd_day: int = 5000
     # Links in mails point here.
     dashboard_url: str = "http://localhost:11092"
     smtp_host: str = "mailpit"
@@ -48,6 +53,8 @@ class Settings(BaseSettings):
     text2sql_url: str = "http://host.docker.internal:11101"
     text2sql_connection_id: str = ""
     text2sql_service_key: str = ""
+    # Logged in as wattprint_copilot_ro: runs the stored queries of custom watches. Empty = none.
+    copilot_database_url: str = ""
     # Voice: speech to text and text to speech (AstralX, OpenAI-compatible).
     astralx_api_key: str = ""
     astralx_base_url: str = "https://token.astralx.com.vn/v1"

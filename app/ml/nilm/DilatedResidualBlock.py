@@ -43,12 +43,18 @@ class ResidualBlock(nn.Module):
             return torch.add(x, out)  # (B, c_out, L)
 
 
+TRAINED_DILATIONS = (1, 2, 4, 8)  # the saved bundles hold exactly these four blocks
+
+
 class DilatedResidualBlock(nn.Module):
-    # shortcut: dilated_list is ignored (dilations hardcoded below); wire it up or drop it
     def __init__(
-        self, c_in=32, c_out=32, kernel_size=8, dilated_list=(1, 2, 4, 8), bias: bool = True
+        self, c_in=32, c_out=32, kernel_size=8, dilated_list=TRAINED_DILATIONS, bias: bool = True
     ):
         super().__init__()
+        # The layers below are named by dilation to match the saved weights, so another list
+        # cannot be honoured: refuse it rather than ignore it.
+        if tuple(dilated_list) != TRAINED_DILATIONS:
+            raise ValueError(f"dilations must be {TRAINED_DILATIONS}, got {tuple(dilated_list)}")
 
         self.dilated_1 = ResidualBlock(c_in, c_out, k=kernel_size, dilation=1, bias=bias)
         self.dilated_2 = ResidualBlock(c_out, c_out, k=kernel_size, dilation=2, bias=bias)

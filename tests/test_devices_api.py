@@ -111,6 +111,11 @@ async def test_device_detail_has_the_run_and_404s_for_another_home(
     assert body["cycles"][0]["start"] == start
     assert body["cycles"][0]["end"] == start + 3 * 60_000
     assert body["power"] and all(set(p) == {"ts", "watts"} for p in body["power"])
+    # per day, for drawing run-length and power alerts: the kettle's 3-minute run today
+    # the last 30 days at least, so a level can be set on the 1st of a month too
+    assert len(body["days"]) >= 30
+    run_day = next(d for d in body["days"] if d["longest_min"])
+    assert (run_day["peak_w"], run_day["longest_min"]) == (KETTLE_W, 3)
 
     stranger = make_token(sub=str(uuid.uuid4()))
     other = await client.get(f"/api/v1/energy/devices/{ids['kettle'][0]}", headers=bearer(stranger))

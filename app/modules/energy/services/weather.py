@@ -1,14 +1,19 @@
 import asyncio
 import logging
 import time
+import uuid
 from dataclasses import dataclass
+from datetime import datetime, timedelta
 from decimal import Decimal
 from typing import Any
 
 import httpx
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 
+from ..models import HomeWeatherHourly as W
 from ..utils import WeatherUnavailableError
 
 log = logging.getLogger(__name__)
@@ -117,3 +122,62 @@ async def weather_at(lat: Decimal, lon: Decimal, lang: str) -> Weather:
         weather = await _fetch(lat, lon, lang)
         _cache[key] = (time.monotonic(), weather)
         return weather
+
+
+SKY_WORDS = {
+    "vi": {"01": "trời quang", "02": "ít mây", "03": "mây rải rác", "04": "nhiều mây", "10": "mưa"},
+    "en": {
+        "01": "clear sky",
+        "02": "few clouds",
+        "03": "scattered clouds",
+        "04": "overcast",
+        "10": "rain",
+    },
+}
+SITE = {"vi": "Nơi ghi dữ liệu (Loughborough, Anh)", "en": "Recording site (Loughborough, UK)"}
+
+
+def _stored_sky(cloud: float | None, precip: float | None, is_day: bool | None, lang: str) -> Sky:
+    """An OpenWeather-style icon and words from the stored hour, so the card draws it the same."""
+    if (precip or 0) >= 0.2:
+        code = "10"
+    else:
+        cloud = cloud or 0
+        code = "04" if cloud >= 70 else "03" if cloud >= 30 else "02" if cloud >= 10 else "01"
+    return Sky(description=SKY_WORDS[lang][code], icon=code + ("d" if is_day else "n"))
+
+
+async def stored_weather(
+    s: AsyncSession, home_id: uuid.UUID, now: datetime, lang: str
+) -> tuple[str, Weather] | None:
+    """The home's stored weather (a demo home's recording site) for the hour of `now` and the next
+    24 hours in 3-hour steps, with the place's label; None when nothing is stored for now."""
+    hour = now.replace(minute=0, second=0, microsecond=0)
+    rows = {
+        r.ts: r
+        for r in await s.scalars(
+            select(W).where(W.home_id == home_id, W.ts >= hour, W.ts <= hour + timedelta(hours=24))
+        )
+    }
+    cur = rows.get(hour)
+    if cur is None or cur.temp_c is None:
+        return None
+    slots = [
+        Slot(
+            dt=int(r.ts.timestamp()),
+            temp=float(r.temp_c),
+            pop=1.0 if (r.precip_mm or 0) >= 0.2 else 0.0,
+            sky=_stored_sky(r.cloud_pct, r.precip_mm, r.is_day, lang),
+        )
+        for k in range(1, SLOTS + 1)
+        if (r := rows.get(hour + timedelta(hours=3 * k))) is not None and r.temp_c is not None
+    ]
+    now_ = Now(
+        dt=int(hour.timestamp()),
+        temp=float(cur.temp_c),
+        feels_like=float(cur.apparent_c if cur.apparent_c is not None else cur.temp_c),
+        humidity=int(round(cur.humidity_pct or 0)),
+        wind_speed=float(cur.wind_ms or 0),
+        sky=_stored_sky(cur.cloud_pct, cur.precip_mm, cur.is_day, lang),
+    )
+    return SITE[lang], Weather(now=now_, next=slots)

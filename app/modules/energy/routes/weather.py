@@ -1,3 +1,4 @@
+from datetime import UTC, datetime
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Query
@@ -20,6 +21,10 @@ async def weather(
     home = await db.get(Home, home_id)
     province = await db.get(Province, home.province_code) if home.province_code else None
     if province is None:
-        raise HomeLocationUnsetError
+        stored = await services.stored_weather(db, home_id, datetime.now(UTC), lang)
+        if stored is None:
+            raise HomeLocationUnsetError
+        place, w = stored
+        return Weather.model_validate({"province": place, "now": w.now, "next": w.next})
     w = await services.weather_at(province.lat, province.lon, lang)
     return Weather.model_validate({"province": province.name, "now": w.now, "next": w.next})

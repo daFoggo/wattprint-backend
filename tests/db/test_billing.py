@@ -862,3 +862,47 @@ async def test_forecast_bill_projects_the_cycle_and_the_next_tier(bdb, bsession)
             day, cum = day + timedelta(days=1), cum + 24
         assert f.next.on == day
         assert f.amount > Decimal(bill.amount_total)
+        # no expected-usage model: the weekday pattern, a point and no probability
+        assert f.method == "weekday" and f.kwh_p10 == f.kwh_p90 == f.kwh
+        assert f.next.probability is None and f.change is None
+
+
+async def test_forecast_bill_uses_the_expected_hours(bdb, bsession):
+    from app.modules.billing.services import forecast_bill
+
+    c, _ = bdb
+    now = local_midnight(date(2026, 11, 10)) + timedelta(hours=12)
+    async with home(c, bsession, cycle_day=1) as h:
+        for i in range(10):
+            await load(c, h["main"], local_midnight(date(2026, 10, 31) + timedelta(days=i)), 1440)
+        await load(c, h["main"], local_midnight(date(2026, 11, 10)), 720)
+        await backfill(c, local_midnight(date(2026, 10, 31)), now)
+        await c.execute(
+            text(
+                "INSERT INTO public.tb_expect_model (home_id, version, features, boosters, "
+                "residuals, active) "
+                "VALUES (:h, 'ctx-v1-t', ARRAY['hour'], '{}', ARRAY[]::real[], true)"
+            ),
+            {"h": h["id"]},
+        )
+        await c.execute(
+            text(
+                "INSERT INTO public.tb_expect_hourly (home_id, ts, p05, p10, p50, p90, p95, "
+                "c_weather, c_calendar, c_occupancy, c_trend, c_base, model_version) "
+                "SELECT :h, g, 0.5, 0.8, 1.5, 1.8, 2.0, 0.25, 0, 0, 0, 1.25, 'ctx-v1-t' "
+                "FROM generate_series(CAST(:a AS timestamptz), CAST(:b AS timestamptz), "
+                "interval '1 hour') g"
+            ),
+            {"h": h["id"], "a": now, "b": local_midnight(date(2026, 12, 1)) - timedelta(hours=1)},
+        )
+        f = await forecast_bill(bsession, h["id"], now)
+        # 228 so far (1/11..9/11 and half of today), then 1.5 kWh an hour over the 492 hours left
+        assert f.method == "context" and f.model_version == "ctx-v1-t"
+        assert f.kwh == Decimal("966.000") and f.kwh_p10 == f.kwh_p90 == f.kwh  # no residuals
+        assert f.next is not None and f.next.probability in (0.0, 1.0)
+        assert f.amount_p10 == f.amount_p90 == f.amount
+        from app.modules.billing.schemas import Forecast as Out
+
+        body = Out.model_validate(f).model_dump()  # what GET /billing/forecast sends
+        assert body["method"] == "context" and body["kwh_p50"] == 966.0
+        assert body["simulated"] == [] and body["change"] is None

@@ -390,3 +390,79 @@ async def test_voice_is_rate_limited_per_user(client, make_member, monkeypatch):
     webm = {**me.headers, "Content-Type": "audio/webm"}
     codes = [(await client.post(url, content=b"x", headers=webm)).status_code for _ in range(3)]
     assert codes == [200, 200, 429]
+
+
+async def test_a_long_tool_shows_its_progress_as_steps(client, make_member, script, monkeypatch):
+    import asyncio
+
+    from app.modules.copilot.services import tools
+
+    turns, _ = script
+    me = await make_member("owner")
+
+    async def slow(ctx, question):
+        ctx.report("Tính chỉ số", "điện năng")
+        await asyncio.sleep(0.01)  # the step is shown while the tool still runs
+        ctx.report("Chạy truy vấn", "theo giờ")
+        return tools.Outcome({"rows": []}, "Truy vấn chỉ đọc")
+
+    monkeypatch.setitem(tools.TOOLS, "query_data", (slow, tools.TOOLS["query_data"][1]))
+    turns += [("query_data", {"question": "Giờ nào?"}), ["20 giờ."]]
+    _, events = await ask(client, me, "Giờ nào dùng nhiều nhất?")
+    steps = [d for n, d in events if n == "step"]
+    assert [(s["label"], s["detail"]) for s in steps] == [
+        ("Tính chỉ số", "điện năng"),
+        ("Chạy truy vấn", "theo giờ"),
+        ("Truy vấn dữ liệu của nhà", "Truy vấn chỉ đọc"),
+    ]
+    assert all(s["tool"] == "query_data" for s in steps)
+    assert events[-1][1]["reply"]["steps"] == steps  # stored too: the trace stays as it streamed
+
+
+async def test_query_data_reads_the_text2sql_stream(make_member, monkeypatch):
+    import httpx
+
+    from app.modules.copilot.services import tools
+
+    me = await make_member("owner")
+    body = (
+        "".join(
+            f"event: {name}\ndata: {json.dumps(data)}\n\n"
+            for name, data in [
+                ("tool_started", {"position": 1, "tool": "run_sql", "subject": "kWh theo giờ"}),
+                ("tool", {"position": 1, "tool": "run_sql", "sql": "SELECT 1", "error": "x"}),
+                (
+                    "tool",
+                    {
+                        "position": 1,
+                        "tool": "run_sql",
+                        "sql": "SELECT 2",
+                        "columns": ["h"],
+                        "rows": [[20]],
+                        "row_count": 1,
+                    },
+                ),
+                ("done", {"status": "answered", "answer": "20 giờ"}),
+            ]
+        )
+        + ": keep-alive\n\n"
+    )
+    sent = {}
+
+    def reply(request):
+        sent.update(path=request.url.path, body=json.loads(request.content))
+        return httpx.Response(200, text=body, headers={"content-type": "text/event-stream"})
+
+    real = httpx.AsyncClient
+    monkeypatch.setattr(
+        tools.httpx, "AsyncClient", lambda **kw: real(transport=httpx.MockTransport(reply), **kw)
+    )
+    monkeypatch.setattr(tools.settings, "text2sql_connection_id", str(uuid.uuid4()))
+    reports = []
+    async with SessionLocal() as s:
+        ctx = tools.Ctx(s, me.home_id, None, "vi", lambda *step: reports.append(step))
+        out = await tools.query_data(ctx, "Giờ nào?")
+    assert sent["path"] == tools.T2S_STREAM and sent["body"]["scope_token"]
+    assert reports == [("Chạy truy vấn", "kWh theo giờ")]
+    assert out.sql == "SELECT 2"  # the last query that ran cleanly
+    assert out.data["rows"] == [[20]] and out.data["summary"] == "20 giờ"

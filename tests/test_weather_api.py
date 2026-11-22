@@ -74,3 +74,40 @@ def test_an_unexpected_answer_is_unavailable_not_a_crash():
         svc.parse({"dt": 1}, FORECAST)
     with pytest.raises(svc.WeatherUnavailableError):
         svc.parse(CURRENT, {"list": []})
+
+
+async def test_demo_home_weather_comes_from_the_recording_site(client, make_member):
+    from datetime import UTC, datetime, timedelta
+
+    from sqlalchemy import text
+
+    from app.database import SessionLocal
+
+    owner = await make_member("owner")
+    hour = datetime.now(UTC).replace(minute=0, second=0, microsecond=0)
+    async with SessionLocal() as s, s.begin():
+        for i in range(-1, 26):
+            await s.execute(
+                text(
+                    "INSERT INTO public.tb_home_weather_hourly (home_id, ts, temp_c, humidity_pct, "
+                    "apparent_c, cloud_pct, radiation_wm2, precip_mm, is_day, wind_ms) "
+                    "VALUES (:h, :t, :c, 81, :c, 90, 0, :p, false, 4.5)"
+                ),
+                {
+                    "h": owner.home_id,
+                    "t": hour + timedelta(hours=i),
+                    "c": 5.0 + i,
+                    "p": 1.0 if i == 3 else 0.0,
+                },
+            )
+    r = await client.get("/api/v1/energy/weather?lang=vi", headers=owner.headers)
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["province"] == "Nơi ghi dữ liệu (Loughborough, Anh)"
+    assert body["now"]["temp"] == 5.0 and body["now"]["humidity"] == 81
+    assert body["now"]["wind_speed"] == 4.5
+    assert body["now"]["sky"]["icon"] == "04n"
+    assert len(body["next"]) == 8
+    assert body["next"][0]["sky"]["icon"] == "10n" and body["next"][0]["pop"] == 1.0
+    en = await client.get("/api/v1/energy/weather?lang=en", headers=owner.headers)
+    assert en.json()["province"] == "Recording site (Loughborough, UK)"

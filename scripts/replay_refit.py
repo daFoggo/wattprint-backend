@@ -13,6 +13,7 @@ Runs inside the api container, where the app, the database and the CSVs (/data) 
 import asyncio
 import os
 import sys
+import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -21,8 +22,9 @@ import pandas as pd
 from sqlalchemy import text
 
 from app.database import SessionLocal
-from app.modules.ops.api import ingest_readings
-from scripts import refit
+from app.modules.energy.api import weather_inputs
+from app.modules.ops.api import ingest_readings, scenarios_between
+from scripts import refit, scenarios
 
 WINDOW = timedelta(hours=6)  # ~2.7k readings per ingest call
 TAIL_S = 5
@@ -34,6 +36,24 @@ class Home:
     shift_days: int
     df: pd.DataFrame
     last: datetime  # newest database time already stored for its main series
+    key: str | None = None  # "5-heat": a second home on the same recording
+    home_id: uuid.UUID | None = None
+
+
+async def _with_scenarios(h: Home, rows: list, lo: datetime, hi: datetime) -> list:
+    """The rows with the home's simulated loads (heater, demo events) added."""
+    if h.home_id is None or not rows:
+        return rows
+    async with SessionLocal() as session:
+        found = await scenarios_between(session, h.home_id, lo, hi)
+        if not found:
+            return rows
+        temps = (await weather_inputs(session, h.home_id, lo, hi + timedelta(hours=1), hi))[
+            "temp_c"
+        ]
+    return scenarios.apply(
+        rows, found, lambda ts: temps.get(pd.Timestamp(ts).floor("h"), float("nan"))
+    )
 
 
 async def replay(h: Home, lo: datetime, hi: datetime, source: str = "replay") -> int:
@@ -43,39 +63,47 @@ async def replay(h: Home, lo: datetime, hi: datetime, source: str = "replay") ->
     while lo < hi:
         step_hi = min(lo + WINDOW, hi)
         shift = refit.shift_for(step_hi, h.shift_days, last_wall)
-        rows = refit.rows_between(h.df, lo, step_hi, shift)
+        rows = await _with_scenarios(h, refit.rows_between(h.df, lo, step_hi, shift), lo, step_hi)
         if rows:
             async with SessionLocal() as session, session.begin():
-                result = await ingest_readings(session, refit.meter(h.house), rows, source)
+                result = await ingest_readings(session, refit.meter(h.house, h.key), rows, source)
                 new += result.rows_new
         lo = step_hi
     return new
 
 
 async def homes(data_dir: Path) -> list[Home]:
+    out, frames = [], {}
     async with SessionLocal() as session:
-        rows = (
+        marks = (
             await session.execute(
                 text(
-                    "SELECT w.source, w.shift_days, ("
-                    "  SELECT r.ts FROM public.tb_reading r "
-                    "  JOIN public.tb_series s USING (series_id) "
-                    "  JOIN public.tb_meter m ON m.id = s.meter_id "
-                    "  WHERE m.serial = 'REFIT-H' || substring(w.source FROM 'House([0-9]+)') "
-                    "    AND s.kind = 'main' ORDER BY r.ts DESC LIMIT 1) AS last "
-                    "FROM etl.tb_watermark w WHERE w.segment = :seg ORDER BY w.source"
+                    "SELECT source, shift_days FROM etl.tb_watermark WHERE segment = :seg "
+                    "ORDER BY source"
                 ),
                 {"seg": refit.SEGMENT},
             )
         ).all()
-    out = []
-    for r in rows:
-        house = refit.house_of(r.source)
-        if r.last is None:
-            print(f"house {house}: no readings yet, run scripts.seed_demo_homes first", flush=True)
-            continue
-        df = refit.load(data_dir / f"CLEAN_House{house}.csv")
-        out.append(Home(house, r.shift_days, df, r.last))
+        for w in marks:
+            house, key = refit.house_of(w.source), refit.key_of(w.source)
+            r = (
+                await session.execute(
+                    text(
+                        "SELECT m.home_id, (SELECT r.ts FROM public.tb_reading r "
+                        "  JOIN public.tb_series s USING (series_id) "
+                        "  WHERE s.meter_id = m.id AND s.kind = 'main' "
+                        "  ORDER BY r.ts DESC LIMIT 1) AS last "
+                        "FROM public.tb_meter m WHERE m.serial = :m"
+                    ),
+                    {"m": refit.meter(house, key)},
+                )
+            ).first()
+            if r is None or r.last is None:
+                print(f"home {key}: no readings yet, run scripts.seed_demo_homes first", flush=True)
+                continue
+            if house not in frames:
+                frames[house] = refit.load(data_dir / f"CLEAN_House{house}.csv")
+            out.append(Home(house, w.shift_days, frames[house], r.last, key, r.home_id))
     return out
 
 
@@ -88,7 +116,7 @@ async def main(once: bool) -> None:
     now = datetime.now(UTC)
     for h in hs:
         print(
-            f"house {h.house}: gap {h.last} -> {now}: {await replay(h, h.last, now)} new",
+            f"home {h.key}: gap {h.last} -> {now}: {await replay(h, h.last, now)} new",
             flush=True,
         )
     while not once:
@@ -97,7 +125,7 @@ async def main(once: bool) -> None:
         for h in hs:
             new = await replay(h, start, now)
             if new:
-                print(f"{now:%H:%M:%S} house {h.house} +{new}", flush=True)
+                print(f"{now:%H:%M:%S} home {h.key} +{new}", flush=True)
 
 
 if __name__ == "__main__":

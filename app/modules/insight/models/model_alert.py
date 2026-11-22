@@ -16,7 +16,19 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from app.common.base_model import Base, IdMixin
 
-ALERT_KINDS = ("longer_than_usual", "standby_high", "tier_near", "unexplained_load")
+ALERT_KINDS = (
+    "longer_than_usual",
+    "standby_high",
+    "tier_near",
+    "unexplained_load",
+    "watch_hit",
+    "watch_broken",
+    "device_on",
+    "device_off",
+    "device_long_run",
+    "device_high_power",
+    "usage_anomaly",
+)
 
 
 class Alert(IdMixin, Base):

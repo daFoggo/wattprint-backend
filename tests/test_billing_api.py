@@ -36,3 +36,11 @@ async def test_history_lists_ended_cycles_of_this_home_only(client, make_member)
         ("2026-09-01", 210.5, 0.5),
         ("2026-10-01", 190.0, 0.5),
     ]
+
+
+async def test_forecast_returns_range_and_method(client, make_member):
+    """A home with no readings has no forecast; the shape is checked on a context forecast in
+    tests/db/test_billing.py. Here: the route still answers 404 forecast_unavailable."""
+    owner = await make_member("owner", tariff_plan_code="vn_residential")
+    r = await client.get("/api/v1/billing/forecast", headers=owner.headers)
+    assert r.status_code == 404 and r.json()["code"] == "forecast_unavailable"

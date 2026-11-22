@@ -1,4 +1,5 @@
 from datetime import date
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict
 
@@ -53,10 +54,28 @@ class TierCross(BaseModel):
     from_kwh: float
     price_per_kwh: float
     on: date
+    probability: float | None = None  # share of the model's draws passing it; None for weekday
+
+
+class ForecastChange(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    amount: float  # VND against yesterday's forecast
+    parts: dict[str, float]  # used, weather, calendar, occupancy, trend, unexplained (VND)
+
+
+class ForecastAccuracy(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    source: Literal["cycle", "backtest"]
+    error_pct: float
+    cycles: int
 
 
 class Forecast(BaseModel):
-    """The running cycle at its end if the home keeps its usual weekday pattern."""
+    """The running cycle at its end: from the home's expected-usage model (`context`) or, without
+    one, its usual weekday pattern (`weekday`). kwh/amount are the middle (P50); the range is
+    P10–P90."""
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -68,3 +87,13 @@ class Forecast(BaseModel):
     next: TierCross | None
     basis_days: int
     as_of: date  # the local day it was made on: how much of the cycle is behind it
+    method: Literal["context", "weekday"]
+    model_version: str
+    kwh_p10: float
+    kwh_p50: float
+    kwh_p90: float
+    amount_p10: float
+    amount_p90: float
+    change: ForecastChange | None
+    accuracy: ForecastAccuracy | None
+    simulated: list[str]

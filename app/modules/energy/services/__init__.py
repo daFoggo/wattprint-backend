@@ -22,7 +22,8 @@ from .meter import (
     meter_series,
     today_energy,
 )
-from .weather import weather_at
+from .weather import stored_weather, weather_at
+from .weather_inputs import weather_inputs
 
 __all__ = [
     "SKIP_REASON",
@@ -47,5 +48,7 @@ __all__ = [
     "main_readings",
     "meter_series",
     "today_energy",
+    "stored_weather",
     "weather_at",
+    "weather_inputs",
 ]

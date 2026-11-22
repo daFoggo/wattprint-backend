@@ -7,6 +7,7 @@ from .modules.auth.routes import router as auth_router
 from .modules.billing.routes import router as billing_router
 from .modules.copilot.routes import router as copilot_router
 from .modules.energy.routes import router as energy_router
+from .modules.expect.routes import router as expect_router
 from .modules.home.routes import router as home_router
 from .modules.insight.routes import router as insight_router
 from .modules.ops.routes import router as ops_router
@@ -37,6 +38,7 @@ for router in (
     auth_router,
     home_router,
     energy_router,
+    expect_router,
     billing_router,
     insight_router,
     copilot_router,

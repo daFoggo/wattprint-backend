@@ -7,7 +7,7 @@ from app.dependencies import DbSession
 
 from .. import services
 from ..dependencies import CurrentHome
-from ..schemas import Activity, Cycle, DayEnergy, Device, DeviceDetail, PowerStep
+from ..schemas import Activity, Cycle, Device, DeviceDay, DeviceDetail, PowerStep
 from ..utils import DeviceNotFoundError
 
 router = APIRouter()
@@ -54,7 +54,10 @@ async def get_device(device_id: uuid.UUID, home_id: CurrentHome, db: DbSession) 
         avg_on_w=d.avg_on_w,
         peak_w=d.peak_w,
         home_share=d.home_share,
-        days=[DayEnergy(date=day, kwh=kwh) for day, kwh in d.days],
+        days=[
+            DeviceDay(date=day, kwh=kwh, peak_w=peak, longest_min=run)
+            for day, kwh, peak, run in d.days
+        ],
         power=[PowerStep(ts=_ms(ts), watts=w) for ts, w in d.power],
         cycles=[Cycle(**_cycle(c)) for c in d.cycles],
     )

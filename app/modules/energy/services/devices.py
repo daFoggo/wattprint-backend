@@ -56,7 +56,8 @@ class DeviceDetail:
     avg_on_w: float
     peak_w: float
     home_share: float
-    days: list[tuple[date, float]]
+    # (day, kWh, peak W, longest run minutes): this month, and at least the last 30 days
+    days: list[tuple[date, float, float, int]]
     power: list[tuple[datetime, float]]
     cycles: list[Cycle]
 
@@ -208,19 +209,28 @@ async def device_detail(
         {"h": home_id, "lo": month, "now": now},
     )
     days = []
-    day = today.replace(day=1)
+    # This month, and at least the last 30 days: a threshold needs history on the 1st too.
+    day = min(today.replace(day=1), today - timedelta(days=29))
+    since = local_midnight(day)
     daily = {
-        r.bucket.astimezone(LOCAL).date(): r.energy_wh / 1000
+        r.bucket.astimezone(LOCAL).date(): (r.energy_wh / 1000, float(r.max_w or 0.0))
         for r in await session.execute(
             text(
-                "SELECT bucket, energy_wh FROM public.device_estimate_1d "
+                "SELECT bucket, energy_wh, max_w FROM public.device_estimate_1d "
                 "WHERE series_id = :s AND bucket >= :lo AND bucket <= :now"
             ),
-            {"s": row.series_id, "lo": month, "now": now},
+            {"s": row.series_id, "lo": since, "now": now},
         )
     }
+    # The longest run of each day, by the day it started (what a run-length alert is set against).
+    longest: dict[date, int] = {}
+    for c in (await _cycles(session, [row], since, now))[row.id]:
+        start = c.start.astimezone(LOCAL).date()
+        ran = round(((c.end or now) - c.start).total_seconds() / 60)
+        longest[start] = max(longest.get(start, 0), ran)
     while day <= today:
-        days.append((day, daily.get(day, 0.0)))
+        kwh, peak = daily.get(day, (0.0, 0.0))
+        days.append((day, kwh, peak, longest.get(day, 0)))
         day += timedelta(days=1)
     power = [
         (r.step, float(r.watts))

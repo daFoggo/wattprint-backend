@@ -24,6 +24,12 @@ settings.database_url = os.environ.get("TEST_DATABASE_URL") or _dev.set(
     database=f"{_dev.database}_test"
 ).render_as_string(hide_password=False)
 os.environ["DATABASE_URL"] = settings.database_url  # alembic subprocesses read it
+if settings.copilot_database_url:  # custom watch queries: the same test database
+    settings.copilot_database_url = (
+        make_url(settings.copilot_database_url)
+        .set(database=make_url(settings.database_url).database)
+        .render_as_string(hide_password=False)
+    )
 
 from app.main import app  # noqa: E402
 from app.modules.auth.services import token as security  # noqa: E402

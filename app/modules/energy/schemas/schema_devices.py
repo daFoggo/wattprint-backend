@@ -31,6 +31,11 @@ class DayEnergy(BaseModel):
     kwh: float
 
 
+class DeviceDay(DayEnergy):
+    peak_w: float
+    longest_min: int  # the longest run that started that day
+
+
 class PowerStep(BaseModel):
     ts: int
     watts: float
@@ -42,7 +47,7 @@ class DeviceDetail(Device):
     avg_on_w: float  # this month, over the minutes it was on
     peak_w: float  # this month
     home_share: float  # of the main meter's kWh this month, 0..1
-    days: list[DayEnergy]  # each day of this month, today last
+    days: list[DeviceDay]  # this month and at least the last 30 days, today last
     power: list[PowerStep]  # last 24 h in 5-minute steps
     cycles: list[Cycle]  # runs in the last 24 h, oldest first
 

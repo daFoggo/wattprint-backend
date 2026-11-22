@@ -8,14 +8,16 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import SessionLocal
-from app.modules.billing.api import MODEL_VERSION, forecast_bill, refresh_bills
+from app.modules.billing.api import forecast_bill, refresh_bills
 from app.modules.copilot.api import measure_plans, prune_scope_tokens, prune_speech
+from app.modules.expect.api import refresh_home, train_home
 from app.modules.home.api import Home
 
 from ..models import ForecastSnapshot
 from .cohort import refresh_cohorts
 from .detectors import detect
 from .mail import mail_alerts, mail_weekly
+from .watches import check_due, prune_watches
 
 log = logging.getLogger("insight.jobs")
 
@@ -52,10 +54,33 @@ async def _snapshot(session: AsyncSession, home_id: uuid.UUID, now: datetime) ->
             kwh=f.kwh,
             amount=f.amount,
             tier_cross_date=f.next.on if f.next else None,
-            model_version=MODEL_VERSION,
+            model_version=f.model_version,
+            kwh_p10=f.kwh_p10,
+            kwh_p90=f.kwh_p90,
+            drivers=f.drivers,
         )
         .on_conflict_do_nothing()
     )
+
+
+async def expect_train(now: datetime) -> None:
+    """Relearn each home's expected-usage model from its days up to yesterday (daily)."""
+
+    async def work(s: AsyncSession, home_id: uuid.UUID) -> None:
+        version = await train_home(s, home_id, now)
+        if version:
+            log.info("home %s: expected-usage model %s", home_id, version)
+
+    await each_home(work)
+
+
+async def expect_refresh(now: datetime) -> None:
+    """Expected kWh per hour for each home with a model (hourly)."""
+
+    async def work(s: AsyncSession, home_id: uuid.UUID) -> None:
+        await refresh_home(s, home_id, now)
+
+    await each_home(work)
 
 
 async def forecasts(now: datetime) -> None:
@@ -72,14 +97,21 @@ async def alerts(now: datetime) -> None:
     await each_home(lambda s, h: detect(s, h, now))
 
 
+async def watches(now: datetime) -> None:
+    n = await check_due(now)
+    if n:
+        log.info("%d watches checked", n)
+
+
 async def mail(now: datetime) -> None:
     await mail_alerts(now)
     await mail_weekly(now)
 
 
 async def upkeep(now: datetime) -> None:
-    """Expired copilot scope tokens out; plans tried for 14 days measured."""
+    """Expired copilot scope tokens and long-ended watches out; plans tried for 14 days measured."""
     async with SessionLocal() as s, s.begin():
         await prune_scope_tokens(s)
+        await prune_watches(s, now)
         await prune_speech(s)
         await measure_plans(s, now)

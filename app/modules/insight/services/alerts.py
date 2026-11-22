@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.home.api import Device
 
-from ..models import Alert
+from ..models import Alert, AlertFeedback
 
 
 async def list_alerts(
@@ -38,3 +38,17 @@ async def acknowledge(session: AsyncSession, home_id: uuid.UUID, alert_id: uuid.
     )
     await session.commit()
     return True
+
+
+async def verdicts(
+    session: AsyncSession, user_id: uuid.UUID, alert_ids: list[uuid.UUID]
+) -> dict[uuid.UUID, str]:
+    """The user's own verdict on each of these alerts."""
+    if not alert_ids:
+        return {}
+    rows = await session.execute(
+        select(AlertFeedback.alert_id, AlertFeedback.verdict).where(
+            AlertFeedback.user_id == user_id, AlertFeedback.alert_id.in_(alert_ids)
+        )
+    )
+    return {a: v for a, v in rows}

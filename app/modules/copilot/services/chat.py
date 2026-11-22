@@ -12,6 +12,7 @@ from sqlalchemy import func, select, update
 from app.database import SessionLocal
 
 from ..models import Conversation, Message, ToolCall
+from ..schemas import Link, LinksWidget, Widget
 from ..utils import CopilotUnavailableError
 from . import guard, llm
 from .tools import SPECS, TIERS, Ctx, Outcome, run_tool
@@ -42,6 +43,10 @@ SOURCES = {
     ),
     "weather": ({"vi": "OpenWeather", "en": "OpenWeather"}, "https://openweathermap.org"),
     "cohort": ({"vi": "Các hộ tương tự", "en": "Similar homes"}, "/dashboard/statistics"),
+    "model": (
+        {"vi": "Mô hình mức dùng kỳ vọng của nhà", "en": "The home's expected-usage model"},
+        "/dashboard/statistics",
+    ),
 }
 LINKS = {
     "devices": "/dashboard/devices",
@@ -55,12 +60,16 @@ STEPS = {
     "bill_forecast": ("Dự báo hoá đơn cuối kỳ", "Forecast the cycle's bill"),
     "bill_history": ("Đọc các hoá đơn trước", "Read past bills"),
     "compare_periods": ("So với kỳ trước", "Compare with the previous period"),
+    "explain_usage": ("Giải thích mức dùng điện", "Explain the usage"),
     "weather": ("Xem thời tiết", "Check the weather"),
     "cohort": ("So với hộ tương tự", "Compare with similar homes"),
     "alerts": ("Xem cảnh báo", "Check alerts"),
     "standby": ("Đo điện nền ban đêm", "Measure night-time standby"),
     "query_data": ("Truy vấn dữ liệu của nhà", "Query the home's data"),
     "propose_plan": ("Lập kế hoạch tiết kiệm", "Draft a savings plan"),
+    "create_watch": ("Đặt cảnh báo", "Set an alert"),
+    "list_watches": ("Xem cảnh báo đã đặt", "Check the alerts you set"),
+    "cancel_watch": ("Huỷ cảnh báo", "Cancel an alert"),
 }
 INTENTS = {
     "devices_breakdown": "devices",
@@ -68,12 +77,16 @@ INTENTS = {
     "current_bill": "bill",
     "bill_history": "bill",
     "compare_periods": "bill",
+    "explain_usage": "bill",
     "bill_forecast": "forecast",
     "weather": "weather",
     "cohort": "peers",
     "standby": "standby",
     "propose_plan": "plan",
     "query_data": "data",
+    "create_watch": "alert",
+    "list_watches": "alert",
+    "cancel_watch": "alert",
 }
 
 PROMPT = """You are Wappi, the energy assistant of WattPrint for one household in Vietnam.
@@ -88,6 +101,10 @@ PROMPT = """You are Wappi, the energy assistant of WattPrint for one household i
   describe them or paste URLs.
 - Call tools first, without writing anything before them.
 - Only for a savings plan the user asks for, call propose_plan with tasks grounded in the data.
+- "Báo tôi khi…" / "tell me when…" is an alert to set: call create_watch, never just answer.
+- "Vì sao… cao/thấp" / "why is… high/low": call explain_usage and name the biggest parts
+  (weather, calendar, routine, trend, unexplained). A forecast is a range: give it as "khoảng
+  a–b". A load listed in `simulated` is simulated for the demo: say so if you mention it.
 - Outside home energy, decline briefly.
 - A label in brackets such as [số điện thoại] or [email] is personal data the app removed: you do
   not need it, so never ask for it or guess it.
@@ -191,17 +208,14 @@ class Answer:
 
     def reply(self, text: str, follow_ups: list[str]) -> dict[str, Any]:
         outcomes = [o for _, _, o, ok, _ in self.calls if ok]
-        widgets: dict[str, dict] = {}
+        widgets: dict[str, Widget] = {}
         links: list[str] = []
         for o in outcomes:
             for w in o.widgets:
-                widgets[w["kind"]] = w  # a tool called twice: its last result
+                widgets[w.kind] = w  # a tool called twice: its last result
             links += [k for k in o.links if k not in links]
         if links:
-            widgets["links"] = {
-                "kind": "links",
-                "links": [{"key": k, "href": LINKS[k]} for k in links],
-            }
+            widgets["links"] = LinksWidget(links=[Link(key=k, href=LINKS[k]) for k in links])
         tiers = [o.tier for o in outcomes]
         names = [n for n, *_ in self.calls]
         return {
@@ -218,9 +232,28 @@ class Answer:
             "sources": [
                 {"title": SOURCES[k][0][self.lang], "url": SOURCES[k][1]} for k in self.sources
             ],
-            "widgets": list(widgets.values()),
+            "widgets": [w.model_dump(mode="json") for w in widgets.values()],
             "followUps": follow_ups,
         }
+
+
+async def progress_until(
+    task: asyncio.Future[Any], queue: asyncio.Queue[tuple[str, str]]
+) -> AsyncIterator[tuple[str, str]]:
+    """The (label, detail) steps a running tool reports, as they come, until it ends."""
+    get: asyncio.Future[Any] | None = None
+    try:
+        while not task.done():
+            get = asyncio.ensure_future(queue.get())
+            await asyncio.wait({task, get}, return_when=asyncio.FIRST_COMPLETED)
+            if get.done():
+                yield get.result()
+        while not queue.empty():
+            yield queue.get_nowait()
+    finally:
+        if get:
+            get.cancel()
+        task.cancel()  # a no-op once it ended; stops the tool when the client leaves mid-way
 
 
 def event(name: str, data: dict[str, Any]) -> str:
@@ -238,13 +271,25 @@ async def answer(
     follow = FollowUps()
     async with SessionLocal() as s:
         question = await s.scalar(select(Message.content).where(Message.id == question_id))
+        user_id = await s.scalar(
+            select(Conversation.user_id).where(Conversation.id == conversation_id)
+        )
         messages = [
             _system(lang),
             *await history(s, conversation_id, question_id),
             _clock(now),
             {"role": "user", "content": question},
         ]
-        ctx = Ctx(s, home_id, now, lang)
+        progress: asyncio.Queue[tuple[str, str]] = asyncio.Queue()
+        ctx = Ctx(
+            s,
+            home_id,
+            now,
+            lang,
+            lambda label, detail: progress.put_nowait((label, detail)),
+            user_id,
+            question,
+        )
         # The guard reads the question while the model's first round runs: no word is shown and no
         # tool runs before it has answered, which that round's own wait almost always covers.
         screen = None if guard.injection(question) else asyncio.create_task(guard.unsafe(question))
@@ -290,7 +335,13 @@ async def answer(
                 )
                 for i, c in enumerate(turn.calls):
                     args = c.args()
-                    outcome, ok, ms = await run_tool(ctx, c.name, args)
+                    task = asyncio.ensure_future(run_tool(ctx, c.name, args))
+                    async with aclosing(progress_until(task, progress)) as reports:
+                        async for label, detail in reports:
+                            sub = {"tool": c.name, "label": label, "detail": detail}
+                            state.steps.append(sub)
+                            yield event("step", sub)
+                    outcome, ok, ms = task.result()
                     vi, en = STEPS.get(c.name, (c.name, c.name))
                     step = {
                         "tool": c.name,

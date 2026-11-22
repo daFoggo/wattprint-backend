@@ -1,5 +1,12 @@
 from .dependencies import CurrentHome
-from .models import InferenceRun, Series, WeatherHourly, device_estimate_table, reading_table
+from .models import (
+    HomeWeatherHourly,
+    InferenceRun,
+    Series,
+    WeatherHourly,
+    device_estimate_table,
+    reading_table,
+)
 from .services import (
     DeviceEnergy,
     LatestPower,
@@ -11,10 +18,13 @@ from .services import (
     meter_series,
     on_w,
     runs,
+    today_energy,
     weather_at,
+    weather_inputs,
 )
 
 __all__ = [
+    "HomeWeatherHourly",
     "CurrentHome",
     "DeviceEnergy",
     "InferenceRun",
@@ -31,5 +41,7 @@ __all__ = [
     "on_w",
     "reading_table",
     "runs",
+    "today_energy",
     "weather_at",
+    "weather_inputs",
 ]

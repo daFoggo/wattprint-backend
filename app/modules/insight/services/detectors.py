@@ -1,17 +1,21 @@
+import math
 import statistics
 import uuid
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta, timezone
 
-from sqlalchemy import text, update
+from sqlalchemy import exists, select, text, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import settings
 from app.modules.billing.api import current_bill, forecast_bill
 from app.modules.energy.api import analyzed_until
+from app.modules.expect.api import ExpectModel, activity_ratio, expected, hourly_actual
 
 from ..models import Alert
 from .cycles import refresh_cycles
+from .feedback import sensitivity
 
 ICT = timezone(timedelta(hours=7))
 BASE_DAYS = 28  # the usual: the 28 days (or nights) before the recent ones
@@ -24,6 +28,8 @@ NIGHT_END_H = 5  # standby is read 00:00-05:00, when little is switched on by ha
 UNEXPLAINED_PLUS_W = 300.0
 UNEXPLAINED_MIN = 30
 TIER_DAYS = 3
+USAGE = "usage_anomaly"
+BUSY = 1.5  # activity this many times the routine: guests or a day at home, said so in the alert
 
 
 @dataclass
@@ -199,6 +205,142 @@ async def _tier_near(s: AsyncSession, home_id: uuid.UUID, now: datetime):
     ]
 
 
+def judge(
+    actual: list[float],
+    p50: list[float],
+    p95: list[float],
+    price: float,
+    min_vnd: float,
+    factor: float,
+) -> dict[str, float] | None:
+    """A window's usage against the model's expectation for its context: it counts when every
+    hour is known, its total passes the expected total plus `factor` times the P95 band, and the
+    excess is worth at least `min_vnd`."""
+    if not actual or any(math.isnan(a) for a in actual):
+        return None
+    act, e50, e95 = sum(actual), sum(p50), sum(p95)
+    excess = act - e50
+    if act <= e50 + factor * (e95 - e50) or excess * price < min_vnd:
+        return None
+    return {
+        "excess_kwh": round(excess, 1),
+        "excess_vnd": float(round(excess * price)),
+        "expected_kwh": round(e50, 1),
+        "actual_kwh": round(act, 1),
+    }
+
+
+def rule_kinds(has_model: bool) -> tuple[str, ...]:
+    """With an expected-usage model, the in-context anomaly replaces the fixed +300 W rule."""
+    return ("longer_than_usual", "standby_high", "tier_near") + (
+        (USAGE,) if has_model else ("unexplained_load",)
+    )
+
+
+async def _top_device(s: AsyncSession, home_id: uuid.UUID, lo: datetime, hi: datetime):
+    """The NILM device that used the most over its own usual for these hours (the same hours of
+    the 4 weeks before); None when none used more."""
+    row = (
+        await s.execute(
+            text(
+                "WITH win AS (SELECT x.device_id, sum(e.energy_wh) / 1000 AS kwh "
+                "  FROM public.device_estimate_1h e JOIN public.tb_series x USING (series_id) "
+                "  WHERE x.home_id = :h AND x.kind = 'device' "
+                "  AND e.bucket >= :lo AND e.bucket < :hi "
+                "  GROUP BY 1), "
+                "usual AS (SELECT x.device_id, sum(e.energy_wh) / 1000 / 4 AS kwh "
+                "  FROM generate_series(1, 4) k, public.device_estimate_1h e "
+                "  JOIN public.tb_series x USING (series_id) "
+                "  WHERE x.home_id = :h AND x.kind = 'device' "
+                "  AND e.bucket >= :lo - k * interval '7 days' "
+                "  AND e.bucket < :hi - k * interval '7 days' GROUP BY 1) "
+                "SELECT win.device_id, win.kwh - coalesce(usual.kwh, 0) AS more "
+                "FROM win LEFT JOIN usual USING (device_id) ORDER BY more DESC LIMIT 1"
+            ),
+            {"h": home_id, "lo": lo, "hi": hi},
+        )
+    ).first()
+    return row.device_id if row is not None and row.more > 0 else None
+
+
+async def _usage_anomaly(s: AsyncSession, home_id: uuid.UUID, now: datetime):
+    """Today's usage, or the last three hours', past what the model expects in this context
+    (weather, calendar, routine) and worth the money; None when there is no expectation."""
+    hour = now.replace(minute=0, second=0, microsecond=0)
+    local = now.astimezone(ICT)
+    midnight = datetime(local.year, local.month, local.day, tzinfo=ICT).astimezone(UTC)
+    frame = await expected(s, home_id, midnight, hour)
+    if frame.empty:
+        return None
+    try:
+        bill = await current_bill(s, home_id, now)
+    except LookupError:  # no tariff: no money to weigh it by
+        return None
+    if bill.kwh <= 0:
+        return None
+    price = float(bill.amount_total / bill.kwh)
+    factor = await sensitivity(s, home_id, USAGE)
+    actual = await hourly_actual(s, home_id, midnight, hour)
+    best = None
+    for lo, min_vnd in (
+        (hour - timedelta(hours=3), settings.anomaly_min_vnd_3h),
+        (midnight, settings.anomaly_min_vnd_day),
+    ):
+        win = frame[frame.index >= lo]
+        if win.empty:
+            continue
+        got = judge(
+            actual.reindex(win.index).tolist(),
+            win["p50"].tolist(),
+            win["p95"].tolist(),
+            price,
+            min_vnd,
+            factor,
+        )
+        if got and (best is None or got["excess_vnd"] > best[0]["excess_vnd"]):
+            best = (got, lo, win)
+    if best is None:
+        return []
+    got, lo, win = best
+    ratio = await activity_ratio(s, home_id, lo, hour)
+    payload = {
+        **got,
+        "hours": len(win),
+        "weather_kwh": round(float(win["c_weather"].sum()), 1),
+        "activity_ratio": round(ratio, 2),
+        "start": lo.isoformat(),
+    }
+    return [
+        Finding(
+            USAGE,
+            f"{USAGE}:{local.date().isoformat()}",
+            "info" if ratio >= BUSY else "warning",
+            payload,
+            await _top_device(s, home_id, lo, hour),
+        )
+    ]
+
+
+async def settle_usage(
+    s: AsyncSession, home_id: uuid.UUID, found: list[Finding], now: datetime
+) -> None:
+    """Raise or refresh today's in-context anomaly; one per local day: an alert of an earlier day
+    is resolved, today's stays (acknowledged or not) until the day ends."""
+    for f in found:
+        await _upsert(s, home_id, f, now)
+    today = f"{USAGE}:{now.astimezone(ICT).date().isoformat()}"
+    await s.execute(
+        update(Alert)
+        .where(
+            Alert.home_id == home_id,
+            Alert.kind == USAGE,
+            Alert.status != "resolved",
+            Alert.dedup_key < today,
+        )
+        .values(status="resolved", resolved_at=now)
+    )
+
+
 async def _upsert(s: AsyncSession, home_id: uuid.UUID, f: Finding, now: datetime) -> None:
     stmt = insert(Alert).values(
         home_id=home_id,
@@ -218,16 +360,32 @@ async def _upsert(s: AsyncSession, home_id: uuid.UUID, f: Finding, now: datetime
     )
 
 
+async def _nothing() -> list:
+    return []
+
+
 async def detect(s: AsyncSession, home_id: uuid.UUID, now: datetime) -> None:
     """Raise what holds now, refresh the figures of what is already open, resolve what no longer
     holds. Device checks are as of what NILM has analysed, not the wall clock."""
     until = await analyzed_until(s, home_id)
     if until is not None:
         await refresh_cycles(s, home_id, until)
+    has_model = bool(
+        await s.scalar(select(exists().where(ExpectModel.home_id == home_id, ExpectModel.active)))
+    )
+    kinds = rule_kinds(has_model)
+    if USAGE in kinds:
+        found = await _usage_anomaly(s, home_id, now)
+        await settle_usage(s, home_id, found or [], now)
     checks = {
         "longer_than_usual": lambda: _longer_than_usual(s, home_id, until) if until else None,
         "standby_high": lambda: _standby_high(s, home_id, now),
-        "unexplained_load": lambda: _unexplained_load(s, home_id, until) if until else None,
+        # With a model the old rule finds nothing, so its open alerts resolve.
+        "unexplained_load": lambda: (
+            _unexplained_load(s, home_id, until)
+            if "unexplained_load" in kinds and until
+            else (_nothing() if "unexplained_load" not in kinds else None)
+        ),
         "tier_near": lambda: _tier_near(s, home_id, now),
     }
     for kind, check in checks.items():

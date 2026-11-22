@@ -138,9 +138,10 @@ async def seed_home(cfg: dict, home: dict, kc: Keycloak, password: str, extra: l
     from app.database import SessionLocal, engine
     from app.modules.energy.api import backfill_aggregates
     from app.modules.nilm.api import OTHER, ensure_devices
-    from scripts import refit, replay_refit
+    from scripts import import_refit_weather, refit, replay_refit
 
     house = home["house"]
+    key = str(home.get("key", house))
     csv = ROOT / "dataset" / f"CLEAN_House{house}.csv"
     df = refit.load(csv)
     now = datetime.now(UTC)
@@ -155,9 +156,10 @@ async def seed_home(cfg: dict, home: dict, kc: Keycloak, password: str, extra: l
 
     async with SessionLocal() as s, s.begin():
         # The home is the one its REFIT meter is on, so a renamed home is found again.
-        name = f"REFIT House {house}"
+        name = home.get("name", f"REFIT House {house}")
         home_id = await s.scalar(
-            text("SELECT home_id FROM public.tb_meter WHERE serial = :m"), {"m": refit.meter(house)}
+            text("SELECT home_id FROM public.tb_meter WHERE serial = :m"),
+            {"m": refit.meter(house, key)},
         )
         if home_id is None:
             home_id = await s.scalar(
@@ -198,7 +200,7 @@ async def seed_home(cfg: dict, home: dict, kc: Keycloak, password: str, extra: l
                 "VALUES (:m, :h, 'active', now()) ON CONFLICT (serial) DO UPDATE "
                 "SET home_id = EXCLUDED.home_id, status = 'active' RETURNING id"
             ),
-            {"m": refit.meter(house), "h": home_id},
+            {"m": refit.meter(house, key), "h": home_id},
         )
         await s.execute(
             text(
@@ -227,7 +229,7 @@ async def seed_home(cfg: dict, home: dict, kc: Keycloak, password: str, extra: l
         row = (
             await s.execute(
                 text("SELECT shift_days FROM etl.tb_watermark WHERE source = :s AND segment = :g"),
-                {"s": refit.source(house), "g": refit.SEGMENT},
+                {"s": refit.source(house, key), "g": refit.SEGMENT},
             )
         ).first()
         shift = row.shift_days if row else refit.pick_shift(first, now, history)
@@ -238,11 +240,28 @@ async def seed_home(cfg: dict, home: dict, kc: Keycloak, password: str, extra: l
                 "status) VALUES (:s, :g, :d, :a, :b, 'running') ON CONFLICT (source, segment) "
                 "DO UPDATE SET status = 'running', error = NULL, updated_at = now()"
             ),
-            {"s": refit.source(house), "g": refit.SEGMENT, "d": shift, "a": span[0], "b": span[1]},
+            {
+                "s": refit.source(house, key),
+                "g": refit.SEGMENT,
+                "d": shift,
+                "a": span[0],
+                "b": span[1],
+            },
         )
-    print(f"house {house}: home {home_id}, shift {shift} days ({shift // 364} years)", flush=True)
+        if "heater" in home:  # part of this home from its first reading: the model learns it
+            await s.execute(
+                text(
+                    "INSERT INTO public.tb_demo_scenario (home_id, name, starts_at, params, train) "
+                    "SELECT :h, 'heater', :a, CAST(:p AS jsonb), true WHERE NOT EXISTS ("
+                    "SELECT 1 FROM public.tb_demo_scenario WHERE home_id = :h AND name = 'heater')"
+                ),
+                {"h": home_id, "a": span[0], "p": json.dumps(home["heater"])},
+            )
+    print(f"home {key}: home {home_id}, shift {shift} days ({shift // 364} years)", flush=True)
 
-    h = replay_refit.Home(house, shift, df, now - history)
+    # The recording site's weather first: the heater and the usage model read it.
+    await import_refit_weather.main(key)
+    h = replay_refit.Home(house, shift, df, now - history, key, home_id)
     new = await replay_refit.replay(h, now - history, now, source="seed")
     async with engine.connect() as c:
         c = await c.execution_options(isolation_level="AUTOCOMMIT")
@@ -254,9 +273,9 @@ async def seed_home(cfg: dict, home: dict, kc: Keycloak, password: str, extra: l
                 "rows_loaded = rows_loaded + :n, updated_at = now() "
                 "WHERE source = :s AND segment = :g"
             ),
-            {"t": now, "n": new, "s": refit.source(house), "g": refit.SEGMENT},
+            {"t": now, "n": new, "s": refit.source(house, key), "g": refit.SEGMENT},
         )
-    print(f"house {house}: {new} new readings over {cfg['history_days']} days", flush=True)
+    print(f"home {key}: {new} new readings over {cfg['history_days']} days", flush=True)
 
 
 async def register_model(session, home_id, artifact: str, model_dir: Path) -> None:
@@ -283,7 +302,7 @@ async def register_model(session, home_id, artifact: str, model_dir: Path) -> No
     )
 
 
-async def main(only: int | None) -> None:
+async def main(only: str | None) -> None:
     load_env()
     password = os.environ.get("DEMO_PASSWORD") or sys.exit("Set DEMO_PASSWORD in .env")
     cfg = tomllib.loads((ROOT / "scripts" / "demo_homes.toml").read_text())
@@ -293,11 +312,11 @@ async def main(only: int | None) -> None:
     )
     extra = [e.strip() for e in os.environ.get("DEMO_EXTRA_MEMBERS", "").split(",") if e.strip()]
     for i, home in enumerate(cfg["home"]):
-        if only is None or home["house"] == only:
+        if only is None or str(home.get("key", home["house"])) == only:
             await seed_home(cfg, home, kc, password, extra if i == 0 else [])
 
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
-    ap.add_argument("--house", type=int)
+    ap.add_argument("--house", help='a home key of demo_homes.toml: "2", "5-heat"')
     asyncio.run(main(ap.parse_args().house))

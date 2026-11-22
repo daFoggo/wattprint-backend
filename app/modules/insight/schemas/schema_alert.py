@@ -21,7 +21,14 @@ class AlertRead(BaseModel):
     ts: datetime
     resolved_at: datetime | None
     device: AlertDevice | None
-    payload: dict[str, float]
+    payload: dict[str, float | str]  # a watch adds its label, op and unit
+    feedback: Literal["useful", "not_anomaly"] | None = None  # the caller's verdict, if any
+
+
+class AlertFeedbackIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    verdict: Literal["useful", "not_anomaly"]
 
 
 class AlertUpdate(BaseModel):
