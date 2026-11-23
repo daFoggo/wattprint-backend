@@ -54,5 +54,15 @@
   ],
   "secrets": true,
   "artifacts": "docs/work",
-  "debt": "../wattprint-nextjs/docs/debt.md"
+  "debt": "../wattprint-web/docs/debt.md",
+  "skills": [
+    {
+      "glob": ["app/main.py", "app/modules/*/{api,dependencies}.py", "app/modules/*/routes/**/*.py", "app/modules/*/schemas/**/*.py"],
+      "skill": "fastapi"
+    },
+    {
+      "glob": ["alembic/versions/**/*.py", "app/models/**/*.py", "app/modules/*/models/**/*.py", "app/modules/*/repositories/**/*.py"],
+      "skill": "supabase-postgres-best-practices"
+    }
+  ]
 }
