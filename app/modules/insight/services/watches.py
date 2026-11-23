@@ -276,7 +276,7 @@ async def list_watches(s: AsyncSession, user_id: uuid.UUID, home_id: uuid.UUID) 
 async def cancel_watch(
     s: AsyncSession, user_id: uuid.UUID, home_id: uuid.UUID, watch_id: uuid.UUID
 ) -> bool:
-    """Active → cancelled; False when the user has no such watch here. Idempotent."""
+    """Active or broken → cancelled; False when the user has no such watch here. Idempotent."""
     found = await s.scalar(
         select(Watch.id).where(
             Watch.id == watch_id, Watch.user_id == user_id, Watch.home_id == home_id
@@ -286,7 +286,7 @@ async def cancel_watch(
         return False
     await s.execute(
         update(Watch)
-        .where(Watch.id == watch_id, Watch.status == "active")
+        .where(Watch.id == watch_id, Watch.status.in_(("active", "broken")))
         .values(status="cancelled")
     )
     return True

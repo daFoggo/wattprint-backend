@@ -4,7 +4,7 @@ from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
 import pytest
-from sqlalchemy import select, text
+from sqlalchemy import select, text, update
 
 from app.config import settings
 from app.database import SessionLocal
@@ -200,6 +200,14 @@ async def test_an_ended_watch_expires_quietly_and_cancel_is_the_owners(make_memb
     assert (await _row(live.id)).status == "cancelled"
     async with SessionLocal() as s:
         assert await s.scalar(select(Alert.id).where(Alert.home_id == me.home_id)) is None
+
+    # A broken watch is still listed, so it can be cancelled too; an expired one stays expired.
+    async with SessionLocal() as s, s.begin():
+        await s.execute(update(Watch).where(Watch.id == live.id).values(status="broken"))
+        assert await cancel_watch(s, me.user_id, me.home_id, live.id)
+        assert await cancel_watch(s, me.user_id, me.home_id, old.id)
+    assert (await _row(live.id)).status == "cancelled"
+    assert (await _row(old.id)).status == "expired"
 
 
 def _text2sql(monkeypatch, out):
