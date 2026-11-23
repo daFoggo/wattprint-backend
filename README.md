@@ -108,7 +108,7 @@ Migrations need a database owner with permission to create extensions and roles 
 - `GET /api/v1/users/me` returns the profile and roles; `GET /api/v1/users` needs the `admin` role (403 otherwise).
 - Issuer: `KEYCLOAK_ISSUER` must equal the URL clients use (`KEYCLOAK_PUBLIC_URL`); the API itself reaches Keycloak as
   `http://keycloak:11095` (`KEYCLOAK_JWKS_URL`). A phone with `adb reverse tcp:11095 tcp:11095` uses `localhost`. On a LAN phone set
-  `KEYCLOAK_BIND=0.0.0.0` and both URLs to the LAN IP.
+  `KEYCLOAK_BIND=0.0.0.0`, `API_BIND=0.0.0.0` and both URLs to the LAN IP.
 - `start-dev` is for development only (HTTP, relaxed checks). Production: `start`, TLS, a real hostname, a secret admin password.
 
 Swagger (`/docs`) cannot obtain tokens (the Keycloak client is mobile-only); call the API with an access token taken from a

@@ -11,12 +11,12 @@ for d in "${domains[@]}"; do
     # HTTP-only block first so the ACME challenge can be answered.
     sed '/^# --- 443/,$d' "$d" > "$avail/$d"
     ln -sfn "$avail/$d" "$enabled/$d"
-    nginx -t && systemctl reload nginx
+    nginx -t; systemctl reload nginx  # not `&&`: set -e ignores a failure on its left
     certbot certonly --webroot -w /var/www/letsencrypt -d "$d" --non-interactive --agree-tos --keep-until-expiring \
       --deploy-hook 'systemctl reload nginx'  # webroot certs: the renewal timer must reload nginx to serve the new cert
   fi
   cp "$d" "$avail/$d"
   ln -sfn "$avail/$d" "$enabled/$d"
 done
-nginx -t && systemctl reload nginx
+nginx -t; systemctl reload nginx
 echo "ok: ${domains[*]}"
