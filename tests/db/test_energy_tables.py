@@ -343,6 +343,7 @@ def test_metadata_resolves():
     } <= names
 
 
+@pytest.mark.migrations
 async def test_energy_downgrade_upgrade(throwaway_dsn):
     from sqlalchemy.ext.asyncio import create_async_engine
 

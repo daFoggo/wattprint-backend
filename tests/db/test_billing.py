@@ -743,6 +743,7 @@ async def test_orm_round_trip(session):
     assert [i.label for i in got] == ["other"]
 
 
+@pytest.mark.migrations
 async def test_billing_downgrade_upgrade(throwaway_dsn):
     billing_module = {
         "public.tb_tariff_plan",

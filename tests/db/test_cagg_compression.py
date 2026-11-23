@@ -320,6 +320,7 @@ async def test_compression_policy_job_compresses_old_1m_chunks(cc):
     await cc.execute(text("SELECT public.set_policies(false)"))
 
 
+@pytest.mark.migrations
 async def test_downgrade_removes_compression_and_upgrade_restores_it(throwaway_dsn):
     engine = create_async_engine(throwaway_dsn, isolation_level="AUTOCOMMIT")
     try:

@@ -365,6 +365,7 @@ async def test_fk_columns_are_indexed(conn):
 # --- migration round trip ---
 
 
+@pytest.mark.migrations
 async def test_catalog_core_downgrade_upgrade(throwaway_dsn):
     from sqlalchemy.ext.asyncio import create_async_engine
 

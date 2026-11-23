@@ -827,6 +827,7 @@ async def test_model_and_migration_indexes_agree(vdb):
 # --- migration round trip ---
 
 
+@pytest.mark.migrations
 async def test_domain_tables_downgrade_upgrade(throwaway_dsn):
     # insight, copilot/knowledge, ops and roles revisions: everything after billing
     after_billing = {

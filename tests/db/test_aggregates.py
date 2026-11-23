@@ -294,6 +294,7 @@ async def test_search_path_pin_survives_replace(conn):
     assert cfg is not None and "search_path=public, pg_catalog" in cfg
 
 
+@pytest.mark.migrations
 async def test_aggregates_downgrade_upgrade(throwaway_dsn):
     views = text(
         "SELECT count(*) FROM timescaledb_information.continuous_aggregates "

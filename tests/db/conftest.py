@@ -48,6 +48,8 @@ async def _create_migrated_db():
     admin = create_async_engine(base.set(database="postgres"), isolation_level="AUTOCOMMIT")
     async with admin.connect() as c:
         await c.execute(text(f'CREATE DATABASE "{name}"'))
+        # See tests/conftest.py: no WAL flush per commit.
+        await c.execute(text(f'ALTER DATABASE "{name}" SET synchronous_commit = off'))
 
     async def drop():
         try:

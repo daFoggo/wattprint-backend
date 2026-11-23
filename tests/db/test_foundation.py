@@ -72,6 +72,7 @@ async def test_existing_login_role_not_demoted_without_password(conn):
     assert await _login(conn, name) is True
 
 
+@pytest.mark.migrations
 async def test_downgrade_upgrade_leaves_roles_intact(throwaway_dsn):
     admin = create_async_engine(throwaway_dsn, isolation_level="AUTOCOMMIT")
     query = text(

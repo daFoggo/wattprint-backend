@@ -9,7 +9,7 @@ path-scoped rules: `.claude/rules/`).
 | What | Command | Healthy output |
 |---|---|---|
 | Verify (runs on every stop) | see `verify` in `.claude/sdlc.json`: ruff check + format check on `app tests alembic scripts`, `scripts/check_boundaries.py` | `All checks passed!`, `... files already formatted`, `module boundaries ok` |
-| Tests (run before saying done; not in verify, too slow for the Stop hook) | `docker compose exec -T api pytest -q` (uses `<db>_test`, never the dev data); while iterating, pass the touched test files | `441 passed, 1 skipped` |
+| Tests (run before saying done; not in verify, too slow for the Stop hook) | `docker compose exec -T api pytest -q` (uses `<db>_test`, never the dev data); while iterating, pass the touched test files | `512 passed, 1 skipped` (about 3-6 min; the shared disk varies) |
 | Format a file you changed | `uv run ruff format <file>` | `1 file reformatted` or `left unchanged` |
 
 `alembic/versions/**` is excluded from the formatter (`force-exclude`): never reformat applied migrations. The
@@ -17,7 +17,7 @@ stack must already be running (`docker compose up -d`, compose project from your
 into it and never restarts it.
 
 Not in verify: the NILM test that needs torch (skipped in the api image; run it in the nilm container) and the
-`audit` marked database audits (`-m audit`, audit server only). There is no CI yet: verify plus the full pytest run above are the gate.
+`audit` marked database audits (`-m audit`, audit server only), and the `migrations` marked downgrade/upgrade round trips (`-m migrations`; run them when you add or change a revision). There is no CI yet: verify plus the full pytest run above are the gate.
 
 ## Where things are
 

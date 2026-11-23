@@ -958,6 +958,7 @@ async def test_matrix_covers_all_domain_tables(conn):
 # --- migration round trip ---
 
 
+@pytest.mark.migrations
 async def test_revision_downgrade_removes_grants_and_upgrade_restores_them(throwaway_dsn):
     engine = create_async_engine(throwaway_dsn, poolclass=NullPool)
 

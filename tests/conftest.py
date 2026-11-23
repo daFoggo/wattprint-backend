@@ -45,11 +45,17 @@ async def _ensure_test_database() -> None:
             )
             if not exists:
                 await c.execute(text(f'CREATE DATABASE "{url.database}"'))
+            # Test data may be lost on a crash: commits skip the WAL flush (slow shared disk).
+            await c.execute(text(f'ALTER DATABASE "{url.database}" SET synchronous_commit = off'))
     finally:
         await admin.dispose()
 
 
 def pytest_configure(config):
+    # Round trips of applied revisions are off by default; `-m migrations` runs them.
+    config.addinivalue_line("markers", "migrations: downgrade/upgrade round trip of revisions")
+    if config.option.markexpr == "not audit":  # the pyproject default, no -m given
+        config.option.markexpr = "not audit and not migrations"
     asyncio.run(_ensure_test_database())
     env = {k: v for k, v in os.environ.items() if not k.endswith("_DB_PASSWORD")}
     env["SEED_REFIT"] = "0"
