@@ -162,7 +162,13 @@ async def test_verified_email_claims_a_profile_created_before_first_login(client
     assert (await client.get("/api/v1/users/me", headers=bearer(other))).status_code == 409
 
 
-PUBLIC = {("GET", "/api/v1/health"), ("GET", "/api/v1/homes/provinces")}
+# Answer without a token (the demo session POST has no body here, hence 422, not 401).
+PUBLIC = {
+    ("GET", "/api/v1/health"): 200,
+    ("GET", "/api/v1/homes/provinces"): 200,
+    ("GET", "/api/v1/demo/homes"): 200,
+    ("POST", "/api/v1/demo/session"): 422,
+}
 
 
 async def test_every_endpoint_but_the_public_ones_needs_a_token(client):
@@ -172,5 +178,5 @@ async def test_every_endpoint_but_the_public_ones_needs_a_token(client):
         for method in ops:
             url = re.sub(r"\{[^}]+\}", str(uuid.uuid4()), path)
             r = await client.request(method.upper(), url)
-            expected = 200 if (method.upper(), path) in PUBLIC else 401
+            expected = PUBLIC.get((method.upper(), path), 401)
             assert r.status_code == expected, (method, path, r.status_code)

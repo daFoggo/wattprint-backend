@@ -99,7 +99,7 @@
       "publicClient": false,
       "secret": "${WATTPRINT_WEB_CLIENT_SECRET}",
       "standardFlowEnabled": true,
-      "directAccessGrantsEnabled": false,
+      "directAccessGrantsEnabled": true,
       "implicitFlowEnabled": false,
       "serviceAccountsEnabled": false,
       "redirectUris": [
@@ -124,6 +124,19 @@
           }
         }
       ]
+    },
+    {
+      "clientId": "wattprint-demo-admin",
+      "name": "Wattprint demo unlock",
+      "description": "Service account of the API: clears a brute-force lockout of a demo owner (POST /demo/session). manage-users only.",
+      "enabled": true,
+      "publicClient": false,
+      "secret": "${DEMO_ADMIN_CLIENT_SECRET}",
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "implicitFlowEnabled": false,
+      "serviceAccountsEnabled": true,
+      "protocol": "openid-connect"
     }
   ],
   "users": [
@@ -145,6 +158,17 @@
         "admin",
         "user"
       ]
+    },
+    {
+      "username": "service-account-wattprint-demo-admin",
+      "enabled": true,
+      "serviceAccountClientId": "wattprint-demo-admin",
+      "clientRoles": {
+        "realm-management": [
+          "manage-users",
+          "view-users"
+        ]
+      }
     }
   ],
   "bruteForceProtected": true,

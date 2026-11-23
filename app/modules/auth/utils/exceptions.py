@@ -1,6 +1,8 @@
 from app.common.exceptions import (
+    AppError,
     ConflictError,
     ForbiddenError,
+    NotFoundError,
     ServiceUnavailableError,
     UnauthorizedError,
 )
@@ -32,3 +34,24 @@ class InactiveUserError(ForbiddenError):
 class AdminRequiredError(ForbiddenError):
     code = "admin_required"
     message = "Admin role required"
+
+
+class DemoHomeNotFoundError(NotFoundError):
+    code = "demo_home_not_found"
+    message = "No such demo home"
+
+
+class DemoUnavailableError(ServiceUnavailableError):
+    code = "demo_unavailable"
+    message = "Demo sign-in unavailable"
+
+
+class DemoForbiddenError(ForbiddenError):
+    code = "demo_forbidden"
+    message = "Demo sign-in goes through the dashboard"
+
+
+class DemoRateLimitedError(AppError):
+    status_code = 429
+    code = "demo_rate_limited"
+    message = "Too many demo sign-ins in a minute; try again shortly"

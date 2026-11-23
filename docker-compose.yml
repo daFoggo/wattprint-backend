@@ -67,6 +67,8 @@ services:
       WATTPRINT_ADMIN_PASSWORD: ${WATTPRINT_ADMIN_PASSWORD:?WATTPRINT_ADMIN_PASSWORD is required}
       # Secret of the confidential web client `wattprint-web` (the Next.js dashboard).
       WATTPRINT_WEB_CLIENT_SECRET: ${WATTPRINT_WEB_CLIENT_SECRET:?WATTPRINT_WEB_CLIENT_SECRET is required}
+      # Secret of the service account `wattprint-demo-admin` (unlocks a locked demo owner).
+      DEMO_ADMIN_CLIENT_SECRET: ${DEMO_ADMIN_CLIENT_SECRET:?DEMO_ADMIN_CLIENT_SECRET is required}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:?GOOGLE_CLIENT_ID is required}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:?GOOGLE_CLIENT_SECRET is required}
       KC_DB: postgres
@@ -123,6 +125,10 @@ services:
       KEYCLOAK_ISSUER: ${KEYCLOAK_ISSUER:-http://localhost:11095/realms/wattprint}
       KEYCLOAK_JWKS_URL: http://keycloak:11095/realms/wattprint/protocol/openid-connect/certs
       CORS_ORIGINS: ${CORS_ORIGINS}
+      # Demo sign-in (POST /api/v1/demo/session): password grant through the web client.
+      DEMO_PASSWORD: ${DEMO_PASSWORD:-}
+      WATTPRINT_WEB_CLIENT_SECRET: ${WATTPRINT_WEB_CLIENT_SECRET:-}
+      DEMO_ADMIN_CLIENT_SECRET: ${DEMO_ADMIN_CLIENT_SECRET:-}
       APP_DB_PASSWORD: ${APP_DB_PASSWORD:-}
       INGEST_DB_PASSWORD: ${INGEST_DB_PASSWORD:-}
       COPILOT_DB_PASSWORD: ${COPILOT_DB_PASSWORD:-}

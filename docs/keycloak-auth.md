@@ -16,6 +16,16 @@
   `KEYCLOAK_CLIENT_IDS`), creates the `tb_users` row on first request with a local UUIDv7 `id` and stores `sub` in
   `keycloak_sub`; roles come from `realm_access.roles`.
   JWKS down -> 503, bad token -> 401, inactive user -> 403, email under another id -> 409.
+- Demo sign-in: public `GET /api/v1/demo/homes` (the seeded homes of `scripts/demo_homes.toml`, no emails) and
+  `POST /api/v1/demo/session {house}`: the API does a password grant through `wattprint-web` as that home's owner
+  with `DEMO_PASSWORD` and returns Keycloak's tokens; the dashboard stores them like the OAuth callback. This is why
+  `wattprint-web` has Direct Access Grants on (anyone holding its secret, which stays server-side, can password-grant
+  any user). Demo system: anyone may sign in as a demo owner, on purpose. Only the dashboard may ask (header
+  `X-Demo-Secret` = the web client's secret, else 403); it passes the visitor's address in `X-Demo-Visitor`, capped
+  at 5 sessions a minute per visitor and 20 overall (429). A wrong password typed for the shared owner on the
+  Keycloak page locks it for everyone, so on a refused grant the API clears that owner's lockout once with the
+  service account `wattprint-demo-admin` (`DEMO_ADMIN_CLIENT_SECRET`; realm-management `manage-users`,
+  `view-users`) and retries. That secret can edit every realm user: keep it in the API env only.
 - Future AI service: another resource server with its own audience; it verifies the same JWKS.
 
 ## Decisions
