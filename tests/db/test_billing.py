@@ -820,9 +820,7 @@ async def test_refresh_bills_stores_every_cycle_and_follows_a_new_cycle_day(bdb,
         await bsession.commit()
         starts = list(
             await bsession.scalars(
-                select(Bill.period_start)
-                .where(Bill.home_id == h["id"])
-                .order_by(Bill.period_start)
+                select(Bill.period_start).where(Bill.home_id == h["id"]).order_by(Bill.period_start)
             )
         )
         assert starts == [date(2026, 8, 15), date(2026, 9, 15), date(2026, 10, 15)]

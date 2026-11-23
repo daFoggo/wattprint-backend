@@ -1,4 +1,5 @@
 """Create the NILM training windows (128, 256 and 512 steps of 15 s) from the preprocessed CSVs."""
+
 import subprocess
 import sys
 from pathlib import Path

@@ -179,7 +179,9 @@ async def stage_cagg_compression(args) -> None:
                 "row_count_unchanged": same == rows,
             }
             log(f"{fam}_1m: {out[f'{fam}_1m']}")
-        sid = await c.scalar(text("SELECT series_id FROM public.tb_series ORDER BY series_id LIMIT 1"))
+        sid = await c.scalar(
+            text("SELECT series_id FROM public.tb_series ORDER BY series_id LIMIT 1")
+        )
         lat = {}
         for label, sql in (
             (

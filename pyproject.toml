@@ -36,6 +36,12 @@ entrypoint = "app.main:app"
 
 [tool.ruff]
 line-length = 100
+# honour excludes even for paths passed on the command line (`ruff format alembic/versions/x.py` skips it)
+force-exclude = true
+
+[tool.ruff.format]
+# applied migrations are never reformatted: it rewrites revisions already run (docs: wattprint-web handoff, Process)
+exclude = ["alembic/versions/**"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP", "N"]

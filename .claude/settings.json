@@ -1,0 +1,8 @@
+{
+  "extraKnownMarketplaces": {
+    "ai-native-sdlc": { "source": { "source": "github", "repo": "daFoggo/ai-native-sdlc" } }
+  },
+  "enabledPlugins": {
+    "sdlc@ai-native-sdlc": true
+  }
+}

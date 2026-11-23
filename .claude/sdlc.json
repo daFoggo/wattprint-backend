@@ -1,0 +1,58 @@
+{
+  "verify": "uv run ruff check app tests alembic scripts && uv run ruff format --check app tests alembic scripts && uv run python scripts/check_boundaries.py",
+  "verifyTimeout": 120,
+  "check": [
+    {
+      "glob": "{app,tests,alembic,scripts}/**/*.py",
+      "cwd": ".",
+      "run": "uv run ruff check {file} && uv run ruff format --check {file}"
+    },
+    {
+      "glob": "app/modules/**/*.py",
+      "cwd": ".",
+      "run": "uv run python scripts/check_boundaries.py {file}"
+    }
+  ],
+  "protect": [
+    {
+      "glob": "keycloak/providers/**",
+      "reason": "the login theme jar is built in wattprint-web/apps/keycloak-theme (pnpm --filter keycloak-theme build:jar) and not committed"
+    },
+    {
+      "glob": "dataset/{archive,training/artifacts}.zip",
+      "reason": "shipped dataset and training archives; regenerate them with scripts/ (README, Demo homes and NILM), never edit by hand"
+    }
+  ],
+  "denyBash": [
+    {
+      "pattern": "(\\bruff\\s+format\\b(?![^|;&]*--(check|diff))|\\bblack\\b)[^|;&]*alembic",
+      "reason": "never format alembic/versions: it rewrites applied migrations (happened twice). Format only the files you changed under app, tests, scripts; `ruff format --check` is fine"
+    }
+  ],
+  "approve": [
+    {
+      "glob": "alembic/versions/**",
+      "reason": "migrations: a new hand-written revision only, never edit an applied one; the repo owner approves (docs/database-design-guide.md 3.1)"
+    },
+    {
+      "pattern": "\\balembic\\s+(downgrade|stamp)\\b",
+      "reason": "moves the shared dev database's schema; the repo owner approves"
+    },
+    {
+      "pattern": "\\bdocker\\b[^|;&]*\\s(down|stop|kill|up|restart|build|create|rm|prune)\\b",
+      "reason": "changes running containers or volumes on a shared server (dev DB, Keycloak, workers); run tests with `docker compose exec`, ask the user before anything that stops, rebuilds or deletes"
+    }
+  ],
+  "tests": ["tests/**"],
+  "riskyPaths": [
+    "alembic/**",
+    "app/modules/auth/**",
+    "app/modules/billing/**",
+    "app/modules/copilot/**",
+    "app/core/**",
+    "keycloak/realm/**"
+  ],
+  "secrets": true,
+  "artifacts": "docs/work",
+  "debt": "../wattprint-nextjs/docs/debt.md"
+}

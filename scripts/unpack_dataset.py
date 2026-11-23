@@ -12,6 +12,7 @@
                                                             NILMModel.predict
                                     dataset/training/data/refit_house2_windows{,_L256,_L512}.npz
 """
+
 from pathlib import Path
 from zipfile import ZipFile
 
@@ -24,5 +25,5 @@ if __name__ == "__main__":
         raise FileNotFoundError(f"Archive(s) not found: {', '.join(map(str, missing))}")
     for archive_path in ARCHIVES:
         with ZipFile(archive_path) as archive:
-            archive.extractall(ROOT)               # members are stored with repo-relative paths
+            archive.extractall(ROOT)  # members are stored with repo-relative paths
         print(f"Extracted {archive_path.relative_to(ROOT)}")

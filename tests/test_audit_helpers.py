@@ -70,10 +70,22 @@ def test_summarize_ms_and_trim_plan():
 
     s = summarize_ms([float(i) for i in range(1, 101)])
     assert (s["n"], s["p50_ms"], s["p95_ms"], s["max_ms"]) == (100, 50.5, 95.0, 100.0)
-    plan = [{"Execution Time": 1.5, "Planning Time": 0.5, "Plan": {
-        "Node Type": "Append", "Actual Rows": 3, "Shared Hit Blocks": 7, "Shared Read Blocks": 1,
-        "Plans": [{"Node Type": "Index Scan", "Relation Name": "_hyper_1_2_chunk"},
-                  {"Node Type": "Seq Scan", "Relation Name": "series"}]}}]
+    plan = [
+        {
+            "Execution Time": 1.5,
+            "Planning Time": 0.5,
+            "Plan": {
+                "Node Type": "Append",
+                "Actual Rows": 3,
+                "Shared Hit Blocks": 7,
+                "Shared Read Blocks": 1,
+                "Plans": [
+                    {"Node Type": "Index Scan", "Relation Name": "_hyper_1_2_chunk"},
+                    {"Node Type": "Seq Scan", "Relation Name": "series"},
+                ],
+            },
+        }
+    ]
     t = trim_plan(plan)
     assert t["chunk_relations_scanned"] == 1 and t["relations_scanned"] == 2
     assert (t["execution_ms"], t["shared_hit"], t["shared_read"]) == (1.5, 7, 1)
@@ -84,10 +96,19 @@ def test_extrapolation_arithmetic():
 
     data = {
         "stats": {
-            "home_years": 2.0, "bytes_per_reading_raw": 5.0, "bytes_per_device_estimate_raw": 5.0,
-            "bytes": {"aggregates": {"reading_1m": 1500.0, "reading_1h": 20.0, "reading_1d": 2.0,
-                                     "device_estimate_1m": 1000.0, "device_estimate_1h": 9.0,
-                                     "device_estimate_1d": 9.0}},
+            "home_years": 2.0,
+            "bytes_per_reading_raw": 5.0,
+            "bytes_per_device_estimate_raw": 5.0,
+            "bytes": {
+                "aggregates": {
+                    "reading_1m": 1500.0,
+                    "reading_1h": 20.0,
+                    "reading_1d": 2.0,
+                    "device_estimate_1m": 1000.0,
+                    "device_estimate_1h": 9.0,
+                    "device_estimate_1d": 9.0,
+                }
+            },
             "rows": {"aggregates": {"reading_1m": 10, "device_estimate_1m": 10}},
         },
         "cagg_compression": {"reading_1m": {"ratio": 10.0}, "device_estimate_1m": {"ratio": 20.0}},
@@ -104,6 +125,8 @@ def test_extrapolation_arithmetic():
     plugs = extrapolate(data)["scenario_main_plus_9_devices_30s_with_estimates"]
     # 9 estimate series x 525,600 minutes x 100 bytes/row, 20x compressed
     assert plugs["device_estimate_agg_1m_uncompressed_gb_per_home_year"] == round(
-        9 * 525_600 * 100 / 1e9, 4)
+        9 * 525_600 * 100 / 1e9, 4
+    )
     assert plugs["device_estimate_agg_1m_compressed_gb_per_home_year"] == round(
-        9 * 525_600 * 5 / 1e9, 4)
+        9 * 525_600 * 5 / 1e9, 4
+    )

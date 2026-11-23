@@ -36,3 +36,6 @@ dataset/models/
 dataset/research_*/**/*.pt
 dataset/research_*/**/*.npz
 __pycache__/
+
+# sdlc machine-only overrides
+.claude/sdlc.local.json
