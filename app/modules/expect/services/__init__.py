@@ -1,3 +1,14 @@
+from .device import (
+    FACTOR_MIN_SHARE,
+    PAST_DAYS,
+    confidence,
+    device_actual,
+    device_band,
+    device_frame,
+    device_outlook,
+    train_device,
+    trusted_device,
+)
 from .features import (
     FEATURES,
     GROUPS,
@@ -11,6 +22,8 @@ from .refresh import active_bundle, expected, refresh_home, train_home
 from .train import QUANTILES, Bundle
 
 __all__ = [
+    "FACTOR_MIN_SHARE",
+    "PAST_DAYS",
     "FEATURES",
     "GROUPS",
     "QUANTILES",
@@ -21,7 +34,14 @@ __all__ = [
     "expected",
     "feature_frame",
     "hourly_actual",
+    "confidence",
+    "device_actual",
+    "device_outlook",
+    "device_band",
+    "device_frame",
     "predict",
     "refresh_home",
+    "train_device",
     "train_home",
+    "trusted_device",
 ]

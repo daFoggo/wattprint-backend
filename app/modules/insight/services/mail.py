@@ -101,6 +101,37 @@ def alert_text(a: Alert, device: str | None) -> tuple[str, str]:
                 f"{p['days']} ngày qua mỗi lần chạy khoảng {p['recent_min']} phút, thường lệ "
                 f"{p['usual_min']} phút. Kiểm tra gioăng cửa và dàn nóng.",
             )
+        case "device_anomaly":
+            name = device or "Thiết bị"
+            money = f" (≈ {_vnd(p['excess_vnd'])})" if p.get("excess_vnd") else ""
+            match p.get("signal"):
+                case "long_run":
+                    return (
+                        f"{name} chạy lâu bất thường",
+                        f"Lần chạy này {_num(p['value'], 0)} phút, thường khoảng "
+                        f"{_num(p['usual'], 0)} phút ở cùng khung giờ và nhiệt độ{money}. "
+                        "Kiểm tra xem máy có bị kẹt chương trình hay chạy lặp không.",
+                    )
+                case "odd_hour":
+                    return (
+                        f"{name} chạy vào giờ hiếm thấy",
+                        f"Thiết bị bắt đầu chạy lúc {int(p['value'])} giờ; 60 ngày qua nó chạy giờ "
+                        f"này chỉ {_num(p['usual'])}% số ngày. Có ai bật không?",
+                    )
+                case "denser":
+                    return (
+                        f"{name} chạy dày hơn thường lệ",
+                        f"Mấy ngày qua thiết bị chạy {_num(100 * p['value'], 0)}% thời gian, "
+                        f"cùng nhiệt độ một tháng trước là {_num(100 * p['usual'], 0)}%"
+                        f"{money} mỗi ngày. "
+                        "Kiểm tra gioăng cửa, khoảng hở sau máy và nhiệt độ đặt.",
+                    )
+                case _:  # daily
+                    return (
+                        f"{name} hôm nay dùng nhiều hơn thường lệ",
+                        f"Hôm nay {_num(p['value'], 2)} kWh, thường khoảng "
+                        f"{_num(p['usual'], 2)} kWh trong ngữ cảnh như hôm nay{money}.",
+                    )
         case "usage_anomaly":
             start = datetime.fromisoformat(p["start"]).astimezone(ICT).strftime("%H:%M")
             body = (

@@ -8,7 +8,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from app.common.base_model import Base, IdMixin
 
-SCENARIOS = ("heater", "forgotten_load", "base_up", "away", "cold_spell")
+SCENARIOS = ("heater", "forgotten_load", "base_up", "away", "cold_spell", "echo_run")
 
 
 class DemoScenario(IdMixin, Base):

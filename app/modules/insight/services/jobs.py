@@ -3,14 +3,14 @@ import uuid
 from collections.abc import Awaitable, Callable
 from datetime import datetime
 
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import SessionLocal
 from app.modules.billing.api import forecast_bill, refresh_bills
 from app.modules.copilot.api import measure_plans, prune_scope_tokens, prune_speech
-from app.modules.expect.api import refresh_home, train_home
+from app.modules.expect.api import refresh_home, train_device, train_home
 from app.modules.home.api import Home
 
 from ..models import ForecastSnapshot
@@ -63,6 +63,26 @@ async def _snapshot(session: AsyncSession, home_id: uuid.UUID, now: datetime) ->
     )
 
 
+async def train_devices(s: AsyncSession, home_id: uuid.UUID, now: datetime) -> None:
+    """Each device's model in its own savepoint: one that cannot be learnt (a device always at 0 W)
+    is logged and leaves the home's model and the other devices alone."""
+    devices = await s.scalars(
+        text(
+            "SELECT d.id FROM public.tb_device d JOIN public.tb_series x ON x.device_id = d.id "
+            "AND x.kind = 'device' WHERE d.home_id = :h AND d.device_type_code <> 'other' "
+            "AND d.deleted_at IS NULL"
+        ),
+        {"h": home_id},
+    )
+    for device_id in devices.all():  # "Other" is what no device explains: no model of its own
+        try:
+            async with s.begin_nested():
+                if v := await train_device(s, home_id, device_id, now):
+                    log.info("device %s: expected-usage model %s", device_id, v)
+        except Exception:
+            log.exception("device %s: model not learnt", device_id)
+
+
 async def expect_train(now: datetime) -> None:
     """Relearn each home's expected-usage model from its days up to yesterday (daily)."""
 
@@ -70,6 +90,7 @@ async def expect_train(now: datetime) -> None:
         version = await train_home(s, home_id, now)
         if version:
             log.info("home %s: expected-usage model %s", home_id, version)
+        await train_devices(s, home_id, now)
 
     await each_home(work)
 

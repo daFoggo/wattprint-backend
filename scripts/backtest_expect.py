@@ -116,7 +116,8 @@ async def main(key: str, days: int) -> None:
         await s.execute(
             text(
                 "UPDATE public.tb_expect_model SET metrics = metrics || "
-                "jsonb_build_object('backtest', CAST(:m AS jsonb)) WHERE home_id = :h AND active"
+                "jsonb_build_object('backtest', CAST(:m AS jsonb)) "
+                "WHERE home_id = :h AND device_id IS NULL AND active"
             ),
             {"h": home.id, "m": json.dumps(result)},
         )

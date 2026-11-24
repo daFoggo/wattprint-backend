@@ -40,6 +40,11 @@ class Settings(BaseSettings):
     # In-context home anomaly: the least excess over the expected band worth an alert (VND).
     anomaly_min_vnd_3h: int = 2000
     anomaly_min_vnd_day: int = 5000
+    device_min_vnd: int = 2000  # a device anomaly worth an alert
+    # A device forecast's certainty from its holdout's daily error over mean daily kWh (WAPE).
+    device_high_wape: float = 0.25
+    device_medium_wape: float = 0.5
+    device_advice_min_vnd: int = 5000  # advice worth showing, saved by the cycle's end
     # Links in mails point here.
     dashboard_url: str = "http://localhost:11092"
     smtp_host: str = "mailpit"

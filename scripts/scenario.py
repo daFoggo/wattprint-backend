@@ -16,7 +16,13 @@ from sqlalchemy import text
 from app.database import SessionLocal
 from scripts import refit
 
-EVENTS = ("forgotten_load", "base_up", "away", "cold_spell")  # the heater comes from the seed
+EVENTS = (
+    "forgotten_load",
+    "base_up",
+    "away",
+    "cold_spell",
+    "echo_run",
+)  # the heater comes from the seed
 
 
 async def _home(s, key: str):
@@ -30,11 +36,54 @@ async def _home(s, key: str):
     return home_id
 
 
+async def _shape(s, home_id, device_type: str) -> list[float]:
+    """The main meter's watts over the base, per minute, of the device's latest run lasting
+    about its median: what the meter saw while that device ran."""
+    run = (
+        await s.execute(
+            text(
+                "WITH r AS (SELECT c.start_ts, c.end_ts, c.end_ts - c.start_ts AS len "
+                "FROM public.tb_device_cycle c JOIN public.tb_device d ON d.id = c.device_id "
+                "WHERE c.home_id = :h AND d.device_type_code = :t), "
+                "m AS (SELECT percentile_cont(0.5) WITHIN GROUP (ORDER BY extract(epoch FROM len)) "
+                "AS med FROM r) "
+                "SELECT start_ts, end_ts FROM r, m ORDER BY abs(extract(epoch FROM len) - m.med), "
+                "start_ts DESC LIMIT 1"
+            ),
+            {"h": home_id, "t": device_type},
+        )
+    ).first()
+    if run is None:
+        raise SystemExit(f"no run of a {device_type!r} in this home yet")
+    minutes = (
+        (
+            await s.execute(
+                text(
+                    "SELECT r.avg_w FROM public.reading_1m r "
+                    "JOIN public.tb_series x USING (series_id) WHERE x.home_id = :h "
+                    "AND x.kind = 'main' AND r.bucket >= :a AND r.bucket < :b "
+                    "ORDER BY r.bucket"
+                ),
+                {"h": home_id, "a": run.start_ts, "b": run.end_ts},
+            )
+        )
+        .scalars()
+        .all()
+    )
+    if not minutes:
+        raise SystemExit("no meter readings for that run")
+    base = min(minutes)
+    return [round(float(w) - float(base)) for w in minutes]
+
+
 async def main(a: argparse.Namespace) -> None:
     now = datetime.now(UTC)
     async with SessionLocal() as s, s.begin():
         if a.cmd == "start":
-            params = {k: float(v) for k, v in (p.split("=", 1) for p in a.param)}
+            raw = dict(p.split("=", 1) for p in a.param)
+            params = {k: float(v) for k, v in raw.items() if k != "device"}
+            if a.name == "echo_run":
+                params["shape"] = await _shape(s, await _home(s, a.house), raw.get("device", ""))
             await s.execute(
                 text(
                     "INSERT INTO public.tb_demo_scenario "
@@ -77,5 +126,5 @@ if __name__ == "__main__":
     p.add_argument("--house")
     p.add_argument("--name", choices=EVENTS)
     p.add_argument("--hours", type=float)
-    p.add_argument("--param", action="append", default=[])
+    p.add_argument("--param", action="append", default=[], help="k=v; echo_run: device=<type>")
     asyncio.run(main(p.parse_args()))

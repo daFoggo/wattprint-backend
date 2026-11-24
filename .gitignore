@@ -39,3 +39,5 @@ __pycache__/
 
 # sdlc machine-only overrides
 .claude/sdlc.local.json
+# REFIT Smart Home dataset (Loughborough, figshare 2070091): room sensors for the demo homes
+dataset/refit_smart_home/

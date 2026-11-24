@@ -11,11 +11,11 @@ import pandas as pd
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
-from app.modules.energy.api import backfill_aggregates
-from app.modules.ops.api import ingest_estimates
+from app.modules.energy.api import backfill_aggregates, weather_inputs
+from app.modules.ops.api import DemoScenario, heater_w, ingest_estimates, scenarios_between
 
 from . import windows
-from .devices import OTHER, ensure_devices
+from .devices import HEATER, OTHER, ensure_devices
 
 log = logging.getLogger(__name__)
 
@@ -121,10 +121,49 @@ async def _open_head(session: AsyncSession, series_id: uuid.UUID, lo: datetime) 
     )
 
 
+async def heater_inputs(
+    session: AsyncSession, home_id: uuid.UUID, lo: datetime, hi: datetime
+) -> tuple[list[DemoScenario], pd.Series | None]:
+    """The home's simulated heaters over [lo, hi] and the hourly temperature the replay heated
+    by (weather_inputs as known at `hi`); ([], None) for a home without one."""
+    heaters = [
+        sc for sc in await scenarios_between(session, home_id, lo, hi) if sc.name == "heater"
+    ]
+    if not heaters:
+        return [], None
+    temps = await weather_inputs(session, home_id, lo, hi + timedelta(hours=1), hi)
+    return heaters, temps["temp_c"]
+
+
+def heater_watts(
+    index: pd.DatetimeIndex, heaters: list[DemoScenario], temps: pd.Series, tz: str
+) -> np.ndarray:
+    """The simulated heater's watts at each bin, as the replay added it to the main meter (the
+    same hourly temperature and formula, ops.heater_w)."""
+    out = np.zeros(len(index))
+    hours = index.floor("h")
+    local = hours.tz_convert(tz).hour
+    for sc in heaters:
+        end = pd.Timestamp(sc.ends_at) if sc.ends_at else pd.Timestamp.max.tz_localize("UTC")
+        inside = (index >= pd.Timestamp(sc.starts_at)) & (index < end)
+        per_hour = {
+            h: heater_w(temps.get(h), lh, sc.params or {})
+            for h, lh in set(zip(hours[inside], local[inside], strict=True))
+        }
+        out[inside] += [per_hour[h] for h in hours[inside]]
+    return out
+
+
 def compute(
-    bundle, plan: windows.Plan, tz: str, series: dict[str, uuid.UUID]
+    bundle,
+    plan: windows.Plan,
+    tz: str,
+    series: dict[str, uuid.UUID],
+    heater: np.ndarray | None = None,
 ) -> list[tuple[datetime, uuid.UUID, float]]:
-    """Run the model over the planned windows; rows for every covered bin from write_from on."""
+    """Run the model over the planned windows; rows for every covered bin from write_from on. A
+    simulated heater's watts (aligned with plan.series) are handed back from Other, never more
+    than Other holds, so the devices still add up to the meter."""
     s, window = plan.series, bundle.window
     if not plan.starts:
         return []
@@ -135,7 +174,12 @@ def compute(
     keep = keep[keep >= plan.write_from]
     ts = s.index[keep].to_pydatetime()
     columns = [*bundle.labels, OTHER]
-    values = np.vstack([apps[:, keep], other[None, keep]])
+    rows = [apps[:, keep], other[None, keep]]
+    if heater is not None:
+        given = np.minimum(heater, other)
+        rows = [apps[:, keep], (other - given)[None, keep], given[None, keep]]
+        columns.append(HEATER)
+    values = np.vstack(rows)
     return [
         (when, series[label], float(v))
         for label, row in zip(columns, values, strict=True)
@@ -175,7 +219,10 @@ async def run_pass(
         hi = min(start + CHUNK, newest)
         open_head = await _open_head(session, t.main_series, lo)
         ts, watts = await _read(session, t.main_series, lo, hi)
-        series = await ensure_devices(session, t.home_id, bundle.labels)
+        heaters, temps = await heater_inputs(session, t.home_id, lo, hi)
+        series = await ensure_devices(
+            session, t.home_id, bundle.labels, (HEATER,) if heaters else ()
+        )
         run_id = await session.scalar(
             text(
                 "INSERT INTO public.tb_inference_run "
@@ -186,7 +233,14 @@ async def run_pass(
         )
     try:
         plan = windows.plan(ts, watts, start, window, window // 2, open_head)
-        rows = await asyncio.to_thread(compute, bundle, plan, t.timezone, series) if plan else []
+        heater = None
+        if plan and heaters:
+            heater = heater_watts(plan.series.index, heaters, temps, t.timezone)
+        rows = (
+            await asyncio.to_thread(compute, bundle, plan, t.timezone, series, heater)
+            if plan
+            else []
+        )
         # No final bin in this slice (a gap longer than the chunk): skip past it.
         checkpoint = plan.final_until if plan and plan.final_until else None
         if checkpoint is None and hi < newest:

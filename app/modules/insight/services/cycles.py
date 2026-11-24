@@ -9,7 +9,20 @@ from app.modules.energy.api import on_w, runs
 
 from ..models import DeviceCycle
 
-KEEP = timedelta(days=35)  # first pass and the oldest minute a pass re-reads
+KEEP = timedelta(days=65)  # device anomalies compare with the runs of the last 60 days
+FILLED = timedelta(days=2)  # a device whose oldest run is this close to KEEP has its history
+
+
+def since_for(oldest: datetime | None, newest: datetime | None, until: datetime) -> datetime:
+    """Where a pass starts reading a device's minutes: from KEEP back on its first pass and while
+    its stored runs do not reach that far (insert-only, so re-reading is harmless), else from
+    where its last run ended."""
+    floor = until - KEEP
+    # shortcut: a device that is really new re-reads 65 days each pass, cheap for a few homes;
+    # store a "history filled" mark per device before many homes run this
+    if oldest is None or newest is None or oldest > floor + FILLED:
+        return floor
+    return max(newest, floor)
 
 
 async def refresh_cycles(session: AsyncSession, home_id: uuid.UUID, until: datetime) -> None:
@@ -24,10 +37,14 @@ async def refresh_cycles(session: AsyncSession, home_id: uuid.UUID, until: datet
         {"h": home_id},
     )
     for d in devices.all():
-        last = await session.scalar(
-            select(func.max(DeviceCycle.end_ts)).where(DeviceCycle.device_id == d.id)
-        )
-        since = max(last or until - KEEP, until - KEEP)
+        oldest, last = (
+            await session.execute(
+                select(func.min(DeviceCycle.start_ts), func.max(DeviceCycle.end_ts)).where(
+                    DeviceCycle.device_id == d.id
+                )
+            )
+        ).one()
+        since = since_for(oldest, last, until)
         minutes = [
             (r.bucket, float(r.avg_w), float(r.energy_wh), float(r.max_w))
             for r in await session.execute(

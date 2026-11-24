@@ -5,7 +5,6 @@ from sqlalchemy import select, text
 from app.models import Alert
 from app.modules.insight.services.detectors import detect
 from tests.db.test_billing import (
-    add_device,
     backfill,
     bdb,
     bsession,
@@ -34,30 +33,6 @@ async def analyzed(c, h, until):
 async def alerts(s, h):
     s.expire_all()
     return {a.dedup_key: a for a in await s.scalars(select(Alert).where(Alert.home_id == h["id"]))}
-
-
-async def test_fridge_runs_longer_than_usual_raises_once(bdb, bsession):
-    c, _ = bdb
-    async with home(c, bsession) as h:
-        did, sid = await add_device(c, h)  # a fridge
-        for day in range(5, 25, 4):  # usual: 20-minute runs
-            await load(c, sid, NOW - timedelta(days=day), 20, 100, "device_estimate")
-        for hours in (40, 30, 20, 10):  # these three days: 40 minutes
-            await load(c, sid, NOW - timedelta(hours=hours), 40, 100, "device_estimate")
-        await analyzed(c, h, NOW)
-        await backfill(c, NOW - timedelta(days=30), NOW)
-        await detect(bsession, h["id"], NOW)
-        await detect(bsession, h["id"], NOW + timedelta(minutes=5))  # same alert, not a second
-        await bsession.commit()
-        found = await alerts(bsession, h)
-        a = found[f"longer_than_usual:{did}"]
-        assert (a.device_id, a.status, a.severity) == (did, "open", "warning")
-        assert a.payload == {"usual_min": 20, "recent_min": 40, "days": 3}
-        assert len(found) == 1
-        stored = await c.scalar(
-            text("SELECT count(*) FROM public.tb_device_cycle WHERE device_id = :d"), {"d": did}
-        )
-        assert stored == 9
 
 
 async def test_standby_high_compares_the_last_three_nights(bdb, bsession):

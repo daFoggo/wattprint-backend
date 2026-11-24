@@ -5,7 +5,7 @@ from app.dependencies import DbSession
 from app.modules.energy.api import CurrentHome
 
 from .. import services
-from ..schemas import CurrentBill, Forecast, PastBill
+from ..schemas import CurrentBill, DeviceForecasts, Forecast, PastBill
 
 router = APIRouter()
 
@@ -49,3 +49,19 @@ async def forecast(home_id: CurrentHome, db: DbSession) -> Forecast:
             "Not enough full days of readings to forecast yet", code="forecast_unavailable"
         )
     return Forecast.model_validate(f)
+
+
+@router.get(
+    "/devices/forecast",
+    summary="Each device to the cycle's end and the next 7 days: range, why, certainty, advice",
+)
+async def device_forecast(home_id: CurrentHome, db: DbSession) -> DeviceForecasts:
+    try:
+        got = await services.device_forecasts(db, home_id)
+    except LookupError as exc:  # no tariff plan, or no version valid for the cycle
+        raise NotFoundError(str(exc), code="tariff_not_found") from None
+    if got is None:
+        raise NotFoundError(
+            "Not enough full days of readings to forecast yet", code="forecast_unavailable"
+        )
+    return DeviceForecasts.model_validate(got)

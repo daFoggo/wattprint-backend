@@ -4,6 +4,7 @@ from .services import (
     bill_history,
     compute_bill,
     current_bill,
+    device_forecasts,
     forecast_bill,
     refresh_bills,
 )
@@ -18,6 +19,7 @@ __all__ = [
     "bill_history",
     "compute_bill",
     "current_bill",
+    "device_forecasts",
     "forecast_bill",
     "refresh_bills",
 ]

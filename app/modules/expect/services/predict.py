@@ -7,11 +7,12 @@ from .train import QUANTILES, Bundle, level
 COLUMN = {q: f"p{round(q * 100):02d}" for q in QUANTILES}  # 0.05 -> p05, 0.5 -> p50
 
 
-def predict(b: Bundle, x: pd.DataFrame) -> pd.DataFrame:
+def predict(b: Bundle, x: pd.DataFrame, per_feature: bool = False) -> pd.DataFrame:
     """kWh quantiles per hour (sorted so they never cross, never below 0) and the P50's TreeSHAP
     contributions summed per factor group, in kWh; c_base + the c_<group> add up to p50_raw. A
     ratio model (metrics.ref_h) is scaled by the home's recent level, and a level away from the
-    one it learnt on is owed to the trend."""
+    one it learnt on is owed to the trend. With `per_feature`, also
+    f_<feature> per input (scaled the same way)."""
     ref_h = b.metrics.get("ref_h")
     scale = level(x, ref_h).to_numpy() if ref_h is not None else np.ones(len(x))
     x = x[list(b.features)]
@@ -35,6 +36,10 @@ def predict(b: Bundle, x: pd.DataFrame) -> pd.DataFrame:
     names = list(b.features)
     for g, cols in GROUPS.items():
         out[f"c_{g}"] = contrib[:, [names.index(c) for c in cols if c in names]].sum(axis=1) * scale
+    if per_feature:  # f_<feature>: each input's own share, to tell weather's parts apart
+        for i, name in enumerate(names):
+            out[f"f_{name}"] = contrib[:, i] * scale
+        out["scale"] = scale  # the level each hour's shares were scaled by
     bias = contrib[:, -1]
     ref = ref_h if ref_h is not None else 1.0
     out["c_base"] = bias * ref

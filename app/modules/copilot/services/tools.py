@@ -18,7 +18,7 @@ from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
-from app.modules.billing.api import bill_history, current_bill, forecast_bill
+from app.modules.billing.api import bill_history, current_bill, device_forecasts, forecast_bill
 from app.modules.energy.api import device_breakdown, stored_weather, weather_at
 from app.modules.expect.api import expected, hourly_actual
 from app.modules.home.api import Device, Home, Province
@@ -264,6 +264,79 @@ async def bill_forecast(ctx: Ctx) -> Outcome:
 
 
 GROUPS = ("weather", "calendar", "occupancy", "trend")
+
+
+def device_view(d) -> dict[str, Any]:
+    """One device's forecast as the model reads it: every figure computed, none to invent."""
+    return {
+        "device": d.name,
+        "simulated": d.simulated,
+        "to_cycle_end": {
+            "kwh": _f(d.kwh, 1),
+            "vnd": _f(d.amount, 0),
+            "kwh_range": [_f(d.kwh_p10, 1), _f(d.kwh_p90, 1)],
+        },
+        "next_days": [
+            {"date": x.date.isoformat(), "kwh": _f(x.kwh, 2), "vnd": _f(x.amount, 0)}
+            for x in d.next_days
+        ],
+        "from": "its own model (weather, calendar, routine)"
+        if d.method == "model"
+        else "its usual for the weekday and hour over the last 4 weeks",
+        "certainty": d.confidence,
+        "tried_on": {"days": d.backtest_days, "mean_error_pct": d.error_pct},
+        "against_usual": None
+        if d.explain is None
+        else {
+            "usual_kwh_day": _f(d.explain.usual_kwh_day, 2),
+            "next_7_days_kwh_day": _f(d.explain.forecast_kwh_day, 2),
+            "reasons_known": d.explain.explainable,
+            "why": [
+                {
+                    "factor": x.key,
+                    "kwh_day": _f(x.kwh_day, 2),
+                    "vnd_7_days": _f(x.amount, 0),
+                    "ahead": x.now,
+                    "last_28_days": x.before,
+                    **(
+                        {"last_week_c": x.recent_temp, "last_28_days_c": x.usual_temp}
+                        if x.recent_temp is not None
+                        else {}
+                    ),
+                }
+                for x in d.explain.factors
+            ],
+        },
+        "advice": [
+            {
+                "what": a.key,
+                "saves_vnd": _f(a.saved_amount, 0),
+                "saves_kwh": _f(a.saved_kwh, 1),
+                "keeps_out_of_tier": a.avoids_tier,
+                **a.params,
+            }
+            for a in d.advice
+        ],
+    }
+
+
+async def device_forecast(ctx: Ctx, device: str | None = None) -> Outcome:
+    try:
+        got = await device_forecasts(ctx.session, ctx.home_id, ctx.now)
+    except LookupError:
+        return Outcome({"error": "the home has no tariff plan"}, "forecast")
+    if got is None:
+        return Outcome({"error": "fewer than 7 full days of readings: no forecast yet"}, "forecast")
+    rows = got.devices
+    if device:
+        rows = [d for d in rows if device.casefold() in d.name.casefold()] or rows
+    return Outcome(
+        data={"cycle_ends": got.period_end.isoformat(), "devices": [device_view(d) for d in rows]},
+        detail=_vi(ctx, "Mô hình theo thiết bị · biểu giá", "Per-device model · tariff"),
+        tier="estimated",
+        sources=["nilm", "model", "tariff"],
+        links=["devices"],
+    )
 
 
 def explain_parts(cur: pd.DataFrame, prev: pd.DataFrame) -> dict[str, Any]:
@@ -977,6 +1050,16 @@ TOOLS: dict[str, tuple[Tool, dict]] = {
         _fn("bill_forecast", "The bill at the end of this cycle and when the next tier starts."),
     ),
     "bill_history": (bills_past, _fn("bill_history", "Ended cycles' bills.")),
+    "device_forecast": (
+        device_forecast,
+        _fn(
+            "device_forecast",
+            "Each device's (or one device's) kWh and VND for the next 7 days and to the cycle's "
+            "end, its range, what drives it, how certain it is (tried on past days) and priced "
+            "advice to use it better.",
+            {"device": {"type": "string", "description": "part of the device's name"}},
+        ),
+    ),
     "explain_usage": (
         explain_usage,
         _fn(

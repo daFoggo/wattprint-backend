@@ -28,6 +28,7 @@ ALERT_KINDS = (
     "device_long_run",
     "device_high_power",
     "usage_anomaly",
+    "device_anomaly",
 )
 
 

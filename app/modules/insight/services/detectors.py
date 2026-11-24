@@ -1,28 +1,43 @@
 import math
-import statistics
 import uuid
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta, timezone
 
+import pandas as pd
 from sqlalchemy import exists, select, text, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.modules.billing.api import current_bill, forecast_bill
-from app.modules.energy.api import analyzed_until
-from app.modules.expect.api import ExpectModel, activity_ratio, expected, hourly_actual
+from app.modules.energy.api import analyzed_until, weather_inputs
+from app.modules.expect.api import (
+    ExpectModel,
+    activity_ratio,
+    device_actual,
+    device_band,
+    expected,
+    hourly_actual,
+)
 
 from ..models import Alert
 from .cycles import refresh_cycles
+from .device_signals import (
+    MIN_DAYS,
+    MIN_RUNS,
+    TEMP_C,
+    Run,
+    daily_excess,
+    denser_cycling,
+    long_run,
+    odd_hour,
+    peers_of,
+)
 from .feedback import sensitivity
 
 ICT = timezone(timedelta(hours=7))
 BASE_DAYS = 28  # the usual: the 28 days (or nights) before the recent ones
 RECENT_DAYS = 3
-CYCLIC = ("fridge", "fridge_freezer", "freezer")  # run length is the appliance's, not the user's
-LONGER = 1.5
-MIN_RUNS = 3
 STANDBY_RATIO, STANDBY_PLUS_W = 1.3, 50.0
 NIGHT_END_H = 5  # standby is read 00:00-05:00, when little is switched on by hand
 UNEXPLAINED_PLUS_W = 300.0
@@ -43,43 +58,6 @@ class Finding:
 
 # Each detector returns what holds now, or None when the data cannot tell (then its open alerts
 # stay as they are instead of being resolved for lack of data).
-
-
-async def _longer_than_usual(s: AsyncSession, home_id: uuid.UUID, until: datetime):
-    split = until - timedelta(days=RECENT_DAYS)
-    rows = await s.execute(
-        text(
-            "SELECT c.device_id, c.start_ts >= :split AS recent, "
-            "extract(epoch FROM c.end_ts - c.start_ts) / 60 AS minutes "
-            "FROM public.tb_device_cycle c JOIN public.tb_device d ON d.id = c.device_id "
-            "WHERE c.home_id = :h AND d.device_type_code = ANY(:types) AND c.start_ts >= :lo"
-        ),
-        {
-            "h": home_id,
-            "types": list(CYCLIC),
-            "split": split,
-            "lo": split - timedelta(days=BASE_DAYS),
-        },
-    )
-    runs: dict[uuid.UUID, tuple[list[float], list[float]]] = {}
-    for r in rows:
-        runs.setdefault(r.device_id, ([], []))[r.recent].append(float(r.minutes))
-    out = []
-    for device_id, (usual, recent) in runs.items():
-        if len(usual) < MIN_RUNS or len(recent) < MIN_RUNS:
-            continue
-        u, n = statistics.median(usual), statistics.median(recent)
-        if n > LONGER * u:
-            out.append(
-                Finding(
-                    "longer_than_usual",
-                    f"longer_than_usual:{device_id}",
-                    "warning",
-                    {"usual_min": round(u), "recent_min": round(n), "days": RECENT_DAYS},
-                    device_id,
-                )
-            )
-    return out
 
 
 async def _standby_high(s: AsyncSession, home_id: uuid.UUID, now: datetime):
@@ -354,9 +332,164 @@ async def _upsert(s: AsyncSession, home_id: uuid.UUID, f: Finding, now: datetime
     await s.execute(
         stmt.on_conflict_do_update(
             index_elements=["home_id", "dedup_key"],
-            index_where=Alert.status != "resolved",
+            # A literal: a bound parameter stops Postgres matching the partial index once it
+            # switches the prepared statement to a generic plan (after five runs).
+            index_where=text("status <> 'resolved'"),
             set_={"payload": stmt.excluded.payload, "severity": stmt.excluded.severity},
         )
+    )
+
+
+DEVICE = "device_anomaly"
+CYCLING = ("fridge", "fridge_freezer", "freezer")
+HISTORY = timedelta(days=60)
+
+
+async def _avg_price(s: AsyncSession, home_id: uuid.UUID, now: datetime) -> float | None:
+    """What a kWh costs the home on average this cycle (VAT included); None without a tariff."""
+    try:
+        bill = await current_bill(s, home_id, now)
+    except LookupError:
+        return None
+    return float(bill.amount_total / bill.kwh) if bill.kwh > 0 else None
+
+
+async def _device_runs(s: AsyncSession, device_id: uuid.UUID, lo: datetime, until: datetime):
+    return (
+        await s.execute(
+            text(
+                "SELECT start_ts, end_ts, energy_wh FROM public.tb_device_cycle "
+                "WHERE device_id = :d AND start_ts >= :lo AND end_ts <= :until ORDER BY start_ts"
+            ),
+            {"d": device_id, "lo": lo, "until": until},
+        )
+    ).all()
+
+
+def _to_run(r, temps) -> Run:
+    local = r.start_ts.astimezone(ICT)
+    temp = temps.get(pd.Timestamp(r.start_ts).floor("h"))
+    return Run(
+        minutes=(r.end_ts - r.start_ts).total_seconds() / 60,
+        kwh=float(r.energy_wh) / 1000,
+        start_hour=local.hour,
+        temp_c=None if temp is None or pd.isna(temp) else float(temp),
+        day=local.toordinal(),
+    )
+
+
+def same_temperature(old: dict[int, tuple[float, float | None]], temp_now: float | None):
+    """D4's usual: the mean on-time share of the old days (28–56 days back) whose mean
+    temperature was within ±3 °C of the last 3 days'; None when no such day."""
+    if temp_now is None:
+        return None
+    alike = [share for share, t in old.values() if t is not None and abs(t - temp_now) <= TEMP_C]
+    return sum(alike) / len(alike) if alike else None
+
+
+async def _device_anomalies(s: AsyncSession, home_id: uuid.UUID, until: datetime, now: datetime):
+    """Per device: its runs that ended today and today's kWh against its own past in the same
+    context (D1–D4, spec docs/work/2026-11-23-device-ai §2). Only what NILM has analysed counts;
+    each run is judged once, on the local day it ended."""
+    price = await _avg_price(s, home_id, now)
+    if price is None:
+        return None
+    devices = (
+        await s.execute(
+            text(
+                "SELECT id, device_type_code AS type FROM public.tb_device "
+                "WHERE home_id = :h AND device_type_code <> 'other' AND deleted_at IS NULL"
+            ),
+            {"h": home_id},
+        )
+    ).all()
+    local = until.astimezone(ICT)
+    midnight = datetime(local.year, local.month, local.day, tzinfo=ICT).astimezone(UTC)
+    hour = until.replace(minute=0, second=0, microsecond=0)  # D1 on whole analysed hours
+    temps = (await weather_inputs(s, home_id, until - HISTORY, until, now))["temp_c"]
+    day_temp = temps.groupby(temps.index.tz_convert(ICT).date).mean()
+    out = []
+    for d in devices:
+        rows = await _device_runs(s, d.id, until - HISTORY, until)
+        all_runs = [(r, _to_run(r, temps)) for r in rows]
+        recent = [(r, x) for r, x in all_runs if r.end_ts >= midnight]
+        past = [x for r, x in all_runs if r.end_ts < midnight]
+        days = (past[-1].day - past[0].day + 1) if past else 0
+        enough = days >= MIN_DAYS and len(past) >= MIN_RUNS  # D2 and D3 (spec §2.1)
+        factor = {
+            sig: await sensitivity(s, home_id, DEVICE, d.id, sig)
+            for sig in ("long_run", "odd_hour", "denser", "daily")
+        }
+        found = []
+        for r, x in recent if enough else []:
+            if got := long_run(x, peers_of(x, past), price, factor["long_run"]):
+                found.append({**got, "at": r.start_ts.isoformat()})
+            at_hour = len({p.day for p in past if p.start_hour == x.start_hour})
+            if got := odd_hour(x.start_hour, at_hour, days, len(past), factor["odd_hour"]):
+                found.append({**got, "at": r.start_ts.isoformat()})
+        if d.type in CYCLING and past:
+            share: dict[int, float] = {}
+            for _, x in all_runs:
+                share[x.day] = share.get(x.day, 0.0) + x.minutes / 1440
+            today = local.toordinal()
+            last3 = [share.get(today - k, 0.0) for k in (3, 2, 1)]
+            recent_t = [day_temp.get(date.fromordinal(today - k)) for k in (3, 2, 1)]
+            recent_t = [t for t in recent_t if t is not None and not pd.isna(t)]
+            old = {
+                k: (share[k], day_temp.get(date.fromordinal(k)))
+                for k in share
+                if 28 <= today - k <= 56
+            }
+            usual = same_temperature(old, sum(recent_t) / len(recent_t) if recent_t else None)
+            daily = sum(x.kwh for x in past) / max(days, 1)
+            if usual and (got := denser_cycling(last3, usual, daily, price, factor["denser"])):
+                found.append(got)
+        band = await device_band(s, home_id, d.id, midnight, hour, now) if hour > midnight else None
+        if band is not None and len(band):
+            actual = await device_actual(s, d.id, midnight, hour)
+            known = actual.reindex(band.index).notna()
+            if known.all():
+                if got := daily_excess(
+                    float(actual.sum()),
+                    float(band["p50"].sum()),
+                    float(band["p95"].sum()),
+                    price,
+                    factor["daily"],
+                ):
+                    found.append(got)
+        if found:
+            best = max(found, key=lambda g: g.get("excess_vnd", 0.0))
+            out.append(
+                Finding(
+                    DEVICE, f"{DEVICE}:{d.id}:{local.date().isoformat()}", "warning", best, d.id
+                )
+            )
+    return out
+
+
+async def settle_devices(
+    s: AsyncSession,
+    home_id: uuid.UUID,
+    found: list[Finding],
+    until: datetime,
+    now: datetime | None = None,
+) -> None:
+    """One device anomaly per device per local day of what NILM has analysed (`until`): that
+    day's stay, earlier days resolve. Using `until`, not the clock, keeps a lagging NILM from
+    raising and resolving the same alert past midnight."""
+    now = now or until
+    for f in found:
+        await _upsert(s, home_id, f, now)
+    day = until.astimezone(ICT).date().isoformat()
+    await s.execute(
+        update(Alert)
+        .where(
+            Alert.home_id == home_id,
+            Alert.kind == DEVICE,
+            Alert.status != "resolved",
+            ~Alert.dedup_key.like(f"%:{day}"),
+        )
+        .values(status="resolved", resolved_at=now)
     )
 
 
@@ -371,14 +504,27 @@ async def detect(s: AsyncSession, home_id: uuid.UUID, now: datetime) -> None:
     if until is not None:
         await refresh_cycles(s, home_id, until)
     has_model = bool(
-        await s.scalar(select(exists().where(ExpectModel.home_id == home_id, ExpectModel.active)))
+        await s.scalar(
+            select(
+                exists().where(
+                    ExpectModel.home_id == home_id,
+                    ExpectModel.device_id.is_(None),
+                    ExpectModel.active,
+                )
+            )
+        )
     )
     kinds = rule_kinds(has_model)
     if USAGE in kinds:
         found = await _usage_anomaly(s, home_id, now)
         await settle_usage(s, home_id, found or [], now)
+    if until is not None:
+        found = await _device_anomalies(s, home_id, until, now)
+        if found is not None:
+            await settle_devices(s, home_id, found, until, now)
     checks = {
-        "longer_than_usual": lambda: _longer_than_usual(s, home_id, until) if until else None,
+        # Replaced by device_anomaly (long runs and denser cycling): its open alerts resolve.
+        "longer_than_usual": _nothing,
         "standby_high": lambda: _standby_high(s, home_id, now),
         # With a model the old rule finds nothing, so its open alerts resolve.
         "unexplained_load": lambda: (

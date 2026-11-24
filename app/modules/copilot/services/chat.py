@@ -58,6 +58,7 @@ STEPS = {
     "devices_breakdown": ("Đọc điện năng theo thiết bị", "Read energy by device"),
     "current_bill": ("Tính hoá đơn kỳ này", "Price this cycle"),
     "bill_forecast": ("Dự báo hoá đơn cuối kỳ", "Forecast the cycle's bill"),
+    "device_forecast": ("Dự báo theo thiết bị", "Forecast each device"),
     "bill_history": ("Đọc các hoá đơn trước", "Read past bills"),
     "compare_periods": ("So với kỳ trước", "Compare with the previous period"),
     "explain_usage": ("Giải thích mức dùng điện", "Explain the usage"),
@@ -79,6 +80,7 @@ INTENTS = {
     "compare_periods": "bill",
     "explain_usage": "bill",
     "bill_forecast": "forecast",
+    "device_forecast": "forecast",
     "weather": "weather",
     "cohort": "peers",
     "standby": "standby",
@@ -105,6 +107,9 @@ PROMPT = """You are Wappi, the energy assistant of WattPrint for one household i
 - "Vì sao… cao/thấp" / "why is… high/low": call explain_usage and name the biggest parts
   (weather, calendar, routine, trend, unexplained). A forecast is a range: give it as "khoảng
   a–b". A load listed in `simulated` is simulated for the demo: say so if you mention it.
+- A device's future use or how to use it better: call device_forecast; give its range and its
+  certainty ("độ chắc chắn"), why it differs from its usual (each factor with its evidence, e.g.
+  colder: 5 °C against 9 °C), and its advice with the VND saved.
 - Outside home energy, decline briefly.
 - A label in brackets such as [số điện thoại] or [email] is personal data the app removed: you do
   not need it, so never ask for it or guess it.

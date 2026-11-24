@@ -73,3 +73,28 @@ def test_backfill_window_stops_before_first_estimate():
         (lo + timedelta(days=2), first),
     ]
     assert backfill_windows(first, first, timedelta(days=1)) == []
+
+
+def test_backfill_fills_only_the_days_without_estimates():
+    from scripts.backfill_nilm import missing_windows
+
+    lo = datetime(2026, 1, 1, tzinfo=UTC)
+    hi = lo + timedelta(days=5)
+    have = {
+        lo + timedelta(days=1),
+        lo + timedelta(days=3),
+    }  # day starts that already have estimates
+    assert missing_windows(lo, hi, have, timedelta(days=1)) == [
+        (lo, lo + timedelta(days=1)),
+        (lo + timedelta(days=2), lo + timedelta(days=3)),
+        (lo + timedelta(days=4), hi),
+    ]
+
+
+def test_echo_adds_the_run_shape_from_now():
+    start = T0
+    scen = [sc("echo_run", start, start + timedelta(hours=1), shape=[100, 200, 300], times=2)]
+    rows = [row(start + timedelta(seconds=s)) for s in (0, 70, 130, 190, 250, 310, 370)]
+    out = [r.value for r in apply(rows, scen, lambda ts: 10.0)]
+    # minute 0..2 the shape, 3..5 it again (times=2), then nothing
+    assert out == [400, 500, 600, 400, 500, 600, 300]

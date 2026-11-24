@@ -32,15 +32,31 @@ async def record_feedback(
     return True
 
 
-async def sensitivity(s: AsyncSession, home_id: uuid.UUID, kind: str) -> float:
-    """How far past its usual band an alert of this kind must go for the home: 1 = the P95 band;
-    each "not an anomaly" in the last 90 days adds half a band, at most three bands."""
-    n = await s.scalar(
-        select(func.count()).where(
+async def sensitivity(
+    s: AsyncSession,
+    home_id: uuid.UUID,
+    kind: str,
+    device_id: uuid.UUID | None = None,
+    signal: str | None = None,
+) -> float:
+    """How far past its usual band an alert of this kind must go for the home (and, for a device
+    anomaly, that device and signal): 1 = as learnt; each "not an anomaly" in the last 90 days
+    adds half a band, at most three."""
+    q = (
+        select(func.count())
+        .select_from(AlertFeedback)
+        .where(
             AlertFeedback.home_id == home_id,
             AlertFeedback.kind == kind,
             AlertFeedback.verdict == "not_anomaly",
             AlertFeedback.at >= datetime.now(UTC) - WINDOW,
         )
     )
+    if device_id is not None or signal is not None:
+        q = q.join(Alert, Alert.id == AlertFeedback.alert_id)
+    if device_id is not None:
+        q = q.where(Alert.device_id == device_id)
+    if signal is not None:
+        q = q.where(Alert.payload["signal"].astext == signal)
+    n = await s.scalar(q)
     return min(MAX_FACTOR, 1.0 + STEP * (n or 0))

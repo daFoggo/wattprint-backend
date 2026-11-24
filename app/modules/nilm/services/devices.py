@@ -4,6 +4,8 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 OTHER = "Other"  # the remainder: aggregate minus every modelled appliance
+HEATER = "Heater"  # a demo home's simulated heater, handed back from Other (runner.heater_watts)
+SIMULATED = (HEATER,)
 
 # Bundle label -> cat_device_type.code. A label missing here fails the pass (KeyError) rather than
 # sharing Other's series and overwriting it.
@@ -16,11 +18,12 @@ DEVICE_TYPES = {
     "Toaster": "toaster",
     "Kettle": "kettle",
     OTHER: "other",
+    HEATER: "electric_heater",
 }
 
 
 async def ensure_devices(
-    session: AsyncSession, home_id: uuid.UUID, labels: list[str]
+    session: AsyncSession, home_id: uuid.UUID, labels: list[str], extra: tuple[str, ...] = ()
 ) -> dict[str, uuid.UUID]:
     """Create (once) one origin='nilm' device and its 'device' series per label plus Other.
 
@@ -29,7 +32,7 @@ async def ensure_devices(
     stay off the timeline: their dozens of runs a day (or none) would bury the rest. Flushes only.
     """
     out: dict[str, uuid.UUID] = {}
-    for label in [*labels, OTHER]:
+    for label in [*labels, OTHER, *extra]:
         code = DEVICE_TYPES[label]
         device_id = await session.scalar(
             text(
@@ -43,11 +46,11 @@ async def ensure_devices(
                 text(
                     "INSERT INTO public.tb_device "
                     "(home_id, device_type_code, name, origin, show_on_timeline) "
-                    "SELECT :h, code, label_vi, 'nilm', code NOT IN ('fridge_freezer', 'freezer', "
-                    "'other') FROM public.cat_device_type "
+                    "SELECT :h, code, label_vi || :tag, 'nilm', code NOT IN ('fridge_freezer', "
+                    "'freezer', 'other') FROM public.cat_device_type "
                     "WHERE code = :c RETURNING id"
                 ),
-                {"h": home_id, "c": code},
+                {"h": home_id, "c": code, "tag": " (mô phỏng)" if label in SIMULATED else ""},
             )
         out[label] = await session.scalar(
             text(

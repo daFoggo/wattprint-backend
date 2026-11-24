@@ -85,3 +85,61 @@ def test_explain_usage_compares_only_hours_known_in_both_periods():
     a, b = tools.align(cur, prev, lo, prev_lo)
     assert len(a) == len(b) == 2
     assert tools.explain_parts(a, b)["change_kwh"] == 2.0  # 4 - 2, the gap hour left out of both
+
+
+
+async def test_device_forecast_hands_the_model_every_figure(monkeypatch):
+    import uuid
+    from datetime import UTC, date, datetime
+    from decimal import Decimal
+
+    from app.modules.billing.services.device_forecast import (
+        Advice,
+        Day,
+        DeviceForecast,
+        DeviceForecasts,
+    )
+
+    def dev(name, method):
+        return DeviceForecast(
+            uuid.uuid4(),
+            name,
+            "kettle",
+            False,
+            method,
+            "medium",
+            32.5,
+            14,
+            [Day(date(2026, 11, 23), Decimal("0.4"), None, None, Decimal(1200))],
+            Decimal("3.2"),
+            Decimal("2.4"),
+            Decimal("4.0"),
+            Decimal(9600),
+            None,
+            [Advice("kettle_fill", Decimal("0.96"), Decimal(5100), None, {"share": 30})],
+        )
+
+    async def forecasts(*a):
+        return DeviceForecasts(
+            date(2026, 11, 30),
+            date(2026, 11, 23),
+            [dev("Kettle", "model"), dev("Toaster", "weekday")],
+        )
+
+    monkeypatch.setattr(tools, "device_forecasts", forecasts)
+    ctx = tools.Ctx(None, None, datetime(2026, 11, 23, 3, tzinfo=UTC), "vi")
+    got = await tools.device_forecast(ctx, "kettle")
+    [k] = got.data["devices"]
+    assert k["device"] == "Kettle" and k["certainty"] == "medium"
+    assert k["tried_on"] == {"days": 14, "mean_error_pct": 32.5}
+    assert k["to_cycle_end"] == {"kwh": 3.2, "vnd": 9600, "kwh_range": [2.4, 4.0]}
+    assert k["advice"] == [
+        {
+            "what": "kettle_fill",
+            "saves_vnd": 5100,
+            "saves_kwh": 1.0,
+            "keeps_out_of_tier": None,
+            "share": 30,
+        }
+    ]
+    assert len((await tools.device_forecast(ctx)).data["devices"]) == 2
