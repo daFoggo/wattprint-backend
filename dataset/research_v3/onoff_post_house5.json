@@ -1,0 +1,204 @@
+{
+  "house": 5,
+  "bundle": "2015-02-27 00:55:30",
+  "devices": {
+    "Fridge": {
+      "on share": 0.5244741586538462,
+      "chosen": {
+        "cut": 0.48,
+        "lo": 0.48,
+        "hi": 0.48,
+        "min_on": 1,
+        "min_off": 8
+      },
+      "F1 ON/OFF": {
+        "shipped cut": 0.7106075058872626,
+        "re-tuned cut": 0.7106075058872626,
+        "hysteresis": 0.7106075058872626,
+        "hysteresis + durations": 0.7122674499930061
+      },
+      "energy": {
+        "soft gate (shipped)": {
+          "energy F1": 0.5933112502098083,
+          "kWh err %": 4.3939948081970215,
+          "true kWh": 51.50740051269531
+        },
+        "hard gate, shipped cut": {
+          "energy F1": 0.6708314418792725,
+          "kWh err %": 50.648094177246094,
+          "true kWh": 51.50740051269531
+        },
+        "hard gate, post mask": {
+          "energy F1": 0.6725710034370422,
+          "kWh err %": 53.57098388671875,
+          "true kWh": 51.50740051269531
+        }
+      }
+    },
+    "WashMach": {
+      "on share": 0.05988581730769231,
+      "chosen": {
+        "cut": 0.16,
+        "lo": 0.12,
+        "hi": 0.4,
+        "min_on": 16,
+        "min_off": 32
+      },
+      "F1 ON/OFF": {
+        "shipped cut": 0.3836131723831344,
+        "re-tuned cut": 0.16310922616978377,
+        "hysteresis": 0.13764594967002683,
+        "hysteresis + durations": 0.13770586954944497
+      },
+      "energy": {
+        "soft gate (shipped)": {
+          "energy F1": 0.13224473595619202,
+          "kWh err %": -33.32476043701172,
+          "true kWh": 12.517903327941895
+        },
+        "hard gate, shipped cut": {
+          "energy F1": 0.28123244643211365,
+          "kWh err %": 24.788833618164062,
+          "true kWh": 12.517903327941895
+        },
+        "hard gate, post mask": {
+          "energy F1": 0.11239948868751526,
+          "kWh err %": -77.5386734008789,
+          "true kWh": 12.517903327941895
+        }
+      }
+    },
+    "Dishwash": {
+      "on share": 0.05299979967948718,
+      "chosen": {
+        "cut": 0.2,
+        "lo": 0.12,
+        "hi": 0.24,
+        "min_on": 16,
+        "min_off": 16
+      },
+      "F1 ON/OFF": {
+        "shipped cut": 0.30138069288759634,
+        "re-tuned cut": 0.24708255294626136,
+        "hysteresis": 0.2379160537748435,
+        "hysteresis + durations": 0.2378056093340415
+      },
+      "energy": {
+        "soft gate (shipped)": {
+          "energy F1": 0.2695850729942322,
+          "kWh err %": -7.599109649658203,
+          "true kWh": 7.743904113769531
+        },
+        "hard gate, shipped cut": {
+          "energy F1": 0.3970453143119812,
+          "kWh err %": -15.464705467224121,
+          "true kWh": 7.743904113769531
+        },
+        "hard gate, post mask": {
+          "energy F1": 0.38969674706459045,
+          "kWh err %": 45.1649169921875,
+          "true kWh": 7.743904113769531
+        }
+      }
+    },
+    "Microwave": {
+      "on share": 0.010186298076923077,
+      "chosen": {
+        "cut": 0.32,
+        "lo": 0.2,
+        "hi": 0.36,
+        "min_on": 1,
+        "min_off": 1
+      },
+      "F1 ON/OFF": {
+        "shipped cut": 0.5738728323699422,
+        "re-tuned cut": 0.5728900255754475,
+        "hysteresis": 0.5796033994334278,
+        "hysteresis + durations": 0.5796033994334278
+      },
+      "energy": {
+        "soft gate (shipped)": {
+          "energy F1": 0.4217170774936676,
+          "kWh err %": -27.377086639404297,
+          "true kWh": 14.193594932556152
+        },
+        "hard gate, shipped cut": {
+          "energy F1": 0.5126309394836426,
+          "kWh err %": 9.065866470336914,
+          "true kWh": 14.193594932556152
+        },
+        "hard gate, post mask": {
+          "energy F1": 0.5184927582740784,
+          "kWh err %": -28.595375061035156,
+          "true kWh": 14.193594932556152
+        }
+      }
+    },
+    "Toaster": {
+      "on share": 0.0017177483974358974,
+      "chosen": {
+        "cut": 0.16,
+        "lo": 0.08,
+        "hi": 0.2,
+        "min_on": 1,
+        "min_off": 2
+      },
+      "F1 ON/OFF": {
+        "shipped cut": 0.35974842767295595,
+        "re-tuned cut": 0.3684210526315789,
+        "hysteresis": 0.3655685441020191,
+        "hysteresis + durations": 0.3655685441020191
+      },
+      "energy": {
+        "soft gate (shipped)": {
+          "energy F1": 0.22559310495853424,
+          "kWh err %": 20.655418395996094,
+          "true kWh": 2.029383659362793
+        },
+        "hard gate, shipped cut": {
+          "energy F1": 0.33321458101272583,
+          "kWh err %": 30.175209045410156,
+          "true kWh": 2.029383659362793
+        },
+        "hard gate, post mask": {
+          "energy F1": 0.33864423632621765,
+          "kWh err %": 67.8828353881836,
+          "true kWh": 2.029383659362793
+        }
+      }
+    },
+    "Kettle": {
+      "on share": 0.006315104166666667,
+      "chosen": {
+        "cut": 0.36,
+        "lo": 0.12,
+        "hi": 0.44,
+        "min_on": 1,
+        "min_off": 1
+      },
+      "F1 ON/OFF": {
+        "shipped cut": 0.8500222518914108,
+        "re-tuned cut": 0.8946078431372549,
+        "hysteresis": 0.8976052848885219,
+        "hysteresis + durations": 0.8976052848885219
+      },
+      "energy": {
+        "soft gate (shipped)": {
+          "energy F1": 0.7663896679878235,
+          "kWh err %": -11.423712730407715,
+          "true kWh": 14.031360626220703
+        },
+        "hard gate, shipped cut": {
+          "energy F1": 0.8282861709594727,
+          "kWh err %": -21.646726608276367,
+          "true kWh": 14.031360626220703
+        },
+        "hard gate, post mask": {
+          "energy F1": 0.8607272505760193,
+          "kWh err %": -8.492547035217285,
+          "true kWh": 14.031360626220703
+        }
+      }
+    }
+  }
+}

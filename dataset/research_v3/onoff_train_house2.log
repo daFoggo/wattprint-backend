@@ -1,0 +1,17 @@
+warning: `VIRTUAL_ENV=/home/cuongpd/ptit_udu_s4u/wattprint-text2sql-mcp/.venv` does not match the project environment path `.venv` and will be ignored; use `--active` to target the active environment instead
+house 2 base seed 11 epoch 17: Fridge 0.733 WashMach 0.410 Dishwash 0.773 Microwave 0.443 Toaster 0.404 Kettle 0.837
+house 2 base seed 22 epoch 11: Fridge 0.714 WashMach 0.307 Dishwash 0.732 Microwave 0.506 Toaster 0.415 Kettle 0.862
+house 2 base seed 33 epoch 16: Fridge 0.737 WashMach 0.309 Dishwash 0.751 Microwave 0.420 Toaster 0.418 Kettle 0.862
+== house 2 base: macro F1 0.591 | Fridge 0.728 (P 0.59 R 0.95) WashMach 0.342 (P 0.32 R 0.39) Dishwash 0.752 (P 0.76 R 0.75) Microwave 0.456 (P 0.43 R 0.49) Toaster 0.412 (P 0.37 R 0.47) Kettle 0.854 (P 0.89 R 0.82)
+house 2 baseload seed 11 epoch 14: Fridge 0.733 WashMach 0.383 Dishwash 0.798 Microwave 0.498 Toaster 0.398 Kettle 0.857
+house 2 baseload seed 22 epoch 17: Fridge 0.744 WashMach 0.357 Dishwash 0.788 Microwave 0.525 Toaster 0.402 Kettle 0.882
+house 2 baseload seed 33 epoch 8: Fridge 0.722 WashMach 0.303 Dishwash 0.767 Microwave 0.374 Toaster 0.345 Kettle 0.834
+== house 2 baseload: macro F1 0.595 | Fridge 0.733 (P 0.64 R 0.86) WashMach 0.348 (P 0.35 R 0.35) Dishwash 0.784 (P 0.76 R 0.81) Microwave 0.466 (P 0.50 R 0.45) Toaster 0.382 (P 0.33 R 0.46) Kettle 0.858 (P 0.88 R 0.84)
+house 2 clean seed 11 epoch 14: Fridge 0.734 WashMach 0.350 Dishwash 0.761 Microwave 0.419 Toaster 0.399 Kettle 0.848
+house 2 clean seed 22 epoch 11: Fridge 0.716 WashMach 0.297 Dishwash 0.734 Microwave 0.466 Toaster 0.372 Kettle 0.864
+house 2 clean seed 33 epoch 21: Fridge 0.739 WashMach 0.362 Dishwash 0.759 Microwave 0.425 Toaster 0.412 Kettle 0.852
+== house 2 clean: macro F1 0.584 | Fridge 0.730 (P 0.60 R 0.93) WashMach 0.336 (P 0.27 R 0.47) Dishwash 0.751 (P 0.74 R 0.77) Microwave 0.437 (P 0.43 R 0.44) Toaster 0.394 (P 0.34 R 0.50) Kettle 0.854 (P 0.88 R 0.83)
+house 2 long seed 11 epoch 11: Fridge 0.738 WashMach 0.249 Dishwash 0.762 Microwave 0.397 Toaster 0.355 Kettle 0.861
+house 2 long seed 22 epoch 11: Fridge 0.737 WashMach 0.258 Dishwash 0.731 Microwave 0.396 Toaster 0.321 Kettle 0.841
+house 2 long seed 33 epoch 12: Fridge 0.728 WashMach 0.234 Dishwash 0.784 Microwave 0.422 Toaster 0.373 Kettle 0.874
+== house 2 long: macro F1 0.559 | Fridge 0.735 (P 0.61 R 0.93) WashMach 0.247 (P 0.20 R 0.33) Dishwash 0.759 (P 0.75 R 0.78) Microwave 0.405 (P 0.35 R 0.50) Toaster 0.350 (P 0.28 R 0.48) Kettle 0.859 (P 0.86 R 0.85)

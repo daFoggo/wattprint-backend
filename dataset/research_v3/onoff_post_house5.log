@@ -1,0 +1,10 @@
+warning: `VIRTUAL_ENV=/home/cuongpd/ptit_udu_s4u/wattprint-text2sql-mcp/.venv` does not match the project environment path `.venv` and will be ignored; use `--active` to target the active environment instead
+house 5 tune: 199,424 steps, 287 runs
+house 5 score: 199,680 steps, 313 runs
+Fridge     on 0.52 | F1 shipped cut 0.711 re-tuned cut 0.711 hysteresis 0.711 hysteresis + durations 0.712 | energy F1 / kWh err: soft gate (shipped) 0.593/+4% hard gate, shipped cut 0.671/+51% hard gate, post mask 0.673/+54%
+WashMach   on 0.06 | F1 shipped cut 0.384 re-tuned cut 0.163 hysteresis 0.138 hysteresis + durations 0.138 | energy F1 / kWh err: soft gate (shipped) 0.132/-33% hard gate, shipped cut 0.281/+25% hard gate, post mask 0.112/-78%
+Dishwash   on 0.05 | F1 shipped cut 0.301 re-tuned cut 0.247 hysteresis 0.238 hysteresis + durations 0.238 | energy F1 / kWh err: soft gate (shipped) 0.270/-8% hard gate, shipped cut 0.397/-15% hard gate, post mask 0.390/+45%
+Microwave  on 0.01 | F1 shipped cut 0.574 re-tuned cut 0.573 hysteresis 0.580 hysteresis + durations 0.580 | energy F1 / kWh err: soft gate (shipped) 0.422/-27% hard gate, shipped cut 0.513/+9% hard gate, post mask 0.518/-29%
+Toaster    on 0.00 | F1 shipped cut 0.360 re-tuned cut 0.368 hysteresis 0.366 hysteresis + durations 0.366 | energy F1 / kWh err: soft gate (shipped) 0.226/+21% hard gate, shipped cut 0.333/+30% hard gate, post mask 0.339/+68%
+Kettle     on 0.01 | F1 shipped cut 0.850 re-tuned cut 0.895 hysteresis 0.898 hysteresis + durations 0.898 | energy F1 / kWh err: soft gate (shipped) 0.766/-11% hard gate, shipped cut 0.828/-22% hard gate, post mask 0.861/-8%
+saved /home/cuongpd/ptit_udu_s4u/wattprint-backend/dataset/research_v3/onoff_post_house5.json

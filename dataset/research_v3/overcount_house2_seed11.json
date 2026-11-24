@@ -1,0 +1,92 @@
+{
+  "Fridge": {
+    "true kWh": 78.93731689453125,
+    "pred kWh": 115.67922973632812,
+    "pred on true ON": 71.59967041015625,
+    "plug on true ON": 70.75481414794922,
+    "pred on false ON": 44.07955551147461,
+    "plug on false ON": 0.09941979497671127,
+    "plug missed (false OFF)": 8.007275581359863,
+    "mean W pred / plug on true ON": [
+      88.82828521728516,
+      87.78014373779297
+    ],
+    "false ON share of called": 0.381190462481367,
+    "false ON kWh at an edge (<= 2 min)": 3.2127187252044678
+  },
+  "WashMach": {
+    "true kWh": 36.88737487792969,
+    "pred kWh": 22.580270767211914,
+    "pred on true ON": 8.898388862609863,
+    "plug on true ON": 10.894258499145508,
+    "pred on false ON": 13.681880950927734,
+    "plug on false ON": 0.06303472071886063,
+    "plug missed (false OFF)": 25.686473846435547,
+    "mean W pred / plug on true ON": [
+      284.3314514160156,
+      348.105712890625
+    ],
+    "false ON share of called": 0.6251060643873222,
+    "false ON kWh at an edge (<= 2 min)": 0.7619903683662415
+  },
+  "Dishwash": {
+    "true kWh": 140.7382354736328,
+    "pred kWh": 139.89149475097656,
+    "pred on true ON": 119.26463317871094,
+    "plug on true ON": 128.35836791992188,
+    "pred on false ON": 20.626867294311523,
+    "plug on false ON": 0.009325000457465649,
+    "plug missed (false OFF)": 12.363947868347168,
+    "mean W pred / plug on true ON": [
+      790.3990478515625,
+      850.6656494140625
+    ],
+    "false ON share of called": 0.2105423787931636,
+    "false ON kWh at an edge (<= 2 min)": 0.4558614492416382
+  },
+  "Microwave": {
+    "true kWh": 7.829732894897461,
+    "pred kWh": 9.333486557006836,
+    "pred on true ON": 4.490668773651123,
+    "plug on true ON": 3.9784789085388184,
+    "pred on false ON": 4.842817783355713,
+    "plug on false ON": 0.028913194313645363,
+    "plug missed (false OFF)": 3.6690731048583984,
+    "mean W pred / plug on true ON": [
+      1052.50048828125,
+      932.4559936523438
+    ],
+    "false ON share of called": 0.5185707569346497,
+    "false ON kWh at an edge (<= 2 min)": 0.7118118405342102
+  },
+  "Toaster": {
+    "true kWh": 3.1254992485046387,
+    "pred kWh": 3.4806811809539795,
+    "pred on true ON": 1.3534109592437744,
+    "plug on true ON": 1.2699226140975952,
+    "pred on false ON": 2.127270221710205,
+    "plug on false ON": 0.0007854166906327009,
+    "plug missed (false OFF)": 1.8279316425323486,
+    "mean W pred / plug on true ON": [
+      975.4313354492188,
+      915.2595825195312
+    ],
+    "false ON share of called": 0.6096131301289566,
+    "false ON kWh at an edge (<= 2 min)": 0.0963008776307106
+  },
+  "Kettle": {
+    "true kWh": 45.09730911254883,
+    "pred kWh": 44.94728088378906,
+    "pred on true ON": 40.18445587158203,
+    "plug on true ON": 39.040016174316406,
+    "pred on false ON": 4.762821197509766,
+    "plug on false ON": 0.11428333818912506,
+    "plug missed (false OFF)": 5.645443916320801,
+    "mean W pred / plug on true ON": [
+      2711.349365234375,
+      2634.13134765625
+    ],
+    "false ON share of called": 0.11075,
+    "false ON kWh at an edge (<= 2 min)": 0.987213671207428
+  }
+}
