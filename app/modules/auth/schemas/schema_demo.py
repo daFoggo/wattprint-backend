@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 
 class DemoDevice(BaseModel):
@@ -11,15 +11,3 @@ class DemoHome(BaseModel):
     house: int
     name: str
     devices: list[DemoDevice]
-
-
-class DemoSessionIn(BaseModel):
-    house: str = Field(min_length=1, max_length=32)
-
-
-class DemoTokens(BaseModel):
-    access_token: str
-    refresh_token: str
-    id_token: str
-    expires_in: int
-    refresh_expires_in: int

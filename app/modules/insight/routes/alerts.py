@@ -5,8 +5,7 @@ from fastapi import APIRouter, Query
 
 from app.common.exceptions import NotFoundError
 from app.dependencies import DbSession
-from app.modules.energy.api import CurrentHome
-from app.modules.home.api import Membership
+from app.modules.home.api import Membership, WritableMembership
 
 from .. import services
 from ..schemas import AlertDevice, AlertFeedbackIn, AlertRead, AlertUpdate
@@ -45,9 +44,9 @@ async def alerts(
     summary="Mark an alert seen (any member of the home)",
 )
 async def update_alert(
-    alert_id: uuid.UUID, body: AlertUpdate, home_id: CurrentHome, db: DbSession
+    alert_id: uuid.UUID, body: AlertUpdate, member: WritableMembership, db: DbSession
 ) -> None:
-    if not await services.acknowledge(db, home_id, alert_id):
+    if not await services.acknowledge(db, member.home_id, alert_id):
         raise NotFoundError("No such alert in this home", code="alert_not_found")
 
 
@@ -57,7 +56,7 @@ async def update_alert(
     summary="A member says whether an alert was useful; 'not_anomaly' makes that kind less eager",
 )
 async def feedback(
-    alert_id: uuid.UUID, body: AlertFeedbackIn, member: Membership, db: DbSession
+    alert_id: uuid.UUID, body: AlertFeedbackIn, member: WritableMembership, db: DbSession
 ) -> None:
     if not await services.record_feedback(
         db, member.home_id, member.user_id, alert_id, body.verdict

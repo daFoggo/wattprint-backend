@@ -4,6 +4,7 @@ from types import SimpleNamespace
 
 import pandas as pd
 import pytest
+from sqlalchemy import text
 
 from app.database import SessionLocal
 from app.modules.billing.services.forecast import Accuracy, Change, Forecast, TierCross
@@ -86,6 +87,25 @@ def test_explain_usage_compares_only_hours_known_in_both_periods():
     assert len(a) == len(b) == 2
     assert tools.explain_parts(a, b)["change_kwh"] == 2.0  # 4 - 2, the gap hour left out of both
 
+
+@pytest.mark.parametrize(
+    ("name", "args"),
+    [
+        ("create_watch", {"metric": "power_w", "op": "gt", "threshold": 1, "label": "x"}),
+        ("propose_plan", {"title": "Plan", "tasks": [{"label": "Tắt bình nóng lạnh"}]}),
+    ],
+)
+async def test_a_demo_viewer_s_wappi_writes_nothing(make_member, name, args):
+    me = await make_member(role="viewer")
+    async with SessionLocal() as s:
+        ctx = tools.Ctx(s, me.home_id, datetime.now(UTC), "vi", user_id=me.user_id, read_only=True)
+        outcome, ok, _ = await tools.run_tool(ctx, name, args)
+        assert not ok and "read-only" in outcome.data["error"]
+        for table in ("public.tb_watch", "public.tb_suggestion"):
+            n = await s.scalar(
+                text(f"SELECT count(*) FROM {table} WHERE home_id = :h"), {"h": me.home_id}
+            )
+            assert n == 0, table
 
 
 async def test_device_forecast_hands_the_model_every_figure(monkeypatch):

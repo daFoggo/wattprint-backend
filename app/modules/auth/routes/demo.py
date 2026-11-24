@@ -1,27 +1,24 @@
-from typing import Annotated
-
-from fastapi import APIRouter, Header
+from fastapi import APIRouter
 
 from app.dependencies import DbSession
+from app.modules.home.api import HomeRead
 
-from ..schemas import DemoHome, DemoSessionIn, DemoTokens
+from ..dependencies import CurrentUser
+from ..schemas import DemoHome
 from ..services import demo  # not re-exported by services: it imports home.api (cycle)
 
-# Public on purpose (demo system): anyone may sign in as a demo home's owner, through the dashboard.
 router = APIRouter(prefix="/demo", tags=["demo"])
 
 
-@router.get("/homes", summary="Demo homes to sign in as (no token)")
+# Public on purpose: the sign-in page shows them before anyone has an account.
+@router.get("/homes", summary="Demo homes a signed-in account can view (no token)")
 async def list_demo_homes(db: DbSession) -> list[DemoHome]:
     return await demo.demo_homes(db)
 
 
-@router.post("/session", summary="Sign in as a demo home's owner (no token)")
-async def create_demo_session(
-    body: DemoSessionIn,
-    db: DbSession,
-    # The dashboard's client secret, and the address of the visitor it signs in.
-    x_demo_secret: Annotated[str, Header()] = "",
-    x_demo_visitor: Annotated[str, Header(max_length=64)] = "",
-) -> DemoTokens:
-    return await demo.demo_session(db, body.house, secret=x_demo_secret, visitor=x_demo_visitor)
+@router.post(
+    "/homes/{key}/view",
+    summary="View a demo home read-only from this account (not for members of a real home)",
+)
+async def view_demo_home(key: str, user: CurrentUser, db: DbSession) -> HomeRead:
+    return await demo.view_demo_home(db, user, key)

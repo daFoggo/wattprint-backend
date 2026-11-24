@@ -263,6 +263,23 @@ async def test_a_proposed_plan_is_accepted_once_by_its_home(client, make_member,
     assert (await client.post(missing, headers=me.headers)).status_code == 404
 
 
+async def test_a_demo_viewer_s_chat_reaches_the_read_only_block(client, make_member, script):
+    turns, seen = script
+    owner = await make_member("owner")
+    viewer = await make_member("viewer", home_id=owner.home_id)
+    task = {"label": "Tắt TV ở chế độ chờ", "kwh_month": 4.5}
+    turns += [("propose_plan", {"title": "Tiết kiệm", "tasks": [task]}), ["Không lưu được."]]
+    _, events = await ask(client, viewer, "Lập kế hoạch tiết kiệm")
+    assert not [w for w in events[-1][1]["reply"]["widgets"] if w["kind"] == "plan"]
+    assert "read-only" in seen[-1][-1]["content"]  # what the model was told
+    async with SessionLocal() as s:
+        n = await s.scalar(
+            text("SELECT count(*) FROM public.tb_suggestion WHERE home_id = :h"),
+            {"h": owner.home_id},
+        )
+    assert n == 0
+
+
 async def test_an_unexpected_failure_still_ends_the_stream(client, make_member, script):
     turns, _ = script
     me = await make_member("owner")

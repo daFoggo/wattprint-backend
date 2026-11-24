@@ -24,7 +24,7 @@ class HomeRead(BaseModel):
     occupants: int | None
     billing_cycle_day: int
     province_code: str | None
-    role: Literal["owner", "member"]
+    role: Literal["owner", "member", "viewer"]
 
 
 class HomeUpdate(BaseModel):

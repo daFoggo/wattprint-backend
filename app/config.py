@@ -18,14 +18,8 @@ class Settings(BaseSettings):
     keycloak_audience: str = "wattprint-api"
     # Comma separated clients (`azp`) accepted: the mobile app and the web dashboard.
     keycloak_client_ids: str = "wattprint-mobile,wattprint-web"
-    # Demo sign-in (app.modules.auth.services.demo): password grant as a demo home's owner through
-    # the web client (the dashboard accepts and refreshes only its own tokens). Empty = 503.
-    demo_password: str = ""
-    wattprint_web_client_secret: str = ""
+    # Demo homes a signed-in account can view read-only (app.modules.auth.services.demo).
     demo_homes_file: str = "scripts/demo_homes.toml"
-    # Service account `wattprint-demo-admin` (manage-users): clears a brute-force lockout of a demo
-    # owner. Empty = a locked owner answers 503 until Keycloak's wait ends.
-    demo_admin_client_secret: str = ""
 
     # NILM worker (app.modules.nilm.worker): tb_nilm_model.artifact is relative to this directory.
     nilm_model_dir: str = "models/nilm"
@@ -82,11 +76,6 @@ class Settings(BaseSettings):
     @property
     def jwks_url(self) -> str:
         return self.keycloak_jwks_url or f"{self.keycloak_issuer}/protocol/openid-connect/certs"
-
-    @property
-    def token_url(self) -> str:
-        # Next to the JWKS endpoint, so in compose it is reached the same way (http://keycloak:11095).
-        return self.jwks_url.removesuffix("/certs") + "/token"
 
     @property
     def cors_origin_list(self) -> list[str]:

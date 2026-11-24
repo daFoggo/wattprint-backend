@@ -11,6 +11,11 @@ class HomeOwnerRequiredError(ForbiddenError):
     message = "Only the home's owner can change it"
 
 
+class HomeReadOnlyError(ForbiddenError):
+    code = "home_read_only"
+    message = "This demo home is read-only"
+
+
 class UnknownProvinceError(UnprocessableError):
     code = "unknown_province"
     message = "No such province"

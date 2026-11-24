@@ -64,6 +64,7 @@ class Ctx:
     report: Callable[[str, str], None] = lambda label, detail: None
     user_id: uuid.UUID | None = None  # who asks: a watch is theirs
     question: str = ""
+    read_only: bool = False  # a demo viewer: the tools in WRITES answer an error instead
 
 
 @dataclass
@@ -1182,9 +1183,16 @@ TOOLS: dict[str, tuple[Tool, dict]] = {
 SPECS = [spec for _, spec in TOOLS.values()]
 
 
+# Tools that change the home's shared state (a watch, a plan): never for a read-only demo viewer.
+WRITES = {"create_watch", "propose_plan"}
+
+
 async def run_tool(ctx: Ctx, name: str, args: dict[str, Any]) -> tuple[Outcome, bool, int]:
     """(outcome, ok, ms). A bad call or a failing tool gives the model an error, not the user a
     500; the failure is logged."""
+    if ctx.read_only and name in WRITES:
+        error = "this is a read-only demo home: say alerts and plans cannot be saved here"
+        return Outcome({"error": error}, name), False, 0
     started = time.monotonic()
     fn = TOOLS.get(name, (None,))[0]
     try:

@@ -3,7 +3,7 @@ from fastapi import APIRouter
 from app.dependencies import DbSession
 
 from .. import services
-from ..dependencies import Membership
+from ..dependencies import Membership, WritableMembership
 from ..schemas import HomeRead, HomeUpdate, Province
 
 router = APIRouter()
@@ -15,7 +15,9 @@ async def read_current_home(member: Membership, db: DbSession) -> HomeRead:
 
 
 @router.patch("/current", summary="Change the home's profile (owner only)")
-async def update_current_home(patch: HomeUpdate, member: Membership, db: DbSession) -> HomeRead:
+async def update_current_home(
+    patch: HomeUpdate, member: WritableMembership, db: DbSession
+) -> HomeRead:
     return await services.update_home(db, member, patch)
 
 

@@ -10,6 +10,7 @@ from typing import Any
 from sqlalchemy import func, select, update
 
 from app.database import SessionLocal
+from app.modules.home.api import HomeMember
 
 from ..models import Conversation, Message, ToolCall
 from ..schemas import Link, LinksWidget, Widget
@@ -279,6 +280,7 @@ async def answer(
         user_id = await s.scalar(
             select(Conversation.user_id).where(Conversation.id == conversation_id)
         )
+        role = await s.scalar(select(HomeMember.role).where(HomeMember.user_id == user_id))
         messages = [
             _system(lang),
             *await history(s, conversation_id, question_id),
@@ -294,6 +296,7 @@ async def answer(
             lambda label, detail: progress.put_nowait((label, detail)),
             user_id,
             question,
+            read_only=role == "viewer",
         )
         # The guard reads the question while the model's first round runs: no word is shown and no
         # tool runs before it has answered, which that round's own wait almost always covers.

@@ -5,7 +5,7 @@ from fastapi import APIRouter
 
 from app.common.exceptions import ConflictError, NotFoundError, UnprocessableError
 from app.dependencies import DbSession
-from app.modules.home.api import Membership
+from app.modules.home.api import Membership, WritableMembership
 
 from .. import services
 from ..schemas import WatchCreate, WatchCreated, WatchRead
@@ -23,7 +23,7 @@ async def watches(member: Membership, db: DbSession) -> list[WatchRead]:
 
 
 @router.post("/watches", status_code=201, summary="Set an alert by hand (Wappi sets the same kind)")
-async def create(body: WatchCreate, member: Membership, db: DbSession) -> WatchCreated:
+async def create(body: WatchCreate, member: WritableMembership, db: DbSession) -> WatchCreated:
     try:
         w, value = await services.create_watch(
             db, member.user_id, member.home_id, now=datetime.now(UTC), **body.model_dump()
@@ -39,7 +39,7 @@ async def create(body: WatchCreate, member: Membership, db: DbSession) -> WatchC
 
 
 @router.delete("/watches/{watch_id}", status_code=204, summary="Stop watching (its owner only)")
-async def cancel(watch_id: uuid.UUID, member: Membership, db: DbSession) -> None:
+async def cancel(watch_id: uuid.UUID, member: WritableMembership, db: DbSession) -> None:
     if not await services.cancel_watch(db, member.user_id, member.home_id, watch_id):
         raise NotFoundError("No such watch of yours", code="watch_not_found")
     await db.commit()

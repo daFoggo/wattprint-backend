@@ -16,7 +16,7 @@ from app.common.base_model import NOW, Base
 class HomeMember(Base):
     __tablename__ = "tb_home_member"
     __table_args__ = (
-        CheckConstraint("role IN ('owner','member')", name="role"),
+        CheckConstraint("role IN ('owner','member','viewer')", name="role"),
         UniqueConstraint("user_id"),  # one account, one home
         {"schema": "public"},
     )

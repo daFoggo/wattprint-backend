@@ -72,12 +72,14 @@
       "implicitFlowEnabled": false,
       "serviceAccountsEnabled": false,
       "redirectUris": [
-        "wattprint://auth"
+        "wattprint://auth",
+        "wattprint-dev://auth",
+        "wattprint-preview://auth"
       ],
       "webOrigins": [],
       "attributes": {
         "pkce.code.challenge.method": "S256",
-        "post.logout.redirect.uris": "wattprint://auth"
+        "post.logout.redirect.uris": "wattprint://auth##wattprint-dev://auth##wattprint-preview://auth"
       },
       "protocolMappers": [
         {
@@ -93,13 +95,24 @@
       ]
     },
     {
+      "clientId": "admin-cli",
+      "name": "${client_admin-cli}",
+      "description": "Keycloak's default client, kept without the password grant: no client of this realm has one.",
+      "enabled": true,
+      "publicClient": true,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "implicitFlowEnabled": false,
+      "serviceAccountsEnabled": false
+    },
+    {
       "clientId": "wattprint-web",
       "name": "Wattprint web dashboard",
       "enabled": true,
       "publicClient": false,
       "secret": "${WATTPRINT_WEB_CLIENT_SECRET}",
       "standardFlowEnabled": true,
-      "directAccessGrantsEnabled": true,
+      "directAccessGrantsEnabled": false,
       "implicitFlowEnabled": false,
       "serviceAccountsEnabled": false,
       "redirectUris": [
@@ -124,19 +137,6 @@
           }
         }
       ]
-    },
-    {
-      "clientId": "wattprint-demo-admin",
-      "name": "Wattprint demo unlock",
-      "description": "Service account of the API: clears a brute-force lockout of a demo owner (POST /demo/session). manage-users only.",
-      "enabled": true,
-      "publicClient": false,
-      "secret": "${DEMO_ADMIN_CLIENT_SECRET}",
-      "standardFlowEnabled": false,
-      "directAccessGrantsEnabled": false,
-      "implicitFlowEnabled": false,
-      "serviceAccountsEnabled": true,
-      "protocol": "openid-connect"
     }
   ],
   "users": [
@@ -158,17 +158,6 @@
         "admin",
         "user"
       ]
-    },
-    {
-      "username": "service-account-wattprint-demo-admin",
-      "enabled": true,
-      "serviceAccountClientId": "wattprint-demo-admin",
-      "clientRoles": {
-        "realm-management": [
-          "manage-users",
-          "view-users"
-        ]
-      }
     }
   ],
   "bruteForceProtected": true,

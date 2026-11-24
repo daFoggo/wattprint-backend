@@ -4,7 +4,7 @@ Read by the sdlc reviewer before every review of this repo. Keep it under a page
 
 ## What blocks a merge (Must fix)
 - Behavior breaks, data leaks across homes or is lost, or a rule card in `.claude/rules/` is broken.
-- Auth: an endpoint other than health, provinces and the demo sign-in pair (`/demo/homes`, `/demo/session`) reachable without a token, or reading another home's data.
+- Auth: an endpoint other than health, provinces and `GET /demo/homes` reachable without a token, reading another home's data, or a write to a home's shared state a demo `viewer` can reach (it must take `WritableMembership`).
 - Data: an edited or reformatted applied migration, a write that bypasses `ingest_readings`, a change to
   `tb_reading` from NILM, a number computed by the LLM instead of a tool, personal data reaching storage or the LLM
   unmasked.

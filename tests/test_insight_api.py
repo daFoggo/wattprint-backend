@@ -89,6 +89,7 @@ async def test_new_alerts_are_mailed_once_to_members_who_want_them(make_member, 
     monkeypatch.setattr(mail, "send", fake_send)
     owner = await make_member("owner")
     quiet = await make_member("member", home_id=owner.home_id)
+    await make_member("viewer", home_id=owner.home_id)  # a demo visitor: never mailed
     async with SessionLocal() as s, s.begin():
         await s.execute(
             text(
@@ -132,13 +133,16 @@ async def test_weekly_summary_goes_out_on_monday_morning_once(make_member, monke
 
     monkeypatch.setattr(mail, "send", fake_send)
     me = await make_member("owner")
+    visitor = await make_member("viewer", home_id=me.home_id)  # a demo visitor: never mailed
     async with SessionLocal() as s, s.begin():
-        await s.execute(
-            text(
-                "INSERT INTO public.tb_user_preference (user_id, weekly_summary) VALUES (:u, true)"
-            ),
-            {"u": me.user_id},
-        )
+        for u in (me.user_id, visitor.user_id):
+            await s.execute(
+                text(
+                    "INSERT INTO public.tb_user_preference (user_id, weekly_summary) "
+                    "VALUES (:u, true)"
+                ),
+                {"u": u},
+            )
     monday_7am = datetime(2026, 11, 16, 0, tzinfo=UTC)  # 07:00 in Vietnam
     await mail.mail_weekly(monday_7am)
     assert sent == []

@@ -1,5 +1,4 @@
 from app.common.exceptions import (
-    AppError,
     ConflictError,
     ForbiddenError,
     NotFoundError,
@@ -41,17 +40,6 @@ class DemoHomeNotFoundError(NotFoundError):
     message = "No such demo home"
 
 
-class DemoUnavailableError(ServiceUnavailableError):
-    code = "demo_unavailable"
-    message = "Demo sign-in unavailable"
-
-
-class DemoForbiddenError(ForbiddenError):
-    code = "demo_forbidden"
-    message = "Demo sign-in goes through the dashboard"
-
-
-class DemoRateLimitedError(AppError):
-    status_code = 429
-    code = "demo_rate_limited"
-    message = "Too many demo sign-ins in a minute; try again shortly"
+class DemoNotForMembersError(ConflictError):
+    code = "demo_not_for_members"
+    message = "This account belongs to a home; demo homes are for accounts without one"

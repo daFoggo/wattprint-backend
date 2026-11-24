@@ -172,7 +172,7 @@ async def _members(s: AsyncSession, home_id: uuid.UUID):
                 "coalesce(p.notify_tier, true) AS tier "
                 "FROM public.tb_home_member m JOIN public.tb_users u ON u.id = m.user_id "
                 "LEFT JOIN public.tb_user_preference p ON p.user_id = u.id "
-                "WHERE m.home_id = :h AND u.is_active"
+                "WHERE m.home_id = :h AND u.is_active AND m.role <> 'viewer'"  # no demo visitors
             ),
             {"h": home_id},
         )
@@ -299,7 +299,8 @@ async def mail_weekly(now: datetime) -> None:
                 text(
                     "SELECT m.home_id, h.name, u.id, u.email FROM public.tb_user_preference p "
                     "JOIN public.tb_users u ON u.id = p.user_id AND u.is_active "
-                    "JOIN public.tb_home_member m ON m.user_id = u.id "
+                    # a demo visitor (viewer) gets no mail of the demo home
+                    "JOIN public.tb_home_member m ON m.user_id = u.id AND m.role <> 'viewer' "
                     "JOIN public.tb_home h ON h.id = m.home_id WHERE p.weekly_summary"
                 )
             )

@@ -1,9 +1,7 @@
 from .exceptions import (
     AdminRequiredError,
-    DemoForbiddenError,
     DemoHomeNotFoundError,
-    DemoRateLimitedError,
-    DemoUnavailableError,
+    DemoNotForMembersError,
     EmailTakenError,
     IdentityProviderUnavailableError,
     InactiveUserError,
@@ -12,10 +10,8 @@ from .exceptions import (
 
 __all__ = [
     "AdminRequiredError",
-    "DemoForbiddenError",
     "DemoHomeNotFoundError",
-    "DemoRateLimitedError",
-    "DemoUnavailableError",
+    "DemoNotForMembersError",
     "EmailTakenError",
     "IdentityProviderUnavailableError",
     "InactiveUserError",

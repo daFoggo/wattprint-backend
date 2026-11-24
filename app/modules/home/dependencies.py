@@ -7,7 +7,7 @@ from app.dependencies import DbSession
 from app.modules.auth.api import CurrentUser
 
 from .models import HomeMember
-from .utils import HomeNotFoundError
+from .utils import HomeNotFoundError, HomeReadOnlyError
 
 
 async def get_membership(user: CurrentUser, db: DbSession) -> HomeMember:
@@ -19,3 +19,13 @@ async def get_membership(user: CurrentUser, db: DbSession) -> HomeMember:
 
 
 Membership = Annotated[HomeMember, Depends(get_membership)]
+
+
+async def get_writable_membership(member: Membership) -> HomeMember:
+    """A membership that may change the home's shared state: a demo viewer only reads."""
+    if member.role == "viewer":
+        raise HomeReadOnlyError
+    return member
+
+
+WritableMembership = Annotated[HomeMember, Depends(get_writable_membership)]

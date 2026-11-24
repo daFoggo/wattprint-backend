@@ -167,7 +167,6 @@ PUBLIC = {
     ("GET", "/api/v1/health"): 200,
     ("GET", "/api/v1/homes/provinces"): 200,
     ("GET", "/api/v1/demo/homes"): 200,
-    ("POST", "/api/v1/demo/session"): 422,
 }
 
 
