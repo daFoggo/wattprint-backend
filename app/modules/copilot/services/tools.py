@@ -31,7 +31,7 @@ from app.modules.insight.api import (
     list_watches,
 )
 
-from ..models import ScopeToken, Suggestion
+from ..models import ScopeToken
 from ..schemas import (
     ChartSeries,
     ChartWidget,
@@ -39,7 +39,7 @@ from ..schemas import (
     DevicesWidget,
     ForecastWidget,
     PeersWidget,
-    PlanTask,
+    PlanAction,
     PlanWidget,
     Slice,
     StandbyWidget,
@@ -310,6 +310,7 @@ def device_view(d) -> dict[str, Any]:
         },
         "advice": [
             {
+                "id": f"{d.device_id}.{a.key}",  # what propose_plan takes
                 "what": a.key,
                 "saves_vnd": _f(a.saved_amount, 0),
                 "saves_kwh": _f(a.saved_kwh, 1),
@@ -492,7 +493,9 @@ async def weather(ctx: Ctx) -> Outcome:
             return Outcome({"error": "the home has no province set (Settings)"}, "OpenWeather")
         place, w = stored
         province = SimpleNamespace(name=place)
+        source = "ERA5 qua Open-Meteo" if ctx.lang == "vi" else "ERA5 via Open-Meteo"
     else:
+        source = "OpenWeather"
         try:
             w = await weather_at(province.lat, province.lon, ctx.lang)
         except Exception:  # WeatherUnavailableError, or no key
@@ -515,7 +518,7 @@ async def weather(ctx: Ctx) -> Outcome:
                 for s in w.next
             ],
         },
-        detail=f"OpenWeather · {province.name}",
+        detail=f"{source} · {province.name}",
         tier="inferred",
         sources=["weather"],
         widgets=[
@@ -807,45 +810,49 @@ async def query_data(ctx: Ctx, question: str) -> Outcome:
     )
 
 
-async def propose_plan(ctx: Ctx, title: str, tasks: list[dict[str, Any]]) -> Outcome:
-    tasks = [
-        {
-            "label": str(t.get("label", ""))[:120],
-            "detail": str(t.get("detail", ""))[:300],
-            "kwh_month": max(0.0, float(t.get("kwh_month") or 0)),
-        }
-        for t in tasks[:6]
-        if t.get("label")
+MAX_PLAN_ACTIONS = 3  # the plan page's limit
+
+
+async def propose_plan(ctx: Ctx, actions: list[str]) -> Outcome:
+    """Up to three of today's device advice, by `device_forecast` id, for the plan page to start:
+    the figures are the advice's own, nothing is saved (the user starts the plan there)."""
+    try:
+        got = await device_forecasts(ctx.session, ctx.home_id, ctx.now)
+    except LookupError:
+        return Outcome({"error": "the home has no tariff plan"}, "plan")
+    offer = {
+        f"{d.device_id}.{a.key}": (d, a) for d in (got.devices if got else []) for a in d.advice
+    }
+    picked = [offer[i] for i in dict.fromkeys(actions) if i in offer][:MAX_PLAN_ACTIONS]
+    if not picked:
+        return Outcome(
+            {"error": "none of these is advice now: call device_forecast and pass its advice ids"},
+            "plan",
+        )
+    rows = [
+        PlanAction(
+            id=f"{d.device_id}.{a.key}",
+            key=a.key,
+            device=d.name,
+            params=a.params,
+            kwh=float(a.saved_kwh),
+            vnd=float(a.saved_amount),
+        )
+        for d, a in picked
     ]
-    if not tasks:
-        return Outcome({"error": "a plan needs at least one task"}, "tb_suggestion")
-    kwh = round(sum(t["kwh_month"] for t in tasks), 1)
-    price = await _avg_price(ctx)
-    vnd = round(kwh * price) if price else None
-    plan = Suggestion(
-        home_id=ctx.home_id,
-        kind="plan",
-        title=title[:200] or "Plan",
-        body=json.dumps(tasks, ensure_ascii=False),
-        expected_kwh=Decimal(str(kwh)),
-        expected_amount=Decimal(vnd) if vnd is not None else None,
-    )
-    ctx.session.add(plan)
-    await ctx.session.commit()  # the reply names it: a later failing tool must not roll it back
+    kwh, vnd = round(sum(x.kwh for x in rows), 2), round(sum(x.vnd for x in rows))
     return Outcome(
-        data={"plan_id": str(plan.id), "kwh_per_month": kwh, "vnd_per_month": vnd},
-        detail=_vi(ctx, "Kế hoạch tiết kiệm", "Savings plan"),
+        data={
+            "actions": [x.id for x in rows],
+            "unknown": [i for i in actions if i not in offer],
+            "saves_kwh_to_cycle_end": kwh,
+            "saves_vnd_about": vnd,
+            "next": "the user opens the plan page from the card under the answer to start it",
+        },
+        detail=_vi(ctx, "Gợi ý thiết bị · biểu giá", "Device advice · tariff"),
         tier="estimated",
-        sources=["tariff"],
-        widgets=[
-            PlanWidget(
-                id=str(plan.id),
-                tasks=[PlanTask(label=t["label"], detail=t["detail"]) for t in tasks],
-                kwh=kwh,
-                vnd=vnd,
-                status="proposed",
-            )
-        ],
+        sources=["nilm", "model", "tariff"],
+        widgets=[PlanWidget(actions=rows, kwh=kwh, vnd=vnd)],
     )
 
 
@@ -1106,26 +1113,18 @@ TOOLS: dict[str, tuple[Tool, dict]] = {
         propose_plan,
         _fn(
             "propose_plan",
-            "Save a savings plan the user can start: 2-5 concrete tasks from this home's data, "
-            "each with the kWh per month it saves (estimate it from the tools' figures).",
+            "A savings plan the user can start on the plan page: 1-3 advice ids from "
+            "device_forecast (its `advice[].id`), the ones that save the most or that the user "
+            "asked about.",
             {
-                "title": {"type": "string", "maxLength": 200},
-                "tasks": {
+                "actions": {
                     "type": "array",
-                    "maxItems": 6,
-                    "items": {
-                        "type": "object",
-                        "properties": {
-                            "label": {"type": "string"},
-                            "detail": {"type": "string"},
-                            "kwh_month": {"type": "number", "minimum": 0},
-                        },
-                        "required": ["label", "detail", "kwh_month"],
-                        "additionalProperties": False,
-                    },
+                    "minItems": 1,
+                    "maxItems": 3,
+                    "items": {"type": "string"},
                 },
             },
-            ["title", "tasks"],
+            ["actions"],
         ),
     ),
     "create_watch": (
@@ -1183,15 +1182,15 @@ TOOLS: dict[str, tuple[Tool, dict]] = {
 SPECS = [spec for _, spec in TOOLS.values()]
 
 
-# Tools that change the home's shared state (a watch, a plan): never for a read-only demo viewer.
-WRITES = {"create_watch", "propose_plan"}
+# Tools that change the home's shared state (a watch): never for a read-only demo viewer.
+WRITES = {"create_watch"}
 
 
 async def run_tool(ctx: Ctx, name: str, args: dict[str, Any]) -> tuple[Outcome, bool, int]:
     """(outcome, ok, ms). A bad call or a failing tool gives the model an error, not the user a
     500; the failure is logged."""
     if ctx.read_only and name in WRITES:
-        error = "this is a read-only demo home: say alerts and plans cannot be saved here"
+        error = "this is a read-only demo home: say alerts cannot be saved here"
         return Outcome({"error": error}, name), False, 0
     started = time.monotonic()
     fn = TOOLS.get(name, (None,))[0]

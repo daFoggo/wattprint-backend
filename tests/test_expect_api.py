@@ -40,6 +40,7 @@ async def test_expected_returns_hours_for_the_members_home(client, make_member):
     assert [h["p50"] for h in body] == [1.0, 1.0]  # [from, to): two hours, none of the other home
     assert body[0]["p10"] == pytest.approx(0.6) and body[0]["p90"] == pytest.approx(1.4)
     assert body[0]["kwh"] is None
+    assert body[0]["model_version"] == "ctx-v1-t"  # which model, so a client can tell a refit
 
 
 async def test_expected_is_empty_without_a_model(client, make_member):

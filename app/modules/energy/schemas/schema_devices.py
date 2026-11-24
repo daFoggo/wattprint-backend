@@ -7,6 +7,13 @@ from pydantic import BaseModel
 # ActivitySchema). Instants inside charts and runs are epoch milliseconds, as the web reads them.
 
 
+class DeviceEstimate(BaseModel):
+    """How far NILM's share for this device can be trusted, as a level only: the scores behind it
+    (held-out test against the appliance's plug) stay internal, a real home has no plugs."""
+
+    level: str  # high, medium, low
+
+
 class Device(BaseModel):
     id: uuid.UUID
     name: str
@@ -18,6 +25,7 @@ class Device(BaseModel):
     today_kwh: float
     month_kwh: float  # from the 1st of this month, local time
     week_kwh: list[float]  # the last 7 local days, today last
+    estimate: DeviceEstimate | None = None  # None: the home's model was never scored for this type
 
 
 class Cycle(BaseModel):

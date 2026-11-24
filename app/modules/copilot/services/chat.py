@@ -103,7 +103,8 @@ PROMPT = """You are Wappi, the energy assistant of WattPrint for one household i
   "123.000 đ" in Vietnamese. Charts and links are added under your answer by the app: do not
   describe them or paste URLs.
 - Call tools first, without writing anything before them.
-- Only for a savings plan the user asks for, call propose_plan with tasks grounded in the data.
+- Only for a savings plan the user asks for: call device_forecast, then propose_plan with
+  1-3 of its advice ids; the user starts the plan on the plan page.
 - "Báo tôi khi…" / "tell me when…" is an alert to set: call create_watch, never just answer.
 - "Vì sao… cao/thấp" / "why is… high/low": call explain_usage and name the biggest parts
   (weather, calendar, routine, trend, unexplained). A forecast is a range: give it as "khoảng
@@ -225,7 +226,7 @@ class Answer:
         tiers = [o.tier for o in outcomes]
         names = [n for n, *_ in self.calls]
         return {
-            # A saved plan is what the answer is about, whatever was read to make it.
+            # A proposed plan is what the answer is about, whatever was read to make it.
             "intent": "plan"
             if "propose_plan" in names
             else INTENTS.get(names[0], "data")

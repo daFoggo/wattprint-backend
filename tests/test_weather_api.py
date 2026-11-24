@@ -41,7 +41,7 @@ async def test_weather_at_the_home_province_cached(client, make_member, openweat
     r = await client.get("/api/v1/energy/weather?lang=vi", headers=owner.headers)
     assert r.status_code == 200, r.text
     body = r.json()
-    assert body["province"] == "Hồ Chí Minh"
+    assert body["province"] == "Hồ Chí Minh" and body["source"] == "openweather"
     assert body["now"] == {
         "dt": 1_763_500_000,
         "temp": 27.4,
@@ -103,14 +103,23 @@ async def test_demo_home_weather_comes_from_the_recording_site(client, make_memb
     r = await client.get("/api/v1/energy/weather?lang=vi", headers=owner.headers)
     assert r.status_code == 200, r.text
     body = r.json()
-    assert body["province"] == "Nơi ghi dữ liệu (Loughborough, Anh)"
+    # A demo home: where its readings were taken; the hours are ERA5 reanalysis, not OpenWeather.
+    assert body["province"] == "Nơi đo dữ liệu nhà demo (Loughborough, Anh)"
+    assert body["source"] == "era5"
     assert body["now"]["temp"] == 5.0 and body["now"]["humidity"] == 81
     assert body["now"]["wind_speed"] == 4.5
     assert body["now"]["sky"]["icon"] == "04n"
     assert len(body["next"]) == 8
     assert body["next"][0]["sky"]["icon"] == "10n" and body["next"][0]["pop"] == 1.0
     en = await client.get("/api/v1/energy/weather?lang=en", headers=owner.headers)
-    assert en.json()["province"] == "Recording site (Loughborough, UK)"
+    assert en.json()["province"] == "Where the demo home was recorded (Loughborough, UK)"
+
+    # Wappi names the same source as the card.
+    from app.modules.copilot.services import tools
+
+    async with SessionLocal() as s:
+        out = await tools.weather(tools.Ctx(s, owner.home_id, datetime.now(UTC), "vi"))
+    assert out.detail == "ERA5 qua Open-Meteo · Nơi đo dữ liệu nhà demo (Loughborough, Anh)"
 
 
 async def test_the_card_shows_the_cold_spell_the_model_uses(client, make_member):

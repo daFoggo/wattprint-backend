@@ -4,6 +4,7 @@ import pytest
 
 from app.modules.ops.api import DemoScenario, ReadingRow
 from scripts.backfill_nilm import backfill_windows
+from scripts.scenario import device_minutes
 from scripts.scenarios import apply, heater_w
 
 T0 = datetime(2026, 11, 21, 11, 0, tzinfo=UTC)  # 18:00 in Hanoi
@@ -98,3 +99,10 @@ def test_echo_adds_the_run_shape_from_now():
     out = [r.value for r in apply(rows, scen, lambda ts: 10.0)]
     # minute 0..2 the shape, 3..5 it again (times=2), then nothing
     assert out == [400, 500, 600, 400, 500, 600, 300]
+
+
+def test_echo_shape_drops_the_base_minutes_at_its_ends():
+    # A kettle's run seen as [boil, base]: repeated, one long boil, not 1-minute pulses.
+    assert device_minutes([2017, 0]) == [2017]
+    # The base noise around a washer's cycle goes; its pauses inside stay.
+    assert device_minutes([52, 83, 0, 1916, 0, 0, 2442, 111]) == [1916, 0, 0, 2442]

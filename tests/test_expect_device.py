@@ -327,3 +327,27 @@ def test_usual_and_the_models_past_cover_the_same_days():
     e = explain_outlook(fut_p, fut_x, past_p, past_x, actual, "UTC")
     assert e["explainable"] is True  # judged on the 21 measured days only
     assert e["other"] == pytest.approx(0.0)
+
+
+async def test_a_devices_level_is_its_mean_of_the_seven_full_days_before(monkeypatch):
+    from datetime import date
+
+    from app.modules.expect.services import device as dev
+
+    async def tz(*a):
+        return "Asia/Ho_Chi_Minh"
+
+    seen = []
+
+    async def daily(s, device_id, lo, hi, tz_):
+        seen.append((lo, hi))
+        days = pd.date_range("2026-11-10", "2026-11-19", freq="D").date
+        return pd.Series([1.0, 1.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, np.nan, 9.0], index=days)
+
+    monkeypatch.setattr(dev, "_tz", tz)
+    monkeypatch.setattr(dev, "_device_daily", daily)
+    # The 12th to the 18th (not full: left out); the 19th itself and the 11th are outside.
+    got = await dev.device_level(None, None, None, date(2026, 11, 19))
+    assert got == 2.0
+    [(lo, hi)] = seen
+    assert hi == pd.Timestamp("2026-11-18T17:00Z")  # the 19th's midnight in Hanoi

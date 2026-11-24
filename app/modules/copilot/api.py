@@ -7,7 +7,7 @@ from .models import (
     SuggestionFeedback,
     ToolCall,
 )
-from .services import measure_plans, prune_scope_tokens, prune_speech
+from .services import prune_scope_tokens, prune_speech
 
 __all__ = [
     "Conversation",
@@ -17,7 +17,6 @@ __all__ = [
     "Suggestion",
     "SuggestionFeedback",
     "ToolCall",
-    "measure_plans",
     "prune_scope_tokens",
     "prune_speech",
 ]

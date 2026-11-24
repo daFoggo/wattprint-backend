@@ -15,7 +15,7 @@ router = APIRouter(prefix="/expected", tags=["expected"])
 MAX_SPAN = timedelta(days=8)
 
 
-@router.get("", summary="Expected kWh per hour (P10–P90, P50 the usual) and the measured kWh")
+@router.get("", summary="Expected kWh per hour (P10–P90, P50 the mean) and measured kWh")
 async def hours(
     home_id: CurrentHome,
     db: DbSession,
@@ -44,6 +44,7 @@ async def hours(
             p50=r.p50,
             p90=r.p90,
             kwh=None if pd.isna(actual.get(ts)) else float(actual[ts]),
+            model_version=r.model_version,
         )
         for ts, r in frame.iterrows()
     ]

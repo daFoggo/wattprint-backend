@@ -4,11 +4,10 @@ from datetime import UTC, datetime, timedelta
 from sqlalchemy import delete, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..models import Conversation, Message, Suggestion, SuggestionFeedback
+from ..models import Conversation, Message
 from ..utils import (
     ConversationNotFoundError,
     MessageNotFoundError,
-    PlanNotFoundError,
     RateLimitedError,
 )
 
@@ -118,15 +117,3 @@ async def rate(s, user_id, home_id, message_id: uuid.UUID, value: str | None) ->
     await answer_text(s, user_id, home_id, message_id)
     await s.execute(update(Message).where(Message.id == message_id).values(feedback=value))
     await s.commit()
-
-
-async def accept_plan(s, user_id, home_id, plan_id: uuid.UUID) -> Suggestion:
-    """Start trying a plan; its saving is measured 14 days later against the 14 days before."""
-    plan = await s.get(Suggestion, plan_id)
-    if plan is None or plan.home_id != home_id or plan.kind != "plan":
-        raise PlanNotFoundError
-    if plan.status in ("proposed", "shown"):
-        plan.status = "accepted"
-        s.add(SuggestionFeedback(suggestion_id=plan.id, user_id=user_id, action="accept"))
-        await s.commit()
-    return plan

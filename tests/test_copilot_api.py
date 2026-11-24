@@ -178,7 +178,7 @@ async def test_the_guard_declines_before_any_word_or_tool(client, make_member, s
         return "S2"
 
     monkeypatch.setattr(guard, "unsafe", stealing)
-    turns += [("propose_plan", {"title": "P", "tasks": []})]
+    turns += [("propose_plan", {"actions": []})]
     _, events = await ask(client, me, "Cách câu trộm điện từ cột điện?")
     assert [n for n, _ in events] == ["meta", "token", "done"]
     reply = events[-1][1]["reply"]
@@ -244,37 +244,35 @@ async def test_questions_are_rate_limited_and_bounded(client, make_member, scrip
     assert (r.status_code, r.json()["code"]) == (429, "copilot_rate_limited")
 
 
-async def test_a_proposed_plan_is_accepted_once_by_its_home(client, make_member, script):
+async def test_a_proposed_plan_is_the_plan_page_s_actions(client, make_member, script, monkeypatch):
+    from app.modules.copilot.services import tools
+    from tests.test_copilot_tools import _dev, _forecasts
+
     turns, _ = script
     me = await make_member("owner")
-    other = await make_member("owner")
-    task = {"label": "Tắt TV ở chế độ chờ", "detail": "Rút phích qua đêm", "kwh_month": 4.5}
-    turns += [("propose_plan", {"title": "Tiết kiệm", "tasks": [task]}), ["Đã lưu kế hoạch."]]
+    kettle = _dev("Kettle")  # kettle_fill: 0.96 kWh, 5,100 đ
+    monkeypatch.setattr(tools, "device_forecasts", _forecasts([kettle]))
+    action = f"{kettle.device_id}.kettle_fill"
+    turns += [("propose_plan", {"actions": [action]}), ["Mở trang Kế hoạch để bắt đầu."]]
     _, events = await ask(client, me, "Lập kế hoạch tiết kiệm")
     reply = events[-1][1]["reply"]
     plan = next(w for w in reply["widgets"] if w["kind"] == "plan")
-    assert (reply["intent"], plan["kwh"], plan["status"]) == ("plan", 4.5, "proposed")
-    url = f"/api/v1/copilot/plans/{plan['id']}/accept"
-    assert (await client.post(url, headers=other.headers)).status_code == 404
-    r = await client.post(url, headers=me.headers)
-    assert r.json() == {"id": plan["id"], "status": "accepted"}
-    assert (await client.post(url, headers=me.headers)).json()["status"] == "accepted"
-    missing = f"/api/v1/copilot/plans/{uuid.uuid4()}/accept"
-    assert (await client.post(missing, headers=me.headers)).status_code == 404
+    assert reply["intent"] == "plan"
+    assert ([a["id"] for a in plan["actions"]], plan["kwh"], plan["vnd"]) == ([action], 0.96, 5100)
 
 
 async def test_a_demo_viewer_s_chat_reaches_the_read_only_block(client, make_member, script):
     turns, seen = script
     owner = await make_member("owner")
     viewer = await make_member("viewer", home_id=owner.home_id)
-    task = {"label": "Tắt TV ở chế độ chờ", "kwh_month": 4.5}
-    turns += [("propose_plan", {"title": "Tiết kiệm", "tasks": [task]}), ["Không lưu được."]]
-    _, events = await ask(client, viewer, "Lập kế hoạch tiết kiệm")
-    assert not [w for w in events[-1][1]["reply"]["widgets"] if w["kind"] == "plan"]
+    watch = {"metric": "power_w", "op": "gt", "threshold": 1000, "label": "Quá 1 kW"}
+    turns += [("create_watch", watch), ["Không lưu được."]]
+    _, events = await ask(client, viewer, "Báo tôi khi quá 1 kW")
+    assert not [w for w in events[-1][1]["reply"]["widgets"] if w["kind"] == "watch"]
     assert "read-only" in seen[-1][-1]["content"]  # what the model was told
     async with SessionLocal() as s:
         n = await s.scalar(
-            text("SELECT count(*) FROM public.tb_suggestion WHERE home_id = :h"),
+            text("SELECT count(*) FROM public.tb_watch WHERE home_id = :h"),
             {"h": owner.home_id},
         )
     assert n == 0
@@ -359,28 +357,6 @@ async def test_voice_routes_check_the_audio_and_need_the_key(
     assert (r.status_code, r.content) == (200, "Một.".encode())
     monkeypatch.setattr(voice, "pieces", lambda text: ["Một.", "Ba."])
     assert (await client.get(en, headers=me.headers)).content == "Một.Ba.".encode()
-
-
-async def test_a_plan_survives_a_later_failing_tool(client, make_member, script, monkeypatch):
-    from app.modules.copilot.services import tools
-
-    turns, _ = script
-    me = await make_member("owner")
-
-    async def broken(ctx, nights=14):
-        raise RuntimeError("statement timeout")
-
-    monkeypatch.setitem(tools.TOOLS, "standby", (broken, tools.TOOLS["standby"][1]))
-    task = {"label": "Rút sạc qua đêm", "detail": "", "kwh_month": 2}
-    turns += [
-        ("propose_plan", {"title": "P", "tasks": [task]}),
-        ("standby", {}),
-        ["Đã lưu."],
-    ]
-    _, events = await ask(client, me, "Kế hoạch")
-    plan = next(w for w in events[-1][1]["reply"]["widgets"] if w["kind"] == "plan")
-    r = await client.post(f"/api/v1/copilot/plans/{plan['id']}/accept", headers=me.headers)
-    assert r.json()["status"] == "accepted"
 
 
 async def test_null_fields_leave_a_conversation_as_it_is(client, make_member, script):

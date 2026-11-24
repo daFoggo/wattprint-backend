@@ -10,7 +10,7 @@ from fastapi.responses import Response, StreamingResponse
 
 from app.common.exceptions import UnprocessableError
 from app.dependencies import DbSession
-from app.modules.home.api import Membership, WritableMembership
+from app.modules.home.api import Membership
 
 from .. import services
 from ..schemas import (
@@ -19,7 +19,6 @@ from ..schemas import (
     ConversationSummary,
     ConversationUpdate,
     FeedbackIn,
-    PlanRead,
     Transcript,
 )
 from ..utils import AudioTooLargeError, RateLimitedError, VoiceUnavailableError
@@ -101,13 +100,6 @@ async def delete_conversation(conversation_id: uuid.UUID, member: Membership, db
 )
 async def feedback(message_id: uuid.UUID, body: FeedbackIn, member: Membership, db: DbSession):
     await services.rate(db, member.user_id, member.home_id, message_id, body.value)
-
-
-@router.post("/plans/{plan_id}/accept", summary="Start trying a savings plan Wappi proposed")
-async def accept_plan(plan_id: uuid.UUID, member: WritableMembership, db: DbSession) -> PlanRead:
-    return PlanRead.model_validate(
-        await services.accept_plan(db, member.user_id, member.home_id, plan_id)
-    )
 
 
 MAX_AUDIO = 10 * 1024 * 1024  # about 10 minutes of Opus: far more than one question

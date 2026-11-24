@@ -135,7 +135,10 @@ SKY_WORDS = {
         "10": "rain",
     },
 }
-SITE = {"vi": "Nơi ghi dữ liệu (Loughborough, Anh)", "en": "Recording site (Loughborough, UK)"}
+SITE = {
+    "vi": "Nơi đo dữ liệu nhà demo (Loughborough, Anh)",
+    "en": "Where the demo home was recorded (Loughborough, UK)",
+}
 
 
 def _stored_sky(cloud: float | None, precip: float | None, is_day: bool | None, lang: str) -> Sky:

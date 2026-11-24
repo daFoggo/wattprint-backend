@@ -156,3 +156,37 @@ async def test_training_twice_in_a_minute_keeps_a_model_active(monkeypatch):
         )
         await s.execute(text("DELETE FROM public.tb_home WHERE id = :h"), {"h": hid})
     assert n == 1
+
+
+def test_a_days_expectation_is_unbiased_when_usage_comes_in_bursts():
+    # A kettle-like burst in 8 % of the hours: each hour's median is the quiet level, so a day of
+    # hourly medians (12 kWh) misses every burst; the mean is what the days it learnt on used.
+    x, _ = synthetic(70, seed=3)
+    rng = np.random.default_rng(3)
+    y = pd.Series(0.5 + 3.0 * (rng.random(len(x)) < 0.08), index=x.index)
+    b = fit(x.iloc[: 56 * 24], y.iloc[: 56 * 24], version="ctx-v1-test")
+    learnt = y.iloc[: 56 * 24].mean() * 24  # about (0.5 + 3 × 0.08) × 24 = 17.8
+
+    def day(p):
+        return p["p50"].groupby(p.index.date).sum().mean()
+
+    assert day(predict(b, x.iloc[: 56 * 24])) == pytest.approx(learnt, rel=0.02)
+    # Days it did not learn: the bursts' timing is noise, so only near (a median would give 12).
+    assert day(predict(b, x.iloc[56 * 24 :])) == pytest.approx(learnt, rel=0.15)
+
+
+def test_the_mean_stays_p50_when_it_is_above_the_band():
+    from app.modules.expect.services.train import Bundle
+
+    class Const:
+        def __init__(self, v):
+            self.v = v
+
+        def predict(self, x, pred_contrib=False):
+            return np.zeros((len(x), 2)) if pred_contrib else np.full(len(x), self.v)
+
+    q = dict(zip(QUANTILES, (0.1, 0.2, 1.0, 0.5, 0.6), strict=True))  # mean 1.0 above P90 0.5
+    b = Bundle("x", ("hour",), {k: Const(v) for k, v in q.items()}, [], {}, {})
+    x = pd.DataFrame({"hour": [1, 2]}, index=pd.date_range("2026-11-01", periods=2, freq="h"))
+    got = predict(b, x)[["p05", "p10", "p50", "p90", "p95"]].iloc[0].tolist()
+    assert got == [0.1, 0.2, 1.0, 1.0, 1.0]  # the band opens up to the mean, never past it

@@ -29,6 +29,7 @@ def _device(row: services.DeviceRow) -> dict:
         "today_kwh": row.today_kwh,
         "month_kwh": row.month_kwh,
         "week_kwh": row.week_kwh,
+        "estimate": {"level": row.estimate.level} if row.estimate else None,
     }
 
 

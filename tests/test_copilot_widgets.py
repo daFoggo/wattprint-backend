@@ -17,11 +17,18 @@ SAMPLES = [
     {"kind": "weather", "temp": 31, "feels": 35, "humidity": 70},
     {
         "kind": "plan",
-        "id": "p1",
-        "tasks": [{"label": "AC at 26", "detail": "..."}],
-        "kwh": 12.0,
-        "vnd": None,
-        "status": "proposed",
+        "actions": [
+            {
+                "id": "d1.kettle_fill",
+                "key": "kettle_fill",
+                "device": "Kettle",
+                "params": {"share": 30.0},
+                "kwh": 0.96,
+                "vnd": 5100.0,
+            }
+        ],
+        "kwh": 0.96,
+        "vnd": 5100.0,
     },
     {"kind": "peers", "you": 9.1, "median": 7.4, "days": 30, "homes": 12},
     {"kind": "standby", "watts": [80, 82], "kwh": 59.0, "vnd": 180000},

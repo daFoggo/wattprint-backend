@@ -131,7 +131,6 @@ WRITES = [
     ("POST", f"/api/v1/insights/alerts/{uuid.uuid4()}/feedback", {"verdict": "useful"}),
     ("POST", "/api/v1/insights/watches", {}),
     ("DELETE", f"/api/v1/insights/watches/{uuid.uuid4()}", None),
-    ("POST", f"/api/v1/copilot/plans/{uuid.uuid4()}/accept", None),
 ]
 
 

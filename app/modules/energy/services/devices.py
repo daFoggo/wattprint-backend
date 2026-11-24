@@ -1,10 +1,15 @@
 import uuid
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime, timedelta
+from typing import TYPE_CHECKING
 from zoneinfo import ZoneInfo
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
+
+if TYPE_CHECKING:
+    from app.modules.nilm.api import Score
+
 
 LOCAL = ZoneInfo("Asia/Ho_Chi_Minh")  # tb_home.timezone is CHECKed to this
 # shortcut: on/off thresholds per device type are the current NILM bundle's on_threshold_w; move
@@ -41,6 +46,14 @@ class DeviceRow:
     today_kwh: float = 0.0
     month_kwh: float = 0.0
     week_kwh: list[float] = field(default_factory=list)
+    estimate: Score | None = None  # how well NILM finds this type (held-out test); None unscored
+
+
+async def device_scores(session: AsyncSession, home_id: uuid.UUID) -> dict[str, Score]:
+    # Imported here: the NILM runner imports energy, so a top-level import would loop.
+    from app.modules.nilm.api import device_scores as scores
+
+    return await scores(session, home_id)
 
 
 @dataclass
@@ -133,6 +146,9 @@ async def _fill(session: AsyncSession, rows: list[DeviceRow], now: datetime) -> 
 async def devices(session: AsyncSession, home_id: uuid.UUID, now: datetime) -> list[DeviceRow]:
     rows = await _rows(session, home_id)
     await _fill(session, rows, now)
+    scores = await device_scores(session, home_id)
+    for row in rows:
+        row.estimate = scores.get(row.type)
     return rows
 
 
@@ -188,6 +204,7 @@ async def device_detail(
     if row is None:
         return None
     await _fill(session, [row], now)
+    row.estimate = (await device_scores(session, home_id)).get(row.type)
     today = now.astimezone(LOCAL).date()
     month = local_midnight(today.replace(day=1))
     stats = (

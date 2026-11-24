@@ -45,18 +45,22 @@ class WeatherWidget(BaseModel):
     humidity: float
 
 
-class PlanTask(BaseModel):
-    label: str
-    detail: str
+class PlanAction(BaseModel):
+    """One of the plan page's actions: `id` is `<device_id>.<key>`, its `?add=` value."""
+
+    id: str
+    key: str
+    device: str
+    params: dict[str, float]
+    kwh: float
+    vnd: float
 
 
 class PlanWidget(BaseModel):
     kind: Literal["plan"] = "plan"
-    id: str
-    tasks: list[PlanTask]
+    actions: list[PlanAction]
     kwh: float
-    vnd: float | None
-    status: str
+    vnd: float  # each action's saving summed; the plan page prices them together
 
 
 class PeersWidget(BaseModel):

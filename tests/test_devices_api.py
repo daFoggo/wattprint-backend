@@ -1,3 +1,4 @@
+import sys
 import uuid
 from datetime import UTC, datetime, timedelta
 
@@ -96,6 +97,26 @@ async def test_devices_list_power_now_today_and_week(client, home):
     boil_kwh = 3 * KETTLE_W / 60 / 1000  # 3 minutes at 2 kW
     assert len(kettle["week_kwh"]) == 7
     assert kettle["week_kwh"][-1] + kettle["week_kwh"][-2] == pytest.approx(boil_kwh, rel=1e-3)
+
+
+async def test_each_device_says_how_well_nilm_finds_its_type(client, home, monkeypatch):
+    # The scores are the bundle's held-out test (scripts score them offline); a type the bundle
+    # never scored has none.
+    from app.modules.nilm.api import Score
+
+    svc = sys.modules["app.modules.energy.services.devices"]  # the package exports a `devices` too
+
+    async def scores(session, home_id):
+        return {"kettle": Score(level="high", energy_f1=0.834, kwh_err_pct=0.24, onoff_f1=0.909)}
+
+    monkeypatch.setattr(svc, "device_scores", scores)
+    token, *_ = home
+    by_type = {
+        d["type"]: d
+        for d in (await client.get("/api/v1/energy/devices", headers=bearer(token))).json()
+    }
+    assert by_type["kettle"]["estimate"] == {"level": "high"}  # never the scores behind it
+    assert by_type["fridge_freezer"]["estimate"] is None
 
 
 async def test_device_detail_has_the_run_and_404s_for_another_home(

@@ -56,3 +56,18 @@ def test_rows_between_is_half_open_skips_nan_and_flags_issues():
     assert {r.channel for r in rows} == {"Aggregate"}
     assert rows[0].ts == t0
     assert refit.rows_between(df, t0, t0 + timedelta(seconds=13), 0) == []  # (lo, hi]
+
+
+def test_the_replay_takes_the_aggregate_only_never_a_device_channel(tmp_path):
+    # Device figures come only from NILM (rules/data.md): the demo meter never carries REFIT's
+    # appliance channels.
+    csv = tmp_path / "CLEAN_House9.csv"
+    csv.write_text(
+        "Time,Unix,Aggregate,Appliance1,Appliance2,Issues\n"
+        "2014-01-01 00:00:00,1388534400,500,120,80,0\n"
+        "2014-01-01 00:00:08,1388534408,510,125,0,1\n"
+    )
+    out = refit.load(csv)
+    assert list(out.columns) == ["wall", "watts", "quality"]
+    assert out["watts"].tolist() == [500, 510]
+    assert out["quality"].tolist() == [0, 1]

@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import SessionLocal
 from app.modules.billing.api import forecast_bill, refresh_bills
-from app.modules.copilot.api import measure_plans, prune_scope_tokens, prune_speech
+from app.modules.copilot.api import prune_scope_tokens, prune_speech
 from app.modules.expect.api import refresh_home, train_device, train_home
 from app.modules.home.api import Home
 
@@ -17,6 +17,7 @@ from ..models import ForecastSnapshot
 from .cohort import refresh_cohorts
 from .detectors import detect
 from .mail import mail_alerts, mail_weekly
+from .plans import freeze_plans
 from .watches import check_due, prune_watches
 
 log = logging.getLogger("insight.jobs")
@@ -99,6 +100,12 @@ async def expect_refresh(now: datetime) -> None:
     """Expected kWh per hour for each home with a model (hourly)."""
 
     async def work(s: AsyncSession, home_id: uuid.UUID) -> None:
+        # Plans first: after a refit, refresh_home rewrites the past hours with the new model.
+        try:
+            async with s.begin_nested():
+                await freeze_plans(s, home_id, now)
+        except Exception:
+            log.exception("home %s: savings plans not frozen", home_id)
         await refresh_home(s, home_id, now)
 
     await each_home(work)
@@ -130,9 +137,8 @@ async def mail(now: datetime) -> None:
 
 
 async def upkeep(now: datetime) -> None:
-    """Expired copilot scope tokens and long-ended watches out; plans tried for 14 days measured."""
+    """Expired copilot scope tokens, long-ended watches and old speech out."""
     async with SessionLocal() as s, s.begin():
         await prune_scope_tokens(s)
         await prune_watches(s, now)
         await prune_speech(s)
-        await measure_plans(s, now)

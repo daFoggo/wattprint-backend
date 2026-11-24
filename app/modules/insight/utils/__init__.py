@@ -1,3 +1,3 @@
-from .exceptions import WatchError
+from .exceptions import PlanError, WatchError
 
-__all__ = ["WatchError"]
+__all__ = ["PlanError", "WatchError"]

@@ -274,7 +274,7 @@ tắc chính thức chưa có.
 | `ai.ai_conversation` | `id`, `home_id`, `user_id`, `title`, `created_at` | |
 | `ai.ai_message` | `id`, `conversation_id`, `role`, `content`, `created_at` | `role` ∈ user/assistant/tool/system |
 | `ai.ai_tool_call` | `id`, `message_id`, `tool`, `input jsonb`, `sql_text`, `unit`, `duration_ms`, `ok` | Truy vết mỗi con số về truy vấn và đơn vị |
-| `tb_suggestion` | `id`, `home_id`, `device_id`, `alert_id`, `kind`, `title`, `body`, `expected_kwh`, `expected_amount`, `status`, `created_at` | `status` ∈ proposed/shown/accepted/dismissed/done |
+| `tb_suggestion` | `id`, `home_id`, `device_id`, `alert_id`, `kind`, `title`, `body`, `expected_kwh`, `expected_amount`, `status`, `created_at` | `status` ∈ proposed/shown/accepted/dismissed/done. Không còn ghi từ 2026-11-24: kế hoạch của Wappi mở trang Kế hoạch (`tb_savings_plan`); bảng này và hai bảng dưới giữ làm lịch sử |
 | `tb_suggestion_feedback` | `id`, `suggestion_id`, `user_id`, `action`, `at`, `note` | `action` ∈ accept/ignore/done/dislike |
 | `tb_savings_measure` | `suggestion_id` PK, `baseline_kwh`, `actual_kwh`, `weather_adjusted_kwh` *null*, `method` (mặc định `M&V`), `measured_at` | Bản ghi đo tiết kiệm trước/sau |
 

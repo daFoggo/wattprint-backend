@@ -21,11 +21,6 @@ class MessageNotFoundError(NotFoundError):
     message = "No such answer"
 
 
-class PlanNotFoundError(NotFoundError):
-    code = "plan_not_found"
-    message = "No such plan"
-
-
 class AudioTooLargeError(AppError):
     status_code = 413
     code = "audio_too_large"

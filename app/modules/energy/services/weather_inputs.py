@@ -21,6 +21,7 @@ COLUMNS = (
 OBSERVED_AHEAD = timedelta(days=5)  # as far as a weather forecast is trusted
 YEAR = timedelta(days=364)  # 52 weeks, the REFIT shift step
 NORMAL_DAYS = 7  # the normal: the same hour within ±7 days of the same date a year earlier
+RECENT = timedelta(days=14)  # without a year stored: the same hour of the last two weeks
 
 
 async def _rows(s: AsyncSession, home_id: uuid.UUID, lo: datetime, hi: datetime) -> pd.DataFrame:
@@ -42,8 +43,8 @@ async def weather_inputs(
     s: AsyncSession, home_id: uuid.UUID, lo: datetime, hi: datetime, now: datetime
 ) -> pd.DataFrame:
     """The home's hourly weather over [lo, hi) as a model sees it at `now`: observed up to five
-    days ahead, the normal beyond; cold-spell scenarios lower the temperatures in their window.
-    Hours without data are NaN."""
+    days ahead, the normal beyond (a year earlier, else the last two weeks' same hour); cold-spell
+    scenarios lower the temperatures in their window. Observed hours without data are NaN."""
     index = pd.date_range(
         pd.Timestamp(lo).tz_convert(UTC).floor("h"),
         pd.Timestamp(hi).tz_convert(UTC),
@@ -64,6 +65,13 @@ async def weather_inputs(
         offsets = [pd.Timedelta(days=d) - YEAR for d in range(-NORMAL_DAYS, NORMAL_DAYS + 1)]
         for ts in later:
             out.loc[ts] = old.reindex([ts + o for o in offsets]).mean()
+        # No year stored (a new home, a recording's first year): the same hour of the last two
+        # weeks observed, never a gap; a model learnt gaps as their own signal (2 kWh/day).
+        gap = later[out.loc[later, "temp_c"].isna()]
+        if len(gap):
+            recent = await _rows(s, home_id, cutoff - RECENT, cutoff + timedelta(hours=1))
+            hourly = recent.groupby(recent.index.hour).mean()
+            out.loc[gap] = hourly.reindex(gap.hour).to_numpy()
         out.loc[later, "is_day"] = (out.loc[later, "is_day"] >= 0.5).astype(float)
     for sc in await scenarios_between(s, home_id, lo, hi):
         if sc.name != "cold_spell":

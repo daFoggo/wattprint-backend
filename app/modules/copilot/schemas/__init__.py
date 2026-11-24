@@ -5,7 +5,6 @@ from .schema_copilot import (
     ConversationUpdate,
     FeedbackIn,
     MessageRead,
-    PlanRead,
     Transcript,
 )
 from .schema_widget import (
@@ -18,7 +17,7 @@ from .schema_widget import (
     Link,
     LinksWidget,
     PeersWidget,
-    PlanTask,
+    PlanAction,
     PlanWidget,
     Slice,
     StandbyWidget,
@@ -34,7 +33,6 @@ __all__ = [
     "ConversationUpdate",
     "FeedbackIn",
     "MessageRead",
-    "PlanRead",
     "Transcript",
     "ChartSeries",
     "ChartWidget",
@@ -44,7 +42,7 @@ __all__ = [
     "Link",
     "LinksWidget",
     "PeersWidget",
-    "PlanTask",
+    "PlanAction",
     "PlanWidget",
     "Slice",
     "StandbyWidget",

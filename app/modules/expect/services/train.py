@@ -5,7 +5,11 @@ import lightgbm as lgb
 import numpy as np
 import pandas as pd
 
+# The bands' quantiles; the centre (0.5, column `p50`) is the hour's mean, not its median: a day's
+# or a cycle's expectation is the sum of its hours, and summed medians of bursty use (a kettle, a
+# washing cycle) miss every burst (the demo homes' days came out 3-4 kWh low).
 QUANTILES = (0.05, 0.1, 0.5, 0.9, 0.95)
+CENTRE = 0.5
 PARAMS = {
     "objective": "quantile",
     "num_leaves": 31,
@@ -46,7 +50,10 @@ def eligible(y: pd.Series, tz: str) -> bool:
 
 def _boost(x: pd.DataFrame, y: pd.Series, q: float, seed: int) -> lgb.Booster:
     data = lgb.Dataset(x, label=y, free_raw_data=False)
-    return lgb.train({**PARAMS, "alpha": q, "seed": seed}, data, num_boost_round=ROUNDS)
+    params = {**PARAMS, "alpha": q, "seed": seed}
+    if q == CENTRE:
+        params["objective"] = "regression"  # the mean (L2)
+    return lgb.train(params, data, num_boost_round=ROUNDS)
 
 
 def level(x: pd.DataFrame, ref_h: float | None = None) -> pd.Series:

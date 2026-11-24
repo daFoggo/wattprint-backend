@@ -20,7 +20,7 @@
   signs in (or signs up) with their own account through the normal flow, then `POST /api/v1/demo/homes/{key}/view`
   makes that account a read-only `viewer` of the home (409 for an owner/member of a real home; a viewer can move to
   another demo home). Viewers get 403 `home_read_only` on every write to the home's shared state, Wappi's
-  `create_watch`/`propose_plan` refuse for them, and no alert or weekly mail goes to them.
+  `create_watch` refuses for them, and no alert or weekly mail goes to them.
 - Demo guests (one click on the sign-in page): `POST /api/v1/demo/homes/{key}/guest`, no token; only the dashboard
   may ask (header `X-Demo-Secret` = the `wattprint-web` client secret, else 403) and it names the visitor's address
   (`X-Demo-Visitor`; 5 a minute per address, 20 globally, per API process). The service account

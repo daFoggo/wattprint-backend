@@ -25,6 +25,10 @@ async def weather(
         if stored is None:
             raise HomeLocationUnsetError
         place, w = stored
-        return Weather.model_validate({"province": place, "now": w.now, "next": w.next})
+        return Weather.model_validate(
+            {"province": place, "source": "era5", "now": w.now, "next": w.next}
+        )
     w = await services.weather_at(province.lat, province.lon, lang)
-    return Weather.model_validate({"province": province.name, "now": w.now, "next": w.next})
+    return Weather.model_validate(
+        {"province": province.name, "source": "openweather", "now": w.now, "next": w.next}
+    )

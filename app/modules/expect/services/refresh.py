@@ -130,7 +130,7 @@ async def train_home(
     if not eligible(y, tz):
         return None
     x = await feature_frame(s, home_id, lo, hi, now)
-    version = f"ctx-v2-{now.astimezone(UTC):%Y%m%d%H%M%S}"
+    version = f"ctx-v3-{now.astimezone(UTC):%Y%m%d%H%M%S}"  # v3: the centre is the mean
     bundle = await asyncio.to_thread(fit_bundle, x, y, version, tz)
     previous = await active_bundle(s, home_id)
     if previous and "backtest" in previous.metrics:  # kept until a new backtest replaces it

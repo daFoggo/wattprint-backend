@@ -1,6 +1,6 @@
 import asyncio
 import uuid
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, time, timedelta
 
 import numpy as np
 import pandas as pd
@@ -168,6 +168,19 @@ async def _device_daily(
     )
 
 
+async def device_level(
+    s: AsyncSession, home_id: uuid.UUID, device_id: uuid.UUID, day: date
+) -> float:
+    """The device's `base_7d` as known the morning of `day`: its mean kWh over the full local days
+    of the 7 before (NaN without one)."""
+    tz = await _tz(s, home_id)
+    at = pd.Timestamp(datetime.combine(day, time()), tz=tz)
+    daily = await _device_daily(
+        s, device_id, (at - pd.Timedelta(days=9)).tz_convert("UTC"), at.tz_convert("UTC"), tz
+    )
+    return float(base_frame(daily, pd.DatetimeIndex([at]), tz, at).iloc[0])
+
+
 async def device_frame(
     s: AsyncSession,
     home_id: uuid.UUID,
@@ -203,7 +216,7 @@ async def train_device(
     if not eligible(y, tz):
         return None
     x = await device_frame(s, home_id, device_id, lo, hi, now)
-    version = f"dev-v1-{now.astimezone(UTC):%Y%m%d%H%M%S}"
+    version = f"dev-v2-{now.astimezone(UTC):%Y%m%d%H%M%S}"  # v2: the centre is the mean
     bundle = await asyncio.to_thread(fit_bundle, x, y, version, tz)
     bundle.metrics["backtest"] = await asyncio.to_thread(holdout, x, y, tz)
     await store(s, home_id, device_id, bundle, now)

@@ -730,6 +730,7 @@ def expected_app(rel: str) -> set[str]:
         "public.tb_user_preference",
         "public.tb_notification_log",
         "public.tb_watch",
+        "public.tb_savings_plan",
         "public.tb_home_weather_hourly",
         "public.tb_demo_scenario",
         "public.tb_expect_model",

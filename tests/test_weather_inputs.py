@@ -71,3 +71,18 @@ async def test_missing_hours_are_nan_not_dropped(home):
         w = await weather_inputs(s, home, NOW, NOW + timedelta(hours=4), NOW)
     assert len(w) == 4
     assert w["temp_c"].isna().sum() == 3
+
+
+async def test_without_a_year_of_weather_the_normal_is_the_recent_same_hour(home):
+    # A home stored less than a year: beyond the forecast, the same hour of the last 14 days
+    # observed, never a gap the model would read as a signal.
+    far = NOW + timedelta(days=6)
+    rows = {}
+    for k in range(2, 16):  # the 14 observed days up to the forecast's end (NOW + 5 days)
+        rows[far - timedelta(days=k)] = 20.0 + (k % 2)  # same hour: 20 and 21 alternately
+        rows[far - timedelta(days=k) + timedelta(hours=3)] = 5.0  # another hour: not mixed in
+    await put(home, rows)
+    async with SessionLocal() as s:
+        w = await weather_inputs(s, home, far, far + timedelta(hours=1), NOW)
+    assert w.loc[far, "temp_c"] == pytest.approx(20.5)
+    assert w.loc[far, "is_day"] == 0.0

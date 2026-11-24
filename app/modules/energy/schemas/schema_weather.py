@@ -1,3 +1,5 @@
+from typing import Literal
+
 from pydantic import BaseModel, ConfigDict
 
 
@@ -28,5 +30,8 @@ class WeatherSlot(_Model):
 
 class Weather(_Model):
     province: str
+    # Who measured it: OpenWeather live for a home's province, ERA5 reanalysis (stored hours,
+    # through Open-Meteo) for a demo home's recording site.
+    source: Literal["openweather", "era5"]
     now: WeatherNow
     next: list[WeatherSlot]

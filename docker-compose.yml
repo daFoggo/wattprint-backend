@@ -124,6 +124,7 @@ services:
       # Issuer = the URL clients (the phone) use; JWKS = how this container reaches Keycloak.
       KEYCLOAK_ISSUER: ${KEYCLOAK_ISSUER:-http://localhost:11095/realms/wattprint}
       KEYCLOAK_JWKS_URL: http://keycloak:11095/realms/wattprint/protocol/openid-connect/certs
+      NILM_MODEL_DIR: /data/models/nilm # the bundles' JSON sidecars: each device type's held-out score
       CORS_ORIGINS: ${CORS_ORIGINS}
       APP_DB_PASSWORD: ${APP_DB_PASSWORD:-}
       INGEST_DB_PASSWORD: ${INGEST_DB_PASSWORD:-}

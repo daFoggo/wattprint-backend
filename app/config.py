@@ -28,6 +28,9 @@ class Settings(BaseSettings):
 
     # NILM worker (app.modules.nilm.worker): tb_nilm_model.artifact is relative to this directory.
     nilm_model_dir: str = "models/nilm"
+    # How far a device's NILM estimate is trusted: its energy F1 on the bundle's held-out test.
+    nilm_high_f1: float = 0.7
+    nilm_medium_f1: float = 0.5
     nilm_history_days: int = 90  # how far back a home's first pass starts
     nilm_poll_s: int = 60
     nilm_threads: int = 4  # torch CPU threads, so the API on the same host keeps its share

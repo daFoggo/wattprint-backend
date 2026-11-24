@@ -73,7 +73,15 @@ async def _shape(s, home_id, device_type: str) -> list[float]:
     if not minutes:
         raise SystemExit("no meter readings for that run")
     base = min(minutes)
-    return [round(float(w) - float(base)) for w in minutes]
+    return device_minutes([round(float(w) - float(base)) for w in minutes])
+
+
+def device_minutes(shape: list[float]) -> list[float]:
+    """The run without the base minutes at its ends (under a tenth of its peak), so repeats join
+    into one longer run instead of short pulses with gaps."""
+    peak = max(shape)
+    on = [i for i, w in enumerate(shape) if w >= 0.1 * peak]
+    return shape[on[0] : on[-1] + 1] if peak > 0 else shape
 
 
 async def main(a: argparse.Namespace) -> None:
