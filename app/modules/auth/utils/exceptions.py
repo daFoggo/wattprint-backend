@@ -1,4 +1,5 @@
 from app.common.exceptions import (
+    AppError,
     ConflictError,
     ForbiddenError,
     NotFoundError,
@@ -43,3 +44,24 @@ class DemoHomeNotFoundError(NotFoundError):
 class DemoNotForMembersError(ConflictError):
     code = "demo_not_for_members"
     message = "This account belongs to a home; demo homes are for accounts without one"
+
+
+class DemoForbiddenError(ForbiddenError):
+    code = "demo_forbidden"
+    message = "Demo guests are made through the dashboard"
+
+
+class DemoUnavailableError(ServiceUnavailableError):
+    code = "demo_unavailable"
+    message = "Demo guests unavailable"
+
+
+class DemoFullError(ServiceUnavailableError):
+    code = "demo_full"
+    message = "Too many demo guests right now; try again later"
+
+
+class DemoRateLimitedError(AppError):
+    status_code = 429
+    code = "demo_rate_limited"
+    message = "Too many demo guests in a minute; try again shortly"

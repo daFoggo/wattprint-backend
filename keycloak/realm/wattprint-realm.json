@@ -112,7 +112,7 @@
       "publicClient": false,
       "secret": "${WATTPRINT_WEB_CLIENT_SECRET}",
       "standardFlowEnabled": true,
-      "directAccessGrantsEnabled": false,
+      "directAccessGrantsEnabled": true,
       "implicitFlowEnabled": false,
       "serviceAccountsEnabled": false,
       "redirectUris": [
@@ -137,9 +137,30 @@
           }
         }
       ]
+    },
+    {
+      "clientId": "wattprint-demo-admin",
+      "name": "Wattprint demo guests",
+      "description": "Service account of the API: creates and deletes demo guest accounts (POST /demo/homes/{key}/guest). manage-users only.",
+      "enabled": true,
+      "publicClient": false,
+      "secret": "${DEMO_ADMIN_CLIENT_SECRET}",
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "implicitFlowEnabled": false,
+      "serviceAccountsEnabled": true,
+      "protocol": "openid-connect"
     }
   ],
   "users": [
+    {
+      "username": "service-account-wattprint-demo-admin",
+      "enabled": true,
+      "serviceAccountClientId": "wattprint-demo-admin",
+      "clientRoles": {
+        "realm-management": ["manage-users", "view-users"]
+      }
+    },
     {
       "username": "admin",
       "email": "admin@wattprint.local",

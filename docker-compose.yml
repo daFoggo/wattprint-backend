@@ -70,6 +70,8 @@ services:
       WATTPRINT_ADMIN_PASSWORD: ${WATTPRINT_ADMIN_PASSWORD:?WATTPRINT_ADMIN_PASSWORD is required}
       # Secret of the confidential web client `wattprint-web` (the Next.js dashboard).
       WATTPRINT_WEB_CLIENT_SECRET: ${WATTPRINT_WEB_CLIENT_SECRET:?WATTPRINT_WEB_CLIENT_SECRET is required}
+      # Secret of the service account `wattprint-demo-admin` (creates and deletes demo guests).
+      DEMO_ADMIN_CLIENT_SECRET: ${DEMO_ADMIN_CLIENT_SECRET:?DEMO_ADMIN_CLIENT_SECRET is required}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:?GOOGLE_CLIENT_ID is required}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:?GOOGLE_CLIENT_SECRET is required}
       KC_DB: postgres
@@ -130,6 +132,10 @@ services:
       REFIT_SEED_DIR: /data
       # The House 2 seed revision is opt-in: demo homes come from scripts/seed_demo_homes.py.
       SEED_REFIT: ${SEED_REFIT:-0}
+      # Demo guests (POST /api/v1/demo/homes/{key}/guest): made through the web client and the
+      # `wattprint-demo-admin` service account; either empty = 503.
+      WATTPRINT_WEB_CLIENT_SECRET: ${WATTPRINT_WEB_CLIENT_SECRET:-}
+      DEMO_ADMIN_CLIENT_SECRET: ${DEMO_ADMIN_CLIENT_SECRET:-}
       <<: *copilot-env
     extra_hosts:
       - "host.docker.internal:host-gateway" # text2sql runs in its own compose project

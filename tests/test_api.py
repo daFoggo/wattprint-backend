@@ -162,11 +162,12 @@ async def test_verified_email_claims_a_profile_created_before_first_login(client
     assert (await client.get("/api/v1/users/me", headers=bearer(other))).status_code == 409
 
 
-# Answer without a token (the demo session POST has no body here, hence 422, not 401).
+# Answer without a token. A demo guest is made only for the dashboard (its client secret): 403.
 PUBLIC = {
     ("GET", "/api/v1/health"): 200,
     ("GET", "/api/v1/homes/provinces"): 200,
     ("GET", "/api/v1/demo/homes"): 200,
+    ("POST", "/api/v1/demo/homes/{key}/guest"): 403,
 }
 
 

@@ -20,8 +20,16 @@
   signs in (or signs up) with their own account through the normal flow, then `POST /api/v1/demo/homes/{key}/view`
   makes that account a read-only `viewer` of the home (409 for an owner/member of a real home; a viewer can move to
   another demo home). Viewers get 403 `home_read_only` on every write to the home's shared state, Wappi's
-  `create_watch`/`propose_plan` refuse for them, and no alert or weekly mail goes to them. No password grant: every
-  client has Direct Access Grants off, and there is no admin service account.
+  `create_watch`/`propose_plan` refuse for them, and no alert or weekly mail goes to them.
+- Demo guests (one click on the sign-in page): `POST /api/v1/demo/homes/{key}/guest`, no token; only the dashboard
+  may ask (header `X-Demo-Secret` = the `wattprint-web` client secret, else 403) and it names the visitor's address
+  (`X-Demo-Visitor`; 5 a minute per address, 20 globally, per API process). The service account
+  `wattprint-demo-admin` (realm-management `manage-users`, `view-users`; `DEMO_ADMIN_CLIENT_SECRET`) creates a
+  Keycloak user `guest-<hex>@guest.wattprint.local` with a random password that is never stored, the API
+  password-grants it through `wattprint-web` (Direct Access Grants on that client only; every other client keeps them
+  off), provisions it as a `viewer` of the home and returns the tokens. Guests live 24 h (each call deletes up to 50
+  expired ones: Keycloak user, then `tb_users` row with its data), at most 500 at once (503 `demo_full`); a failure
+  after the account exists deletes it again. Keycloak or either secret missing → 503.
 - Future AI service: another resource server with its own audience; it verifies the same JWKS.
 
 ## Decisions

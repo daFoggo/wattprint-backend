@@ -20,6 +20,11 @@ class Settings(BaseSettings):
     keycloak_client_ids: str = "wattprint-mobile,wattprint-web"
     # Demo homes a signed-in account can view read-only (app.modules.auth.services.demo).
     demo_homes_file: str = "scripts/demo_homes.toml"
+    # Demo guests (POST /demo/homes/{key}/guest): only the dashboard may ask (its client secret),
+    # and the guest is signed in through that client. The service account `wattprint-demo-admin`
+    # (manage-users) creates and deletes guest accounts. Either empty = 503.
+    wattprint_web_client_secret: str = ""
+    demo_admin_client_secret: str = ""
 
     # NILM worker (app.modules.nilm.worker): tb_nilm_model.artifact is relative to this directory.
     nilm_model_dir: str = "models/nilm"
@@ -76,6 +81,11 @@ class Settings(BaseSettings):
     @property
     def jwks_url(self) -> str:
         return self.keycloak_jwks_url or f"{self.keycloak_issuer}/protocol/openid-connect/certs"
+
+    @property
+    def token_url(self) -> str:
+        # Next to the JWKS endpoint, so in compose it is reached the same way (http://keycloak:11095).
+        return self.jwks_url.removesuffix("/certs") + "/token"
 
     @property
     def cors_origin_list(self) -> list[str]:
