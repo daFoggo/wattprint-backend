@@ -113,7 +113,26 @@ async def answer_text(s, user_id, home_id, message_id: uuid.UUID) -> str:
     return text
 
 
-async def rate(s, user_id, home_id, message_id: uuid.UUID, value: str | None) -> None:
-    await answer_text(s, user_id, home_id, message_id)
+async def rate(
+    s, user_id, home_id, message_id: uuid.UUID, value: str | None
+) -> tuple[str, str] | None:
+    """Stores the verdict. For a thumbs-down returns the question and the answer, to tell the
+    maintainers (ids are time-ordered: the question is the last user message before the answer)."""
+    answer = await answer_text(s, user_id, home_id, message_id)
+    before = await s.scalar(select(Message.feedback).where(Message.id == message_id))
     await s.execute(update(Message).where(Message.id == message_id).values(feedback=value))
     await s.commit()
+    if value != "down" or before == "down":  # a retry or double click is not a new complaint
+        return None
+    question = await s.scalar(
+        select(Message.content)
+        .where(
+            Message.conversation_id
+            == select(Message.conversation_id).where(Message.id == message_id).scalar_subquery(),
+            Message.role == "user",
+            Message.id < message_id,
+        )
+        .order_by(Message.id.desc())
+        .limit(1)
+    )
+    return question or "", answer

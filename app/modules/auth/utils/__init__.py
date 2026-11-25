@@ -1,4 +1,5 @@
 from .exceptions import (
+    AccountDeleteUnavailableError,
     AdminRequiredError,
     DemoForbiddenError,
     DemoFullError,
@@ -7,12 +8,14 @@ from .exceptions import (
     DemoRateLimitedError,
     DemoUnavailableError,
     EmailTakenError,
+    HomeHasMembersError,
     IdentityProviderUnavailableError,
     InactiveUserError,
     InvalidCredentialsError,
 )
 
 __all__ = [
+    "AccountDeleteUnavailableError",
     "AdminRequiredError",
     "DemoForbiddenError",
     "DemoFullError",
@@ -21,6 +24,7 @@ __all__ = [
     "DemoRateLimitedError",
     "DemoUnavailableError",
     "EmailTakenError",
+    "HomeHasMembersError",
     "IdentityProviderUnavailableError",
     "InactiveUserError",
     "InvalidCredentialsError",

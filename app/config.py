@@ -58,6 +58,9 @@ class Settings(BaseSettings):
 
     # Weather for the home's province (OpenWeather); empty = /energy/weather answers 503.
     openweather_api_key: str = ""
+    # Where a thumbs-down on Wappi's answer is sent so the maintainers see it at once; empty = off.
+    feedback_telegram_token: str = ""
+    feedback_telegram_chat: str = ""
 
     # Copilot: LLM through OpenRouter (OpenAI-compatible); free-form data questions via text2sql.
     openrouter_api_key: str = ""

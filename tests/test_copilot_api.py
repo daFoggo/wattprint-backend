@@ -105,6 +105,9 @@ async def test_chat_streams_tools_and_stores_the_reply(client, make_member, scri
             text("SELECT usage FROM ai.ai_message WHERE id = :m"), {"m": done["message_id"]}
         )
     assert calls == [("compare_periods", True)]
+    # how long the answer took in all, and until its first word (the wait the user feels)
+    ms, first_ms = usage.pop("ms"), usage.pop("first_ms")
+    assert 0 <= first_ms <= ms
     assert usage == {"rounds": 2, "prompt": 200, "cached": 120, "completion": 20, "cost": 0.002}
 
     # the follow-up sees the earlier turn

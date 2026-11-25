@@ -30,6 +30,14 @@
   off), provisions it as a `viewer` of the home and returns the tokens. Guests live 24 h (each call deletes up to 50
   expired ones: Keycloak user, then `tb_users` row with its data), at most 500 at once (503 `demo_full`); a failure
   after the account exists deletes it again. Keycloak or either secret missing → 503.
+- Deleting one's own account: `DELETE /api/v1/users/me` (204). The same service account deletes the Keycloak user
+  (so `DEMO_ADMIN_CLIENT_SECRET` is needed for real accounts too: unset → 503 `account_delete_unavailable`, checked
+  before anything is erased). Local data goes first, Keycloak last, so a refusal leaves an empty account that can ask
+  again. Profile and everything hanging on it cascade; a home's only member also erases the home, its `tb_reading` /
+  `tb_device_estimate` rows (no foreign keys, with the Timescale decompression limit lifted for that transaction) and
+  the stored rows of the six aggregates (by `series_id`: retention never drops their hourly and daily totals); the
+  home's meter is unlinked. An owner while others belong to the home gets 409
+  `home_has_members` and nothing is erased (spec docs/work/2026-11-25-delete-account).
 - Future AI service: another resource server with its own audience; it verifies the same JWKS.
 
 ## Decisions

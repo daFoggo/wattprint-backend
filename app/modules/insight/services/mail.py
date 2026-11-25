@@ -221,7 +221,9 @@ async def mail_alerts(now: datetime) -> None:
                         text("SELECT name FROM public.tb_device WHERE id = :d"), {"d": a.device_id}
                     )
                     subject, body = alert_text(a, device or "Một thiết bị")
-                    body += f"\n\nXem trên WattPrint: {settings.dashboard_url}/dashboard\n"
+                    # The alerts page is where the alert is rated; the overview only lists it.
+                    link = f"{settings.dashboard_url}/dashboard/alerts"
+                    body += f"\n\nXem và đánh giá trên WattPrint: {link}\n"
                     # Per day, not per alert: a cause that comes and goes is mailed once a day.
                     ref = f"{a.home_id}:{a.dedup_key}:{now.astimezone(ICT).date()}"
                     owner = await _watch_owner(s, a)

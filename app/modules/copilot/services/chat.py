@@ -1,6 +1,7 @@
 import asyncio
 import json
 import logging
+import time
 import uuid
 from collections.abc import AsyncIterator
 from contextlib import aclosing
@@ -98,10 +99,11 @@ PROMPT = """You are Wappi, the energy assistant of WattPrint for one household i
 - Per-device figures are estimates the system's device recognition model makes from the main
   meter, not separate meters: say "ước tính" / "estimated" when you use them, and call the method
   "hệ thống" / "the system" (never "NILM" or other jargon). "Other" is load no device explains.
-- Cite with [n] right after a figure, n being a number from the tool result's `cite` list.
-- Answer in {language}, in at most 120 words, plain sentences (no tables, no headings), VND as
-  "123.000 đ" in Vietnamese. Charts and links are added under your answer by the app: do not
-  describe them or paste URLs.
+- Cite each source once: [n] right after the first figure it supports, n being a number from
+  the tool result's `cite` list. Never repeat the same [n] later in the answer.
+- Answer in {language}, in at most 120 words, plain sentences (no tables, no headings, no
+  markdown such as ** or lists), VND as "123.000 đ" in Vietnamese. Charts and links are added
+  under your answer by the app: do not describe them or paste URLs.
 - Call tools first, without writing anything before them.
 - Only for a savings plan the user asks for: call device_forecast, then propose_plan with
   1-3 of its advice ids; the user starts the plan on the plan page.
@@ -266,6 +268,10 @@ async def progress_until(
         task.cancel()  # a no-op once it ended; stops the tool when the client leaves mid-way
 
 
+def _since(started: float) -> int:
+    return round((time.monotonic() - started) * 1000)
+
+
 def event(name: str, data: dict[str, Any]) -> str:
     return f"event: {name}\ndata: {json.dumps(data, ensure_ascii=False, default=str)}\n\n"
 
@@ -276,6 +282,7 @@ async def answer(
     """SSE of one answer: meta, step per tool, token per text delta, then done (stored) or error."""
     now = datetime.now(UTC)
     reply_id = uuid.uuid7()
+    started = time.monotonic()
     yield event("meta", {"conversation_id": conversation_id, "message_id": reply_id})
     state = Answer(lang)
     follow = FollowUps()
@@ -323,6 +330,8 @@ async def answer(
                         if why := await declined():
                             raise DeclinedError(why)
                         if out := follow.feed(delta):
+                            # The wait the user feels: until the first word shows.
+                            state.usage.setdefault("first_ms", _since(started))
                             yield event("token", {"text": out})
                 state.count(turn.usage)
                 if not turn.calls:
@@ -376,6 +385,7 @@ async def answer(
             log.info("copilot question declined: %s", e.args[0])
             await s.rollback()
             follow = FollowUps()
+            state.usage.setdefault("first_ms", _since(started))
             yield event("token", {"text": follow.feed(DECLINE[lang])})
         except CopilotUnavailableError as e:
             log.warning("copilot answer failed: %s (usage %s)", e.message, state.usage)
@@ -387,6 +397,7 @@ async def answer(
             if screen:
                 screen.cancel()
         text, follow_ups = follow.close()
+        state.usage["ms"] = _since(started)
         reply = state.reply(text, follow_ups)
         s.add(
             Message(

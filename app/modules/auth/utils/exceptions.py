@@ -36,6 +36,16 @@ class AdminRequiredError(ForbiddenError):
     message = "Admin role required"
 
 
+class HomeHasMembersError(ConflictError):
+    code = "home_has_members"
+    message = "Other people belong to this home; their data is not yours to erase"
+
+
+class AccountDeleteUnavailableError(ServiceUnavailableError):
+    code = "account_delete_unavailable"
+    message = "The account could not be deleted right now; try again shortly"
+
+
 class DemoHomeNotFoundError(NotFoundError):
     code = "demo_home_not_found"
     message = "No such demo home"

@@ -82,6 +82,13 @@ def fake_jwks(monkeypatch):
     monkeypatch.setattr(security, "_jwks", stub)
 
 
+@pytest.fixture(autouse=True)
+def no_telegram(monkeypatch):
+    """The container holds the real bot token: no test may message the maintainers' chat."""
+    monkeypatch.setattr(settings, "feedback_telegram_token", "")
+    monkeypatch.setattr(settings, "feedback_telegram_chat", "")
+
+
 @pytest.fixture
 def make_token():
     def make(*, sub=None, email=None, roles=(), key=_KEY, **overrides) -> str:

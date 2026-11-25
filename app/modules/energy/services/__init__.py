@@ -10,6 +10,7 @@ from .devices import (
     on_w,
     runs,
 )
+from .erase import erase_home_readings
 from .meter import (
     DeviceEnergy,
     LatestPower,
@@ -43,6 +44,7 @@ __all__ = [
     "TodayEnergy",
     "backfill_aggregates",
     "device_breakdown",
+    "erase_home_readings",
     "latest_power",
     "latest_reading",
     "main_readings",

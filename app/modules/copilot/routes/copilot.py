@@ -5,10 +5,11 @@ from collections import defaultdict, deque
 from collections.abc import AsyncIterator
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Header, Query, Request
+from fastapi import APIRouter, BackgroundTasks, Header, Query, Request
 from fastapi.responses import Response, StreamingResponse
 
 from app.common.exceptions import UnprocessableError
+from app.common.notify import tell_maintainers
 from app.dependencies import DbSession
 from app.modules.home.api import Membership
 
@@ -98,8 +99,17 @@ async def delete_conversation(conversation_id: uuid.UUID, member: Membership, db
 @router.put(
     "/messages/{message_id}/feedback", status_code=204, summary="Rate an answer (null clears)"
 )
-async def feedback(message_id: uuid.UUID, body: FeedbackIn, member: Membership, db: DbSession):
-    await services.rate(db, member.user_id, member.home_id, message_id, body.value)
+async def feedback(
+    message_id: uuid.UUID,
+    body: FeedbackIn,
+    member: Membership,
+    db: DbSession,
+    background: BackgroundTasks,
+):
+    if noted := await services.rate(db, member.user_id, member.home_id, message_id, body.value):
+        question, answer = noted
+        note = f"👎 Wappi trả lời chưa tốt\nHỏi: {question[:600]}\nĐáp: {answer[:1500]}"
+        background.add_task(tell_maintainers, f"{note}\nid: {message_id}")
 
 
 MAX_AUDIO = 10 * 1024 * 1024  # about 10 minutes of Opus: far more than one question
