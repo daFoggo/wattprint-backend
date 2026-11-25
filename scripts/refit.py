@@ -80,11 +80,32 @@ def pick_shift(first_wall: datetime, now: datetime, history: timedelta) -> int:
     return max(years, 0) * YEAR_DAYS
 
 
-def shift_for(db_hi: datetime, shift_days: int, last_wall: datetime) -> int:
-    """Past the end of the recording, add whole weeks so db_hi lands inside it again."""
+def loop_period(first_wall: datetime, last_wall: datetime) -> pd.Timedelta:
+    """How far each pass of a looped recording shifts: its length in whole weeks, rounded down so
+    a pass leaves no hole (weekday kept; up to 6 days of its start are skipped on the replay)."""
+    return WEEK * max(1, int((pd.Timestamp(last_wall) - pd.Timestamp(first_wall)) / WEEK))
+
+
+def loop_shifts(
+    first_wall: datetime, last_wall: datetime, shift_days: int, until: datetime
+) -> list[int]:
+    """The shift of each pass of the looped recording that starts by `until` (first: its own)."""
+    period = loop_period(first_wall, last_wall).days
+    out, k = [], 0
+    while db_time(pd.DatetimeIndex([first_wall]), shift_days + k * period)[0] <= pd.Timestamp(
+        until
+    ):
+        out.append(shift_days + k * period)
+        k += 1
+    return out
+
+
+def shift_for(db_hi: datetime, shift_days: int, first_wall: datetime, last_wall: datetime) -> int:
+    """Past the end of the recording it plays again from its start, shifted by `loop_period`."""
+    period = loop_period(first_wall, last_wall)
     wall_hi = _local(db_hi) - pd.Timedelta(days=shift_days)
-    weeks = max(0, math.ceil((wall_hi - pd.Timestamp(last_wall)) / WEEK))
-    return shift_days + 7 * weeks
+    loops = max(0, math.ceil((wall_hi - pd.Timestamp(last_wall)) / period))
+    return shift_days + loops * period.days
 
 
 def rows_between(df: pd.DataFrame, lo: datetime, hi: datetime, shift_days: int) -> list[ReadingRow]:

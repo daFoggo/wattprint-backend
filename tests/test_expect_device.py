@@ -377,3 +377,19 @@ async def test_a_devices_level_is_its_mean_of_the_seven_full_days_before(monkeyp
     assert got == 2.0
     [(lo, hi)] = seen
     assert hi == pd.Timestamp("2026-11-18T17:00Z")  # the 19th's midnight in Hanoi
+
+
+def test_the_holdout_asks_tail_as_of_for_its_inputs(monkeypatch):
+    from app.modules.expect.services import device as dev
+
+    seen = []
+    real = dev.tail_as_of
+
+    def spy(x, y, tz, cut):
+        seen.append(cut)
+        return real(x, y, tz, cut)
+
+    monkeypatch.setattr(dev, "tail_as_of", spy)
+    x, y = synthetic(60)
+    dev.holdout(x, y, "Asia/Ho_Chi_Minh", days=14)
+    assert seen == [y.index[-1] - pd.Timedelta(days=14)]

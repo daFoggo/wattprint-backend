@@ -35,12 +35,22 @@ def test_pick_shift_puts_the_history_start_inside_the_recording_in_whole_years()
     assert pd.Timestamp(first) + timedelta(days=days + refit.YEAR_DAYS) > start_wall
 
 
-def test_shift_for_adds_whole_weeks_only_past_the_end():
-    last = datetime(2015, 5, 1)
+def test_shift_for_plays_the_whole_recording_again_past_its_end():
+    first, last = datetime(2015, 2, 2), datetime(2015, 5, 1)  # 88 days: loops every 84, no hole
     inside = refit.db_time(pd.DatetimeIndex([last]), 364)[0].to_pydatetime()
-    assert refit.shift_for(inside, 364, last) == 364
-    assert refit.shift_for(inside + timedelta(seconds=1), 364, last) == 364 + 7
-    assert refit.shift_for(inside + timedelta(days=8), 364, last) == 364 + 14
+    assert refit.shift_for(inside, 364, first, last) == 364
+    assert refit.shift_for(inside + timedelta(seconds=1), 364, first, last) == 364 + 84
+    assert refit.shift_for(inside + timedelta(days=85), 364, first, last) == 364 + 168
+
+
+def test_a_looped_recording_keeps_the_weekday_and_replays_from_near_its_start():
+    first, last = datetime(2015, 2, 2, 8), datetime(2015, 5, 1)  # a Monday; loops every 84 days
+    start = refit.db_time(pd.DatetimeIndex([first]), 364)[0].to_pydatetime()
+    after = start + timedelta(days=84 + 9)  # past the end (88 days), into the second pass
+    shift = refit.shift_for(after, 364, first, last)
+    wall = pd.Timestamp(after).tz_convert(refit.HOME_TZ).tz_localize(None) - timedelta(days=shift)
+    assert wall.day_of_week == (first + timedelta(days=9)).weekday()
+    assert first <= wall < first + timedelta(days=10)
 
 
 def test_rows_between_is_half_open_skips_nan_and_flags_issues():
@@ -71,3 +81,11 @@ def test_the_replay_takes_the_aggregate_only_never_a_device_channel(tmp_path):
     assert list(out.columns) == ["wall", "watts", "quality"]
     assert out["watts"].tolist() == [500, 510]
     assert out["quality"].tolist() == [0, 1]
+
+
+def test_loop_shifts_lists_each_pass_of_the_recording_until_a_date():
+    first, last = datetime(2015, 2, 2), datetime(2015, 5, 1)  # period 84 days
+    start = refit.db_time(pd.DatetimeIndex([first]), 364)[0].to_pydatetime()
+    assert refit.loop_shifts(first, last, 364, start) == [364]
+    assert refit.loop_shifts(first, last, 364, start + timedelta(days=84)) == [364, 448]
+    assert refit.loop_shifts(first, last, 364, start + timedelta(days=200)) == [364, 448, 532]

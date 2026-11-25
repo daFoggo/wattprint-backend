@@ -9,7 +9,7 @@ import argparse
 import asyncio
 import os
 import tomllib
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import httpx
@@ -86,8 +86,17 @@ async def main(key: str, home: dict | None = None) -> None:
         raise SystemExit(f"home {key} is not seeded: run scripts.seed_demo_homes first")
     home = home if home is not None else toml_home(key)
     weather = fetch(f"{first:%Y-%m-%d}", f"{last:%Y-%m-%d}", site_of(home))
-    weather["ts"] = refit.db_time(weather["wall"].to_numpy(), row.shift_days)
     weather["is_day"] = weather["is_day"].astype(bool)
+    # Every pass of the looped recording, a year ahead: the replay plays it again past its end.
+    passes = refit.loop_shifts(
+        df["wall"].iloc[0],
+        df["wall"].iloc[-1],
+        row.shift_days,
+        datetime.now(UTC) + timedelta(days=400),
+    )
+    weather = pd.concat(
+        [weather.assign(ts=refit.db_time(weather["wall"].to_numpy(), d)) for d in passes]
+    )
     records = [
         {
             "h": row.home_id,

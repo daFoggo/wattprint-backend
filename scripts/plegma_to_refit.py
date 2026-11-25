@@ -2,8 +2,9 @@
 
     uv run python scripts/plegma_to_refit.py --house 1  ->  dataset/CLEAN_House101.csv
 
-Columns: Time, Unix, Aggregate (W), Appliance1..k (W, label order of NAMES), Issues (Plegma's
-own flag: the appliances add up to more than the aggregate). House N becomes house 100 + N.
+Columns: Time (Athens wall clock), Unix, Aggregate (W), Appliance1..k (W, order of NAMES),
+Issues (Plegma's own flag: the appliances add up to more than the aggregate). House N becomes
+house 100 + N.
 """
 
 from __future__ import annotations
@@ -50,9 +51,15 @@ def LABELS(df: pd.DataFrame) -> dict[str, str]:  # noqa: N802
 def to_refit(df: pd.DataFrame) -> pd.DataFrame:
     df = _with_ac(df)
     chans = _channels(df)
-    # Unix: the local clock read as UTC, as in REFIT where Time == Unix (scripts/refit.py shifts it)
-    unix = (df["timestamp"] - pd.Timestamp(0)) // pd.Timedelta(seconds=1)
-    out = pd.DataFrame({"Time": df["timestamp"], "Unix": unix, "Aggregate": df["P_agg"]})
+    # The files are UTC (their outdoor temperature follows ERA5 on that clock, r 0.95).
+    # The models learn the home's own hours: Time is Athens wall clock, and Unix reads it
+    # as UTC, as REFIT's Time == Unix.
+    # shortcut: summer time's repeated hour keeps two rows per local time, once a year.
+    local = (
+        df["timestamp"].dt.tz_localize("UTC").dt.tz_convert("Europe/Athens").dt.tz_localize(None)
+    )
+    unix = (local - pd.Timestamp(0)) // pd.Timedelta(seconds=1)
+    out = pd.DataFrame({"Time": local, "Unix": unix, "Aggregate": df["P_agg"]})
     for i, c in enumerate(chans, 1):
         out[f"Appliance{i}"] = df[c]
     out["Issues"] = df["issues"]

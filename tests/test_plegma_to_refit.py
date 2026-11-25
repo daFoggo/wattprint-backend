@@ -37,9 +37,16 @@ def test_labels_name_the_channels_the_trainer_reads():
     assert LABELS(_frame()) == want
 
 
-def test_unix_reads_the_local_clock_as_utc_like_refit():
+def test_the_files_utc_clock_becomes_athens_wall_clock_and_unix_reads_that_as_utc():
+    # 2022-07-15 00:00 UTC is 03:00 in Athens (summer time, UTC+3)
     out = to_refit(_frame())
-    assert out["Unix"].iloc[0] == int(pd.Timestamp("2022-07-15 00:00:00", tz="UTC").timestamp())
+    assert out["Time"].iloc[0] == pd.Timestamp("2022-07-15 03:00:00")
+    assert out["Unix"].iloc[0] == int(pd.Timestamp("2022-07-15 03:00:00", tz="UTC").timestamp())
+
+
+def test_winter_time_is_utc_plus_two():
+    df = _frame().assign(timestamp=pd.date_range("2022-12-15", periods=3, freq="10s"))
+    assert to_refit(df)["Time"].iloc[0] == pd.Timestamp("2022-12-15 02:00:00")
 
 
 def test_every_air_conditioner_adds_up_to_one_ac_and_a_gap_in_one_is_a_gap():

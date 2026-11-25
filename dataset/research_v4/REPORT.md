@@ -32,11 +32,11 @@ that is idle in their test part: AC H3 0.02, boiler H4 0.00) · ENERTALK H0 0.69
 
 | Home | Device | True kWh | kWh error | Energy F1 | ON/OFF F1 |
 |---|---|---|---|---|---|
-| Plegma 1 (101) | AC (units added) | 494.5 | −7 % | 0.905 | 0.996 |
-| | Boiler | 27.6 | +16 % | 0.902 | 0.989 |
-| | Fridge | 93.8 | +8 % | 0.887 | 0.915 |
-| | Washer | 0.9 | +33 % | 0.334 | 0.591 |
-| | **Macro** | | total −3.9 % | **0.757** | **0.873** |
+| Plegma 1 (101) | AC (units added) | 494.5 | −11 % | 0.894 | 0.996 |
+| | Boiler | 27.6 | +22 % | 0.882 | 0.993 |
+| | Fridge | 93.8 | +9 % | 0.866 | 0.907 |
+| | Washer | 0.9 | −4 % | 0.382 | 0.623 |
+| | **Macro** | | total −6.3 % | **0.756** | **0.880** |
 | ENERTALK 0 (200) | Fridge | 16.1 | −30 % | 0.686 | 0.876 |
 | | Kimchi fridge | 1.0 | +47 % | 0.585 | 0.744 |
 | | Washer | 4.3 | +22 % | 0.827 | 0.750 |

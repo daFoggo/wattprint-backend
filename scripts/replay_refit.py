@@ -60,11 +60,11 @@ async def _with_scenarios(h: Home, rows: list, lo: datetime, hi: datetime) -> li
 
 async def replay(h: Home, lo: datetime, hi: datetime, source: str = "replay") -> int:
     """Ingest the readings with database time in (lo, hi], in WINDOW steps. Returns new rows."""
-    last_wall = h.df["wall"].iloc[-1].to_pydatetime()
+    first_wall, last_wall = (h.df["wall"].iloc[i].to_pydatetime() for i in (0, -1))
     new = 0
     while lo < hi:
         step_hi = min(lo + WINDOW, hi)
-        shift = refit.shift_for(step_hi, h.shift_days, last_wall)
+        shift = refit.shift_for(step_hi, h.shift_days, first_wall, last_wall)
         rows = await _with_scenarios(h, refit.rows_between(h.df, lo, step_hi, shift), lo, step_hi)
         if rows:
             async with SessionLocal() as session, session.begin():
