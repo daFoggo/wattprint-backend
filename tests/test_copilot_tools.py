@@ -1,4 +1,4 @@
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta, timezone
 from decimal import Decimal
 from types import SimpleNamespace
 
@@ -40,6 +40,15 @@ async def test_explain_usage_without_model_says_so(make_member):
         ctx = tools.Ctx(s, me.home_id, datetime.now(UTC), "vi")
         out = await tools.explain_usage(ctx, "week")
     assert "error" in out.data
+
+
+@pytest.mark.parametrize("minute", [0, 30, 59])
+async def test_explain_usage_today_in_the_first_hour_says_no_whole_hour(make_member, minute):
+    me = await make_member("owner")
+    at = datetime(2026, 11, 24, 0, minute, tzinfo=timezone(timedelta(hours=7))).astimezone(UTC)
+    async with SessionLocal() as s:
+        out = await tools.explain_usage(tools.Ctx(s, me.home_id, at, "vi"), "today")
+    assert "whole hour" in out.data["error"] and "model" not in out.data["error"]
 
 
 def test_bill_forecast_carries_range():

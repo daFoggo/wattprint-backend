@@ -432,6 +432,11 @@ async def device_outlook(
         explain["other"] = forecast - usual
     if not all(np.isfinite([explain["usual"], explain["forecast"]])):
         explain = None  # no full day measured, or none ahead: nothing to explain against
+    if (
+        len(hourly) and hourly.index[0] == lo
+    ):  # the running hour counts by its rest, as the bill does
+        hourly = hourly.copy()
+        hourly.iloc[0] *= 1 - (pd.Timestamp(now) - lo).total_seconds() / 3600
     daily = hourly.groupby(hourly.index.tz_convert(tz).date).sum(min_count=1)
     level, wape, days = confidence(b)
     return {

@@ -18,7 +18,13 @@ from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
-from app.modules.billing.api import bill_history, current_bill, device_forecasts, forecast_bill
+from app.modules.billing.api import (
+    bill_history,
+    current_bill,
+    cycle_start,
+    device_forecasts,
+    forecast_bill,
+)
 from app.modules.energy.api import device_breakdown, stored_weather, weather_at
 from app.modules.expect.api import expected, hourly_actual
 from app.modules.home.api import Device, Home, Province
@@ -384,18 +390,21 @@ async def explain_usage(ctx: Ctx, period: str = "cycle") -> Outcome:
     if period == "today":
         span, lo = hour - midnight, midnight
         prev_lo = lo - timedelta(days=1)
+        if not span:  # 00:00-00:59: no whole hour to compare yet, which is not a missing model
+            return Outcome(
+                {"error": "today has no whole hour yet; ask again after 01:00, or about this week"},
+                _vi(ctx, "Hôm nay chưa đủ một giờ", "No whole hour today yet"),
+            )
     elif period == "week":
         span, lo = timedelta(days=7), midnight - timedelta(days=7)
         prev_lo = lo - span
     else:
         period = "cycle"
         day = await ctx.session.scalar(select(Home.billing_cycle_day).where(Home.id == ctx.home_id))
-        start = local.date().replace(day=day or 1)
-        if local.date().day < (day or 1):
-            start = (start.replace(day=1) - timedelta(days=1)).replace(day=day or 1)
+        start = cycle_start(local.date(), day or 1)
         lo = datetime(start.year, start.month, start.day, tzinfo=ICT).astimezone(UTC)
         span = hour - lo
-        prev_start = (start.replace(day=1) - timedelta(days=1)).replace(day=day or 1)
+        prev_start = cycle_start(start - timedelta(days=1), day or 1)
         prev_lo = datetime(
             prev_start.year, prev_start.month, prev_start.day, tzinfo=ICT
         ).astimezone(UTC)
@@ -444,12 +453,8 @@ async def compare_periods(ctx: Ctx, period: str = "week") -> Outcome:
     today = _today(ctx)
     if period == "cycle":
         day = await ctx.session.scalar(select(Home.billing_cycle_day).where(Home.id == ctx.home_id))
-        start = (
-            today.replace(day=day)
-            if today.day >= day
-            else ((today.replace(day=1) - timedelta(days=1)).replace(day=day))
-        )
-        prev = (start.replace(day=1) - timedelta(days=1)).replace(day=day)
+        start = cycle_start(today, day or 1)
+        prev = cycle_start(start - timedelta(days=1), day or 1)
         n = (today - start).days  # whole days so far
     else:
         period, n = "week", 7

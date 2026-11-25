@@ -153,6 +153,17 @@ def heater_saving(temps: pd.Series, tz: str, params: dict, changed: dict) -> flo
     return (before - after) / 1000
 
 
+def heater_saving_from(
+    hours: pd.Series, lo: pd.Timestamp, now: datetime, tz: str, params: dict, changed: dict
+) -> float:
+    """`heater_saving`, with the running hour (the one starting at `lo`) counted by its rest."""
+    got = heater_saving(hours, tz, params, changed)
+    if len(hours) and hours.index[0] == lo:
+        spent = (pd.Timestamp(now) - lo).total_seconds() / 3600
+        got -= spent * heater_saving(hours[:1], tz, params, changed)
+    return got
+
+
 async def _devices(s: AsyncSession, home_id: uuid.UUID):
     return (
         await s.execute(
@@ -205,6 +216,11 @@ async def _denser_excess(s: AsyncSession, device_id: uuid.UUID) -> float | None:
         {"d": device_id},
     )
     return float(got) if got else None
+
+
+def forget(home_id: uuid.UUID) -> None:
+    """Drop the home's cached forecasts: its billing cycle changed, so the hour's copy is wrong."""
+    _CACHE.pop(home_id, None)
 
 
 async def device_forecasts(
@@ -300,12 +316,17 @@ async def _compute(s: AsyncSession, home_id: uuid.UUID, now: datetime) -> Device
             advice.append(priced("fridge_check", excess * days_left if excess else None))
         elif d.type == "electric_heater" and heaters and temps is not None:
             params = {**HEATER, **(heaters[-1].params or {})}
+            # The scenario's own end (open: the cycle's end): hours past it are not saved.
+            until = heaters[-1].ends_at
+            hours = temps if until is None else temps[temps.index < until]
             evening = [[a, b - 1] if b >= 20 else [a, b] for a, b in params["hours"]]
             advice += [
                 priced(
                     "heater_setpoint",
-                    heater_saving(
-                        temps,
+                    heater_saving_from(
+                        hours,
+                        lo,
+                        now,
                         home.timezone,
                         params,
                         {"setpoint_c": params["setpoint_c"] - HEATER_SETPOINT_DOWN},
@@ -315,7 +336,7 @@ async def _compute(s: AsyncSession, home_id: uuid.UUID, now: datetime) -> Device
                 ),
                 priced(
                     "heater_earlier_off",
-                    heater_saving(temps, home.timezone, params, {"hours": evening}),
+                    heater_saving_from(hours, lo, now, home.timezone, params, {"hours": evening}),
                     hours=1,
                 ),
             ]

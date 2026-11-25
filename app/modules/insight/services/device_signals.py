@@ -1,5 +1,8 @@
 import statistics
+from collections.abc import Sequence
 from dataclasses import dataclass
+from datetime import datetime
+from typing import Any
 
 import numpy as np
 
@@ -41,6 +44,19 @@ def daily_excess(actual: float, p50: float, p95: float, price: float, factor: fl
         "excess_kwh": round(excess, 2),
         "excess_vnd": _vnd(excess, price),
     }
+
+
+def outside_events(
+    rows: Sequence[Any], events: list[tuple[datetime, datetime | None]]
+) -> list[Any]:
+    """Runs (anything with start_ts and end_ts) that overlap no demo event; an event with no end
+    runs on. A staged run must not become history: repeated takes would raise the device's own
+    threshold."""
+    return [
+        r
+        for r in rows
+        if not any(r.end_ts > a and (b is None or r.start_ts < b) for a, b in events)
+    ]
 
 
 def peers_of(run: Run, history: list[Run]) -> list[Run]:

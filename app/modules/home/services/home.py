@@ -30,6 +30,11 @@ async def update_home(db: AsyncSession, member: HomeMember, patch: HomeUpdate) -
     for name, value in data.items():
         setattr(home, name, value)
     await db.commit()
+    if "billing_cycle_day" in data:
+        # Lazy: billing reads homes through home.api, so a top-level import would be a cycle.
+        from app.modules.billing.api import forget_device_forecasts
+
+        forget_device_forecasts(home.id)
     await db.refresh(home)  # answer what was stored (numeric(8,2) pads 72.5 to 72.50)
     return await read_home(db, member)
 

@@ -155,6 +155,24 @@ services:
       - ./dataset:/data:ro
     command: sh -c "alembic upgrade head && exec uvicorn app.main:app --host 0.0.0.0 --port 11093 --reload --reload-dir /code/app --timeout-graceful-shutdown 3"
 
+  replay:
+    # The demo homes' meters (REFIT played back at clock time). Its own container, so an api restart or a
+    # reboot no longer stops the readings; its DB lock refuses a second copy.
+    build: .
+    container_name: wattprint-replay
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:11096/${POSTGRES_DB}
+      REFIT_SEED_DIR: /data
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./app:/code/app
+      - ./scripts:/code/scripts
+      - ./dataset:/data:ro
+    command: python -m scripts.replay_refit
+
   insight:
     # Insight worker: bills, forecasts, cohorts, alerts, weather and mail, each on its own cadence.
     build: .

@@ -96,3 +96,43 @@ async def test_tier_near_once_the_cycle_is_in_a_higher_tier(bdb, bsession):
         assert a.dedup_key == f"tier_near:2026-11-01:{a.payload['tier_no']:g}"
         assert a.payload["tier_no"] >= 2 and a.payload["days"] == 0
         assert a.payload["from_kwh"] <= 150
+
+
+async def _stored_after(bsession, h, *payloads):
+    from app.modules.insight.services.detectors import Finding, _upsert
+
+    for p in payloads:
+        await _upsert(bsession, h["id"], Finding("device_anomaly", "dev:1:day", "warning", p), NOW)
+        await bsession.commit()
+    return (await alerts(bsession, h))["dev:1:day"].payload
+
+
+async def test_a_weaker_finding_keeps_the_stored_payload(bdb, bsession):
+    c, _ = bdb
+    async with home(c, bsession) as h:
+        got = await _stored_after(
+            bsession,
+            h,
+            {"signal": "long_run", "excess_vnd": 50000},
+            {"signal": "daily", "excess_vnd": 20000},
+        )
+        assert got == {"signal": "long_run", "excess_vnd": 50000}
+
+
+async def test_a_dearer_finding_replaces_it(bdb, bsession):
+    c, _ = bdb
+    async with home(c, bsession) as h:
+        got = await _stored_after(
+            bsession,
+            h,
+            {"signal": "daily", "excess_vnd": 50000},
+            {"signal": "long_run", "excess_vnd": 80000},
+        )
+        assert got == {"signal": "long_run", "excess_vnd": 80000}
+
+
+async def test_a_finding_without_money_still_updates(bdb, bsession):
+    c, _ = bdb
+    async with home(c, bsession) as h:
+        got = await _stored_after(bsession, h, {"recent_w": 200}, {"recent_w": 300})
+        assert got == {"recent_w": 300}

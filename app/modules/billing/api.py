@@ -6,8 +6,10 @@ from .services import (
     current_bill,
     device_forecasts,
     forecast_bill,
+    forget_device_forecasts,
     refresh_bills,
 )
+from .services.bill import _cycle_start as cycle_start
 
 __all__ = [
     "MODEL_VERSION",
@@ -19,7 +21,9 @@ __all__ = [
     "bill_history",
     "compute_bill",
     "current_bill",
+    "cycle_start",
     "device_forecasts",
+    "forget_device_forecasts",
     "forecast_bill",
     "refresh_bills",
 ]

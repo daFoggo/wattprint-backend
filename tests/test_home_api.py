@@ -97,3 +97,28 @@ async def test_preferences_default_then_saved_per_user(client, make_member):
         "/api/v1/users/me/preferences", json={"notify_tier": "maybe"}, headers=a.headers
     )
     assert r.status_code == 422
+
+
+async def test_changing_the_cycle_day_drops_the_device_forecast_cache(client, make_member):
+    import sys
+    from datetime import date
+
+    df = sys.modules["app.modules.billing.services.device_forecast"]
+    owner = await make_member("owner", billing_cycle_day=5)
+    df._CACHE[owner.home_id] = ("sentinel", None)
+    later = min(date.today().day + 1, 28)  # a day after today: the cycle start moves back a month
+    r = await client.patch(
+        "/api/v1/homes/current", json={"billing_cycle_day": later}, headers=owner.headers
+    )
+    assert r.status_code == 200, r.text
+    assert owner.home_id not in df._CACHE
+
+
+async def test_changing_only_the_name_keeps_the_device_forecast_cache(client, make_member):
+    import sys
+
+    df = sys.modules["app.modules.billing.services.device_forecast"]
+    owner = await make_member("owner", billing_cycle_day=5)
+    df._CACHE[owner.home_id] = ("sentinel", None)
+    r = await client.patch("/api/v1/homes/current", json={"name": "X"}, headers=owner.headers)
+    assert r.status_code == 200 and df._CACHE.pop(owner.home_id) == ("sentinel", None)

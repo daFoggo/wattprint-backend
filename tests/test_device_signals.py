@@ -1,3 +1,6 @@
+from datetime import UTC, datetime
+from types import SimpleNamespace
+
 import pytest
 
 from app.modules.insight.services.device_signals import (
@@ -6,6 +9,7 @@ from app.modules.insight.services.device_signals import (
     denser_cycling,
     long_run,
     odd_hour,
+    outside_events,
     peers_of,
 )
 
@@ -51,3 +55,21 @@ def test_denser_cycling_for_three_days():
     assert got["excess_vnd"] == pytest.approx((0.51 / 0.40 - 1) * 3.0 * 3000.0, rel=0.01)
     assert denser_cycling([0.50, 0.41, 0.51], 0.40, 2.4, 3000.0) is None  # one day back to usual
     assert denser_cycling([0.50, 0.52], 0.40, 2.4, 3000.0) is None  # under 3 days
+
+
+def at(h: int, m: int = 0, day: int = 24) -> datetime:
+    return datetime(2026, 11, day, h, m, tzinfo=UTC)
+
+
+def row(a: datetime, b: datetime) -> SimpleNamespace:
+    return SimpleNamespace(start_ts=a, end_ts=b)
+
+
+def test_outside_events_drops_runs_inside_a_demo_event():
+    inside, after = row(at(10), at(10, 30)), row(at(13), at(13, 20))
+    assert outside_events([inside, after], [(at(9), at(12))]) == [after]
+
+
+def test_outside_events_with_an_open_end_drops_later_runs():
+    before, later = row(at(7), at(8)), row(at(10, day=25), at(11, day=25))
+    assert outside_events([before, later], [(at(9), None)]) == [before]

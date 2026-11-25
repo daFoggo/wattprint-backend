@@ -236,7 +236,7 @@ def test_a_fit_device_with_no_big_factor_still_says_what_moves_it():
     assert [f.key for f in got.factors] == ["other"]
 
 
-async def test_heater_advice_counts_every_hour_to_the_cycle_s_end(home, monkeypatch):
+async def test_heater_advice_without_an_end_counts_to_the_cycle_s_end(home, monkeypatch):
     # weather_inputs fills hours past the 5-day forecast (a year earlier, else the last two weeks),
     # so the saving runs to the cycle's end (8 days left here), not to the forecast's horizon
     s, *_ = home
@@ -265,3 +265,67 @@ async def test_heater_advice_counts_every_hour_to_the_cycle_s_end(home, monkeypa
     # from 10:00 on 23 Nov to 1 Dec: 8 evenings 17–23 and 7 mornings 06–09 = 69 hours × 360 W
     assert h["heater_setpoint"].saved_kwh == Decimal("24.840")
     assert h["heater_earlier_off"].saved_kwh == Decimal("14.400")  # 8 evenings × 1800 W
+
+
+async def test_heater_advice_stops_at_the_scenario_end(home, monkeypatch):
+    s, *_ = home
+    heater = uuid.uuid4()
+    ends = datetime(
+        2026, 11, 24, 17, tzinfo=UTC
+    )  # 00:00 on the 25th in Hanoi: 15 heater hours left
+
+    async def devices(*a):
+        return [SimpleNamespace(id=heater, name="Heater", type="electric_heater")]
+
+    async def scen(*a):
+        return [SimpleNamespace(name="heater", params={"setpoint_c": 16.0}, ends_at=ends)]
+
+    async def weather(s, home_id, lo, hi, now):
+        return pd.DataFrame(
+            {"temp_c": 6.0}, index=pd.date_range(lo, hi, freq="h", inclusive="left")
+        )
+
+    for name, fn in (
+        ("_devices", devices),
+        ("scenarios_between", scen),
+        ("weather_inputs", weather),
+    ):
+        monkeypatch.setattr(dfc, name, fn)
+    monkeypatch.setattr(dfc, "_CACHE", {})
+    [d] = (await dfc.device_forecasts(s, uuid.uuid4(), NOW)).devices
+    h = {a.key: a for a in d.advice}
+    # evening 23 Nov (17-22), morning 24 Nov (06-08), evening 24 Nov = 15 hours × 360 W
+    assert h["heater_setpoint"].saved_kwh == Decimal("5.400")
+    assert h["heater_earlier_off"].saved_kwh == Decimal("3.600")  # 2 evenings × 1800 W
+
+
+async def test_heater_advice_counts_the_running_hour_by_its_rest(home, monkeypatch):
+    s, *_ = home
+    heater = uuid.uuid4()
+
+    async def devices(*a):
+        return [SimpleNamespace(id=heater, name="Heater", type="electric_heater")]
+
+    async def scen(*a):
+        return [SimpleNamespace(name="heater", params={"setpoint_c": 16.0}, ends_at=None)]
+
+    async def weather(s, home_id, lo, hi, now):
+        return pd.DataFrame(
+            {"temp_c": 6.0}, index=pd.date_range(lo, hi, freq="h", inclusive="left")
+        )
+
+    for name, fn in (
+        ("_devices", devices),
+        ("scenarios_between", scen),
+        ("weather_inputs", weather),
+    ):
+        monkeypatch.setattr(dfc, name, fn)
+
+    async def saved(now):
+        monkeypatch.setattr(dfc, "_CACHE", {})
+        [d] = (await dfc.device_forecasts(s, uuid.uuid4(), now)).devices
+        return {a.key: a.saved_kwh for a in d.advice}["heater_setpoint"]
+
+    half = await saved(datetime(2026, 11, 23, 11, 30, tzinfo=UTC))  # 18:30 Hanoi: half of 18:00
+    next_hour = await saved(datetime(2026, 11, 23, 12, 0, tzinfo=UTC))  # 19:00
+    assert half - next_hour == Decimal("0.180")  # 360 W for the 30 minutes left of 18:00

@@ -19,6 +19,7 @@ from app.modules.expect.api import (
     expected,
     hourly_actual,
 )
+from app.modules.ops.api import scenarios_between
 
 from ..models import Alert
 from .cycles import refresh_cycles
@@ -31,6 +32,7 @@ from .device_signals import (
     denser_cycling,
     long_run,
     odd_hour,
+    outside_events,
     peers_of,
 )
 from .feedback import sensitivity
@@ -336,6 +338,11 @@ async def _upsert(s: AsyncSession, home_id: uuid.UUID, f: Finding, now: datetime
             # switches the prepared statement to a generic plan (after five runs).
             index_where=text("status <> 'resolved'"),
             set_={"payload": stmt.excluded.payload, "severity": stmt.excluded.severity},
+            # A weaker finding never rewrites the shown one (0 when a kind has no money).
+            where=text(
+                "coalesce((excluded.payload->>'excess_vnd')::float, 0) >= "
+                "coalesce((public.tb_alert.payload->>'excess_vnd')::float, 0)"
+            ),
         )
     )
 
@@ -408,12 +415,18 @@ async def _device_anomalies(s: AsyncSession, home_id: uuid.UUID, until: datetime
     hour = until.replace(minute=0, second=0, microsecond=0)  # D1 on whole analysed hours
     temps = (await weather_inputs(s, home_id, until - HISTORY, until, now))["temp_c"]
     day_temp = temps.groupby(temps.index.tz_convert(ICT).date).mean()
+    events = [
+        (sc.starts_at, sc.ends_at)
+        for sc in await scenarios_between(s, home_id, until - HISTORY, until)
+        if not sc.train
+    ]
     out = []
     for d in devices:
         rows = await _device_runs(s, d.id, until - HISTORY, until)
         all_runs = [(r, _to_run(r, temps)) for r in rows]
         recent = [(r, x) for r, x in all_runs if r.end_ts >= midnight]
-        past = [x for r, x in all_runs if r.end_ts < midnight]
+        # D2/D3 history leaves out demo events (a staged run is judged, never a peer).
+        past = [_to_run(r, temps) for r in outside_events(rows, events) if r.end_ts < midnight]
         days = (past[-1].day - past[0].day + 1) if past else 0
         enough = days >= MIN_DAYS and len(past) >= MIN_RUNS  # D2 and D3 (spec §2.1)
         factor = {

@@ -261,3 +261,43 @@ async def test_a_failing_device_model_does_not_undo_the_home(device, monkeypatch
         await jobs.train_devices(s, hid, UNTIL)  # the first fails, logs, the second still trains
         assert await s.scalar(text("SELECT 1")) == 1  # the home's transaction is still usable
     assert set(tried) == {did, other}
+
+
+async def _staged(hid, did, train: bool):
+    """Ten 200-minute runs at the usual hour, 31-40 days back, inside one scenario window."""
+    await runs(
+        hid,
+        did,
+        [*history(), *[(UNTIL - timedelta(days=d, hours=3), 200, 2.0) for d in range(31, 41)]],
+    )
+    async with SessionLocal() as s, s.begin():
+        await s.execute(
+            text(
+                "INSERT INTO public.tb_demo_scenario (home_id, name, starts_at, ends_at, train) "
+                "VALUES (:h, 'echo_run', :a, :b, :t)"
+            ),
+            {
+                "h": hid,
+                "a": UNTIL - timedelta(days=41),
+                "b": UNTIL - timedelta(days=29),
+                "t": train,
+            },
+        )
+    await runs(hid, did, [(UNTIL - timedelta(hours=4), 190, 1.9)])
+
+
+async def test_staged_demo_runs_do_not_become_peers(device):
+    hid, did = device
+    await _staged(hid, did, train=False)
+    async with SessionLocal() as s:
+        found = await detectors._device_anomalies(s, hid, UNTIL, UNTIL)
+    assert [f.payload["signal"] for f in found] == ["long_run"]  # 190 min vs 100-minute peers
+
+
+async def test_a_training_scenario_keeps_its_runs_in_the_history(device):
+    hid, did = device
+    await _staged(hid, did, train=True)  # like the seeded heater: part of the home, so history
+    async with SessionLocal() as s:
+        found = await detectors._device_anomalies(s, hid, UNTIL, UNTIL)
+    # the 200-minute runs are peers: 190 is inside their 95th percentile (D3 may still show)
+    assert "long_run" not in [f.payload["signal"] for f in found]

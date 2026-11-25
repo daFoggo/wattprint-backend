@@ -197,6 +197,32 @@ async def test_device_outlook_shows_the_model_or_falls_back_to_the_weekday_mean(
     )
 
 
+async def test_the_running_hour_counts_by_its_rest(monkeypatch):
+    from app.modules.expect.services import device as dev
+
+    x, y = synthetic(40)
+    b = refresh.fit_bundle(x, y, "dev", "Asia/Ho_Chi_Minh")
+    b.metrics["backtest"] = {"mae_model": 2, "mae_base": 1, "wape_base": 0.6, "days": 14}
+    now = datetime(2026, 2, 9, 16, 30, tzinfo=UTC)  # 23:30 in Hanoi: half of the day's last hour
+    hi = datetime(2026, 2, 11, 17, tzinfo=UTC)
+
+    async def bundle(*a):
+        return b
+
+    async def tz(*a):
+        return "Asia/Ho_Chi_Minh"
+
+    async def actual(s, d, lo, hi_):
+        return pd.Series(0.5, index=pd.date_range(lo, hi_, freq="h", inclusive="left"))
+
+    for name, fn in (("active_bundle", bundle), ("_tz", tz), ("device_actual", actual)):
+        monkeypatch.setattr(dev, name, fn)
+    got = await dev.device_outlook(None, None, None, now, hi)
+    first = got["days"][0]
+    assert first["date"].isoformat() == "2026-02-09"
+    assert first["p50"] == pytest.approx(0.25)  # 0.5 kWh an hour, 30 minutes left
+
+
 def _frames(days, start, temp, contrib):
     """Hourly model output and inputs over whole UTC days (tz UTC in these tests)."""
     idx = pd.date_range(start, periods=days * 24, freq="h", tz="UTC")
