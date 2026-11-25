@@ -392,6 +392,6 @@ async def test_catalog_core_downgrade_upgrade(throwaway_dsn):
         run_alembic(throwaway_dsn, "upgrade", "head")
         async with engine.connect() as c:
             assert await relations(c) == before
-            assert await c.scalar(text("SELECT count(*) FROM public.cat_device_type")) == 22
+            assert await c.scalar(text("SELECT count(*) FROM public.cat_device_type")) == 23
     finally:
         await engine.dispose()

@@ -11,7 +11,7 @@ PDF gốc của cơ quan ban hành**. Đây không phải tư vấn pháp lý; l
 | Quyết định 1279/QĐ-BCT (9/5/2025, hiệu lực 10/5/2025) | Quy định giá bán điện, giá bán lẻ bình quân 2.204,07 đ/kWh | Bảng giá 6 bậc trong `tb_tariff_version` (từ 2025-05-10 đến 2026-10-31) | Tra được, hiệu lực và giá bình quân khớp nguồn. Các mức bậc 5 (3.350) và bậc 6 (3.460) khớp dữ liệu. Mức bậc 1 (1.984) một nguồn gắn với Quyết định 14/2025/QĐ-TTg: cần đối chiếu phụ lục gốc |
 | Quyết định 2892/QĐ-BCT (ban hành 31/10/2026, áp dụng từ 1/11/2026) | Biểu giá sinh hoạt rút còn 5 bậc, giá bình quân 2.159,9037 đ/kWh | Bảng giá 5 bậc từ 2026-11-01 | Tra được. Giá chưa VAT theo báo: 1.901; 2.289; 2.894; 3.456; 3.844 đ/kWh, các mốc 100/200/400/700 kWh: **khớp đúng với dữ liệu trong DB** |
 | Thông tư 60/2025/TT-BCT (hiệu lực 2/12/2025) | Thực hiện giá bán điện, kể cả cách tính tiền điện cho người thuê nhà (định mức theo số người; thuê dưới 12 tháng mà không kê khai đủ thì tính giá bậc 2) | Chưa dùng: WattPrint chưa tính tiền điện cho từng người thuê | Tra được; đang có dự thảo sửa đổi, cần xem bản hiện hành |
-| VAT 8% trên tiền điện | Thuế suất dùng để tính tổng hóa đơn | `tb_tariff_version.vat_rate` | **Chưa xác nhận** từ văn bản chính thức: chính DB đã ghi "verify before 2027" |
+| VAT 8% trên tiền điện | Thuế suất dùng để tính tổng hóa đơn | `tb_tariff_version.vat_rate` | **Tra được, chưa đối chiếu văn bản gốc** (2026-11-25): Nghị quyết 204/2025/QH15 (Điều 1) giảm 2 điểm phần trăm cho nhóm hàng đang chịu 10% theo khoản 3 Điều 9 Luật 48/2024, từ 1/7/2025 đến hết 31/12/2026, hướng dẫn bởi Nghị định 174/2025/NĐ-CP. Hai trang tư vấn (apluslaw.vn, sme.misa.vn) nói tiền điện sinh hoạt không thuộc danh sách loại trừ; **không trang nào trích danh sách loại trừ có tên điện** hay Phụ lục I, II của nghị định. Sau 31/12/2026, nếu không có quy định mới, thuế về 10%: chưa tra được văn bản gia hạn |
 
 Hệ quả cho sản phẩm: hóa đơn đang tính theo đúng biểu giá hiện hành (kiểm bằng đối chiếu số), nhưng giao diện chưa nêu văn
 bản nào là căn cứ. Việc có thể làm: hiện "Theo Quyết định 2892/QĐ-BCT" ở trang hóa đơn, lấy từ `source_doc` của phiên bản đang
@@ -38,6 +38,8 @@ Hai văn bản này nằm trong danh mục tham khảo của `docs/WattPrint Pit
 
 ## Nguồn đã dùng để tra
 
+- [Giảm thuế GTGT điện sinh hoạt 8%, apluslaw.vn](https://apluslaw.vn/doanh-nghiep/thue-gtgt-tien-dien.html)
+- [Nghị quyết 204/2025/QH15, MISA](https://sme.misa.vn/345425/nghi-quyet-204-2025-qh15/)
 - [Quyết định 1279/QĐ-BCT, luatvietnam.vn](https://luatvietnam.vn/dien-luc/quyet-dinh-1279-qd-bct-cua-bo-cong-thuong-quy-dinh-ve-gia-ban-dien-399752-d1.html)
 - [Quyết định 2892/QĐ-BCT, luatvietnam.vn](https://luatvietnam.vn/dien-luc/quyet-dinh-2892-qd-bct-2026-quy-dinh-gia-ban-dien-453837-d1.html)
 - [Giá điện sinh hoạt còn 5 bậc, cao nhất 3.844 đ/kWh, VTV](https://vtv.vn/chinh-thuc-gia-dien-sinh-hoat-con-5-bac-cao-nhat-3844-dong-kwh-100261104115102741.htm)

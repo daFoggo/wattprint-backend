@@ -24,6 +24,7 @@ class CurrentBill(BaseModel):
     coverage: float
     tariff_straddle: bool
     vat_rate: float
+    tariff_doc: str | None
     kwh: float
     amount_before_vat: float
     vat_amount: float

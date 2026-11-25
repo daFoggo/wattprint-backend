@@ -331,6 +331,7 @@ class CurrentBill:
     coverage: Decimal
     tariff_straddle: bool
     vat_rate: Decimal
+    tariff_doc: str | None
     kwh: Decimal
     amount_before_vat: Decimal
     vat_amount: Decimal
@@ -389,6 +390,7 @@ async def current_bill(
         coverage=bill["coverage"],
         tariff_straddle=bill["tariff_straddle"],
         vat_rate=vat_rate,
+        tariff_doc=today_segment.version.doc_code,
         kwh=kwh,
         amount_before_vat=bill["amount_before_vat"],
         vat_amount=bill["vat_amount"],

@@ -30,3 +30,5 @@ class TariffVersion(IdMixin, Base):
     valid_to: Mapped[date | None] = mapped_column(Date)
     vat_rate: Mapped[Decimal] = mapped_column(Numeric(5, 4))
     source_doc: Mapped[str] = mapped_column(Text)
+    # Shown to users ("QĐ 2892/QĐ-BCT"); source_doc is the maintainers' note, caveats included.
+    doc_code: Mapped[str | None] = mapped_column(Text)

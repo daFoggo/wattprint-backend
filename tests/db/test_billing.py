@@ -154,6 +154,7 @@ async def test_current_bill_prices_today_at_the_margin(bdb, bsession):
             text("SELECT count(*) FROM public.tb_bill WHERE home_id = :h"), {"h": h["id"]}
         )
     assert stored == 0  # a GET reads only
+    assert cur.tariff_doc == "QĐ 2892/QĐ-BCT"  # the document behind today's prices
     assert (cur.period_start, cur.kwh, cur.today_kwh) == (
         V2892,
         Decimal("120.000"),
@@ -642,7 +643,8 @@ async def test_seed_versions_do_not_overlap(conn):
     rows = (
         await conn.execute(
             text(
-                "SELECT valid_from, valid_to, vat_rate, source_doc FROM public.tb_tariff_version "
+                "SELECT valid_from, valid_to, vat_rate, source_doc, doc_code "
+                "FROM public.tb_tariff_version "
                 "WHERE plan_code = :p ORDER BY valid_from"
             ),
             {"p": PLAN},
@@ -655,6 +657,7 @@ async def test_seed_versions_do_not_overlap(conn):
         r.vat_rate == Decimal("0.0800") and "verify before 2027" in r.source_doc for r in rows
     )
     assert "1279/QD-BCT" in rows[0].source_doc and "2892" in rows[1].source_doc
+    assert [r.doc_code for r in rows] == ["QĐ 1279/QĐ-BCT", "QĐ 2892/QĐ-BCT"]
 
 
 async def test_seed_tiers(conn):
