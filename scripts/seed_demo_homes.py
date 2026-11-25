@@ -145,7 +145,9 @@ async def seed_home(cfg: dict, home: dict, kc: Keycloak, password: str, extra: l
     csv = ROOT / "dataset" / f"CLEAN_House{house}.csv"
     df = refit.load(csv)
     now = datetime.now(UTC)
-    history = timedelta(days=cfg["history_days"])
+    # A short recording gets its own history: the year shift then puts it over now, no loop.
+    days = home.get("history_days", cfg["history_days"])
+    history = timedelta(days=days)
     first, last = df["wall"].iloc[0].to_pydatetime(), df["wall"].iloc[-1].to_pydatetime()
     model_dir = ROOT / "dataset" / "models" / "nilm"
 
@@ -260,7 +262,7 @@ async def seed_home(cfg: dict, home: dict, kc: Keycloak, password: str, extra: l
     print(f"home {key}: home {home_id}, shift {shift} days ({shift // 364} years)", flush=True)
 
     # The recording site's weather first: the heater and the usage model read it.
-    await import_refit_weather.main(key)
+    await import_refit_weather.main(key, home)
     h = replay_refit.Home(house, shift, df, now - history, key, home_id)
     new = await replay_refit.replay(h, now - history, now, source="seed")
     async with engine.connect() as c:
@@ -275,7 +277,7 @@ async def seed_home(cfg: dict, home: dict, kc: Keycloak, password: str, extra: l
             ),
             {"t": now, "n": new, "s": refit.source(house, key), "g": refit.SEGMENT},
         )
-    print(f"home {key}: {new} new readings over {cfg['history_days']} days", flush=True)
+    print(f"home {key}: {new} new readings over {days} days", flush=True)
 
 
 async def register_model(session, home_id, artifact: str, model_dir: Path) -> None:

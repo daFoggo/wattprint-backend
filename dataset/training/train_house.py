@@ -44,9 +44,17 @@ CHANNELS = {
         "Microwave": "Appliance7", "Toaster": "Appliance9", "Kettle": "Appliance8"},
     6: {"Freezer": "Appliance1", "WashMach": "Appliance2", "Dishwash": "Appliance3",
         "Microwave": "Appliance6", "Toaster": "Appliance8", "Kettle": "Appliance7"},
+    # Plegma (Greece) as 100 + house, made by scripts/plegma_to_refit.py (its split ACs added up).
+    101: {"AC": "Appliance1", "Boiler": "Appliance2", "Fridge": "Appliance3", "WashMach": "Appliance4"},
+    # ENERTALK (Korea) as 200 + house, made by scripts/enertalk_to_refit.py.
+    200: {"Fridge": "Appliance1", "Kimchi": "Appliance2", "WashMach": "Appliance3",
+          "RiceCooker": "Appliance4", "Microwave": "Appliance5"},
+    205: {"Fridge": "Appliance1", "Kimchi": "Appliance2", "WashMach": "Appliance3",
+          "RiceCooker": "Appliance4"},
 }
 ON_THRESHOLD_W = {"Fridge": 50, "Freezer": 50, "WashMach": 20, "Dishwash": 10,
-                  "Microwave": 200, "Toaster": 200, "Kettle": 1000}
+                  "Microwave": 200, "Toaster": 200, "Kettle": 1000,
+                  "AC": 50, "Boiler": 50, "Kimchi": 20, "RiceCooker": 100}
 
 SAMPLE = pd.Timedelta(seconds=15)
 WINDOW, BASE_L = 256, 128

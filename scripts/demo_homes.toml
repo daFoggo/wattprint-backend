@@ -26,17 +26,32 @@ owner = { email = "refit.house5@wattprint.local", name = "REFIT House 5" }
 members = []
 devices = { Fridge = "Fridge-Freezer", WashMach = "Washing Machine", Dishwash = "Dishwasher", Microwave = "Microwave", Toaster = "Toaster", Kettle = "Kettle", Other = "Other" }
 
-# House 5's recording again, with a simulated thermostat heater on cold mornings and evenings
-# (scripts/scenarios.py), so the model learns "colder, more heating". Labelled simulated in the app.
+# Homes from other countries (scripts/plegma_to_refit.py and enertalk_to_refit.py make their
+# CSVs: house 100 + n for Plegma, 200 + n for ENERTALK). The recording's own clock is read as Vietnam
+# time, as for REFIT. Train first: uv run --group nilm python dataset/training/train_house.py --house 101
+# Plegma (Greece, CC BY 4.0): split ACs added up to one, a boiler, fridge, washing machine.
 [[home]]
-house = 5
-key = "5-heat"
-name = "REFIT House 5 · sưởi mô phỏng"
-model = "house5/nilm_pipeline.pt"
-owner = { email = "refit.house5.heat@wattprint.local", name = "REFIT House 5 heater" }
+house = 101
+name = "Plegma House 1 · Hy Lạp"
+# Recorded Jul 2022 - Sep 2023: a 4-year shift puts it over now; the weather is Athens' on the CSV's clock.
+history_days = 120
+site = { latitude = 37.98, longitude = 23.73, timezone = "Europe/Athens" }
+model = "house101/nilm_pipeline.pt"
+owner = { email = "plegma.house1@wattprint.local", name = "Plegma House 1" }
 members = []
-devices = { Fridge = "Fridge-Freezer", WashMach = "Washing Machine", Dishwash = "Dishwasher", Microwave = "Microwave", Toaster = "Toaster", Kettle = "Kettle", Other = "Other" }
-heater = { setpoint_c = 16, w_per_c = 180, max_w = 2000, hours = [[6, 9], [17, 23]] }
+devices = { AC = "Điều hòa", Boiler = "Bình nóng lạnh", Fridge = "Tủ lạnh", WashMach = "Máy giặt", Other = "Other" }
+
+# ENERTALK (Korea, CC0): a rice cooker and a kimchi fridge; 3 months of recording, so a short history.
+[[home]]
+house = 200
+name = "ENERTALK House 0 · Hàn Quốc"
+# Recorded Nov 2016 - Jan 2017: a 10-year shift puts it over now (live until about Jan 2027).
+history_days = 30
+site = { latitude = 37.57, longitude = 126.98, timezone = "Asia/Seoul" }
+model = "house200/nilm_pipeline.pt"
+owner = { email = "enertalk.house0@wattprint.local", name = "ENERTALK House 0" }
+members = []
+devices = { Fridge = "Tủ lạnh", Kimchi = "Tủ lạnh kimchi", WashMach = "Máy giặt", RiceCooker = "Nồi cơm điện", Microwave = "Lò vi sóng", Other = "Other" }
 
 # Ready, waiting for their own models (no training yet: the machine is busy). To add one:
 #   uv run python dataset/training/train_house.py --house 3

@@ -8,6 +8,7 @@ demo home, moved onto database time with the home's REFIT shift, like its readin
 import argparse
 import asyncio
 import os
+import tomllib
 from datetime import timedelta
 from pathlib import Path
 
@@ -20,6 +21,13 @@ from scripts import refit
 
 URL = "https://archive-api.open-meteo.com/v1/archive"
 SITE = {"latitude": 52.7721, "longitude": -1.2062}  # Loughborough, where REFIT recorded
+
+
+def site_of(home: dict) -> dict:
+    """The recording's place and clock: its toml `site`, else REFIT's Loughborough on UTC."""
+    return home.get("site") or {**SITE, "timezone": "UTC"}
+
+
 HOURLY = {
     "temperature_2m": "temp_c",
     "relative_humidity_2m": "humidity_pct",
@@ -33,24 +41,28 @@ HOURLY = {
 BATCH = 5000
 
 
-def fetch(start: str, end: str) -> pd.DataFrame:
+def fetch(start: str, end: str, site: dict) -> pd.DataFrame:
     params = {
-        **SITE,
+        **site,
         "start_date": start,
         "end_date": end,
         "hourly": ",".join(HOURLY),
-        "timezone": "UTC",
         "wind_speed_unit": "ms",
     }
     r = httpx.get(URL, params=params, timeout=120)
     r.raise_for_status()
     hourly = r.json()["hourly"]
     frame = pd.DataFrame({HOURLY[k]: hourly[k] for k in HOURLY})
-    frame["wall"] = pd.to_datetime(hourly["time"])  # naive UTC, the CSV's clock
+    frame["wall"] = pd.to_datetime(hourly["time"])  # naive, on the site's clock = the CSV's clock
     return frame
 
 
-async def main(key: str) -> None:
+def toml_home(key: str) -> dict:
+    homes = tomllib.loads(Path(__file__).with_name("demo_homes.toml").read_text())["home"]
+    return next(h for h in homes if str(h.get("key", h["house"])) == key)
+
+
+async def main(key: str, home: dict | None = None) -> None:
     house = int(key.split("-")[0])
     data_dir = Path(os.environ.get("REFIT_SEED_DIR") or "dataset")
     df = refit.load(data_dir / f"CLEAN_House{house}.csv")
@@ -72,7 +84,8 @@ async def main(key: str) -> None:
         ).first()
     if row is None:
         raise SystemExit(f"home {key} is not seeded: run scripts.seed_demo_homes first")
-    weather = fetch(f"{first:%Y-%m-%d}", f"{last:%Y-%m-%d}")
+    home = home if home is not None else toml_home(key)
+    weather = fetch(f"{first:%Y-%m-%d}", f"{last:%Y-%m-%d}", site_of(home))
     weather["ts"] = refit.db_time(weather["wall"].to_numpy(), row.shift_days)
     weather["is_day"] = weather["is_day"].astype(bool)
     records = [

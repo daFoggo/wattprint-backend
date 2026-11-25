@@ -17,6 +17,10 @@ DEVICE_TYPES = {
     "Microwave": "microwave",
     "Toaster": "toaster",
     "Kettle": "kettle",
+    "AC": "ac",  # Plegma homes: the split units added up
+    "Boiler": "water_heater",
+    "Kimchi": "fridge",  # ENERTALK: Korea's second fridge, for kimchi
+    "RiceCooker": "rice_cooker",
     OTHER: "other",
     HEATER: "electric_heater",
 }
@@ -47,7 +51,7 @@ async def ensure_devices(
                     "INSERT INTO public.tb_device "
                     "(home_id, device_type_code, name, origin, show_on_timeline) "
                     "SELECT :h, code, label_vi || :tag, 'nilm', code NOT IN ('fridge_freezer', "
-                    "'freezer', 'other') FROM public.cat_device_type "
+                    "'fridge', 'freezer', 'other') FROM public.cat_device_type "
                     "WHERE code = :c RETURNING id"
                 ),
                 {"h": home_id, "c": code, "tag": " (mô phỏng)" if label in SIMULATED else ""},
