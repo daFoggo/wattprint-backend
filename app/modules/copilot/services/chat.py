@@ -206,6 +206,9 @@ class Answer:
         u["cached"] += (usage.get("prompt_tokens_details") or {}).get("cached_tokens") or 0
         u["completion"] += usage.get("completion_tokens") or 0
         u["cost"] += usage.get("cost") or 0.0
+        # AstralX bills outside OpenRouter and reports no cost: say whose tokens these are.
+        if (name := usage.get("provider")) and name not in u.setdefault("providers", []):
+            u["providers"].append(name)
 
     def cite(self, keys: list[str]) -> list[int]:
         for k in keys:

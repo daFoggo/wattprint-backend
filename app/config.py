@@ -64,15 +64,20 @@ class Settings(BaseSettings):
     openrouter_base_url: str = "https://openrouter.ai/api/v1"
     openrouter_model: str = "openai/gpt-6-luna"
     copilot_llm_timeout_s: float = 20.0
+    # Chat providers in the order tried (openrouter, astralx): a down one hands over to the next,
+    # and is left alone for the cooldown. A provider with no API key is skipped.
+    copilot_llm_order: str = "openrouter,astralx"
+    copilot_llm_cooldown_s: float = 60.0
     copilot_guard_model: str = "meta-llama/llama-guard-4-12b"  # empty: no content guard
     text2sql_url: str = "http://host.docker.internal:11101"
     text2sql_connection_id: str = ""
     text2sql_service_key: str = ""
     # Logged in as wattprint_copilot_ro: runs the stored queries of custom watches. Empty = none.
     copilot_database_url: str = ""
-    # Voice: speech to text and text to speech (AstralX, OpenAI-compatible).
+    # AstralX (OpenAI-compatible): the chat fallback, speech to text and text to speech.
     astralx_api_key: str = ""
     astralx_base_url: str = "https://token.astralx.com.vn/v1"
+    astralx_chat_model: str = "byok/astral-x/claude-haiku-5-5"
     astralx_stt_model: str = "whisper-large-v3-turbo"
     astralx_tts_model: str = "astralx-tts"
     astralx_tts_voice: str = "speaker_05"

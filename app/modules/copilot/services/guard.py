@@ -5,6 +5,8 @@ import httpx
 
 from app.config import settings
 
+from . import llm
+
 log = logging.getLogger("copilot.guard")
 
 # Asking the model to drop its rules or show its prompt. The tools are scoped to the user's home in
@@ -34,6 +36,8 @@ async def unsafe(question: str) -> str | None:
     stealing power...), or None when it is safe. A guard that cannot answer lets the question
     through (logged): the tools stay scoped either way, and Wappi stays usable."""
     if not (settings.openrouter_api_key and settings.copilot_guard_model):
+        return None
+    if llm.resting("openrouter"):  # the chat just found it down: do not wait on it again
         return None
     try:
         async with httpx.AsyncClient(
