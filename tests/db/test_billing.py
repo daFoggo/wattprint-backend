@@ -11,9 +11,11 @@ from app.database import Base
 from app.models import Bill, BillItem, Home, TariffPlan, TariffTier, TariffVersion
 from app.modules.billing.services.bill import (
     _allocate,
+    _amounts,
     _cycle_start,
     _parts,
     _Segment,
+    _segments,
     compute_bill,
     current_bill,
 )
@@ -24,6 +26,7 @@ PLAN = "vn_residential"
 ICT = timedelta(hours=7)
 V1279 = date(2025, 5, 10)
 V2892 = date(2026, 11, 1)
+V2027 = date(2027, 1, 1)
 # A lock hang must fail loudly instead of stalling the run.
 LOCK_TIMEOUT = {"server_settings": {"lock_timeout": "5000"}}
 
@@ -128,6 +131,16 @@ async def bill_for(c, session, h, start: date, kwh: float | None, now=None, watt
     bill = await compute_bill(session, h["id"], start, now=now)
     await session.commit()
     return bill
+
+
+async def bill_amount(session, home_id, start: date, kwh: Decimal) -> Decimal:
+    """The cycle's total with VAT for `kwh`, each tariff segment at its own VAT rate."""
+    home_row = await session.get(Home, home_id)
+    segments = await _segments(
+        session, home_row.tariff_plan_code, start, start + timedelta(days=30)
+    )
+    before_vat, vat = _amounts(segments, kwh)
+    return before_vat + vat
 
 
 # --- running cycle ---
@@ -277,6 +290,34 @@ async def test_straddle_flag_when_version_changes_inside_period(bdb, bsession):
     #   1279: 54.839 kWh over tiers 27 / 27 / 55 wide = 27*1984 + 27*2050 + 0.839*2380 = 110915
     #   2892: 45.161 kWh over tiers 45 / 45 wide      = 45*1901 + 0.161*2289          =  85914
     assert (b.amount_before_vat, b.vat_amount) == (Decimal("196829"), Decimal("15746"))
+
+
+async def test_a_cycle_over_new_year_is_taxed_at_each_days_own_rate(bdb, bsession):
+    """Dec 15 - Jan 14: 17 days at 8% (resolution 204), 14 at 10%; the tier prices do not change."""
+    c, _ = bdb
+    async with home(c, bsession, cycle_day=15) as h:
+        b = await bill_for(c, bsession, h, date(2026, 12, 15), 100)
+    assert (b.period_end, b.tariff_straddle) == (date(2027, 1, 14), True)
+    # 100 kWh split 17 / 14 days, each part about filling its own tier 1 (1901 đ; the tier widths
+    # round by day, so 0.16 kWh spills into tier 2): about 104252 at 8% and 85848 at 10%, which is
+    # 8340 + 8585 of VAT; a flat 8% would give about 15213, a flat 10% about 19016.
+    assert (b.amount_before_vat, b.vat_amount) == (Decimal("190163"), Decimal("16931"))
+
+
+async def test_today_adds_up_to_the_bill_in_a_cycle_over_new_year(bdb, bsession):
+    """Each day is priced at the marginal, VAT included, so the days sum to the cycle's bill."""
+    c, _ = bdb
+    today = date(2027, 1, 5)
+    async with home(c, bsession, cycle_day=15) as h:
+        await load(c, h["main"], local_midnight(date(2026, 12, 15)), 100 * 60, 1000)  # 100 kWh
+        await load(c, h["main"], local_midnight(today), 10 * 60, 1000)  # 10 kWh today
+        start = local_midnight(date(2026, 12, 15))
+        await backfill(c, start, local_midnight(today) + timedelta(days=2))
+        cur = await current_bill(bsession, h["id"], now=local_midnight(today) + timedelta(hours=12))
+        before = await bill_amount(bsession, h["id"], date(2026, 12, 15), cur.kwh - cur.today_kwh)
+        after = await bill_amount(bsession, h["id"], date(2026, 12, 15), cur.kwh)
+    assert cur.today_kwh == Decimal("10.000")
+    assert cur.today_amount == after - before
 
 
 def test_split_by_days_matches_evn_worked_example():
@@ -650,14 +691,14 @@ async def test_seed_versions_do_not_overlap(conn):
             {"p": PLAN},
         )
     ).all()
-    assert [r.valid_from for r in rows] == [V1279, V2892]
+    assert [r.valid_from for r in rows] == [V1279, V2892, V2027]
     assert rows[0].valid_to + timedelta(days=1) == rows[1].valid_from
-    assert rows[1].valid_to is None
-    assert all(
-        r.vat_rate == Decimal("0.0800") and "verify before 2027" in r.source_doc for r in rows
-    )
+    assert rows[1].valid_to + timedelta(days=1) == rows[2].valid_from
+    assert rows[2].valid_to is None
+    # 8% is the cut of Resolution 204/2025/QH15 (to the end of 2026); 10% is the Law's rate after
+    assert [r.vat_rate for r in rows] == [Decimal("0.0800"), Decimal("0.0800"), Decimal("0.1000")]
     assert "1279/QD-BCT" in rows[0].source_doc and "2892" in rows[1].source_doc
-    assert [r.doc_code for r in rows] == ["QĐ 1279/QĐ-BCT", "QĐ 2892/QĐ-BCT"]
+    assert [r.doc_code for r in rows] == ["QĐ 1279/QĐ-BCT", "QĐ 2892/QĐ-BCT", "QĐ 2892/QĐ-BCT"]
 
 
 async def test_seed_tiers(conn):
@@ -681,6 +722,13 @@ async def test_seed_tiers(conn):
         (400, None, 3460),
     ]
     assert await tiers(V2892) == [
+        (0, 100, 1901),
+        (100, 200, 2289),
+        (200, 400, 2894),
+        (400, 700, 3456),
+        (700, None, 3844),
+    ]
+    assert await tiers(V2027) == [
         (0, 100, 1901),
         (100, 200, 2289),
         (200, 400, 2894),
@@ -783,8 +831,9 @@ async def test_billing_downgrade_upgrade(throwaway_dsn):
         run_alembic(throwaway_dsn, "upgrade", "head")
         async with engine.connect() as c:
             assert await relations(c) == before and await c.scalar(fk) == 1
-            assert await c.scalar(text("SELECT count(*) FROM public.tb_tariff_version")) == 2
-            assert await c.scalar(text("SELECT count(*) FROM public.tb_tariff_tier")) == 11
+            # versions 1279, 2892 and 2027 (10% VAT); tiers 6 + 5 + 5
+            assert await c.scalar(text("SELECT count(*) FROM public.tb_tariff_version")) == 3
+            assert await c.scalar(text("SELECT count(*) FROM public.tb_tariff_tier")) == 16
     finally:
         await engine.dispose()
 

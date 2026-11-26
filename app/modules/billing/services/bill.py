@@ -95,11 +95,6 @@ def _parts(segments: list[_Segment], kwh: Decimal) -> list[tuple[_Segment, list,
     return out
 
 
-def _cycle_amount(segments: list[_Segment], kwh: Decimal) -> Decimal:
-    """The cycle's amount before VAT for kwh, across its tariff segments."""
-    return sum((_tier_amount(t, k) for _, t, k in _parts(segments, kwh)), Decimal(0))
-
-
 def _amounts(segments: list[_Segment], kwh: Decimal) -> tuple[Decimal, Decimal]:
     """(amount before VAT, VAT) of the cycle for kwh; each segment at its own VAT rate."""
     parts = [(s, _tier_amount(t, k)) for s, t, k in _parts(segments, kwh)]
@@ -379,9 +374,10 @@ async def current_bill(
         Decimal(0),
     )
     kwh = bill["kwh_total"]
-    marginal = _cycle_amount(segments, kwh) - _cycle_amount(
-        segments, max(kwh - today_kwh, Decimal(0))
-    )
+    # VAT included: each segment at its own rate, so the days of a cycle over a VAT change still
+    # add up to the bill.
+    before = max(kwh - today_kwh, Decimal(0))  # a Decimal: _parts splits it by days
+    marginal = sum(_amounts(segments, kwh)) - sum(_amounts(segments, before))
     split = _tier_split(tiers, kwh)
     return CurrentBill(
         period_start=start,
@@ -402,5 +398,5 @@ async def current_bill(
             for t, used, amount in split
         ],
         today_kwh=today_kwh,
-        today_amount=_round(marginal * (_ONE + vat_rate)),
+        today_amount=_round(marginal),
     )
