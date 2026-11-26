@@ -29,17 +29,21 @@ REALM = "wattprint"
 
 
 def load_env() -> None:
-    """Read .env (KEY=VALUE lines) into os.environ without overriding what is already set."""
-    for line in (ROOT / ".env").read_text().splitlines():
+    """Read .env (KEY=VALUE lines) into os.environ without overriding what is already set.
+
+    Inside the compose containers there is no .env: the environment is already complete.
+    """
+    env = ROOT / ".env"
+    for line in env.read_text().splitlines() if env.exists() else []:
         key, sep, value = line.partition("=")
         if sep and not key.strip().startswith("#"):
             os.environ.setdefault(key.strip(), value.strip().strip('"'))
-    os.environ.setdefault(
-        "DATABASE_URL",
-        "postgresql+asyncpg://{POSTGRES_USER}:{POSTGRES_PASSWORD}@localhost:{DB_PORT}/{POSTGRES_DB}".format(
-            **os.environ
-        ),
-    )
+    if "DATABASE_URL" not in os.environ:
+        os.environ["DATABASE_URL"] = (
+            "postgresql+asyncpg://{POSTGRES_USER}:{POSTGRES_PASSWORD}@localhost:{DB_PORT}/{POSTGRES_DB}".format(
+                **os.environ
+            )
+        )
 
 
 class Keycloak:
