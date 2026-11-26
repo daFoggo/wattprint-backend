@@ -169,6 +169,7 @@ async def test_tool_returns_passages_and_source_keys(monkeypatch, make_member):
             ctx = tools.Ctx(s, me.home_id, datetime.now(UTC), "vi")
             out = await tools.search_documents(ctx, "Luật bảo vệ dữ liệu cá nhân hiệu lực khi nào")
         assert out.data["passages"] and "1 tháng 1 năm 2026" in out.data["passages"][0]["text"]
+        assert out.tier == "document"  # quoted text, not a measurement, whatever the document is
         assert out.sources and all(k in tools.DOC_SOURCES for k in out.sources)
         title, url = tools.DOC_SOURCES[out.sources[0]]
         assert title["vi"].startswith(PREFIX) and url

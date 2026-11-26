@@ -57,7 +57,7 @@ from . import documents
 
 log = logging.getLogger("copilot.tools")
 ICT = timezone(timedelta(hours=7))
-TIERS = ("measured", "estimated", "inferred")  # most to least certain
+TIERS = ("measured", "document", "estimated", "inferred")  # most to least certain
 MAX_ROWS_TO_LLM = 30
 
 
@@ -857,7 +857,7 @@ async def search_documents(ctx: Ctx, question: str) -> Outcome:
             "passages": [{"document": p.title, "version": p.version, "text": p.text} for p in found]
         },
         detail=_vi(ctx, "Văn bản pháp luật đã lưu", "Stored legal documents"),
-        tier="measured" if all(p.doc_type == "tariff" for p in found) else "inferred",
+        tier="document",
         sources=list(dict.fromkeys(keys)),
     )
 
