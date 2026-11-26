@@ -17,7 +17,7 @@ stack must already be running (`docker compose up -d`, compose project from your
 into it and never restarts it.
 
 Not in verify: the NILM test that needs torch (skipped in the api image; run it in the nilm container) and the
-`audit` marked database audits (`-m audit`, audit server only), and the `migrations` marked downgrade/upgrade round trips (`-m migrations`; run them when you add or change a revision). There is no CI yet: verify plus the full pytest run above are the gate.
+`audit` marked database audits (`-m audit`, audit server only), and the `migrations` marked downgrade/upgrade round trips (`-m migrations`; run them when you add or change a revision). CI (`.github/workflows/ci.yml`) runs only the verify checks; the full pytest run above stays a local gate until a service-container job exists.
 
 ## Where things are
 
