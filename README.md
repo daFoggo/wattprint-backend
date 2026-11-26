@@ -8,6 +8,11 @@ FastAPI, TimescaleDB và Keycloak, chạy bằng Docker Compose.
 
 ## Kiến trúc
 
+> **Đây là kiến trúc đang chạy: một ứng dụng FastAPI theo mô-đun (modular monolith) cộng ba worker, dùng chung một TimescaleDB nhiều schema.**
+> Không có API gateway, message broker hay service tách riêng cho core, insight hay copilot; các mô-đun đó nằm trong cùng tiến trình `api`.
+> Các tài liệu `docs/architecture/`, `docs/soa/`, `docs/superpowers/plans/2026-11-10-microservices-split.md` và mục 7 của `docs/database-design.md` mô tả **kiến trúc đích** cho báo cáo môn SOA
+> (5 service, Envoy, RabbitMQ, mỗi service một cơ sở dữ liệu, Qdrant cho copilot): thiết kế, chưa có trong mã hiện tại.
+
 ![Kiến trúc hệ thống](docs/diagrams/system.svg)
 
 | Dịch vụ | Công nghệ | Cổng | Vai trò |
@@ -136,7 +141,7 @@ Thêm mô-đun: tạo `app/modules/x/` như các mô-đun khác, `routes/__init_
 
 ## Tài liệu
 
-- [docs/database-design-guide.md](docs/database-design-guide.md), [docs/database-design.md](docs/database-design.md): thiết kế cơ sở dữ liệu.
+- [docs/database-design-guide.md](docs/database-design-guide.md), [docs/database-design.md](docs/database-design.md): thiết kế cơ sở dữ liệu hiện tại (mục 7 của `database-design.md` là thiết kế đích microservices, chưa có trong mã).
 - [docs/keycloak-auth.md](docs/keycloak-auth.md): đăng nhập và phân quyền.
 - [docs/chatbot-eval.md](docs/chatbot-eval.md), [docs/rag-research.md](docs/rag-research.md): đánh giá Wappi và tìm kiếm văn bản.
 - [docs/nilm-datasets.md](docs/nilm-datasets.md), [docs/nilm-eval.md](docs/nilm-eval.md): dữ liệu và đánh giá NILM.
