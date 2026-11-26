@@ -21,7 +21,7 @@ RAG ở đây chỉ trả lời **"văn bản nào nói gì, từ khi nào"**: q
 - **Trích dẫn**: mỗi đoạn trả về là một nguồn trong danh sách "Nguồn" dưới câu trả lời.
 - Graph-RAG và tri thức chuyên gia (ISO 7730, ASHRAE 55) trong pitch: **chưa làm**, kho hiện không có tài liệu đó.
 
-## Kho hiện có (14 đoạn, 5 tài liệu, `docs/sources/`)
+## Kho hiện có (16 đoạn, 6 tài liệu, `docs/sources/`)
 
 | Tài liệu | Trả lời được | Đọc đến đâu |
 |---|---|---|
@@ -30,6 +30,8 @@ RAG ở đây chỉ trả lời **"văn bản nào nói gì, từ khi nào"**: q
 | Luật Thuế GTGT + Nghị quyết 204/2025/QH15 | VAT 8% đến hết 31/12/2026 | Nguyên văn bản Công báo (bạn gửi); đoạn kết luận là suy luận, đã ghi rõ trong file |
 | Luật 91/2025/QH15, NĐ 356/2025, Luật 134/2025/QH15, NĐ 142/2026 | số hiệu và ngày hiệu lực | **Chưa đọc nguyên văn**: chỉ có số hiệu và ngày; câu trả lời không được nêu nội dung điều |
 | Luật 77/2025/QH15, QĐ 280/QĐ-TTg | dán nhãn năng lượng, mục tiêu chung | Tóm tắt từ nửa đầu văn bản; **không có điều khoản về hộ gia đình, chỉ tiêu cụ thể chưa đọc** |
+| NĐ 30/2026/NĐ-CP (hướng dẫn Luật 77/2025), cùng file với dòng trên | số hiệu, ngày ban hành 21/01/2026, phạm vi áp dụng gồm hộ gia đình | Chỉ trang tin của Bộ Công Thương; bản PDF là ảnh quét 7,6 MB, chưa OCR; ngày hiệu lực chưa biết |
+| Thông tư 60/2025/TT-BCT (2/12/2025), Điều 12 khoản 5 | người thuê nhà: mỗi địa chỉ một hợp đồng, chủ nhà không thu quá hóa đơn | Câu đầu của khoản là trích nguyên văn, phần còn lại theo bài LuatVietnam; toàn văn ở trang trả phí; ngày hiệu lực chưa xác nhận nên không nêu |
 
 ## Link đã gom từ các session cũ nhưng chưa nạp
 
@@ -37,7 +39,7 @@ Gom từ 55 session: các trang tin (VTV, Báo Chính phủ, CafeF, Tuổi Trẻ
 Chưa nạp vì: (1) tin báo có bản quyền, chỉ nên dẫn link, không lưu nguyên văn; (2) `thuvienphapluat.vn` trả 403 khi
 tải tự động; (3) trang EVN dựng bằng JavaScript, tải thẳng chỉ ra 65 ký tự; (4) Thông tư 60/2025/TT-BCT (người thuê
 nhà): mới đọc bài báo, chưa đọc văn bản. Văn bản quy phạm pháp luật không có bản quyền, nên bước tiếp theo là nạp
-nguyên văn Thông tư 60 và Nghị định 174/2025 khi có bản đọc được.
+nguyên văn Thông tư 60 khi có bản đọc được. Số "Nghị định 174/2025" trong ghi chú cũ không xác nhận được: nghị định hướng dẫn Luật 77/2025 tìm thấy là 30/2026/NĐ-CP (đã nạp phần tin của Bộ Công Thương).
 
 ## Chọn model embedding (đo 2026-11-26)
 
@@ -72,4 +74,4 @@ chung: biên chỉ +0,016, nghĩa là câu Anh hỏi tài liệu Việt gần ng
   điện đổi mỗi vài tháng: cần nhắc kiểm tra mỗi khi `tb_tariff_version` thêm phiên bản.
 - Mã văn bản chỉ nằm trong tiêu đề (bảng `Document` không có cột mã): lọc theo số hiệu dựa vào tiêu đề.
 - Tài liệu không có trang riêng (nghị quyết VAT, luật dữ liệu cá nhân) dẫn về cổng `vanban.chinhphu.vn` ở danh sách Nguồn.
-- Chạy lại: `docker compose cp docs/sources api:/tmp/sources && docker compose exec -T api python -m scripts.ingest_documents /tmp/sources`.
+- Chạy lại (thư mục là cả kho: file đổi tên hoặc bị xóa thì tài liệu cũ bị xóa theo): `docker compose exec -T api rm -rf /tmp/sources && docker compose cp docs/sources api:/tmp/sources && docker compose exec -T api python -m scripts.ingest_documents /tmp/sources`.
