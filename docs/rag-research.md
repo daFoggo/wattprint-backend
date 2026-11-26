@@ -39,7 +39,7 @@ Gom từ 55 session: các trang tin (VTV, Báo Chính phủ, CafeF, Tuổi Trẻ
 Chưa nạp vì: (1) tin báo có bản quyền, chỉ nên dẫn link, không lưu nguyên văn; (2) `thuvienphapluat.vn` trả 403 khi
 tải tự động; (3) trang EVN dựng bằng JavaScript, tải thẳng chỉ ra 65 ký tự; (4) Thông tư 60/2025/TT-BCT (người thuê
 nhà): mới đọc bài báo, chưa đọc văn bản. Văn bản quy phạm pháp luật không có bản quyền, nên bước tiếp theo là nạp
-nguyên văn Thông tư 60 khi có bản đọc được. Số "Nghị định 174/2025" trong ghi chú cũ không xác nhận được: nghị định hướng dẫn Luật 77/2025 tìm thấy là 30/2026/NĐ-CP (đã nạp phần tin của Bộ Công Thương).
+nguyên văn Thông tư 60 khi có bản đọc được. Nghị định 174/2025 là nghị định hướng dẫn VAT (chỉ có bản quét, chưa nạp), không phải nghị định hướng dẫn Luật 77/2025; nghị định sau là 30/2026/NĐ-CP (đã nạp phần tin của Bộ Công Thương).
 
 ## Chọn model embedding (đo 2026-11-26)
 
