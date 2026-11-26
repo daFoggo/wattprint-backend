@@ -81,6 +81,10 @@ class Settings(BaseSettings):
     astralx_api_key: str = ""
     astralx_base_url: str = "https://token.astralx.com.vn/v1"
     astralx_chat_model: str = "byok/astral-x/claude-haiku-5-5"
+    # One model (BAAI bge-m3, 1024-d, Vietnamese and English) at both providers: the same vectors,
+    # measured cosine 1.0000, so a question embedded by the fallback still matches stored chunks.
+    openrouter_embed_model: str = "baai/bge-m3"
+    astralx_embed_model: str = "byok/astral-x/astralx-embed"
     astralx_stt_model: str = "whisper-large-v3-turbo"
     astralx_tts_model: str = "astralx-tts"
     astralx_tts_voice: str = "speaker_05"

@@ -53,6 +53,7 @@ from ..schemas import (
     WeatherWidget,
     Widget,
 )
+from . import documents
 
 log = logging.getLogger("copilot.tools")
 ICT = timezone(timedelta(hours=7))
@@ -583,6 +584,19 @@ async def alerts(ctx: Ctx) -> Outcome:
     )
 
 
+def standby_level(watts: list[float]) -> tuple[float, dict | None]:
+    """The load to quote (median of the latest 7 nights) and, when the nights before it differ by
+    more than a third, the two levels: the answer must say the base load moved, not average it."""
+    recent = statistics.median(watts[-7:])
+    earlier = watts[:-7]
+    if len(earlier) < 3:
+        return recent, None
+    before = statistics.median(earlier)
+    if before and abs(recent - before) / before > 0.34:
+        return recent, {"earlier_watts": round(before), "recent_watts": round(recent)}
+    return recent, None
+
+
 async def standby(ctx: Ctx, nights: int = 14) -> Outcome:
     nights = max(3, min(int(nights), 30))
     last = (ctx.now.astimezone(ICT) - timedelta(hours=5)).date()  # the last night fully over
@@ -606,7 +620,7 @@ async def standby(ctx: Ctx, nights: int = 14) -> Outcome:
     watts = [(r.night, float(r.p5)) for r in rows if r.n >= 0.8 * 300]
     if not watts:
         return Outcome({"error": "no full night of readings yet"}, "reading_1m")
-    base = statistics.median(w for _, w in watts)
+    base, shift = standby_level([w for _, w in watts])
     kwh_month = base * 24 * 30 / 1000
     price = await _avg_price(ctx)
     vnd = kwh_month * price if price else None
@@ -615,6 +629,8 @@ async def standby(ctx: Ctx, nights: int = 14) -> Outcome:
             "method": "5th percentile of whole-home power, 00:00-05:00, per night",
             "nights": [{"night": str(d), "watts": round(w)} for d, w in watts],
             "typical_watts": round(base),
+            "typical_is": "median of the latest nights, so it follows a recent change",
+            **({"shift": shift} if shift else {}),
             "kwh_per_month": round(kwh_month, 1),
             "vnd_per_month": round(vnd) if vnd else None,
         },
@@ -812,6 +828,37 @@ async def query_data(ctx: Ctx, question: str) -> Outcome:
         sources=["meter"],
         widgets=[chart] if chart else [],
         sql=sql,
+    )
+
+
+# A stored document's entry in the reply's sources, by key; the key travels in Outcome.sources.
+DOC_SOURCES: dict[str, tuple[dict[str, str], str]] = {}
+DOC_URL_FALLBACK = (
+    "https://vanban.chinhphu.vn"  # the official legal portal, for a document with no page
+)
+
+
+async def search_documents(ctx: Ctx, question: str) -> Outcome:
+    """Stored tariff decisions and laws: the passages that answer it, newest tariff first."""
+    found = await documents.search(ctx.session, question[:500])
+    if not found:
+        return Outcome(
+            {"passages": [], "note": "no stored document covers this: say you do not have it"},
+            _vi(ctx, "Không có văn bản phù hợp", "No matching document"),
+            tier="inferred",
+        )
+    keys = []
+    for p in found:
+        key = f"doc:{p.doc_id}"
+        DOC_SOURCES[key] = ({"vi": p.title, "en": p.title}, p.url or DOC_URL_FALLBACK)
+        keys.append(key)
+    return Outcome(
+        data={
+            "passages": [{"document": p.title, "version": p.version, "text": p.text} for p in found]
+        },
+        detail=_vi(ctx, "Văn bản pháp luật đã lưu", "Stored legal documents"),
+        tier="measured" if all(p.doc_type == "tariff" for p in found) else "inferred",
+        sources=list(dict.fromkeys(keys)),
     )
 
 
@@ -1110,6 +1157,17 @@ TOOLS: dict[str, tuple[Tool, dict]] = {
             "Any other question about this home's own data that the other tools do not answer: "
             "a specific day or hour, a device's runs (how many, how long, when), peaks, trends. "
             "Answered by a read-only SQL query; ask one precise question.",
+            {"question": {"type": "string", "maxLength": 500}},
+            ["question"],
+        ),
+    ),
+    "search_documents": (
+        search_documents,
+        _fn(
+            "search_documents",
+            "Text of the stored Vietnamese electricity tariff decisions, VAT rules and "
+            "personal-data or AI laws. Use for which decision or law says what, since when, at "
+            "what rate. Quote only what it returns; if it returns nothing you do not have it.",
             {"question": {"type": "string", "maxLength": 500}},
             ["question"],
         ),

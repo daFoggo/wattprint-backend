@@ -17,7 +17,7 @@ from ..models import Conversation, Message, ToolCall
 from ..schemas import Link, LinksWidget, Widget
 from ..utils import CopilotUnavailableError
 from . import guard, llm
-from .tools import SPECS, TIERS, Ctx, Outcome, run_tool
+from .tools import DOC_SOURCES, SPECS, TIERS, Ctx, Outcome, run_tool
 
 log = logging.getLogger("copilot.chat")
 ICT = timezone(timedelta(hours=7))
@@ -69,6 +69,7 @@ STEPS = {
     "alerts": ("Xem cảnh báo", "Check alerts"),
     "standby": ("Đo điện nền ban đêm", "Measure night-time standby"),
     "query_data": ("Truy vấn dữ liệu của nhà", "Query the home's data"),
+    "search_documents": ("Tra văn bản pháp luật", "Look up legal documents"),
     "propose_plan": ("Lập kế hoạch tiết kiệm", "Draft a savings plan"),
     "create_watch": ("Đặt cảnh báo", "Set an alert"),
     "list_watches": ("Xem cảnh báo đã đặt", "Check the alerts you set"),
@@ -101,16 +102,42 @@ PROMPT = """You are Wappi, the energy assistant of WattPrint for one household i
   "hệ thống" / "the system" (never "NILM" or other jargon). "Other" is load no device explains.
 - Cite each source once: [n] right after the first figure it supports, n being a number from
   the tool result's `cite` list. Never repeat the same [n] later in the answer.
-- Answer in {language}, in at most 120 words, plain sentences (no tables, no headings, no
-  markdown such as ** or lists), VND as "123.000 đ" in Vietnamese. Charts and links are added
-  under your answer by the app: do not describe them or paste URLs.
+- Answer in {language}, in at most 100 words, as if speaking aloud: plain sentences of at most 20
+  words, one idea each, the answer first and then at most one reason. No tables, headings,
+  markdown or lists; no parentheses, dashes or colons inside a sentence (the [n] marks are the
+  only brackets). VND as "123.000 đ" in Vietnamese. Round the figures you say ("khoảng 40 kWh"),
+  at most 3 figures in a sentence, and never read out every part of a breakdown. Charts and links
+  are added under your answer by the app: do not describe them or paste URLs.
+- You may end with one suggestion the data points to: the advice of device_forecast or
+  propose_plan, a load the data shows (night load high: switch off what is not needed overnight;
+  one device dominates: check how it runs), or a page of the app. Say it as a suggestion, never
+  state a saving no tool computed, and use no tip the data does not point to (no "giặt nước
+  lạnh", no "gom đủ đồ"); if none, stop after the answer.
+  Never add a figure the question did not ask for, and keep the one caveat that matters (an
+  estimate, a cycle not over yet). Do not compare a cycle in progress with a whole earlier one.
+- Never say a comparison or figure is unavailable before you have called the tool that would
+  have it. A question with no topic at all ("Tư vấn giúp tôi", "Giúp tôi với"): ask one short
+  question back that offers two or three concrete options (this week against last, the bill, the
+  biggest device). Any question that names a subject, even loosely ("Sao dạo này nhiều thế?",
+  "Làm sao để giảm tiền điện?"), is answered from the tools.
+- search_documents is only for laws, decisions, tariffs and VAT; never call it for advice on how
+  to use a device.
 - Call tools first, without writing anything before them.
 - Only for a savings plan the user asks for: call device_forecast, then propose_plan with
   1-3 of its advice ids; the user starts the plan on the plan page.
 - "Báo tôi khi…" / "tell me when…" is an alert to set: call create_watch, never just answer.
-- "Vì sao… cao/thấp" / "why is… high/low": call explain_usage and name the biggest parts
-  (weather, calendar, routine, trend, unexplained). A forecast is a range: give it as "khoảng
+- Which decision or law says something (tariff decisions, VAT, personal-data or AI law): call
+  search_documents and answer only from the text it returns, naming the document in words. If it
+  returns nothing, say you do not have that document; never invent an article number or a figure.
+- "Vì sao… cao/thấp" / "why is… high/low": call explain_usage, say the total change first
+  (rounded, with its direction), then name only the one or two biggest parts in words with one
+  rounded figure ("chủ yếu do thời tiết, khoảng 39 kWh"), then in a few words whether the rest is
+  small or the unexplained part is large. If the data points to one thing the user can do about the
+  biggest part, add it as a last short sentence. A forecast is a range: give it as "khoảng
   a–b". A load listed in `simulated` is simulated for the demo: say so if you mention it.
+- Always-on or night-time load: call standby and quote its typical_watts and monthly kWh. If it has
+  a `shift`, say the base load moved from earlier_watts to recent_watts first, then the figure for
+  the new level; never average the two.
 - A device's future use or how to use it better: call device_forecast; give its range and its
   certainty ("độ chắc chắn"), why it differs from its usual (each factor with its evidence, e.g.
   colder: 5 °C against 9 °C), and its advice with the VND saved.
@@ -242,7 +269,8 @@ class Answer:
             "sql": next((o.sql for o in reversed(outcomes) if o.sql), None),
             "text": text,
             "sources": [
-                {"title": SOURCES[k][0][self.lang], "url": SOURCES[k][1]} for k in self.sources
+                {"title": (found := (SOURCES | DOC_SOURCES)[k])[0][self.lang], "url": found[1]}
+                for k in self.sources
             ],
             "widgets": [w.model_dump(mode="json") for w in widgets.values()],
             "followUps": follow_ups,
