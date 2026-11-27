@@ -1,0 +1,24 @@
+# Các tệp do Python sinh ra
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Môi trường ảo
+.venv
+.ruff_cache/
+
+# Dữ liệu tải về và kết quả tiền xử lý; giữ lại script, nguồn tham khảo và metadata nhỏ
+/data/raw/**/*.7z
+/data/raw/**/*.part
+/data/cleaned/
+/data/processed/
+
+# Kết quả huấn luyện và trọng số mô hình được sinh khi chạy
+/training/runs/
+/training/checkpoints/
+
+# Cache dự đoán của phân tích lỗi
+/.cache/

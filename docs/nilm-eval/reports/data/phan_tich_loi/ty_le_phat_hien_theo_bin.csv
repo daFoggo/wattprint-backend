@@ -1,0 +1,427 @@
+model,thiet_ke,boi_canh,device,bin,dac_trung,so_su_kien,ty_le_phat_hien
+2Stage,mô hình chung,hộ mới,Dishwasher,1,thoi_luong,4,0.0
+2Stage,mô hình chung,hộ mới,Dishwasher,2–3,thoi_luong,6,0.5
+2Stage,mô hình chung,hộ mới,Dishwasher,4–10,thoi_luong,8,1.0
+2Stage,mô hình chung,hộ mới,Dishwasher,11–30,thoi_luong,556,0.9730215827338129
+2Stage,mô hình chung,hộ mới,Kettle,1,thoi_luong,228,0.42543859649122806
+2Stage,mô hình chung,hộ mới,Kettle,2–3,thoi_luong,940,0.8787234042553191
+2Stage,mô hình chung,hộ mới,Kettle,4–10,thoi_luong,404,0.8861386138613861
+2Stage,mô hình chung,hộ mới,Microwave,1,thoi_luong,89,0.34831460674157305
+2Stage,mô hình chung,hộ mới,Microwave,2–3,thoi_luong,404,0.5198019801980198
+2Stage,mô hình chung,hộ mới,Microwave,4–10,thoi_luong,132,0.5
+2Stage,mô hình chung,hộ mới,Microwave,11–30,thoi_luong,6,0.0
+2Stage,mô hình chung,hộ mới,WashingMachine,1,thoi_luong,386,0.023316062176165803
+2Stage,mô hình chung,hộ mới,WashingMachine,2–3,thoi_luong,314,0.06687898089171974
+2Stage,mô hình chung,hộ mới,WashingMachine,4–10,thoi_luong,121,0.4132231404958678
+2Stage,mô hình chung,hộ mới,WashingMachine,11–30,thoi_luong,217,0.6497695852534562
+2Stage,mô hình chung,hộ mới,WashingMachine,31–60,thoi_luong,3,0.6666666666666666
+2Stage,mô hình chung,hộ được train,Dishwasher,2–3,thoi_luong,5,0.6
+2Stage,mô hình chung,hộ được train,Dishwasher,4–10,thoi_luong,187,0.9679144385026738
+2Stage,mô hình chung,hộ được train,Dishwasher,11–30,thoi_luong,174,0.9827586206896551
+2Stage,mô hình chung,hộ được train,Kettle,1,thoi_luong,230,0.45217391304347826
+2Stage,mô hình chung,hộ được train,Kettle,2–3,thoi_luong,1224,0.9313725490196079
+2Stage,mô hình chung,hộ được train,Kettle,4–10,thoi_luong,358,0.9776536312849162
+2Stage,mô hình chung,hộ được train,Microwave,1,thoi_luong,123,0.45528455284552843
+2Stage,mô hình chung,hộ được train,Microwave,2–3,thoi_luong,356,0.7696629213483146
+2Stage,mô hình chung,hộ được train,Microwave,4–10,thoi_luong,168,0.7380952380952381
+2Stage,mô hình chung,hộ được train,Microwave,11–30,thoi_luong,16,0.375
+2Stage,mô hình chung,hộ được train,WashingMachine,1,thoi_luong,83,0.07228915662650602
+2Stage,mô hình chung,hộ được train,WashingMachine,2–3,thoi_luong,111,0.11711711711711711
+2Stage,mô hình chung,hộ được train,WashingMachine,4–10,thoi_luong,81,0.37037037037037035
+2Stage,mô hình chung,hộ được train,WashingMachine,11–30,thoi_luong,68,0.9411764705882353
+2Stage,mô hình riêng,hộ mới,Dishwasher,1,thoi_luong,24,0.0
+2Stage,mô hình riêng,hộ mới,Dishwasher,2–3,thoi_luong,66,0.18181818181818182
+2Stage,mô hình riêng,hộ mới,Dishwasher,4–10,thoi_luong,1170,0.6854700854700855
+2Stage,mô hình riêng,hộ mới,Dishwasher,11–30,thoi_luong,4380,0.9253424657534246
+2Stage,mô hình riêng,hộ mới,Kettle,1,thoi_luong,2748,0.2856622998544396
+2Stage,mô hình riêng,hộ mới,Kettle,2–3,thoi_luong,12984,0.8123074553296364
+2Stage,mô hình riêng,hộ mới,Kettle,4–10,thoi_luong,4572,0.8204286964129484
+2Stage,mô hình riêng,hộ mới,Microwave,1,thoi_luong,1272,0.09512578616352202
+2Stage,mô hình riêng,hộ mới,Microwave,2–3,thoi_luong,4560,0.16776315789473684
+2Stage,mô hình riêng,hộ mới,Microwave,4–10,thoi_luong,1800,0.1388888888888889
+2Stage,mô hình riêng,hộ mới,Microwave,11–30,thoi_luong,132,0.10606060606060606
+2Stage,mô hình riêng,hộ mới,WashingMachine,1,thoi_luong,2814,0.02736318407960199
+2Stage,mô hình riêng,hộ mới,WashingMachine,2–3,thoi_luong,2550,0.05254901960784314
+2Stage,mô hình riêng,hộ mới,WashingMachine,4–10,thoi_luong,1212,0.2632013201320132
+2Stage,mô hình riêng,hộ mới,WashingMachine,11–30,thoi_luong,1710,0.5309941520467836
+2Stage,mô hình riêng,hộ mới,WashingMachine,31–60,thoi_luong,18,0.4444444444444444
+2Stage,mô hình riêng,hộ được train,Dishwasher,1,thoi_luong,4,0.0
+2Stage,mô hình riêng,hộ được train,Dishwasher,2–3,thoi_luong,11,0.36363636363636365
+2Stage,mô hình riêng,hộ được train,Dishwasher,4–10,thoi_luong,195,0.9794871794871794
+2Stage,mô hình riêng,hộ được train,Dishwasher,11–30,thoi_luong,730,0.9780821917808219
+2Stage,mô hình riêng,hộ được train,Kettle,1,thoi_luong,458,0.36026200873362446
+2Stage,mô hình riêng,hộ được train,Kettle,2–3,thoi_luong,2164,0.871996303142329
+2Stage,mô hình riêng,hộ được train,Kettle,4–10,thoi_luong,762,0.926509186351706
+2Stage,mô hình riêng,hộ được train,Microwave,1,thoi_luong,212,0.28773584905660377
+2Stage,mô hình riêng,hộ được train,Microwave,2–3,thoi_luong,760,0.40131578947368424
+2Stage,mô hình riêng,hộ được train,Microwave,4–10,thoi_luong,300,0.49333333333333335
+2Stage,mô hình riêng,hộ được train,Microwave,11–30,thoi_luong,22,0.22727272727272727
+2Stage,mô hình riêng,hộ được train,WashingMachine,1,thoi_luong,469,0.04051172707889126
+2Stage,mô hình riêng,hộ được train,WashingMachine,2–3,thoi_luong,425,0.16941176470588235
+2Stage,mô hình riêng,hộ được train,WashingMachine,4–10,thoi_luong,202,0.504950495049505
+2Stage,mô hình riêng,hộ được train,WashingMachine,11–30,thoi_luong,285,0.8736842105263158
+2Stage,mô hình riêng,hộ được train,WashingMachine,31–60,thoi_luong,3,0.0
+Baseline,mô hình chung,hộ mới,Dishwasher,1,thoi_luong,4,0.0
+Baseline,mô hình chung,hộ mới,Dishwasher,2–3,thoi_luong,6,0.16666666666666666
+Baseline,mô hình chung,hộ mới,Dishwasher,4–10,thoi_luong,8,1.0
+Baseline,mô hình chung,hộ mới,Dishwasher,11–30,thoi_luong,556,0.8938848920863309
+Baseline,mô hình chung,hộ mới,Kettle,1,thoi_luong,228,0.2543859649122807
+Baseline,mô hình chung,hộ mới,Kettle,2–3,thoi_luong,940,0.8191489361702128
+Baseline,mô hình chung,hộ mới,Kettle,4–10,thoi_luong,404,0.8613861386138614
+Baseline,mô hình chung,hộ mới,Microwave,1,thoi_luong,89,0.011235955056179775
+Baseline,mô hình chung,hộ mới,Microwave,2–3,thoi_luong,404,0.03217821782178218
+Baseline,mô hình chung,hộ mới,Microwave,4–10,thoi_luong,132,0.06060606060606061
+Baseline,mô hình chung,hộ mới,Microwave,11–30,thoi_luong,6,0.0
+Baseline,mô hình chung,hộ mới,WashingMachine,1,thoi_luong,386,0.02849740932642487
+Baseline,mô hình chung,hộ mới,WashingMachine,2–3,thoi_luong,314,0.044585987261146494
+Baseline,mô hình chung,hộ mới,WashingMachine,4–10,thoi_luong,121,0.4214876033057851
+Baseline,mô hình chung,hộ mới,WashingMachine,11–30,thoi_luong,217,0.6451612903225806
+Baseline,mô hình chung,hộ mới,WashingMachine,31–60,thoi_luong,3,0.6666666666666666
+Baseline,mô hình chung,hộ được train,Dishwasher,2–3,thoi_luong,5,0.0
+Baseline,mô hình chung,hộ được train,Dishwasher,4–10,thoi_luong,187,0.9679144385026738
+Baseline,mô hình chung,hộ được train,Dishwasher,11–30,thoi_luong,174,0.9540229885057471
+Baseline,mô hình chung,hộ được train,Kettle,1,thoi_luong,230,0.3521739130434783
+Baseline,mô hình chung,hộ được train,Kettle,2–3,thoi_luong,1224,0.9060457516339869
+Baseline,mô hình chung,hộ được train,Kettle,4–10,thoi_luong,358,0.9553072625698324
+Baseline,mô hình chung,hộ được train,Microwave,1,thoi_luong,123,0.008130081300813009
+Baseline,mô hình chung,hộ được train,Microwave,2–3,thoi_luong,356,0.07303370786516854
+Baseline,mô hình chung,hộ được train,Microwave,4–10,thoi_luong,168,0.35119047619047616
+Baseline,mô hình chung,hộ được train,Microwave,11–30,thoi_luong,16,0.0
+Baseline,mô hình chung,hộ được train,WashingMachine,1,thoi_luong,83,0.0
+Baseline,mô hình chung,hộ được train,WashingMachine,2–3,thoi_luong,111,0.04504504504504504
+Baseline,mô hình chung,hộ được train,WashingMachine,4–10,thoi_luong,81,0.37037037037037035
+Baseline,mô hình chung,hộ được train,WashingMachine,11–30,thoi_luong,68,0.8676470588235294
+Baseline,mô hình riêng,hộ mới,Dishwasher,1,thoi_luong,24,0.0
+Baseline,mô hình riêng,hộ mới,Dishwasher,2–3,thoi_luong,66,0.10606060606060606
+Baseline,mô hình riêng,hộ mới,Dishwasher,4–10,thoi_luong,1170,0.5384615384615384
+Baseline,mô hình riêng,hộ mới,Dishwasher,11–30,thoi_luong,4380,0.6308219178082192
+Baseline,mô hình riêng,hộ mới,Kettle,1,thoi_luong,2748,0.23398835516739447
+Baseline,mô hình riêng,hộ mới,Kettle,2–3,thoi_luong,12984,0.7295902649414664
+Baseline,mô hình riêng,hộ mới,Kettle,4–10,thoi_luong,4572,0.6926946631671042
+Baseline,mô hình riêng,hộ mới,Microwave,1,thoi_luong,1272,0.031446540880503145
+Baseline,mô hình riêng,hộ mới,Microwave,2–3,thoi_luong,4560,0.04298245614035088
+Baseline,mô hình riêng,hộ mới,Microwave,4–10,thoi_luong,1800,0.057777777777777775
+Baseline,mô hình riêng,hộ mới,Microwave,11–30,thoi_luong,132,0.06818181818181818
+Baseline,mô hình riêng,hộ mới,WashingMachine,1,thoi_luong,2814,0.020966595593461264
+Baseline,mô hình riêng,hộ mới,WashingMachine,2–3,thoi_luong,2550,0.02980392156862745
+Baseline,mô hình riêng,hộ mới,WashingMachine,4–10,thoi_luong,1212,0.2632013201320132
+Baseline,mô hình riêng,hộ mới,WashingMachine,11–30,thoi_luong,1710,0.5099415204678363
+Baseline,mô hình riêng,hộ mới,WashingMachine,31–60,thoi_luong,18,0.3333333333333333
+Baseline,mô hình riêng,hộ được train,Dishwasher,1,thoi_luong,4,0.25
+Baseline,mô hình riêng,hộ được train,Dishwasher,2–3,thoi_luong,11,0.36363636363636365
+Baseline,mô hình riêng,hộ được train,Dishwasher,4–10,thoi_luong,195,0.9538461538461539
+Baseline,mô hình riêng,hộ được train,Dishwasher,11–30,thoi_luong,730,0.9232876712328767
+Baseline,mô hình riêng,hộ được train,Kettle,1,thoi_luong,458,0.26419213973799127
+Baseline,mô hình riêng,hộ được train,Kettle,2–3,thoi_luong,2164,0.8082255083179297
+Baseline,mô hình riêng,hộ được train,Kettle,4–10,thoi_luong,762,0.8346456692913385
+Baseline,mô hình riêng,hộ được train,Microwave,1,thoi_luong,212,0.12264150943396226
+Baseline,mô hình riêng,hộ được train,Microwave,2–3,thoi_luong,760,0.1618421052631579
+Baseline,mô hình riêng,hộ được train,Microwave,4–10,thoi_luong,300,0.34
+Baseline,mô hình riêng,hộ được train,Microwave,11–30,thoi_luong,22,0.045454545454545456
+Baseline,mô hình riêng,hộ được train,WashingMachine,1,thoi_luong,469,0.031982942430703626
+Baseline,mô hình riêng,hộ được train,WashingMachine,2–3,thoi_luong,425,0.1388235294117647
+Baseline,mô hình riêng,hộ được train,WashingMachine,4–10,thoi_luong,202,0.4405940594059406
+Baseline,mô hình riêng,hộ được train,WashingMachine,11–30,thoi_luong,285,0.7614035087719299
+Baseline,mô hình riêng,hộ được train,WashingMachine,31–60,thoi_luong,3,0.0
+2Stage,mô hình chung,hộ mới,Dishwasher,<300,cong_suat_dinh,2,0.0
+2Stage,mô hình chung,hộ mới,Dishwasher,500–1000,cong_suat_dinh,2,0.0
+2Stage,mô hình chung,hộ mới,Dishwasher,1000–2000,cong_suat_dinh,66,0.9696969696969697
+2Stage,mô hình chung,hộ mới,Dishwasher,2000–3000,cong_suat_dinh,504,0.9682539682539683
+2Stage,mô hình chung,hộ mới,Kettle,<300,cong_suat_dinh,13,0.0
+2Stage,mô hình chung,hộ mới,Kettle,300–500,cong_suat_dinh,40,0.05
+2Stage,mô hình chung,hộ mới,Kettle,500–1000,cong_suat_dinh,116,0.23275862068965517
+2Stage,mô hình chung,hộ mới,Kettle,1000–2000,cong_suat_dinh,280,0.7107142857142857
+2Stage,mô hình chung,hộ mới,Kettle,2000–3000,cong_suat_dinh,1123,0.93766696349065
+2Stage,mô hình chung,hộ mới,Microwave,<300,cong_suat_dinh,43,0.09302325581395349
+2Stage,mô hình chung,hộ mới,Microwave,300–500,cong_suat_dinh,122,0.28688524590163933
+2Stage,mô hình chung,hộ mới,Microwave,500–1000,cong_suat_dinh,194,0.5051546391752577
+2Stage,mô hình chung,hộ mới,Microwave,1000–2000,cong_suat_dinh,272,0.625
+2Stage,mô hình chung,hộ mới,WashingMachine,<300,cong_suat_dinh,431,0.025522041763341066
+2Stage,mô hình chung,hộ mới,WashingMachine,300–500,cong_suat_dinh,202,0.0594059405940594
+2Stage,mô hình chung,hộ mới,WashingMachine,500–1000,cong_suat_dinh,25,0.04
+2Stage,mô hình chung,hộ mới,WashingMachine,1000–2000,cong_suat_dinh,189,0.544973544973545
+2Stage,mô hình chung,hộ mới,WashingMachine,2000–3000,cong_suat_dinh,194,0.4948453608247423
+2Stage,mô hình chung,hộ được train,Dishwasher,500–1000,cong_suat_dinh,1,0.0
+2Stage,mô hình chung,hộ được train,Dishwasher,1000–2000,cong_suat_dinh,1,1.0
+2Stage,mô hình chung,hộ được train,Dishwasher,2000–3000,cong_suat_dinh,364,0.9725274725274725
+2Stage,mô hình chung,hộ được train,Kettle,<300,cong_suat_dinh,27,0.037037037037037035
+2Stage,mô hình chung,hộ được train,Kettle,300–500,cong_suat_dinh,56,0.07142857142857142
+2Stage,mô hình chung,hộ được train,Kettle,500–1000,cong_suat_dinh,92,0.30434782608695654
+2Stage,mô hình chung,hộ được train,Kettle,1000–2000,cong_suat_dinh,288,0.8888888888888888
+2Stage,mô hình chung,hộ được train,Kettle,2000–3000,cong_suat_dinh,1349,0.9673832468495182
+2Stage,mô hình chung,hộ được train,Microwave,<300,cong_suat_dinh,49,0.16326530612244897
+2Stage,mô hình chung,hộ được train,Microwave,300–500,cong_suat_dinh,55,0.14545454545454545
+2Stage,mô hình chung,hộ được train,Microwave,500–1000,cong_suat_dinh,179,0.7150837988826816
+2Stage,mô hình chung,hộ được train,Microwave,1000–2000,cong_suat_dinh,380,0.8315789473684211
+2Stage,mô hình chung,hộ được train,WashingMachine,<300,cong_suat_dinh,88,0.03409090909090909
+2Stage,mô hình chung,hộ được train,WashingMachine,300–500,cong_suat_dinh,115,0.034782608695652174
+2Stage,mô hình chung,hộ được train,WashingMachine,500–1000,cong_suat_dinh,25,0.4
+2Stage,mô hình chung,hộ được train,WashingMachine,1000–2000,cong_suat_dinh,6,0.5
+2Stage,mô hình chung,hộ được train,WashingMachine,2000–3000,cong_suat_dinh,109,0.8532110091743119
+2Stage,mô hình riêng,hộ mới,Dishwasher,<300,cong_suat_dinh,12,0.0
+2Stage,mô hình riêng,hộ mới,Dishwasher,500–1000,cong_suat_dinh,18,0.0
+2Stage,mô hình riêng,hộ mới,Dishwasher,1000–2000,cong_suat_dinh,402,0.8706467661691543
+2Stage,mô hình riêng,hộ mới,Dishwasher,2000–3000,cong_suat_dinh,5208,0.8673195084485407
+2Stage,mô hình riêng,hộ mới,Kettle,<300,cong_suat_dinh,240,0.029166666666666667
+2Stage,mô hình riêng,hộ mới,Kettle,300–500,cong_suat_dinh,576,0.041666666666666664
+2Stage,mô hình riêng,hộ mới,Kettle,500–1000,cong_suat_dinh,1248,0.16105769230769232
+2Stage,mô hình riêng,hộ mới,Kettle,1000–2000,cong_suat_dinh,3408,0.6408450704225352
+2Stage,mô hình riêng,hộ mới,Kettle,2000–3000,cong_suat_dinh,14832,0.8540318230852212
+2Stage,mô hình riêng,hộ mới,Microwave,<300,cong_suat_dinh,552,0.03985507246376811
+2Stage,mô hình riêng,hộ mới,Microwave,300–500,cong_suat_dinh,1062,0.06308851224105462
+2Stage,mô hình riêng,hộ mới,Microwave,500–1000,cong_suat_dinh,2238,0.14343163538873996
+2Stage,mô hình riêng,hộ mới,Microwave,1000–2000,cong_suat_dinh,3912,0.18916155419222905
+2Stage,mô hình riêng,hộ mới,WashingMachine,<300,cong_suat_dinh,3114,0.030828516377649325
+2Stage,mô hình riêng,hộ mới,WashingMachine,300–500,cong_suat_dinh,1902,0.02576235541535226
+2Stage,mô hình riêng,hộ mới,WashingMachine,500–1000,cong_suat_dinh,300,0.05
+2Stage,mô hình riêng,hộ mới,WashingMachine,1000–2000,cong_suat_dinh,1170,0.4008547008547009
+2Stage,mô hình riêng,hộ mới,WashingMachine,2000–3000,cong_suat_dinh,1818,0.4493949394939494
+2Stage,mô hình riêng,hộ được train,Dishwasher,<300,cong_suat_dinh,2,0.0
+2Stage,mô hình riêng,hộ được train,Dishwasher,500–1000,cong_suat_dinh,3,0.0
+2Stage,mô hình riêng,hộ được train,Dishwasher,1000–2000,cong_suat_dinh,67,0.9701492537313433
+2Stage,mô hình riêng,hộ được train,Dishwasher,2000–3000,cong_suat_dinh,868,0.9723502304147466
+2Stage,mô hình riêng,hộ được train,Kettle,<300,cong_suat_dinh,40,0.05
+2Stage,mô hình riêng,hộ được train,Kettle,300–500,cong_suat_dinh,96,0.041666666666666664
+2Stage,mô hình riêng,hộ được train,Kettle,500–1000,cong_suat_dinh,208,0.21153846153846154
+2Stage,mô hình riêng,hộ được train,Kettle,1000–2000,cong_suat_dinh,568,0.7570422535211268
+2Stage,mô hình riêng,hộ được train,Kettle,2000–3000,cong_suat_dinh,2472,0.9215210355987055
+2Stage,mô hình riêng,hộ được train,Microwave,<300,cong_suat_dinh,92,0.10869565217391304
+2Stage,mô hình riêng,hộ được train,Microwave,300–500,cong_suat_dinh,177,0.07909604519774012
+2Stage,mô hình riêng,hộ được train,Microwave,500–1000,cong_suat_dinh,373,0.3672922252010724
+2Stage,mô hình riêng,hộ được train,Microwave,1000–2000,cong_suat_dinh,652,0.549079754601227
+2Stage,mô hình riêng,hộ được train,WashingMachine,<300,cong_suat_dinh,519,0.038535645472061654
+2Stage,mô hình riêng,hộ được train,WashingMachine,300–500,cong_suat_dinh,317,0.03470031545741325
+2Stage,mô hình riêng,hộ được train,WashingMachine,500–1000,cong_suat_dinh,50,0.28
+2Stage,mô hình riêng,hộ được train,WashingMachine,1000–2000,cong_suat_dinh,195,0.6871794871794872
+2Stage,mô hình riêng,hộ được train,WashingMachine,2000–3000,cong_suat_dinh,303,0.8679867986798679
+Baseline,mô hình chung,hộ mới,Dishwasher,<300,cong_suat_dinh,2,0.0
+Baseline,mô hình chung,hộ mới,Dishwasher,500–1000,cong_suat_dinh,2,0.0
+Baseline,mô hình chung,hộ mới,Dishwasher,1000–2000,cong_suat_dinh,66,0.8333333333333334
+Baseline,mô hình chung,hộ mới,Dishwasher,2000–3000,cong_suat_dinh,504,0.8948412698412699
+Baseline,mô hình chung,hộ mới,Kettle,<300,cong_suat_dinh,13,0.0
+Baseline,mô hình chung,hộ mới,Kettle,300–500,cong_suat_dinh,40,0.025
+Baseline,mô hình chung,hộ mới,Kettle,500–1000,cong_suat_dinh,116,0.05172413793103448
+Baseline,mô hình chung,hộ mới,Kettle,1000–2000,cong_suat_dinh,280,0.5285714285714286
+Baseline,mô hình chung,hộ mới,Kettle,2000–3000,cong_suat_dinh,1123,0.9091718610863758
+Baseline,mô hình chung,hộ mới,Microwave,<300,cong_suat_dinh,43,0.0
+Baseline,mô hình chung,hộ mới,Microwave,300–500,cong_suat_dinh,122,0.00819672131147541
+Baseline,mô hình chung,hộ mới,Microwave,500–1000,cong_suat_dinh,194,0.015463917525773196
+Baseline,mô hình chung,hộ mới,Microwave,1000–2000,cong_suat_dinh,272,0.0661764705882353
+Baseline,mô hình chung,hộ mới,WashingMachine,<300,cong_suat_dinh,431,0.03248259860788863
+Baseline,mô hình chung,hộ mới,WashingMachine,300–500,cong_suat_dinh,202,0.019801980198019802
+Baseline,mô hình chung,hộ mới,WashingMachine,500–1000,cong_suat_dinh,25,0.08
+Baseline,mô hình chung,hộ mới,WashingMachine,1000–2000,cong_suat_dinh,189,0.4656084656084656
+Baseline,mô hình chung,hộ mới,WashingMachine,2000–3000,cong_suat_dinh,194,0.5670103092783505
+Baseline,mô hình chung,hộ được train,Dishwasher,500–1000,cong_suat_dinh,1,0.0
+Baseline,mô hình chung,hộ được train,Dishwasher,1000–2000,cong_suat_dinh,1,0.0
+Baseline,mô hình chung,hộ được train,Dishwasher,2000–3000,cong_suat_dinh,364,0.9532967032967034
+Baseline,mô hình chung,hộ được train,Kettle,<300,cong_suat_dinh,27,0.0
+Baseline,mô hình chung,hộ được train,Kettle,300–500,cong_suat_dinh,56,0.03571428571428571
+Baseline,mô hình chung,hộ được train,Kettle,500–1000,cong_suat_dinh,92,0.11956521739130435
+Baseline,mô hình chung,hộ được train,Kettle,1000–2000,cong_suat_dinh,288,0.8055555555555556
+Baseline,mô hình chung,hộ được train,Kettle,2000–3000,cong_suat_dinh,1349,0.9540400296515937
+Baseline,mô hình chung,hộ được train,Microwave,<300,cong_suat_dinh,49,0.0
+Baseline,mô hình chung,hộ được train,Microwave,300–500,cong_suat_dinh,55,0.0
+Baseline,mô hình chung,hộ được train,Microwave,500–1000,cong_suat_dinh,179,0.01675977653631285
+Baseline,mô hình chung,hộ được train,Microwave,1000–2000,cong_suat_dinh,380,0.21842105263157896
+Baseline,mô hình chung,hộ được train,WashingMachine,<300,cong_suat_dinh,88,0.0
+Baseline,mô hình chung,hộ được train,WashingMachine,300–500,cong_suat_dinh,115,0.034782608695652174
+Baseline,mô hình chung,hộ được train,WashingMachine,500–1000,cong_suat_dinh,25,0.0
+Baseline,mô hình chung,hộ được train,WashingMachine,1000–2000,cong_suat_dinh,6,0.16666666666666666
+Baseline,mô hình chung,hộ được train,WashingMachine,2000–3000,cong_suat_dinh,109,0.8165137614678899
+Baseline,mô hình riêng,hộ mới,Dishwasher,<300,cong_suat_dinh,12,0.0
+Baseline,mô hình riêng,hộ mới,Dishwasher,500–1000,cong_suat_dinh,18,0.0
+Baseline,mô hình riêng,hộ mới,Dishwasher,1000–2000,cong_suat_dinh,402,0.6094527363184079
+Baseline,mô hình riêng,hộ mới,Dishwasher,2000–3000,cong_suat_dinh,5208,0.6057987711213517
+Baseline,mô hình riêng,hộ mới,Kettle,<300,cong_suat_dinh,240,0.029166666666666667
+Baseline,mô hình riêng,hộ mới,Kettle,300–500,cong_suat_dinh,576,0.03298611111111111
+Baseline,mô hình riêng,hộ mới,Kettle,500–1000,cong_suat_dinh,1248,0.11939102564102565
+Baseline,mô hình riêng,hộ mới,Kettle,1000–2000,cong_suat_dinh,3408,0.5490023474178404
+Baseline,mô hình riêng,hộ mới,Kettle,2000–3000,cong_suat_dinh,14832,0.7576186623516721
+Baseline,mô hình riêng,hộ mới,Microwave,<300,cong_suat_dinh,552,0.021739130434782608
+Baseline,mô hình riêng,hộ mới,Microwave,300–500,cong_suat_dinh,1062,0.02071563088512241
+Baseline,mô hình riêng,hộ mới,Microwave,500–1000,cong_suat_dinh,2238,0.036193029490616625
+Baseline,mô hình riêng,hộ mới,Microwave,1000–2000,cong_suat_dinh,3912,0.0598159509202454
+Baseline,mô hình riêng,hộ mới,WashingMachine,<300,cong_suat_dinh,3114,0.023763648041104687
+Baseline,mô hình riêng,hộ mới,WashingMachine,300–500,cong_suat_dinh,1902,0.017350157728706624
+Baseline,mô hình riêng,hộ mới,WashingMachine,500–1000,cong_suat_dinh,300,0.016666666666666666
+Baseline,mô hình riêng,hộ mới,WashingMachine,1000–2000,cong_suat_dinh,1170,0.34273504273504274
+Baseline,mô hình riêng,hộ mới,WashingMachine,2000–3000,cong_suat_dinh,1818,0.4504950495049505
+Baseline,mô hình riêng,hộ được train,Dishwasher,<300,cong_suat_dinh,2,0.5
+Baseline,mô hình riêng,hộ được train,Dishwasher,500–1000,cong_suat_dinh,3,0.0
+Baseline,mô hình riêng,hộ được train,Dishwasher,1000–2000,cong_suat_dinh,67,0.8955223880597015
+Baseline,mô hình riêng,hộ được train,Dishwasher,2000–3000,cong_suat_dinh,868,0.9262672811059908
+Baseline,mô hình riêng,hộ được train,Kettle,<300,cong_suat_dinh,40,0.025
+Baseline,mô hình riêng,hộ được train,Kettle,300–500,cong_suat_dinh,96,0.0625
+Baseline,mô hình riêng,hộ được train,Kettle,500–1000,cong_suat_dinh,208,0.13942307692307693
+Baseline,mô hình riêng,hộ được train,Kettle,1000–2000,cong_suat_dinh,568,0.579225352112676
+Baseline,mô hình riêng,hộ được train,Kettle,2000–3000,cong_suat_dinh,2472,0.8661003236245954
+Baseline,mô hình riêng,hộ được train,Microwave,<300,cong_suat_dinh,92,0.043478260869565216
+Baseline,mô hình riêng,hộ được train,Microwave,300–500,cong_suat_dinh,177,0.011299435028248588
+Baseline,mô hình riêng,hộ được train,Microwave,500–1000,cong_suat_dinh,373,0.10187667560321716
+Baseline,mô hình riêng,hộ được train,Microwave,1000–2000,cong_suat_dinh,652,0.31901840490797545
+Baseline,mô hình riêng,hộ được train,WashingMachine,<300,cong_suat_dinh,519,0.036608863198458574
+Baseline,mô hình riêng,hộ được train,WashingMachine,300–500,cong_suat_dinh,317,0.028391167192429023
+Baseline,mô hình riêng,hộ được train,WashingMachine,500–1000,cong_suat_dinh,50,0.08
+Baseline,mô hình riêng,hộ được train,WashingMachine,1000–2000,cong_suat_dinh,195,0.5025641025641026
+Baseline,mô hình riêng,hộ được train,WashingMachine,2000–3000,cong_suat_dinh,303,0.8250825082508251
+2Stage,mô hình chung,hộ mới,Dishwasher,<200,nen_tb,52,0.9807692307692307
+2Stage,mô hình chung,hộ mới,Dishwasher,200–500,nen_tb,168,0.9821428571428571
+2Stage,mô hình chung,hộ mới,Dishwasher,500–1000,nen_tb,222,0.9774774774774775
+2Stage,mô hình chung,hộ mới,Dishwasher,1000–2000,nen_tb,80,0.925
+2Stage,mô hình chung,hộ mới,Dishwasher,≥2000,nen_tb,52,0.8653846153846154
+2Stage,mô hình chung,hộ mới,Kettle,<200,nen_tb,37,0.8108108108108109
+2Stage,mô hình chung,hộ mới,Kettle,200–500,nen_tb,471,0.8577494692144374
+2Stage,mô hình chung,hộ mới,Kettle,500–1000,nen_tb,517,0.8413926499032882
+2Stage,mô hình chung,hộ mới,Kettle,1000–2000,nen_tb,267,0.7565543071161048
+2Stage,mô hình chung,hộ mới,Kettle,≥2000,nen_tb,280,0.75
+2Stage,mô hình chung,hộ mới,Microwave,<200,nen_tb,5,0.6
+2Stage,mô hình chung,hộ mới,Microwave,200–500,nen_tb,145,0.6344827586206897
+2Stage,mô hình chung,hộ mới,Microwave,500–1000,nen_tb,227,0.6299559471365639
+2Stage,mô hình chung,hộ mới,Microwave,1000–2000,nen_tb,100,0.39
+2Stage,mô hình chung,hộ mới,Microwave,≥2000,nen_tb,154,0.19480519480519481
+2Stage,mô hình chung,hộ mới,WashingMachine,<200,nen_tb,16,0.0625
+2Stage,mô hình chung,hộ mới,WashingMachine,200–500,nen_tb,260,0.08076923076923077
+2Stage,mô hình chung,hộ mới,WashingMachine,500–1000,nen_tb,374,0.21122994652406418
+2Stage,mô hình chung,hộ mới,WashingMachine,1000–2000,nen_tb,142,0.2323943661971831
+2Stage,mô hình chung,hộ mới,WashingMachine,≥2000,nen_tb,249,0.357429718875502
+2Stage,mô hình chung,hộ được train,Dishwasher,<200,nen_tb,83,0.9879518072289156
+2Stage,mô hình chung,hộ được train,Dishwasher,200–500,nen_tb,120,0.9833333333333333
+2Stage,mô hình chung,hộ được train,Dishwasher,500–1000,nen_tb,90,0.9777777777777777
+2Stage,mô hình chung,hộ được train,Dishwasher,1000–2000,nen_tb,50,0.96
+2Stage,mô hình chung,hộ được train,Dishwasher,≥2000,nen_tb,23,0.8260869565217391
+2Stage,mô hình chung,hộ được train,Kettle,<200,nen_tb,270,0.8888888888888888
+2Stage,mô hình chung,hộ được train,Kettle,200–500,nen_tb,419,0.8735083532219571
+2Stage,mô hình chung,hộ được train,Kettle,500–1000,nen_tb,697,0.8995695839311334
+2Stage,mô hình chung,hộ được train,Kettle,1000–2000,nen_tb,279,0.8745519713261649
+2Stage,mô hình chung,hộ được train,Kettle,≥2000,nen_tb,147,0.7959183673469388
+2Stage,mô hình chung,hộ được train,Microwave,<200,nen_tb,34,0.8823529411764706
+2Stage,mô hình chung,hộ được train,Microwave,200–500,nen_tb,159,0.6666666666666666
+2Stage,mô hình chung,hộ được train,Microwave,500–1000,nen_tb,286,0.7657342657342657
+2Stage,mô hình chung,hộ được train,Microwave,1000–2000,nen_tb,133,0.631578947368421
+2Stage,mô hình chung,hộ được train,Microwave,≥2000,nen_tb,51,0.4117647058823529
+2Stage,mô hình chung,hộ được train,WashingMachine,<200,nen_tb,25,0.12
+2Stage,mô hình chung,hộ được train,WashingMachine,200–500,nen_tb,138,0.34057971014492755
+2Stage,mô hình chung,hộ được train,WashingMachine,500–1000,nen_tb,62,0.3387096774193548
+2Stage,mô hình chung,hộ được train,WashingMachine,1000–2000,nen_tb,72,0.20833333333333334
+2Stage,mô hình chung,hộ được train,WashingMachine,≥2000,nen_tb,46,0.5869565217391305
+2Stage,mô hình riêng,hộ mới,Dishwasher,<200,nen_tb,810,0.8876543209876543
+2Stage,mô hình riêng,hộ mới,Dishwasher,200–500,nen_tb,1728,0.8894675925925926
+2Stage,mô hình riêng,hộ mới,Dishwasher,500–1000,nen_tb,1872,0.8808760683760684
+2Stage,mô hình riêng,hộ mới,Dishwasher,1000–2000,nen_tb,780,0.8102564102564103
+2Stage,mô hình riêng,hộ mới,Dishwasher,≥2000,nen_tb,450,0.7333333333333333
+2Stage,mô hình riêng,hộ mới,Kettle,<200,nen_tb,1842,0.752442996742671
+2Stage,mô hình riêng,hộ mới,Kettle,200–500,nen_tb,5340,0.7779026217228464
+2Stage,mô hình riêng,hộ mới,Kettle,500–1000,nen_tb,7284,0.799286106534871
+2Stage,mô hình riêng,hộ mới,Kettle,1000–2000,nen_tb,3276,0.706959706959707
+2Stage,mô hình riêng,hộ mới,Kettle,≥2000,nen_tb,2562,0.5483996877439501
+2Stage,mô hình riêng,hộ mới,Microwave,<200,nen_tb,234,0.2222222222222222
+2Stage,mô hình riêng,hộ mới,Microwave,200–500,nen_tb,1824,0.18146929824561403
+2Stage,mô hình riêng,hộ mới,Microwave,500–1000,nen_tb,3078,0.15139701104613384
+2Stage,mô hình riêng,hộ mới,Microwave,1000–2000,nen_tb,1398,0.10300429184549356
+2Stage,mô hình riêng,hộ mới,Microwave,≥2000,nen_tb,1230,0.12764227642276424
+2Stage,mô hình riêng,hộ mới,WashingMachine,<200,nen_tb,246,0.024390243902439025
+2Stage,mô hình riêng,hộ mới,WashingMachine,200–500,nen_tb,2388,0.05485762144053601
+2Stage,mô hình riêng,hộ mới,WashingMachine,500–1000,nen_tb,2616,0.13646788990825687
+2Stage,mô hình riêng,hộ mới,WashingMachine,1000–2000,nen_tb,1284,0.1939252336448598
+2Stage,mô hình riêng,hộ mới,WashingMachine,≥2000,nen_tb,1770,0.39717514124293785
+2Stage,mô hình riêng,hộ được train,Dishwasher,<200,nen_tb,135,0.9851851851851852
+2Stage,mô hình riêng,hộ được train,Dishwasher,200–500,nen_tb,288,0.9826388888888888
+2Stage,mô hình riêng,hộ được train,Dishwasher,500–1000,nen_tb,312,0.9775641025641025
+2Stage,mô hình riêng,hộ được train,Dishwasher,1000–2000,nen_tb,130,0.9615384615384616
+2Stage,mô hình riêng,hộ được train,Dishwasher,≥2000,nen_tb,75,0.84
+2Stage,mô hình riêng,hộ được train,Kettle,<200,nen_tb,307,0.8534201954397395
+2Stage,mô hình riêng,hộ được train,Kettle,200–500,nen_tb,890,0.8606741573033708
+2Stage,mô hình riêng,hộ được train,Kettle,500–1000,nen_tb,1214,0.8599670510708401
+2Stage,mô hình riêng,hộ được train,Kettle,1000–2000,nen_tb,546,0.7875457875457875
+2Stage,mô hình riêng,hộ được train,Kettle,≥2000,nen_tb,427,0.5995316159250585
+2Stage,mô hình riêng,hộ được train,Microwave,<200,nen_tb,39,0.48717948717948717
+2Stage,mô hình riêng,hộ được train,Microwave,200–500,nen_tb,304,0.375
+2Stage,mô hình riêng,hộ được train,Microwave,500–1000,nen_tb,513,0.4951267056530214
+2Stage,mô hình riêng,hộ được train,Microwave,1000–2000,nen_tb,233,0.45493562231759654
+2Stage,mô hình riêng,hộ được train,Microwave,≥2000,nen_tb,205,0.12682926829268293
+2Stage,mô hình riêng,hộ được train,WashingMachine,<200,nen_tb,41,0.04878048780487805
+2Stage,mô hình riêng,hộ được train,WashingMachine,200–500,nen_tb,398,0.1934673366834171
+2Stage,mô hình riêng,hộ được train,WashingMachine,500–1000,nen_tb,436,0.3211009174311927
+2Stage,mô hình riêng,hộ được train,WashingMachine,1000–2000,nen_tb,214,0.3037383177570093
+2Stage,mô hình riêng,hộ được train,WashingMachine,≥2000,nen_tb,295,0.535593220338983
+Baseline,mô hình chung,hộ mới,Dishwasher,<200,nen_tb,52,0.9807692307692307
+Baseline,mô hình chung,hộ mới,Dishwasher,200–500,nen_tb,168,0.9404761904761905
+Baseline,mô hình chung,hộ mới,Dishwasher,500–1000,nen_tb,222,0.8603603603603603
+Baseline,mô hình chung,hộ mới,Dishwasher,1000–2000,nen_tb,80,0.8375
+Baseline,mô hình chung,hộ mới,Dishwasher,≥2000,nen_tb,52,0.75
+Baseline,mô hình chung,hộ mới,Kettle,<200,nen_tb,37,0.7297297297297297
+Baseline,mô hình chung,hộ mới,Kettle,200–500,nen_tb,471,0.7898089171974523
+Baseline,mô hình chung,hộ mới,Kettle,500–1000,nen_tb,517,0.7969052224371374
+Baseline,mô hình chung,hộ mới,Kettle,1000–2000,nen_tb,267,0.6928838951310862
+Baseline,mô hình chung,hộ mới,Kettle,≥2000,nen_tb,280,0.6428571428571429
+Baseline,mô hình chung,hộ mới,Microwave,<200,nen_tb,5,0.0
+Baseline,mô hình chung,hộ mới,Microwave,200–500,nen_tb,145,0.020689655172413793
+Baseline,mô hình chung,hộ mới,Microwave,500–1000,nen_tb,227,0.030837004405286344
+Baseline,mô hình chung,hộ mới,Microwave,1000–2000,nen_tb,100,0.03
+Baseline,mô hình chung,hộ mới,Microwave,≥2000,nen_tb,154,0.05844155844155844
+Baseline,mô hình chung,hộ mới,WashingMachine,<200,nen_tb,16,0.0
+Baseline,mô hình chung,hộ mới,WashingMachine,200–500,nen_tb,260,0.06923076923076923
+Baseline,mô hình chung,hộ mới,WashingMachine,500–1000,nen_tb,374,0.19518716577540107
+Baseline,mô hình chung,hộ mới,WashingMachine,1000–2000,nen_tb,142,0.2535211267605634
+Baseline,mô hình chung,hộ mới,WashingMachine,≥2000,nen_tb,249,0.3654618473895582
+Baseline,mô hình chung,hộ được train,Dishwasher,<200,nen_tb,83,0.963855421686747
+Baseline,mô hình chung,hộ được train,Dishwasher,200–500,nen_tb,120,0.9583333333333334
+Baseline,mô hình chung,hộ được train,Dishwasher,500–1000,nen_tb,90,0.9777777777777777
+Baseline,mô hình chung,hộ được train,Dishwasher,1000–2000,nen_tb,50,0.92
+Baseline,mô hình chung,hộ được train,Dishwasher,≥2000,nen_tb,23,0.782608695652174
+Baseline,mô hình chung,hộ được train,Kettle,<200,nen_tb,270,0.8481481481481481
+Baseline,mô hình chung,hộ được train,Kettle,200–500,nen_tb,419,0.847255369928401
+Baseline,mô hình chung,hộ được train,Kettle,500–1000,nen_tb,697,0.8680057388809183
+Baseline,mô hình chung,hộ được train,Kettle,1000–2000,nen_tb,279,0.8458781362007168
+Baseline,mô hình chung,hộ được train,Kettle,≥2000,nen_tb,147,0.7278911564625851
+Baseline,mô hình chung,hộ được train,Microwave,<200,nen_tb,34,0.0
+Baseline,mô hình chung,hộ được train,Microwave,200–500,nen_tb,159,0.012578616352201259
+Baseline,mô hình chung,hộ được train,Microwave,500–1000,nen_tb,286,0.05244755244755245
+Baseline,mô hình chung,hộ được train,Microwave,1000–2000,nen_tb,133,0.42105263157894735
+Baseline,mô hình chung,hộ được train,Microwave,≥2000,nen_tb,51,0.2549019607843137
+Baseline,mô hình chung,hộ được train,WashingMachine,<200,nen_tb,25,0.04
+Baseline,mô hình chung,hộ được train,WashingMachine,200–500,nen_tb,138,0.2391304347826087
+Baseline,mô hình chung,hộ được train,WashingMachine,500–1000,nen_tb,62,0.3064516129032258
+Baseline,mô hình chung,hộ được train,WashingMachine,1000–2000,nen_tb,72,0.20833333333333334
+Baseline,mô hình chung,hộ được train,WashingMachine,≥2000,nen_tb,46,0.5652173913043478
+Baseline,mô hình riêng,hộ mới,Dishwasher,<200,nen_tb,810,0.7160493827160493
+Baseline,mô hình riêng,hộ mới,Dishwasher,200–500,nen_tb,1728,0.6620370370370371
+Baseline,mô hình riêng,hộ mới,Dishwasher,500–1000,nen_tb,1872,0.6292735042735043
+Baseline,mô hình riêng,hộ mới,Dishwasher,1000–2000,nen_tb,780,0.4346153846153846
+Baseline,mô hình riêng,hộ mới,Dishwasher,≥2000,nen_tb,450,0.35333333333333333
+Baseline,mô hình riêng,hộ mới,Kettle,<200,nen_tb,1842,0.5939196525515744
+Baseline,mô hình riêng,hộ mới,Kettle,200–500,nen_tb,5340,0.6737827715355805
+Baseline,mô hình riêng,hộ mới,Kettle,500–1000,nen_tb,7284,0.7158154859967051
+Baseline,mô hình riêng,hộ mới,Kettle,1000–2000,nen_tb,3276,0.6452991452991453
+Baseline,mô hình riêng,hộ mới,Kettle,≥2000,nen_tb,2562,0.4929742388758782
+Baseline,mô hình riêng,hộ mới,Microwave,<200,nen_tb,234,0.04700854700854701
+Baseline,mô hình riêng,hộ mới,Microwave,200–500,nen_tb,1824,0.022478070175438597
+Baseline,mô hình riêng,hộ mới,Microwave,500–1000,nen_tb,3078,0.02014294996751137
+Baseline,mô hình riêng,hộ mới,Microwave,1000–2000,nen_tb,1398,0.05078683834048641
+Baseline,mô hình riêng,hộ mới,Microwave,≥2000,nen_tb,1230,0.13333333333333333
+Baseline,mô hình riêng,hộ mới,WashingMachine,<200,nen_tb,246,0.032520325203252036
+Baseline,mô hình riêng,hộ mới,WashingMachine,200–500,nen_tb,2388,0.0728643216080402
+Baseline,mô hình riêng,hộ mới,WashingMachine,500–1000,nen_tb,2616,0.15940366972477063
+Baseline,mô hình riêng,hộ mới,WashingMachine,1000–2000,nen_tb,1284,0.17523364485981308
+Baseline,mô hình riêng,hộ mới,WashingMachine,≥2000,nen_tb,1770,0.28700564971751413
+Baseline,mô hình riêng,hộ được train,Dishwasher,<200,nen_tb,135,0.9703703703703703
+Baseline,mô hình riêng,hộ được train,Dishwasher,200–500,nen_tb,288,0.9548611111111112
+Baseline,mô hình riêng,hộ được train,Dishwasher,500–1000,nen_tb,312,0.9262820512820513
+Baseline,mô hình riêng,hộ được train,Dishwasher,1000–2000,nen_tb,130,0.8846153846153846
+Baseline,mô hình riêng,hộ được train,Dishwasher,≥2000,nen_tb,75,0.7333333333333333
+Baseline,mô hình riêng,hộ được train,Kettle,<200,nen_tb,307,0.8436482084690554
+Baseline,mô hình riêng,hộ được train,Kettle,200–500,nen_tb,890,0.7202247191011236
+Baseline,mô hình riêng,hộ được train,Kettle,500–1000,nen_tb,1214,0.7907742998352554
+Baseline,mô hình riêng,hộ được train,Kettle,1000–2000,nen_tb,546,0.7252747252747253
+Baseline,mô hình riêng,hộ được train,Kettle,≥2000,nen_tb,427,0.585480093676815
+Baseline,mô hình riêng,hộ được train,Microwave,<200,nen_tb,39,0.15384615384615385
+Baseline,mô hình riêng,hộ được train,Microwave,200–500,nen_tb,304,0.08881578947368421
+Baseline,mô hình riêng,hộ được train,Microwave,500–1000,nen_tb,513,0.2475633528265107
+Baseline,mô hình riêng,hộ được train,Microwave,1000–2000,nen_tb,233,0.33047210300429186
+Baseline,mô hình riêng,hộ được train,Microwave,≥2000,nen_tb,205,0.07317073170731707
+Baseline,mô hình riêng,hộ được train,WashingMachine,<200,nen_tb,41,0.04878048780487805
+Baseline,mô hình riêng,hộ được train,WashingMachine,200–500,nen_tb,398,0.16080402010050251
+Baseline,mô hình riêng,hộ được train,WashingMachine,500–1000,nen_tb,436,0.25688073394495414
+Baseline,mô hình riêng,hộ được train,WashingMachine,1000–2000,nen_tb,214,0.24299065420560748
+Baseline,mô hình riêng,hộ được train,WashingMachine,≥2000,nen_tb,295,0.5084745762711864

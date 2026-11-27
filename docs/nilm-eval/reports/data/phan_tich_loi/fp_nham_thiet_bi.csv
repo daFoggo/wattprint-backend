@@ -1,0 +1,97 @@
+model,thiet_ke,boi_canh,device,thiet_bi_khac,so_doan,so_phut
+2Stage,mô hình chung,hộ mới,Dishwasher,Kettle,103,778
+2Stage,mô hình chung,hộ mới,Dishwasher,Microwave,43,474
+2Stage,mô hình chung,hộ mới,Dishwasher,WashingMachine,187,1921
+2Stage,mô hình chung,hộ mới,Kettle,Dishwasher,83,185
+2Stage,mô hình chung,hộ mới,Kettle,Microwave,170,334
+2Stage,mô hình chung,hộ mới,Kettle,WashingMachine,136,300
+2Stage,mô hình chung,hộ mới,Microwave,Dishwasher,53,157
+2Stage,mô hình chung,hộ mới,Microwave,Kettle,431,1034
+2Stage,mô hình chung,hộ mới,Microwave,WashingMachine,119,345
+2Stage,mô hình chung,hộ mới,WashingMachine,Dishwasher,269,2089
+2Stage,mô hình chung,hộ mới,WashingMachine,Kettle,82,629
+2Stage,mô hình chung,hộ mới,WashingMachine,Microwave,30,234
+2Stage,mô hình chung,hộ được train,Dishwasher,Kettle,43,250
+2Stage,mô hình chung,hộ được train,Dishwasher,Microwave,12,87
+2Stage,mô hình chung,hộ được train,Dishwasher,WashingMachine,54,482
+2Stage,mô hình chung,hộ được train,Kettle,Dishwasher,46,102
+2Stage,mô hình chung,hộ được train,Kettle,Microwave,161,224
+2Stage,mô hình chung,hộ được train,Kettle,WashingMachine,35,106
+2Stage,mô hình chung,hộ được train,Microwave,Dishwasher,19,48
+2Stage,mô hình chung,hộ được train,Microwave,Kettle,321,775
+2Stage,mô hình chung,hộ được train,Microwave,WashingMachine,17,43
+2Stage,mô hình chung,hộ được train,WashingMachine,Dishwasher,70,375
+2Stage,mô hình chung,hộ được train,WashingMachine,Kettle,32,194
+2Stage,mô hình chung,hộ được train,WashingMachine,Microwave,8,29
+2Stage,mô hình riêng,hộ mới,Dishwasher,Kettle,1176,13710
+2Stage,mô hình riêng,hộ mới,Dishwasher,Microwave,447,6636
+2Stage,mô hình riêng,hộ mới,Dishwasher,WashingMachine,1748,21426
+2Stage,mô hình riêng,hộ mới,Kettle,Dishwasher,1899,5194
+2Stage,mô hình riêng,hộ mới,Kettle,Microwave,2131,3834
+2Stage,mô hình riêng,hộ mới,Kettle,WashingMachine,1088,2560
+2Stage,mô hình riêng,hộ mới,Microwave,Dishwasher,515,1670
+2Stage,mô hình riêng,hộ mới,Microwave,Kettle,3149,8018
+2Stage,mô hình riêng,hộ mới,Microwave,WashingMachine,713,2385
+2Stage,mô hình riêng,hộ mới,WashingMachine,Dishwasher,2717,19215
+2Stage,mô hình riêng,hộ mới,WashingMachine,Kettle,1614,8991
+2Stage,mô hình riêng,hộ mới,WashingMachine,Microwave,547,3164
+2Stage,mô hình riêng,hộ được train,Dishwasher,Kettle,154,990
+2Stage,mô hình riêng,hộ được train,Dishwasher,Microwave,62,506
+2Stage,mô hình riêng,hộ được train,Dishwasher,WashingMachine,209,2048
+2Stage,mô hình riêng,hộ được train,Kettle,Dishwasher,110,240
+2Stage,mô hình riêng,hộ được train,Kettle,Microwave,399,681
+2Stage,mô hình riêng,hộ được train,Kettle,WashingMachine,126,281
+2Stage,mô hình riêng,hộ được train,Microwave,Dishwasher,12,24
+2Stage,mô hình riêng,hộ được train,Microwave,Kettle,322,676
+2Stage,mô hình riêng,hộ được train,Microwave,WashingMachine,63,155
+2Stage,mô hình riêng,hộ được train,WashingMachine,Dishwasher,446,2579
+2Stage,mô hình riêng,hộ được train,WashingMachine,Kettle,162,982
+2Stage,mô hình riêng,hộ được train,WashingMachine,Microwave,94,563
+Baseline,mô hình chung,hộ mới,Dishwasher,Kettle,95,552
+Baseline,mô hình chung,hộ mới,Dishwasher,Microwave,35,261
+Baseline,mô hình chung,hộ mới,Dishwasher,WashingMachine,198,1727
+Baseline,mô hình chung,hộ mới,Kettle,Dishwasher,56,128
+Baseline,mô hình chung,hộ mới,Kettle,Microwave,134,254
+Baseline,mô hình chung,hộ mới,Kettle,WashingMachine,82,144
+Baseline,mô hình chung,hộ mới,Microwave,Dishwasher,15,34
+Baseline,mô hình chung,hộ mới,Microwave,Kettle,165,275
+Baseline,mô hình chung,hộ mới,Microwave,WashingMachine,26,42
+Baseline,mô hình chung,hộ mới,WashingMachine,Dishwasher,221,2320
+Baseline,mô hình chung,hộ mới,WashingMachine,Kettle,79,718
+Baseline,mô hình chung,hộ mới,WashingMachine,Microwave,20,286
+Baseline,mô hình chung,hộ được train,Dishwasher,Kettle,46,260
+Baseline,mô hình chung,hộ được train,Dishwasher,Microwave,4,38
+Baseline,mô hình chung,hộ được train,Dishwasher,WashingMachine,44,475
+Baseline,mô hình chung,hộ được train,Kettle,Dishwasher,35,81
+Baseline,mô hình chung,hộ được train,Kettle,Microwave,88,125
+Baseline,mô hình chung,hộ được train,Kettle,WashingMachine,26,73
+Baseline,mô hình chung,hộ được train,Microwave,Dishwasher,10,24
+Baseline,mô hình chung,hộ được train,Microwave,Kettle,83,129
+Baseline,mô hình chung,hộ được train,Microwave,WashingMachine,8,19
+Baseline,mô hình chung,hộ được train,WashingMachine,Dishwasher,48,431
+Baseline,mô hình chung,hộ được train,WashingMachine,Kettle,28,172
+Baseline,mô hình chung,hộ được train,WashingMachine,Microwave,13,67
+Baseline,mô hình riêng,hộ mới,Dishwasher,Kettle,530,3771
+Baseline,mô hình riêng,hộ mới,Dishwasher,Microwave,293,2213
+Baseline,mô hình riêng,hộ mới,Dishwasher,WashingMachine,1082,9997
+Baseline,mô hình riêng,hộ mới,Kettle,Dishwasher,644,1523
+Baseline,mô hình riêng,hộ mới,Kettle,Microwave,1711,3029
+Baseline,mô hình riêng,hộ mới,Kettle,WashingMachine,603,1211
+Baseline,mô hình riêng,hộ mới,Microwave,Dishwasher,595,2292
+Baseline,mô hình riêng,hộ mới,Microwave,Kettle,2870,7177
+Baseline,mô hình riêng,hộ mới,Microwave,WashingMachine,461,1526
+Baseline,mô hình riêng,hộ mới,WashingMachine,Dishwasher,2112,18091
+Baseline,mô hình riêng,hộ mới,WashingMachine,Kettle,1478,7751
+Baseline,mô hình riêng,hộ mới,WashingMachine,Microwave,387,2411
+Baseline,mô hình riêng,hộ được train,Dishwasher,Kettle,103,563
+Baseline,mô hình riêng,hộ được train,Dishwasher,Microwave,38,301
+Baseline,mô hình riêng,hộ được train,Dishwasher,WashingMachine,167,1321
+Baseline,mô hình riêng,hộ được train,Kettle,Dishwasher,88,208
+Baseline,mô hình riêng,hộ được train,Kettle,Microwave,330,551
+Baseline,mô hình riêng,hộ được train,Kettle,WashingMachine,95,174
+Baseline,mô hình riêng,hộ được train,Microwave,Dishwasher,9,19
+Baseline,mô hình riêng,hộ được train,Microwave,Kettle,240,393
+Baseline,mô hình riêng,hộ được train,Microwave,WashingMachine,18,45
+Baseline,mô hình riêng,hộ được train,WashingMachine,Dishwasher,220,1849
+Baseline,mô hình riêng,hộ được train,WashingMachine,Kettle,98,569
+Baseline,mô hình riêng,hộ được train,WashingMachine,Microwave,61,403

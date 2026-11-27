@@ -1,0 +1,7 @@
+# Chỉ đưa vào build context các file image suy luận cần.
+*
+!training/data.py
+!training/model/TwoStageNILMFormer/*.py
+!deploy/suy_luan.py
+!deploy/trong_so/
+!deploy/vi_du/

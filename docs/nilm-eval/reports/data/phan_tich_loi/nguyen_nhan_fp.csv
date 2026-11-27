@@ -1,0 +1,107 @@
+model,thiet_ke,boi_canh,device,nguyen_nhan,so_doan,so_phut,thoi_luong_trung_vi,ty_le_phut
+2Stage,mô hình chung,hộ mới,Dishwasher,lệch biên sự kiện thật,123,421,1.0,0.0941834451901566
+2Stage,mô hình chung,hộ mới,Dishwasher,trùng thiết bị đích khác,291,2609,8.0,0.583668903803132
+2Stage,mô hình chung,hộ mới,Dishwasher,trùng tải không giám sát lớn,261,1440,4.0,0.3221476510067114
+2Stage,mô hình chung,hộ mới,Kettle,lệch biên sự kiện thật,103,121,1.0,0.060079443892750745
+2Stage,mô hình chung,hộ mới,Kettle,trùng thiết bị đích khác,365,760,2.0,0.37735849056603776
+2Stage,mô hình chung,hộ mới,Kettle,trùng tải không giám sát lớn,552,1133,2.0,0.5625620655412115
+2Stage,mô hình chung,hộ mới,Microwave,lệch biên sự kiện thật,79,204,2.0,0.06421152030217187
+2Stage,mô hình chung,hộ mới,Microwave,trùng thiết bị đích khác,550,1381,2.0,0.4346868114573497
+2Stage,mô hình chung,hộ mới,Microwave,trùng tải không giám sát lớn,637,1592,2.0,0.5011016682404784
+2Stage,mô hình chung,hộ mới,WashingMachine,khác,2,3,1.5,0.0007058823529411765
+2Stage,mô hình chung,hộ mới,WashingMachine,lệch biên sự kiện thật,130,488,2.0,0.1148235294117647
+2Stage,mô hình chung,hộ mới,WashingMachine,trùng thiết bị đích khác,354,2662,4.0,0.6263529411764706
+2Stage,mô hình chung,hộ mới,WashingMachine,trùng tải không giám sát lớn,230,1097,4.0,0.2581176470588235
+2Stage,mô hình chung,hộ được train,Dishwasher,lệch biên sự kiện thật,68,165,1.0,0.1388888888888889
+2Stage,mô hình chung,hộ được train,Dishwasher,trùng thiết bị đích khác,98,693,5.0,0.5833333333333334
+2Stage,mô hình chung,hộ được train,Dishwasher,trùng tải không giám sát lớn,66,330,4.5,0.2777777777777778
+2Stage,mô hình chung,hộ được train,Kettle,lệch biên sự kiện thật,93,114,1.0,0.14232209737827714
+2Stage,mô hình chung,hộ được train,Kettle,trùng thiết bị đích khác,235,412,1.0,0.5143570536828964
+2Stage,mô hình chung,hộ được train,Kettle,trùng tải không giám sát lớn,144,275,2.0,0.3433208489388265
+2Stage,mô hình chung,hộ được train,Microwave,lệch biên sự kiện thật,83,157,1.0,0.07433712121212122
+2Stage,mô hình chung,hộ được train,Microwave,trùng thiết bị đích khác,343,838,2.0,0.39678030303030304
+2Stage,mô hình chung,hộ được train,Microwave,trùng tải không giám sát lớn,494,1117,2.0,0.5288825757575758
+2Stage,mô hình chung,hộ được train,WashingMachine,khác,1,1,1.0,0.0009871668311944718
+2Stage,mô hình chung,hộ được train,WashingMachine,lệch biên sự kiện thật,36,129,1.0,0.12734452122408688
+2Stage,mô hình chung,hộ được train,WashingMachine,trùng thiết bị đích khác,103,561,3.0,0.5538005923000987
+2Stage,mô hình chung,hộ được train,WashingMachine,trùng tải không giám sát lớn,79,322,3.0,0.31786771964461996
+2Stage,mô hình riêng,hộ mới,Dishwasher,lệch biên sự kiện thật,1194,6007,1.0,0.09277363356963042
+2Stage,mô hình riêng,hộ mới,Dishwasher,trùng thiết bị đích khác,2911,32704,9.0,0.5050888816815704
+2Stage,mô hình riêng,hộ mới,Dishwasher,trùng tải không giám sát lớn,2478,26038,4.0,0.40213748474879923
+2Stage,mô hình riêng,hộ mới,Kettle,khác,1,1,1.0,3.61755236407047e-05
+2Stage,mô hình riêng,hộ mới,Kettle,lệch biên sự kiện thật,994,1446,1.0,0.052309807184458997
+2Stage,mô hình riêng,hộ mới,Kettle,trùng thiết bị đích khác,4986,11257,2.0,0.4072278696234128
+2Stage,mô hình riêng,hộ mới,Kettle,trùng tải không giám sát lớn,6575,14939,2.0,0.5404261476684875
+2Stage,mô hình riêng,hộ mới,Microwave,khác,3,3,1.0,0.00012423389100546628
+2Stage,mô hình riêng,hộ mới,Microwave,lệch biên sự kiện thật,387,831,1.0,0.034412787808514166
+2Stage,mô hình riêng,hộ mới,Microwave,trùng thiết bị đích khác,4047,10826,2.0,0.448318701341726
+2Stage,mô hình riêng,hộ mới,Microwave,trùng tải không giám sát lớn,4415,12488,2.0,0.5171442769587543
+2Stage,mô hình riêng,hộ mới,WashingMachine,lệch biên sự kiện thật,942,3251,2.0,0.07325867003177322
+2Stage,mô hình riêng,hộ mới,WashingMachine,trùng thiết bị đích khác,4408,27414,4.0,0.6177524393266782
+2Stage,mô hình riêng,hộ mới,WashingMachine,trùng tải không giám sát lớn,2976,13712,3.0,0.30898889064154855
+2Stage,mô hình riêng,hộ được train,Dishwasher,lệch biên sự kiện thật,277,677,1.0,0.07900571828684794
+2Stage,mô hình riêng,hộ được train,Dishwasher,trùng thiết bị đích khác,371,2984,6.0,0.3482319990664021
+2Stage,mô hình riêng,hộ được train,Dishwasher,trùng tải không giám sát lớn,294,4908,4.0,0.5727622826467499
+2Stage,mô hình riêng,hộ được train,Kettle,lệch biên sự kiện thật,186,249,1.0,0.07406305770374777
+2Stage,mô hình riêng,hộ được train,Kettle,trùng thiết bị đích khác,614,1159,2.0,0.3447352766210589
+2Stage,mô hình riêng,hộ được train,Kettle,trùng tải không giám sát lớn,955,1954,2.0,0.5812016656751934
+2Stage,mô hình riêng,hộ được train,Microwave,lệch biên sự kiện thật,116,182,1.0,0.07841447651874192
+2Stage,mô hình riêng,hộ được train,Microwave,trùng thiết bị đích khác,378,811,2.0,0.3494183541576906
+2Stage,mô hình riêng,hộ được train,Microwave,trùng tải không giám sát lớn,622,1328,2.0,0.5721671693235675
+2Stage,mô hình riêng,hộ được train,WashingMachine,lệch biên sự kiện thật,240,689,1.0,0.10713730368527445
+2Stage,mô hình riêng,hộ được train,WashingMachine,trùng thiết bị đích khác,622,3385,3.0,0.5263567096874514
+2Stage,mô hình riêng,hộ được train,WashingMachine,trùng tải không giám sát lớn,532,2357,3.0,0.3665059866272741
+Baseline,mô hình chung,hộ mới,Dishwasher,lệch biên sự kiện thật,166,279,1.0,0.07172236503856042
+Baseline,mô hình chung,hộ mới,Dishwasher,trùng thiết bị đích khác,296,2197,6.0,0.5647814910025707
+Baseline,mô hình chung,hộ mới,Dishwasher,trùng tải không giám sát lớn,262,1414,4.0,0.36349614395886887
+Baseline,mô hình chung,hộ mới,Kettle,lệch biên sự kiện thật,51,56,1.0,0.04138950480413895
+Baseline,mô hình chung,hộ mới,Kettle,trùng thiết bị đích khác,257,487,2.0,0.35994087213599407
+Baseline,mô hình chung,hộ mới,Kettle,trùng tải không giám sát lớn,365,810,2.0,0.5986696230598669
+Baseline,mô hình chung,hộ mới,Microwave,lệch biên sự kiện thật,9,14,1.0,0.022838499184339316
+Baseline,mô hình chung,hộ mới,Microwave,trùng thiết bị đích khác,195,331,2.0,0.5399673735725938
+Baseline,mô hình chung,hộ mới,Microwave,trùng tải không giám sát lớn,135,268,2.0,0.4371941272430669
+Baseline,mô hình chung,hộ mới,WashingMachine,lệch biên sự kiện thật,187,678,1.0,0.14829396325459318
+Baseline,mô hình chung,hộ mới,WashingMachine,trùng thiết bị đích khác,293,2924,9.0,0.6395450568678915
+Baseline,mô hình chung,hộ mới,WashingMachine,trùng tải không giám sát lớn,174,970,4.0,0.2121609798775153
+Baseline,mô hình chung,hộ được train,Dishwasher,lệch biên sự kiện thật,224,293,1.0,0.21170520231213874
+Baseline,mô hình chung,hộ được train,Dishwasher,trùng thiết bị đích khác,88,685,7.5,0.4949421965317919
+Baseline,mô hình chung,hộ được train,Dishwasher,trùng tải không giám sát lớn,79,406,3.0,0.29335260115606937
+Baseline,mô hình chung,hộ được train,Kettle,lệch biên sự kiện thật,68,84,1.0,0.13976705490848584
+Baseline,mô hình chung,hộ được train,Kettle,trùng thiết bị đích khác,145,268,2.0,0.4459234608985025
+Baseline,mô hình chung,hộ được train,Kettle,trùng tải không giám sát lớn,111,249,2.0,0.41430948419301167
+Baseline,mô hình chung,hộ được train,Microwave,lệch biên sự kiện thật,12,21,2.0,0.059322033898305086
+Baseline,mô hình chung,hộ được train,Microwave,trùng thiết bị đích khác,101,172,1.0,0.4858757062146893
+Baseline,mô hình chung,hộ được train,Microwave,trùng tải không giám sát lớn,84,161,2.0,0.4548022598870056
+Baseline,mô hình chung,hộ được train,WashingMachine,lệch biên sự kiện thật,81,150,1.0,0.14340344168260039
+Baseline,mô hình chung,hộ được train,WashingMachine,trùng thiết bị đích khác,84,609,5.0,0.5822179732313576
+Baseline,mô hình chung,hộ được train,WashingMachine,trùng tải không giám sát lớn,57,287,4.0,0.27437858508604207
+Baseline,mô hình riêng,hộ mới,Dishwasher,khác,779,4788,6.0,0.0975689279237055
+Baseline,mô hình riêng,hộ mới,Dishwasher,lệch biên sự kiện thật,1469,2171,1.0,0.04424021355939111
+Baseline,mô hình riêng,hộ mới,Dishwasher,trùng thiết bị đích khác,1716,13672,6.0,0.2786053430603387
+Baseline,mô hình riêng,hộ mới,Dishwasher,trùng tải không giám sát lớn,4317,28442,5.0,0.5795855154565647
+Baseline,mô hình riêng,hộ mới,Kettle,khác,171,210,1.0,0.012053725175066008
+Baseline,mô hình riêng,hộ mới,Kettle,lệch biên sự kiện thật,1022,1152,1.0,0.06612329238893354
+Baseline,mô hình riêng,hộ mới,Kettle,trùng thiết bị đích khác,2882,5605,2.0,0.32171966479164277
+Baseline,mô hình riêng,hộ mới,Kettle,trùng tải không giám sát lớn,5012,10455,2.0,0.6001033176443578
+Baseline,mô hình riêng,hộ mới,Microwave,lệch biên sự kiện thật,236,548,2.0,0.03233419872551333
+Baseline,mô hình riêng,hộ mới,Microwave,trùng thiết bị đích khác,3636,9970,2.0,0.5882700023601605
+Baseline,mô hình riêng,hộ mới,Microwave,trùng tải không giám sát lớn,2240,6430,2.0,0.3793957989143262
+Baseline,mô hình riêng,hộ mới,WashingMachine,khác,3,5,1.0,0.00011724429020306711
+Baseline,mô hình riêng,hộ mới,WashingMachine,lệch biên sự kiện thật,781,2615,2.0,0.0613187637762041
+Baseline,mô hình riêng,hộ mới,WashingMachine,trùng thiết bị đích khác,3621,25083,5.0,0.5881677062327064
+Baseline,mô hình riêng,hộ mới,WashingMachine,trùng tải không giám sát lớn,2324,14943,5.0,0.3503962857008864
+Baseline,mô hình riêng,hộ được train,Dishwasher,khác,15,109,7.0,0.017233201581027667
+Baseline,mô hình riêng,hộ được train,Dishwasher,lệch biên sự kiện thật,592,803,1.0,0.12695652173913044
+Baseline,mô hình riêng,hộ được train,Dishwasher,trùng thiết bị đích khác,287,1969,5.0,0.31130434782608696
+Baseline,mô hình riêng,hộ được train,Dishwasher,trùng tải không giám sát lớn,483,3444,6.0,0.5445059288537549
+Baseline,mô hình riêng,hộ được train,Kettle,khác,13,20,1.0,0.00945179584120983
+Baseline,mô hình riêng,hộ được train,Kettle,lệch biên sự kiện thật,172,185,1.0,0.08742911153119093
+Baseline,mô hình riêng,hộ được train,Kettle,trùng thiết bị đích khác,495,895,2.0,0.4229678638941399
+Baseline,mô hình riêng,hộ được train,Kettle,trùng tải không giám sát lớn,467,1016,2.0,0.48015122873345933
+Baseline,mô hình riêng,hộ được train,Microwave,lệch biên sự kiện thật,44,69,1.0,0.08657465495608532
+Baseline,mô hình riêng,hộ được train,Microwave,trùng thiết bị đích khác,262,448,1.0,0.562107904642409
+Baseline,mô hình riêng,hộ được train,Microwave,trùng tải không giám sát lớn,117,280,2.0,0.35131744040150564
+Baseline,mô hình riêng,hộ được train,WashingMachine,khác,1,10,10.0,0.0021862702229995625
+Baseline,mô hình riêng,hộ được train,WashingMachine,lệch biên sự kiện thật,248,618,1.0,0.135111499781373
+Baseline,mô hình riêng,hộ được train,WashingMachine,trùng thiết bị đích khác,342,2484,6.0,0.5430695233930913
+Baseline,mô hình riêng,hộ được train,WashingMachine,trùng tải không giám sát lớn,284,1462,4.0,0.31963270660253607

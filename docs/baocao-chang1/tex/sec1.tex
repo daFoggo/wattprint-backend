@@ -1,0 +1,16 @@
+\section{Tổng quan ý tưởng dự án}
+
+Tiền điện là khoản chi lặp lại mỗi tháng, nhưng hộ gia đình chỉ biết kết quả khi hóa đơn đến. Tháng 6/2026, tiền điện tăng vọt ở nhiều hộ, có hộ tăng gấp 3 lần \citep{minhhuyen2026}. Ứng dụng EVN CSKH cho xem điện theo ngày và đặt ngưỡng cảnh báo. Cảnh báo chủ yếu cho biết mức dùng đã tăng, còn nguyên nhân người dùng phải tự tìm \citep{evn2026a}. Người dùng thường đoán sai thiết bị nào tốn điện nhất \citep{attari2010}, nên khó biết cần tiết kiệm ở đâu.
+
+Nhóm đề xuất WattPrint, hệ thống theo dõi điện năng hộ gia đình chạy theo một chu trình khép kín: phát hiện biến động, giải thích nguyên nhân, gợi ý việc nên làm, rồi đo lại kết quả. Hệ thống chỉ cần 01 phép đo công suất tổng ở tủ điện. Nhóm xây 05 khối chức năng trên phép đo đó:
+\begin{itemize}
+\item \textbf{Phân rã điện năng (NILM).} Mô hình học sâu tách công suất tổng thành điện năng từng thiết bị, không cần cảm biến riêng \citep{hart1992,zoha2012}. Nhóm dùng NILMFormer \citep{petralia2025} và cải tiến thành biến thể 2Stage.
+\item \textbf{Dashboard và hóa đơn.} Điện từng thiết bị đi kèm số tiền, tính theo biểu giá bậc thang hiện hành.
+\item \textbf{Dự báo và cảnh báo.} Dự báo hóa đơn cuối kỳ, báo điện nền ban đêm tăng, thiết bị chạy giờ lạ và lúc sắp sang bậc giá mới.
+\item \textbf{Kế hoạch tiết kiệm.} Người dùng chọn từ 01 đến 03 việc dựa trên thiết bị đang tốn điện. Hệ thống tính số tiền tiết kiệm đến cuối kỳ theo bậc giá, rồi theo dõi kết quả đến hết kỳ. Khối này khép chu trình: gợi ý, thử, đo lại.
+\item \textbf{Trợ lý Wappi.} Trả lời bằng số liệu thật của nhà, kết hợp Text2SQL và RAG trên văn bản biểu giá. Wappi cũng giúp người dùng lập kế hoạch tiết kiệm bằng hội thoại.
+\end{itemize}
+
+\textbf{Chuyển hướng từ di động sang web.} Bản cũ là bản mẫu trên điện thoại. Ở Chặng 1, nhóm quyết định làm web app trước. Người dùng và ban giám khảo mở được bằng trình duyệt mà không cần cài đặt. Một mã nguồn phục vụ cả trang giới thiệu và dashboard. Việc sửa và phát hành nhanh hơn, nên nhóm hoàn thiện được nhiều chức năng hơn trong thời gian có hạn. Ứng dụng di động là bước tiếp theo và sẽ dùng lại cùng API.
+
+\textbf{Kết quả của Chặng 1.} Nhóm hoàn thành 03 phần việc. Phần 1 là web app chạy trọn chu trình trên 04 nhà demo (mục~\ref{sec:he-thong}). Phần 2 là backend, trợ lý Wappi và thành phần Text2SQL phía sau. Phần 3 là đánh giá lại NILMFormer và đề xuất biến thể 2Stage (mục~\ref{sec:nilm}). Dữ liệu demo lấy từ 03 bộ công khai REFIT, Plegma và ENERTALK, phát lại như công tơ thật. Nhóm sẽ thu số đo tại hộ Việt Nam ở giai đoạn thí điểm. Mọi con số trên giao diện mang nhãn nguồn: đo trực tiếp, ước tính, theo văn bản hoặc suy luận.

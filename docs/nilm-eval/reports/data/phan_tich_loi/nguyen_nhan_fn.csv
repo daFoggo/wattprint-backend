@@ -1,0 +1,97 @@
+model,thiet_ke,boi_canh,device,nguyen_nhan_fn,so_phut,ty_le
+2Stage,mô hình chung,hộ mới,Dishwasher,dự đoán gần 0,303,0.6502145922746781
+2Stage,mô hình chung,hộ mới,Dishwasher,thiếu biên độ,134,0.2875536480686695
+2Stage,mô hình chung,hộ mới,Dishwasher,trần nhãn,29,0.06223175965665236
+2Stage,mô hình chung,hộ mới,Kettle,dự đoán gần 0,354,0.31466666666666665
+2Stage,mô hình chung,hộ mới,Kettle,thiếu biên độ,276,0.24533333333333332
+2Stage,mô hình chung,hộ mới,Kettle,trần nhãn,495,0.44
+2Stage,mô hình chung,hộ mới,Microwave,dự đoán gần 0,733,0.6755760368663595
+2Stage,mô hình chung,hộ mới,Microwave,thiếu biên độ,176,0.1622119815668203
+2Stage,mô hình chung,hộ mới,Microwave,trần nhãn,176,0.1622119815668203
+2Stage,mô hình chung,hộ mới,WashingMachine,dự đoán gần 0,1596,0.5615763546798029
+2Stage,mô hình chung,hộ mới,WashingMachine,thiếu biên độ,474,0.16678395496129486
+2Stage,mô hình chung,hộ mới,WashingMachine,trần nhãn,772,0.2716396903589022
+2Stage,mô hình chung,hộ được train,Dishwasher,dự đoán gần 0,111,0.676829268292683
+2Stage,mô hình chung,hộ được train,Dishwasher,thiếu biên độ,39,0.23780487804878048
+2Stage,mô hình chung,hộ được train,Dishwasher,trần nhãn,14,0.08536585365853659
+2Stage,mô hình chung,hộ được train,Kettle,dự đoán gần 0,130,0.14084507042253522
+2Stage,mô hình chung,hộ được train,Kettle,thiếu biên độ,225,0.2437703141928494
+2Stage,mô hình chung,hộ được train,Kettle,trần nhãn,568,0.6153846153846154
+2Stage,mô hình chung,hộ được train,Microwave,dự đoán gần 0,456,0.5567765567765568
+2Stage,mô hình chung,hộ được train,Microwave,thiếu biên độ,188,0.22954822954822954
+2Stage,mô hình chung,hộ được train,Microwave,trần nhãn,175,0.21367521367521367
+2Stage,mô hình chung,hộ được train,WashingMachine,dự đoán gần 0,249,0.38131699846860645
+2Stage,mô hình chung,hộ được train,WashingMachine,thiếu biên độ,146,0.22358346094946402
+2Stage,mô hình chung,hộ được train,WashingMachine,trần nhãn,258,0.39509954058192953
+2Stage,mô hình riêng,hộ mới,Dishwasher,dự đoán gần 0,7597,0.7000552893475857
+2Stage,mô hình riêng,hộ mới,Dishwasher,thiếu biên độ,2924,0.2694434205676373
+2Stage,mô hình riêng,hộ mới,Dishwasher,trần nhãn,331,0.030501290084777
+2Stage,mô hình riêng,hộ mới,Kettle,dự đoán gần 0,5907,0.31517447444242874
+2Stage,mô hình riêng,hộ mới,Kettle,thiếu biên độ,6090,0.32493864048660764
+2Stage,mô hình riêng,hộ mới,Kettle,trần nhãn,6745,0.3598868850709636
+2Stage,mô hình riêng,hộ mới,Microwave,dự đoán gần 0,16767,0.8266528620026623
+2Stage,mô hình riêng,hộ mới,Microwave,thiếu biên độ,1259,0.062071685648079675
+2Stage,mô hình riêng,hộ mới,Microwave,trần nhãn,2257,0.111275452349258
+2Stage,mô hình riêng,hộ mới,WashingMachine,dự đoán gần 0,15920,0.5608398506305925
+2Stage,mô hình riêng,hộ mới,WashingMachine,thiếu biên độ,6302,0.22201085041922075
+2Stage,mô hình riêng,hộ mới,WashingMachine,trần nhãn,6164,0.21714929895018673
+2Stage,mô hình riêng,hộ được train,Dishwasher,dự đoán gần 0,285,0.4634146341463415
+2Stage,mô hình riêng,hộ được train,Dishwasher,thiếu biên độ,297,0.48292682926829267
+2Stage,mô hình riêng,hộ được train,Dishwasher,trần nhãn,33,0.05365853658536585
+2Stage,mô hình riêng,hộ được train,Kettle,dự đoán gần 0,683,0.28916172734970363
+2Stage,mô hình riêng,hộ được train,Kettle,thiếu biên độ,609,0.2578323454699407
+2Stage,mô hình riêng,hộ được train,Kettle,trần nhãn,1070,0.45300592718035565
+2Stage,mô hình riêng,hộ được train,Microwave,dự đoán gần 0,1871,0.7517075130574528
+2Stage,mô hình riêng,hộ được train,Microwave,thiếu biên độ,252,0.10124548011249498
+2Stage,mô hình riêng,hộ được train,Microwave,trần nhãn,366,0.14704700683005223
+2Stage,mô hình riêng,hộ được train,WashingMachine,dự đoán gần 0,1068,0.3889293517844137
+2Stage,mô hình riêng,hộ được train,WashingMachine,thiếu biên độ,656,0.23889293517844137
+2Stage,mô hình riêng,hộ được train,WashingMachine,trần nhãn,1022,0.3721777130371449
+Baseline,mô hình chung,hộ mới,Dishwasher,dự đoán gần 0,210,0.1496792587312901
+Baseline,mô hình chung,hộ mới,Dishwasher,thiếu biên độ,1166,0.8310762651461154
+Baseline,mô hình chung,hộ mới,Dishwasher,trần nhãn,27,0.01924447612259444
+Baseline,mô hình chung,hộ mới,Kettle,dự đoán gần 0,230,0.1597222222222222
+Baseline,mô hình chung,hộ mới,Kettle,thiếu biên độ,678,0.4708333333333333
+Baseline,mô hình chung,hộ mới,Kettle,trần nhãn,532,0.36944444444444446
+Baseline,mô hình chung,hộ mới,Microwave,dự đoán gần 0,456,0.2558922558922559
+Baseline,mô hình chung,hộ mới,Microwave,thiếu biên độ,1131,0.6346801346801347
+Baseline,mô hình chung,hộ mới,Microwave,trần nhãn,195,0.10942760942760943
+Baseline,mô hình chung,hộ mới,WashingMachine,dự đoán gần 0,778,0.270891364902507
+Baseline,mô hình chung,hộ mới,WashingMachine,thiếu biên độ,1327,0.4620473537604457
+Baseline,mô hình chung,hộ mới,WashingMachine,trần nhãn,767,0.2670612813370474
+Baseline,mô hình chung,hộ được train,Dishwasher,dự đoán gần 0,31,0.13656387665198239
+Baseline,mô hình chung,hộ được train,Dishwasher,thiếu biên độ,189,0.8325991189427313
+Baseline,mô hình chung,hộ được train,Dishwasher,trần nhãn,7,0.030837004405286344
+Baseline,mô hình chung,hộ được train,Kettle,dự đoán gần 0,92,0.08177777777777778
+Baseline,mô hình chung,hộ được train,Kettle,thiếu biên độ,449,0.39911111111111114
+Baseline,mô hình chung,hộ được train,Kettle,trần nhãn,584,0.5191111111111111
+Baseline,mô hình chung,hộ được train,Microwave,dự đoán gần 0,261,0.14754098360655737
+Baseline,mô hình chung,hộ được train,Microwave,thiếu biên độ,1311,0.7410966647823629
+Baseline,mô hình chung,hộ được train,Microwave,trần nhãn,197,0.11136235161107971
+Baseline,mô hình chung,hộ được train,WashingMachine,dự đoán gần 0,250,0.3342245989304813
+Baseline,mô hình chung,hộ được train,WashingMachine,thiếu biên độ,241,0.32219251336898397
+Baseline,mô hình chung,hộ được train,WashingMachine,trần nhãn,257,0.34358288770053474
+Baseline,mô hình riêng,hộ mới,Dishwasher,dự đoán gần 0,12464,0.37249335046770865
+Baseline,mô hình riêng,hộ mới,Dishwasher,thiếu biên độ,20659,0.6174053375571561
+Baseline,mô hình riêng,hộ mới,Dishwasher,trần nhãn,338,0.010101311975135231
+Baseline,mô hình riêng,hộ mới,Kettle,dự đoán gần 0,3874,0.16483703514594503
+Baseline,mô hình riêng,hộ mới,Kettle,thiếu biên độ,13063,0.5558250361671347
+Baseline,mô hình riêng,hộ mới,Kettle,trần nhãn,6565,0.27933792868692026
+Baseline,mô hình riêng,hộ mới,Microwave,dự đoán gần 0,9423,0.4228974059779194
+Baseline,mô hình riêng,hộ mới,Microwave,thiếu biên độ,10543,0.47316219369894985
+Baseline,mô hình riêng,hộ mới,Microwave,trần nhãn,2316,0.10394040032313077
+Baseline,mô hình riêng,hộ mới,WashingMachine,dự đoán gần 0,7702,0.2644463519313305
+Baseline,mô hình riêng,hộ mới,WashingMachine,thiếu biên độ,15218,0.5225064377682404
+Baseline,mô hình riêng,hộ mới,WashingMachine,trần nhãn,6205,0.2130472103004292
+Baseline,mô hình riêng,hộ được train,Dishwasher,dự đoán gần 0,372,0.2503364737550471
+Baseline,mô hình riêng,hộ được train,Dishwasher,thiếu biên độ,1086,0.730820995962315
+Baseline,mô hình riêng,hộ được train,Dishwasher,trần nhãn,28,0.018842530282637954
+Baseline,mô hình riêng,hộ được train,Kettle,dự đoán gần 0,262,0.09006531454107941
+Baseline,mô hình riêng,hộ được train,Kettle,thiếu biên độ,1621,0.5572361636301134
+Baseline,mô hình riêng,hộ được train,Kettle,trần nhãn,1026,0.3526985218288072
+Baseline,mô hình riêng,hộ được train,Microwave,dự đoán gần 0,951,0.2984934086629002
+Baseline,mô hình riêng,hộ được train,Microwave,thiếu biên độ,1849,0.5803515379786566
+Baseline,mô hình riêng,hộ được train,Microwave,trần nhãn,386,0.12115505335844319
+Baseline,mô hình riêng,hộ được train,WashingMachine,dự đoán gần 0,724,0.2203957382039574
+Baseline,mô hình riêng,hộ được train,WashingMachine,thiếu biên độ,1541,0.46910197869101977
+Baseline,mô hình riêng,hộ được train,WashingMachine,trần nhãn,1020,0.3105022831050228

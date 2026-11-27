@@ -106,7 +106,7 @@ Mỗi nhà có một mô hình riêng (`tb_nilm_model`). Việc nạp cần Inte
 
 ### Wappi
 
-Điền khóa vào `.env` rồi `docker compose up -d api insight`. Câu hỏi dữ liệu tự do cần thêm dịch vụ text2sql (`TEXT2SQL_URL`, `TEXT2SQL_CONNECTION_ID`, `TEXT2SQL_SERVICE_KEY`; container gọi tới `host.docker.internal:11101`) — phần còn lại của Wappi chạy không cần nó.
+Điền khóa vào `.env` rồi `docker compose up -d api insight`. Câu hỏi dữ liệu tự do cần thêm dịch vụ text2sql (`TEXT2SQL_URL`, `TEXT2SQL_CONNECTION_ID`, `TEXT2SQL_SERVICE_KEY`; container gọi tới `host.docker.internal:11101`).
 
 ## Kiểm thử, lint và CI
 

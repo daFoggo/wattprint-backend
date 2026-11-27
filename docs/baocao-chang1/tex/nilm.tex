@@ -1,0 +1,804 @@
+\subsection{Mở đầu}
+
+\subsubsection{Bối cảnh}
+
+\textbf{NILM là gì.} NILM (Non-Intrusive Load Monitoring, giám sát phụ tải không xâm lấn) ước tính công suất và điện năng của từng thiết bị trong nhà chỉ từ một phép đo công suất tổng tại công tơ hoặc tủ điện~\citep{hart1992,zoha2012}. Công suất tổng là tổng chồng chập của các thiết bị đang chạy. Mô hình NILM học cách tách ngược tổng này thành từng thành phần, thay cho việc gắn cảm biến riêng cho mỗi thiết bị.
+
+\textbf{Giải pháp WattPrint.} WattPrint dùng một cảm biến công suất tổng tại tủ điện và NILM để phân rã điện năng theo thiết bị. Kết quả đi vào Dashboard tính tiền điện theo bậc thang, phát hiện bất thường, Trợ lý AI (LLM kết hợp Text2SQL và RAG) và thử nghiệm kịch bản tiết kiệm. Mọi số liệu theo thiết bị ở các khối sau đều là số ước tính từ NILM, nên chất lượng phân rã quyết định độ tin cậy của cả hệ thống. Mô hình phân rã dựa trên NILMFormer~\citep{petralia2025}, kiến trúc attention xử lý tính phi dừng của chuỗi công suất, đã được EDF triển khai cho khoảng 3,6 triệu khách hàng.
+
+\textbf{Vai trò của NILM và Trợ lý AI (Y2.3).} NILM là khối phân rã dữ liệu: biến chuỗi công suất tổng đo được thành công suất và điện năng ước tính của từng thiết bị. Trợ lý AI là bước hậu xử lý đặt sau NILM: nó dùng dữ liệu đo thật (điện tổng) và kết quả dự đoán của NILM đã lưu trong cơ sở dữ liệu. Từ đó nó trả lời câu hỏi của người dùng, chẳng hạn truy vấn số liệu bằng Text2SQL (“tuần này máy giặt dùng bao nhiêu kWh?”) và giải thích theo biểu giá, tài liệu bằng RAG. Trợ lý không thay đổi đầu ra của NILM, nên độ chính xác phân rã của bản có và không có trợ lý là như nhau. Bài này vì vậy chỉ đánh giá khối NILM. Đóng góp của Trợ lý AI cần một thực nghiệm riêng với người dùng.
+
+\subsubsection{Yêu cầu đề bài}
+
+\textbf{Đề bài 1:} \textit{“Hiệu năng phân rã có thể suy giảm với nhiều thiết bị chạy đồng thời hoặc loại thiết bị chưa thấy.”} Yêu cầu: \textit{“Đo sai số điện năng và F1 theo thiết bị/hộ mới/mức tải; tách tập kiểm tra theo hộ, báo trường hợp thiết bị bật đồng thời.”} Minh chứng: \textit{“Bảng theo thiết bị và hộ, đồ thị tổng điện/điện từng thiết bị, phân tích lỗi.”}
+
+\textbf{Đề bài 2:} \textit{“Chưa rõ đóng góp cá nhân hóa/trợ lý so với NILM cơ sở và chi phí GPU/Docker cho hộ dùng.”} Yêu cầu: \textit{“So baseline NILM, bản không cá nhân hóa và bản không trợ lý trên cùng đầu vào; báo thời gian, thiết bị cảm biến và chi phí ước tính.”} Minh chứng: \textit{“Bảng đối chứng độ chính xác–độ trễ–chi phí và demo cấu hình chạy gọn.”}
+
+Bảng~\ref{nilm:tab1} tách 02 đề bài thành các yêu cầu nhỏ có mã. Y2.3 được trả lời bằng giải thích (mục~3.1.1). Y1.2 được trả lời bằng giải thích cơ chế (mục~3.2.3) và thực nghiệm theo số thiết bị đích bật đồng thời (mục~3.3.1.4). Các yêu cầu còn lại được trả lời bằng thực nghiệm ở mục~3.3: đề bài 1 ở mục~3.3.1 và 3.2, đề bài 2 ở mục~3.3.3.
+
+
+\begin{table}[H]
+\centering
+\caption{Các yêu cầu của đề bài và cách đáp ứng.}\label{nilm:tab1}
+\small
+\setlength{\tabcolsep}{3.5pt}\renewcommand{\arraystretch}{1.12}
+\begin{tabularx}{\linewidth}{|l|X|X|}
+\hline
+\textbf{Mã} & \textbf{Yêu cầu} & \textbf{Cách đáp ứng} \\ \hline
+Y1.1 & Đánh giá mô hình bằng sai số và F1 trên hộ mới & Thực nghiệm: tách tập kiểm tra theo hộ, đo 03 nhóm chỉ số theo thiết bị, hộ và mức điện tổng (mục~3.3.1, 3.2) \\ \hline
+Y1.2 & Giải thích cơ chế dự đoán khi các thiết bị hoạt động cùng lúc & Giải thích cơ chế của mô hình (mục~3.2.3); thực nghiệm theo số thiết bị đích bật đồng thời (mục~3.3.1.4) \\ \hline
+Y2.1 & Đánh giá chi phí phần cứng GPU khi train và khi suy luận & Thực nghiệm: thời gian train trên GPU, độ trễ suy luận (mục~3.3.3.2) \\ \hline
+Y2.2 & Đánh giá thời gian và CPU & Thực nghiệm: độ trễ trên CPU một luồng, demo Docker chỉ dùng CPU (mục~3.3.3.2) \\ \hline
+Y2.3 & Giải thích vai trò của NILM và Trợ lý AI & Giải thích vai trò của từng khối (mục~3.1.1) \\ \hline
+\end{tabularx}
+\end{table}
+
+\subsubsection{Đóng góp}
+
+Nhóm trả lời 02 đề bài trên bằng thực nghiệm trên bộ dữ liệu REFIT~\citep{murray2017}:
+
+\begin{enumerate}
+\item Đề xuất \textbf{TwoStageNILMFormer} (\textbf{2Stage}): thêm bộ phát hiện bật/tắt GRU trước bộ hồi quy NILMFormer. Công suất dự đoán bằng đúng 0 khi thiết bị được dự đoán là tắt. NILMFormer gốc là \textbf{Baseline}.
+\item Đánh giá trên \textbf{hộ mới} với tập kiểm tra tách theo hộ, theo thiết bị, theo hộ và theo mức tải, kèm phân tích lỗi. Nhóm nào đúng, nhóm nào sai và vì sao.
+\item Đánh giá \textbf{lợi ích và chi phí của cá nhân hóa}: so mô hình chung với mô hình train riêng từng hộ và với Baseline, kèm phần cứng cần để train và chạy, và cảm biến cần có.
+\end{enumerate}
+
+\subsection{Thiết kế thực nghiệm}
+
+Thực nghiệm được thiết kế để trả lời 02 đề bài ở mục~3.1.2. Dữ liệu, mô hình, phần cứng và chỉ số dùng chung được mô tả ở mục~3.2.2–3.2.5.
+
+\subsubsection{Mục tiêu và thiết kế thực nghiệm}
+
+\textbf{Mục tiêu 1 – Đánh giá trên hộ mới (Y1.1).} Thực nghiệm dùng 02 thiết kế huấn luyện, cùng tập kiểm tra là 20\% thời gian cuối của mỗi hộ:
+
+\begin{itemize}
+\item \textbf{Mỗi hộ một mô hình, kiểm chứng chéo giữa các hộ (mô hình riêng).} Mỗi hộ có một mô hình chỉ train trên dữ liệu của hộ đó, rồi được kiểm tra trên cả 07 hộ, tạo thành ma trận 7$\times$7 (hộ train × hộ test).
+\item \textbf{Một mô hình train trên nhiều hộ (mô hình chung).} Một mô hình train trên dữ liệu gộp của 04 hộ 6, 9, 11, 20, rồi kiểm tra trên cả 07 hộ. Ba hộ 2, 3, 13 được giữ lại làm \textbf{hộ chưa thấy}. So sánh với mô hình riêng cho biết lợi ích của việc học từ nhiều hộ.
+\end{itemize}
+
+Cả 02 thiết kế được chạy cho 2Stage và Baseline, mỗi cấu hình 5 seed (tổng 80 lượt train), cùng dữ liệu, tiền xử lý và hàm tính chỉ số.
+
+\textbf{Phân nhóm theo số thiết bị bật đồng thời (Y1.2).} Trên cùng tập test, mỗi phút được xếp vào nhóm 0, 1 hoặc từ 2 thiết bị đích trở lên đang bật theo nhãn bật/tắt thật, chỉ giữ phút mà mọi thiết bị có trong hộ đều có nhãn hợp lệ. 2Stage và Baseline được so trên đúng cùng các phút, cả trong cùng khoảng điện tổng để tách tác động của chồng lấp khỏi tác động của tải cao (mục~3.3.1.4).
+
+\textbf{Mục tiêu 2 – Thu thập bằng chứng chi phí phần cứng (Y2.1, Y2.2).} Chi phí được ghi lại ngay trong quá trình chạy thực nghiệm, không ước tính lý thuyết:
+
+\begin{itemize}
+\item \textbf{Khi train:} ghi thời gian train và số epoch của từng seed trên GPU NVIDIA L40S (1 luồng CPU), cho mỗi cấu hình.
+\item \textbf{Khi suy luận:} đo độ trễ trên CPU một luồng và trên GPU cho một cửa sổ và một ngày dữ liệu. Đóng gói phần suy luận thành image Docker chỉ dùng CPU và đo kích thước image, bộ nhớ, thời gian chạy với giới hạn 1 lõi CPU và 512 MB RAM.
+\end{itemize}
+
+\subsubsection{Dữ liệu thực nghiệm}
+
+\textbf{Lý do chọn REFIT.} REFIT~\citep{murray2017} có 20 hộ, đủ để tách tập kiểm tra theo hộ. Bộ này là một trong các bộ dữ liệu bài NILMFormer gốc dùng, với cùng 04 thiết bị WashingMachine (máy giặt), Dishwasher (máy rửa bát), Kettle (ấm đun nước) và Microwave (lò vi sóng)~\citep{petralia2025}, và được phát hành theo giấy phép CC BY 4.0.
+
+\textbf{Mô tả.} REFIT ghi điện năng của 20 hộ ở Anh giai đoạn 2013–2015, nhịp lấy mẫu danh định 8 giây. Công suất tổng, chín kênh ổ cắm phụ đo từng thiết bị và cờ chất lượng Issues. Nhóm giữ 07 hộ có đủ kênh cho cả 04 thiết bị đích: 2, 3, 6, 9, 11, 13 và 20 (hộ 15 bị loại vì kênh Kettle có thể là thiết bị Hi-Fi).
+
+\textbf{Tiền xử lý} theo mã công bố của NILMFormer: loại dòng có Issues = 1. Lấy trung bình về nhịp 10 giây, điền khoảng thiếu tối đa 90 giây. Đưa giá trị dưới 5 W về 0 và cắt trong khoảng 0–10.000 W. Tạo nhãn bật khi công suất nằm giữa ngưỡng dưới và trên (WashingMachine 300–4.000 W, Dishwasher 300–4.000 W, Kettle 500–6.000 W, Microwave 200–6.000 W), một phút là “bật” nếu có ít nhất một mẫu 10 giây bật. Lấy trung bình theo phút và cắt thành cửa sổ 128 phút không chồng lấn.
+
+\textbf{Chia dữ liệu.} Mỗi hộ được chia theo thời gian: 80\% đầu để train (trong đó 20\% cuối làm validation cho early stopping), 20\% cuối để kiểm tra. Mô hình vì vậy luôn được kiểm tra trên giai đoạn sau giai đoạn train, kể cả trên chính hộ đã train.
+
+\subsubsection{Mô hình thực nghiệm}
+
+\textbf{Baseline:} NILMFormer~\citep{petralia2025} 04 đầu ra, dự đoán đồng thời công suất 04 thiết bị, loss MSE.
+
+\begin{figure}[H]\centering\includegraphics[max width=\linewidth,max height=0.42\textheight]{figures/nilm/hinh_kien_truc_nilmformer.png}\caption{Kiến trúc NILMFormer gốc: (a) toàn bộ mô hình, (b) mã hóa thời gian TimeRPE. Nguồn: Petralia và cộng sự \citeyearpar{petralia2025}, kho mã chính thức EDF-Lab/NILMFormer (giấy phép Apache-2.0)}\label{nilm:fig1}\end{figure}
+
+
+\textbf{2Stage (đề xuất):} gồm 02 bước chạy song song trên cùng cửa sổ điện tổng:
+
+\begin{enumerate}
+\item \textbf{Bộ phát hiện bật/tắt (GRU):} với mỗi thiết bị và mỗi phút, dự đoán thiết bị đang bật hay tắt.
+\item \textbf{Bộ ước lượng công suất (NILMFormer):} dự đoán thiết bị tiêu thụ bao nhiêu W nếu đang bật.
+\end{enumerate}
+
+Kết quả cuối là công suất của bước 2 nhân với trạng thái của bước 1. Thiết bị được dự đoán là tắt thì công suất bằng đúng 0, nhờ đó loại bỏ phần công suất nhỏ “rò rỉ” mà NILMFormer gốc thường dự đoán khi thiết bị không chạy. Khi train, mô hình học đồng thời 02 việc: dự đoán đúng công suất và phân loại đúng trạng thái bật/tắt. Lớp “bật” được tăng trọng số vì thiết bị tắt phần lớn thời gian.
+
+\begin{figure}[H]\centering\includegraphics[max width=\linewidth,max height=0.42\textheight]{figures/nilm/hinh_kien_truc_2stage.png}\caption{Kiến trúc TwoStageNILMFormer (2Stage) của nhóm theo cấu hình đã train: bộ phát hiện bật/tắt GRU (giai đoạn 1) và bộ hồi quy NILMFormer (giai đoạn 2, dùng nguyên hình (a) của~\citep{petralia2025}; cấu hình của nhóm có 3 Transformer Block và thêm Softplus để công suất không âm), đầu ra là tích của công suất và mask}\label{nilm:fig2}\end{figure}
+
+\textbf{Dự đoán khi nhiều thiết bị hoạt động cùng lúc (Y1.2).} Đầu vào của NILM là công suất tổng đo tại tủ điện, tức tổng công suất của mọi thiết bị đang chạy tại cùng thời điểm. Vì vậy nhiều thiết bị hoạt động cùng lúc không phải một trường hợp đặc biệt mà là điều kiện mặc định của bài toán: tách tổng chồng chập này thành từng thiết bị chính là việc mô hình phải làm.
+
+Cụ thể, mô hình nhận một cửa sổ 128 phút công suất tổng (kèm đặc trưng thời gian) và xuất cùng lúc công suất của cả 04 thiết bị đích tại từng phút, thay vì chỉ chọn một thiết bị. Ở 2Stage, bộ phát hiện bật/tắt đưa ra quyết định riêng cho từng thiết bị tại từng phút, nên nhiều thiết bị có thể cùng được dự đoán là đang bật. Bộ hồi quy ước tính công suất cho từng thiết bị, và công suất của thiết bị được dự đoán là tắt bằng đúng 0. Phần công suất không thuộc 04 thiết bị đích (tủ lạnh, đèn, thiết bị điện tử…) được mô hình học cách coi là nền. Do đó mọi chỉ số trong bài đều đã được đo trong điều kiện có nhiều tải chạy cùng lúc. Các lỗi phát sinh khi có tải khác chạy cùng được phân tích ở mục~3.3.1.3 và đo trực tiếp theo số thiết bị đích bật đồng thời ở mục~3.3.1.4.
+
+\textbf{Huấn luyện.} AdamW, tốc độ học $10^{-4}$, batch 64, tối đa 150 epoch, early stopping với patience 10. Mỗi cấu hình train 5 seed. Kết quả là của \textbf{ensemble} (trung bình công suất 5 seed theo phút; trạng thái detector theo đa số phiếu).
+
+\subsubsection{Phần cứng và phần mềm}
+
+Toàn bộ thực nghiệm (train, đánh giá, đo độ trễ và demo Docker) chạy trên một máy chủ:
+
+\begin{itemize}
+\item \textbf{GPU:} 1 × NVIDIA L40S, 48 GB bộ nhớ (46.068 MiB khả dụng), driver 595.99. GPU dùng chung với tiến trình khác nên thời gian đo là xấp xỉ.
+\item \textbf{CPU:} Intel Xeon Gold 6542Y, 32 luồng. Khi train và khi đo độ trễ, PyTorch được giới hạn 1 luồng CPU.
+\item \textbf{RAM:} 94 GB.
+\item \textbf{Phần mềm:} Ubuntu 22.04.5 LTS, Python 3.14.3, PyTorch 2.15.0 (CUDA 13.2). Demo Docker dùng image Python 3.14 với PyTorch 2.15.0 bản CPU.
+\end{itemize}
+
+\subsubsection{Chỉ số đánh giá}
+
+Ký hiệu: $y_t$, $\hat{y}_t$ là công suất thật và dự đoán (W) của một thiết bị tại phút $t$; $T$ là số phút hợp lệ. Trạng thái dự đoán $\hat{s}_t = \mathbf{1}\left[\hat{y}_t \ge \theta\right]$ với $\theta$ là ngưỡng dưới của thiết bị. TP, FP, FN, TN là số phút bật đúng, bật nhầm, bỏ sót và tắt đúng.
+
+
+\begin{table}[H]
+\centering
+\caption{Các chỉ số đánh giá theo 03 nhóm. Cột cuối là giá trị khi mô hình luôn dự đoán 0 W. Định nghĩa và công thức các chỉ số theo tổng quan của Pereira và Nunes~\citep{pereira2018}.}\label{nilm:tab2}
+\small
+\setlength{\tabcolsep}{3.5pt}\renewcommand{\arraystretch}{1.12}
+\begin{tabularx}{\linewidth}{|l|l|X|l|l|}
+\hline
+\textbf{Nhóm} & \textbf{Chỉ số} & \textbf{Ý nghĩa} & \textbf{Tốt khi} & \textbf{Luôn dự đoán 0} \\ \hline
+Bật/tắt & Precision & Tỷ lệ báo bật đúng; thấp gây cảnh báo giả & cao & 0 \\ \hline
+Bật/tắt & Recall & Tỷ lệ phút bật được phát hiện & cao & 0 \\ \hline
+Bật/tắt & F1 & Chỉ số chính cho phát hiện bật/tắt & cao & 0 \\ \hline
+Công suất & MAE (W) & Lệch trung bình mỗi phút & thấp & trung bình y$_t$ \\ \hline
+Công suất & RMSE (W) & Nhạy với phút sai lớn & thấp & căn trung bình y$_t$² \\ \hline
+Công suất & NDE & Sai số bình phương so với tín hiệu thật & thấp & 1 \\ \hline
+Năng lượng & SAE & Sai số tương đối của tổng điện năng; thừa và thiếu bù trừ & thấp & 1 \\ \hline
+Năng lượng & Sai số năng lượng (kWh) & Sai lệch tuyệt đối trên hóa đơn kỳ kiểm tra & thấp & điện năng thật \\ \hline
+Năng lượng & NEP & Tổng sai số tuyệt đối so với điện năng thật; không bù trừ & thấp & 1 \\ \hline
+Năng lượng & TECA & Tỷ lệ điện năng gán đúng & cao & 0,5 \\ \hline
+Năng lượng & MR & Độ trùng giữa đường dự đoán và đường thật & cao & 0 \\ \hline
+\end{tabularx}
+\end{table}
+
+\subsection{Kết quả thực nghiệm}
+
+\textbf{Vì sao không dùng Accuracy.} Accuracy là tỷ lệ phút dự đoán đúng trạng thái, gồm cả phút tắt: $(\mathrm{TP} + \mathrm{TN}) / (\mathrm{TP} + \mathrm{FP} + \mathrm{FN} + \mathrm{TN})$. Trong tập test, thiết bị đích chỉ bật trung bình 1,03\% số phút (Microwave 0,47\%, Dishwasher 1,69\%). Vì vậy một mô hình luôn dự đoán “tắt” vẫn đạt Accuracy 0,9897, dù không phát hiện được lần bật nào (F1 = 0), với cùng cách lấy trung bình như Bảng~\ref{nilm:tab3}. Kết quả mô hình chung cho thấy chỉ số này không phân biệt được chất lượng phát hiện:
+
+\begin{itemize}
+\item \textbf{Khoảng giá trị quá hẹp:} Accuracy của 2Stage là 0,9919 và của Baseline là 0,9925, chỉ hơn mô hình luôn tắt 0,002–0,003, trong khi F1 tăng từ 0 lên 0,605 và 0,535.
+\item \textbf{Xếp hạng ngược với F1:} Baseline có Accuracy cao hơn 2Stage dù F1 thấp hơn 0,070, vì 2Stage báo bật nhiều hơn. Số phút bật nhầm tăng thêm trên khối phút tắt rất lớn kéo Accuracy xuống, còn số phút bật bắt thêm được (Recall 0,699 so với 0,553) chỉ chiếm khoảng 1\% thời gian.
+\item \textbf{Thấp hơn cả mô hình luôn tắt:} với Microwave, Accuracy của 2Stage (0,9916) và Baseline (0,9947) đều thấp hơn mô hình luôn tắt (0,9953), dù F1 lần lượt là 0,346 và 0,122. WashingMachine cũng tương tự (0,9889 và 0,9884 so với 0,9902).
+\end{itemize}
+
+Vì vậy phần kết quả không dùng Accuracy để đánh giá. Phát hiện bật/tắt được đánh giá bằng Precision, Recall và F1, là các chỉ số chỉ tính trên phút bật thật hoặc phút được báo bật.
+
+Mọi số là trung bình macro của ensemble 5 seed. ↑: càng cao càng tốt, ↓: càng thấp càng tốt. In đậm là giá trị tốt hơn trong từng cột lớn. F1 có trần dưới 1.
+
+\subsubsection{2Stage so với Baseline: tốt hơn ở đâu, kém hơn ở đâu?}
+
+Nhóm trả lời Y1.1 và Y1.2 của đề bài 1 theo 04 bước. Số liệu tổng quan cho thấy 2Stage tốt hơn Baseline (3.1.1). Lớp detector là nguồn của phần cải thiện (3.1.2); 2Stage chưa tốt ở thiết bị nào và với kiểu dữ liệu nào (3.1.3). Hiệu năng khi nhiều thiết bị đích bật đồng thời (3.1.4).
+
+\paragraph{Số liệu tổng quan: 2Stage tốt hơn Baseline}
+
+
+\begin{table}[H]
+\centering
+\caption{2Stage so với Baseline, thiết lập mô hình chung (-all), trên toàn bộ tập test.}\label{nilm:tab3}
+\footnotesize
+\setlength{\tabcolsep}{3.5pt}\renewcommand{\arraystretch}{1.12}
+\begin{adjustbox}{max width=\linewidth}
+\begin{tabular}{|l|r|r|}
+\hline
+\multirow{2}{*}{\textbf{Chỉ số}} & \multicolumn{2}{c|}{\textbf{Toàn bộ tập test (7 hộ)}} \\ \cline{2-3}
+ & \multicolumn{1}{c|}{\textbf{2Stage}} & \multicolumn{1}{c|}{\textbf{Baseline}} \\ \cline{1-1}
+\multicolumn{3}{|l|}{\textbf{Dự đoán bật/tắt}} \\ \hline
+Precision ↑ & \textbf{0,555} & 0,553 \\ \hline
+Recall ↑ & \textbf{0,699} & 0,553 \\ \hline
+F1 ↑ & \textbf{0,605} & 0,535 \\ \cline{1-1}
+\multicolumn{3}{|l|}{\textbf{Dự đoán công suất}} \\ \hline
+MAE (W) ↓ & \textbf{11,0} & 13,6 \\ \hline
+RMSE (W) ↓ & \textbf{94,9} & 96,5 \\ \hline
+NDE ↓ & 0,555 & \textbf{0,497} \\ \cline{1-1}
+\multicolumn{3}{|l|}{\textbf{Dự đoán năng lượng}} \\ \hline
+SAE ↓ & 0,297 & \textbf{0,273} \\ \hline
+Sai số năng lượng (kWh) ↓ & 4,77 & \textbf{4,68} \\ \hline
+NEP ↓ & \textbf{0,932} & 1,109 \\ \hline
+TECA ↑ & \textbf{0,534} & 0,445 \\ \hline
+MR ↑ & \textbf{0,468} & 0,367 \\ \hline
+\end{tabular}
+\end{adjustbox}
+\end{table}
+
+
+\begin{table}[H]
+\centering
+\caption{2Stage so với Baseline, thiết lập mô hình riêng (-sep).}\label{nilm:tab4}
+\footnotesize
+\setlength{\tabcolsep}{3.5pt}\renewcommand{\arraystretch}{1.12}
+\begin{adjustbox}{max width=\linewidth}
+\begin{tabular}{|l|r|r|r|r|}
+\hline
+\multirow{2}{*}{\textbf{Chỉ số}} & \multicolumn{2}{c|}{\textbf{Hộ được train}} & \multicolumn{2}{c|}{\textbf{Hộ chưa thấy}} \\ \cline{2-5}
+ & \multicolumn{1}{c|}{\textbf{2Stage}} & \multicolumn{1}{c|}{\textbf{Baseline}} & \multicolumn{1}{c|}{\textbf{2Stage}} & \multicolumn{1}{c|}{\textbf{Baseline}} \\ \cline{1-1}
+\multicolumn{5}{|l|}{\textbf{Dự đoán bật/tắt}} \\ \hline
+Precision ↑ & 0,522 & \textbf{0,542} & \textbf{0,406} & 0,396 \\ \hline
+Recall ↑ & \textbf{0,657} & 0,573 & \textbf{0,506} & 0,409 \\ \hline
+F1 ↑ & \textbf{0,557} & 0,547 & \textbf{0,415} & 0,374 \\ \cline{1-1}
+\multicolumn{5}{|l|}{\textbf{Dự đoán công suất}} \\ \hline
+MAE (W) ↓ & \textbf{11,5} & 15,6 & \textbf{17,4} & 23,7 \\ \hline
+RMSE (W) ↓ & \textbf{93,5} & 95,0 & \textbf{127,7} & 141,6 \\ \hline
+NDE ↓ & 0,486 & \textbf{0,475} & \textbf{0,875} & 0,912 \\ \cline{1-1}
+\multicolumn{5}{|l|}{\textbf{Dự đoán năng lượng}} \\ \hline
+SAE ↓ & 0,324 & \textbf{0,264} & \textbf{0,618} & 0,821 \\ \hline
+Sai số năng lượng (kWh) ↓ & 7,80 & \textbf{7,17} & \textbf{11,37} & 16,08 \\ \hline
+NEP ↓ & \textbf{0,808} & 1,221 & \textbf{1,281} & 1,939 \\ \hline
+TECA ↑ & \textbf{0,596} & 0,389 & \textbf{0,360} & 0,030 \\ \hline
+MR ↑ & \textbf{0,437} & 0,337 & \textbf{0,274} & 0,180 \\ \hline
+\end{tabular}
+\end{adjustbox}
+\end{table}
+
+\begin{figure}[H]\centering\includegraphics[max width=\linewidth,max height=0.42\textheight]{figures/nilm/hinh_tong_quan.png}\caption{F1, MAE, NEP và MR của 2Stage (xanh) và Baseline (cam) trong từng thiết lập: mô hình chung trên toàn bộ tập test; mô hình riêng trên hộ được train và hộ chưa thấy}\label{nilm:fig3}\end{figure}
+
+2Stage tốt hơn Baseline ở đa số chỉ số: \textbf{8/11} với mô hình chung; với mô hình riêng là \textbf{11/11} trên hộ chưa thấy và \textbf{7/11} trên hộ được train. Các chỉ số 2Stage không hơn và lý do:
+
+\begin{itemize}
+\item \textbf{Precision} (hộ được train): 2Stage báo bật nhiều hơn để bắt được nhiều lần bật (Recall cao hơn), đổi lại có thêm một ít báo nhầm.
+\item \textbf{NDE:} chỉ số dùng sai số bình phương. Khi 2Stage báo bật nhầm, mask cho ra cả một chu trình công suất lớn nên sai số bình phương lớn. Baseline thường dự đoán thấp và rải đều nên ít phút sai lớn.
+\item \textbf{SAE và sai số năng lượng tổng:} 02 chỉ số chỉ so tổng điện năng cả kỳ, nên sai thừa và sai thiếu của Baseline bù trừ nhau; 2Stage báo bật nhiều hơn nên dư một phần điện năng. Khi không cho bù trừ (NEP), 2Stage tốt hơn.
+\end{itemize}
+
+\paragraph{Lớp detector có hiệu quả}
+
+2Stage khác Baseline ở detector GRU quyết định bật/tắt và mask nhân vào công suất. Nếu detector có hiệu quả, phần cải thiện phải nằm đúng ở 02 việc Baseline làm kém: bắt được lần bật, và cho công suất bằng 0 khi tắt nhưng đủ biên độ khi bật. Hai bằng chứng dưới đây cho thấy điều đó. Detector và mask được đánh giá cùng nhau. Chưa có ablation tách riêng từng phần.
+
+\medskip\noindent\textbf{(1) Bắt được nhiều lần bật hơn}\par\nopagebreak
+
+Phần tăng F1 ở Bảng~\ref{nilm:tab3} đến từ Recall: với mô hình chung, Recall tăng từ 0,553 lên 0,699 trong khi Precision gần như không đổi (0,555 so với 0,553). Xét theo sự kiện bật (Bảng~\ref{nilm:tab5}), 2Stage phát hiện nhiều hơn và bỏ sót ít hơn Baseline ở cả 04 thiết bị, trên cả hộ được train lẫn hộ mới.
+
+
+\begin{table}[H]
+\centering
+\caption{Phân phối sự kiện bật theo trạng thái phát hiện (gộp 02 thiết kế).}\label{nilm:tab5}
+\footnotesize
+\setlength{\tabcolsep}{3.5pt}\renewcommand{\arraystretch}{1.12}
+\begin{adjustbox}{max width=\linewidth}
+\begin{tabular}{|l|l|r|r|r|r|r|r|r|}
+\hline
+\multirow{2}{*}{\textbf{Thiết bị}} & \multicolumn{1}{c|}{\multirow{2}{*}{\textbf{Bối cảnh}}} & \multicolumn{1}{c|}{\multirow{2}{*}{\textbf{Số sự kiện}}} & \multicolumn{2}{c|}{\textbf{Phát hiện ↑}} & \multicolumn{2}{c|}{\textbf{Phát hiện một phần}} & \multicolumn{2}{c|}{\textbf{Bỏ sót ↓}} \\ \cline{4-9}
+ &  &  & \multicolumn{1}{c|}{\textbf{2Stage}} & \multicolumn{1}{c|}{\textbf{Baseline}} & \multicolumn{1}{c|}{\textbf{2Stage}} & \multicolumn{1}{c|}{\textbf{Baseline}} & \multicolumn{1}{c|}{\textbf{2Stage}} & \multicolumn{1}{c|}{\textbf{Baseline}} \\ \hline
+\multirow{2}{*}{Dishwasher} & Hộ được train & 1.306 & \textbf{96,8\%} & 92,8\% & 1,3\% & 2,6\% & \textbf{1,9\%} & 4,6\% \\ \cline{2-9}
+ & Hộ mới & 6.214 & \textbf{87,2\%} & 62,9\% & 3,7\% & 8,1\% & \textbf{9,1\%} & 29,0\% \\ \hline
+\multirow{2}{*}{Kettle} & Hộ được train & 5.196 & \textbf{83,8\%} & 77,7\% & 2,1\% & 3,2\% & \textbf{14,2\%} & 19,1\% \\ \cline{2-9}
+ & Hộ mới & 21.876 & \textbf{74,8\%} & 66,1\% & 4,4\% & 4,7\% & \textbf{20,8\%} & 29,2\% \\ \hline
+\multirow{2}{*}{Microwave} & Hộ được train & 1.957 & \textbf{50,0\%} & 17,3\% & 3,4\% & 2,9\% & \textbf{46,6\%} & 79,9\% \\ \cline{2-9}
+ & Hộ mới & 8.395 & \textbf{17,4\%} & 4,4\% & 3,6\% & 2,1\% & \textbf{79,0\%} & 93,5\% \\ \hline
+\multirow{2}{*}{WashingMachine} & Hộ được train & 1.727 & \textbf{32,1\%} & 27,4\% & 3,2\% & 2,7\% & \textbf{64,7\%} & 69,9\% \\ \cline{2-9}
+ & Hộ mới & 9.345 & \textbf{17,9\%} & 16,6\% & 4,4\% & 3,7\% & \textbf{77,7\%} & 79,7\% \\ \hline
+\end{tabular}
+\end{adjustbox}
+\end{table}
+
+\begin{itemize}
+\item Rõ nhất ở Dishwasher trên hộ mới (bỏ sót 9,1\% so với 29,0\%) và Microwave trên hộ được train (phát hiện 50,0\% so với 17,3\%).
+\end{itemize}
+
+Hình~\ref{nilm:fig4} so Recall và Precision theo phút của từng thiết bị với mô hình chung (cùng tập hộ và thiết bị như Bảng~\ref{nilm:tab3}). Số phút TP, FP, FN của 07 hộ được cộng dồn trước khi chia, nên giá trị khác trung bình macro ở các bảng.
+
+\begin{figure}[H]\centering\includegraphics[max width=\linewidth,max height=0.42\textheight]{figures/nilm/hinh_dumbbell_bat_tat.png}\caption{Recall và Precision theo phút của từng thiết bị, mô hình chung trên toàn bộ tập test: 2Stage (xanh) và Baseline (cam); đoạn nối càng dài thì chênh lệch giữa 02 mô hình càng lớn}\label{nilm:fig4}\end{figure}
+
+\begin{itemize}
+\item \textbf{Recall:} 2Stage bắt được nhiều phút bật hơn ở cả 04 thiết bị, rõ nhất ở Microwave (51,1\% so với 8,9\%) và Dishwasher (95,3\% so với 87,9\%). Kettle tăng ít hơn (77,8\% so với 72,2\%), WashingMachine gần như không đổi (54,0\% so với 52,3\%).
+\item \textbf{Precision:} gần như giữ nguyên ở Dishwasher (69,5\% so với 69,3\%), WashingMachine (43,8\% so với 41,4\%) và Microwave (27,4\% so với 26,3\%), tức phần Recall tăng thêm không phải đổi bằng việc báo bật bừa. Riêng Kettle, Precision giảm từ 77,3\% xuống 71,8\%. Microwave dù Precision không giảm vẫn có số phút báo nhầm tăng mạnh (5.289 so với 967 phút), vì 2Stage báo bật nhiều hơn hẳn.
+\end{itemize}
+
+\medskip\noindent\textbf{(2) Công suất bằng 0 khi thiết bị tắt}\par\nopagebreak
+
+Ở mức điện tổng dưới 500 W hầu như không có thiết bị đích nào bật. MAE của 2Stage chỉ 0,5–0,6 W so với 2,9–4,7 W của Baseline (Bảng~\ref{nilm:tab7}). Đây là phần rò công suất bị mask loại bỏ.
+
+Hình~\ref{nilm:fig5} vẽ điện tổng, công suất thật từng thiết bị và dự đoán ensemble của 2Stage và Baseline trên cùng 02 cửa sổ 128 phút của hộ 3, với mô hình riêng train trên hộ 2 (một cặp hộ mới). Hai cửa sổ được chọn theo dữ liệu, chung cho cả 02 mô hình: cửa sổ có nhiều thiết bị cùng bật nhất (trái) và cửa sổ có tổng sai số của 02 mô hình lớn nhất (phải).
+
+\begin{figure}[H]\centering\includegraphics[max width=\linewidth,max height=0.42\textheight]{figures/nilm/hinh_du_doan.png}\caption{Mô hình riêng train trên hộ 2, kiểm tra trên hộ 3: điện tổng (trên cùng) và công suất từng thiết bị: thực tế (đen), 2Stage (xanh), Baseline (cam, nét đứt)}\label{nilm:fig5}\end{figure}
+
+\begin{itemize}
+\item \textbf{Baseline dự đoán thiếu biên độ:} với Dishwasher công suất thật khoảng 2.100 W, Baseline chỉ dự đoán khoảng 100–800 W; 2Stage đạt khoảng 700–1.600 W, sát hơn nhưng vẫn thấp hơn thực tế. Với WashingMachine ở cửa sổ trái (thật khoảng 1.800 W), 2Stage dự đoán khoảng 1.300 W, Baseline khoảng 700 W.
+\item \textbf{Baseline rò công suất khi thiết bị tắt:} đường cam luôn nằm trên 0 khi thiết bị không chạy (Microwave ở cửa sổ phải khoảng 10–30 W), còn 2Stage về đúng 0. Đây là nguồn của NEP lớn hơn 1 và MAE cao của Baseline.
+\end{itemize}
+
+\paragraph{2Stage kém Baseline ở đâu và vì sao}
+
+Detector là con dao hai lưỡi. Khi phát hiện đúng, mask cho công suất bằng 0 lúc thiết bị tắt và giữ công suất dự đoán lúc thiết bị bật; nhờ đó 2Stage giảm bỏ sót và công suất rò (mục~3.3.1.2). Khi báo bật nhầm, mask lại giữ cả công suất dự đoán của thiết bị đang tắt. Một phút báo nhầm vì thế có thể làm sai nhiều điện năng hơn ở Baseline, vốn thường dự đoán biên độ thấp. Ba hệ quả dưới đây phù hợp với cơ chế này, nhưng chưa có ablation để khẳng định riêng đóng góp của detector và mask.
+
+\textbf{(1) F1 giảm khi số phút báo nhầm vượt lợi ích từ số phút bắt thêm.} Với mô hình riêng trên hộ được train, F1 của 2Stage thấp hơn Baseline ở Dishwasher (0,756 so với 0,796) và WashingMachine (0,520 so với 0,558). Kettle gần ngang nhau (Bảng~\ref{nilm:tab6}). Baseline đã bắt được 89\% phút bật Dishwasher, nên 2Stage chỉ bắt thêm 871 phút nhưng báo nhầm thêm 2.244 phút. Trên hộ mới, Baseline mới bắt được 59\%; 2Stage bắt thêm 22.609 phút và báo nhầm thêm 15.676 phút, nên F1 tăng. WashingMachine trên hộ mới gần như ngang nhau: F1 macro của 2Stage thấp hơn (0,313 so với 0,324), nhưng F1 tính từ tổng số phút lại cao hơn (0,321 so với 0,314).
+
+
+\begin{table}[H]
+\centering
+\caption{Kết quả mô hình riêng theo từng thiết bị.}\label{nilm:tab6}
+\footnotesize
+\setlength{\tabcolsep}{3.5pt}\renewcommand{\arraystretch}{1.12}
+\begin{adjustbox}{max width=\linewidth}
+\begin{tabular}{|l|r|r|r|r|}
+\hline
+\multirow{2}{*}{\textbf{Chỉ số}} & \multicolumn{2}{c|}{\textbf{Hộ được train}} & \multicolumn{2}{c|}{\textbf{Hộ mới}} \\ \cline{2-5}
+ & \multicolumn{1}{c|}{\textbf{2Stage}} & \multicolumn{1}{c|}{\textbf{Baseline}} & \multicolumn{1}{c|}{\textbf{2Stage}} & \multicolumn{1}{c|}{\textbf{Baseline}} \\ \hline
+WashingMachine – F1 ↑ & 0,520 & \textbf{0,558} & 0,313 & \textbf{0,324} \\ \hline
+WashingMachine – MAE (W) ↓ & \textbf{15,3} & 19,8 & \textbf{22,6} & 28,6 \\ \hline
+WashingMachine – SAE ↓ & 0,283 & \textbf{0,204} & \textbf{0,415} & 0,436 \\ \hline
+WashingMachine – Sai số năng lượng (kWh) ↓ & 9,56 & \textbf{8,73} & \textbf{14,08} & 14,20 \\ \hline
+Dishwasher – F1 ↑ & 0,756 & \textbf{0,796} & \textbf{0,674} & 0,564 \\ \hline
+Dishwasher – MAE (W) ↓ & \textbf{18,2} & 22,7 & \textbf{28,3} & 40,3 \\ \hline
+Dishwasher – SAE ↓ & 0,269 & \textbf{0,117} & \textbf{0,275} & 0,580 \\ \hline
+Dishwasher – Sai số năng lượng (kWh) ↓ & 14,30 & \textbf{11,16} & \textbf{15,71} & 32,06 \\ \hline
+Kettle – F1 ↑ & 0,723 & \textbf{0,728} & \textbf{0,618} & 0,597 \\ \hline
+Kettle – MAE (W) ↓ & \textbf{10,0} & 14,3 & \textbf{15,2} & 20,0 \\ \hline
+Kettle – SAE ↓ & \textbf{0,111} & 0,202 & \textbf{0,308} & 0,391 \\ \hline
+Kettle – Sai số năng lượng (kWh) ↓ & \textbf{4,00} & 6,82 & \textbf{8,93} & 12,07 \\ \hline
+Microwave – F1 ↑ & \textbf{0,251} & 0,142 & \textbf{0,079} & 0,030 \\ \hline
+Microwave – MAE (W) ↓ & \textbf{4,1} & 7,2 & \textbf{5,9} & 9,2 \\ \hline
+Microwave – SAE ↓ & 0,620 & \textbf{0,504} & \textbf{1,396} & 1,789 \\ \hline
+Microwave – Sai số năng lượng (kWh) ↓ & 4,52 & \textbf{2,77} & \textbf{7,76} & 7,99 \\ \hline
+\end{tabular}
+\end{adjustbox}
+\end{table}
+
+\begin{figure}[H]\centering\includegraphics[max width=\linewidth,max height=0.42\textheight]{figures/nilm/hinh_thiet_bi.png}\caption{Mô hình riêng: F1 và MAE theo thiết bị trên hộ được train và hộ mới (gạch chéo)}\label{nilm:fig6}\end{figure}
+
+\textbf{(2) Báo bật nhầm làm sai điện năng tổng.} Trên hộ được train, SAE của 2Stage cao hơn Baseline ở Dishwasher (0,269 so với 0,117) và Microwave (0,620 so với 0,504). Với Dishwasher, công suất ở các phút báo nhầm của 2Stage cao hơn, khiến điện năng dự đoán thừa trung bình 8,02 kWh mỗi hộ. Baseline thừa 2,36 kWh. SAE của Baseline còn hưởng lợi khi phần dự đoán thiếu và công suất rò bù trừ nhau, dù thời điểm bật/tắt dự đoán sai. NEP của 2Stage vẫn tốt hơn (mục~3.3.1.1).
+
+\textbf{(3) Tải cao làm lỗi báo bật nhầm nặng hơn.} Khi điện tổng từ 3.000 W, 2Stage kém về F1 trên hộ được train (0,530 so với 0,572) và SAE trên cả hộ được train lẫn hộ mới (Bảng~\ref{nilm:tab7}). Dishwasher, WashingMachine và Kettle đều có bước gia nhiệt khoảng 2 kW. Khi có tải khác chạy cùng, detector dễ gán cùng một bước tăng cho nhiều thiết bị, kéo theo điện năng dự đoán thừa. Trên hộ mới, 50,5\% phút báo nhầm Dishwasher của 2Stage trùng lúc thiết bị đích khác chạy, so với 27,9\% của Baseline. Với WashingMachine, tỷ lệ này là 61,8\%. Nhầm lẫn với Dishwasher khiến detector gần như không cải thiện F1 của thiết bị này. Mục 3.1.4 kiểm tra nhận định này bằng nhãn bật/tắt thật.
+
+
+\begin{table}[H]
+\centering
+\caption{Kết quả mô hình riêng theo mức điện tổng đo ở tủ điện.}\label{nilm:tab7}
+\footnotesize
+\setlength{\tabcolsep}{3.5pt}\renewcommand{\arraystretch}{1.12}
+\begin{adjustbox}{max width=\linewidth}
+\begin{tabular}{|l|r|r|r|r|}
+\hline
+\multirow{2}{*}{\textbf{Chỉ số}} & \multicolumn{2}{c|}{\textbf{Hộ được train}} & \multicolumn{2}{c|}{\textbf{Hộ mới}} \\ \cline{2-5}
+ & \multicolumn{1}{c|}{\textbf{2Stage}} & \multicolumn{1}{c|}{\textbf{Baseline}} & \multicolumn{1}{c|}{\textbf{2Stage}} & \multicolumn{1}{c|}{\textbf{Baseline}} \\ \hline
+{}[0, 500) – F1 ↑ & 0,027 & 0,027 & \textbf{0,022} & 0,015 \\ \hline
+{}[0, 500) – MAE (W) ↓ & \textbf{0,5} & 2,9 & \textbf{0,6} & 4,7 \\ \hline
+{}[0, 500) – SAE ↓ & \textbf{3,136} & 86,500 & \textbf{4,525} & 115,832 \\ \hline
+{}[500, 1500) – F1 ↑ & \textbf{0,370} & 0,275 & \textbf{0,228} & 0,161 \\ \hline
+{}[500, 1500) – MAE (W) ↓ & \textbf{8,7} & 15,6 & \textbf{10,0} & 17,1 \\ \hline
+{}[500, 1500) – SAE ↓ & \textbf{0,637} & 1,101 & \textbf{0,883} & 2,102 \\ \hline
+{}[1500, 3000) – F1 ↑ & \textbf{0,625} & 0,585 & \textbf{0,446} & 0,408 \\ \hline
+{}[1500, 3000) – MAE (W) ↓ & \textbf{96,0} & 123,2 & \textbf{170,3} & 197,0 \\ \hline
+{}[1500, 3000) – SAE ↓ & 0,349 & \textbf{0,327} & \textbf{0,885} & 1,083 \\ \hline
+{}[3000, ∞) – F1 ↑ & 0,530 & \textbf{0,572} & \textbf{0,417} & 0,412 \\ \hline
+{}[3000, ∞) – MAE (W) ↓ & \textbf{217,7} & 231,3 & \textbf{320,3} & 367,3 \\ \hline
+{}[3000, ∞) – SAE ↓ & 0,716 & \textbf{0,310} & 1,049 & \textbf{0,853} \\ \hline
+\end{tabular}
+\end{adjustbox}
+\end{table}
+
+\begin{figure}[H]\centering\includegraphics[max width=\linewidth,max height=0.42\textheight]{figures/nilm/hinh_phan_tang.png}\caption{Mô hình riêng: F1 và MAE theo mức điện tổng trên hộ được train và hộ mới (gạch chéo); số chính xác ở Bảng~\ref{nilm:tab7}}\label{nilm:fig7}\end{figure}
+
+\paragraph{Khi nhiều thiết bị đích bật đồng thời}
+
+\textbf{(1) Chia phút theo số thiết bị bật thật.} Số thiết bị đang bật được đếm từ nhãn thật của 04 thiết bị đích, chỉ ở những phút mà các kênh có trong hộ đều có nhãn hợp lệ. Đây là số thiết bị \textit{đích}, không phải tổng số tải trong nhà. Nhóm 0 vẫn có thể có đèn, tủ lạnh hoặc tải nền. Điện tổng cao cũng không tự chứng minh có nhiều thiết bị đích cùng chạy. Trên phần test của 07 hộ có 822.272 phút hợp lệ: 789.324 phút nhóm 0 (95,99\%), 31.692 phút nhóm 1 (3,85\%), 1.214 phút nhóm 2 (0,148\%), 42 phút nhóm 3 (0,005\%) và không có phút nhóm 4. Nhóm ≥2 gộp nhóm 2 và 3, có 1.256 phút (0,153\%). Nhóm 3 quá nhỏ để kết luận độc lập. Mỗi phút trên hộ mới được 06 mô hình train ở hộ khác đánh giá, nên số phút của cột “hộ mới” trong Bảng~\ref{nilm:tab8} gấp sáu lần số phút thực.
+
+\textbf{(2) Đánh giá từng nhóm trên cùng tập phút.} Bảng~\ref{nilm:tab8} so 2Stage và Baseline của thiết kế mô hình riêng, với số phút và cách tính chỉ số như ở các bảng trước. F1 và sai số điện năng tương đối không có nghĩa ở nhóm 0 vì không có thiết bị đích bật. Nhóm này được xem bằng MAE và số phút báo bật nhầm. Ở các nhóm còn lại, chỉ số được cộng theo từng thiết bị trên mọi cặp hộ rồi lấy trung bình 04 thiết bị. Hàng ≥2 là tổng hợp để so sánh ổn định hơn, không phải nhóm phút mới.
+
+
+\begin{table}[H]
+\centering
+\caption{Kết quả mô hình riêng theo đúng số thiết bị đích bật thật. “≥2 (gộp)” gồm nhóm 2 và 3. Số phút là tổng trên mọi cặp hộ; “—”: chỉ số không có nghĩa ở nhóm 0.}\label{nilm:tab8}
+\footnotesize
+\setlength{\tabcolsep}{3.5pt}\renewcommand{\arraystretch}{1.12}
+\begin{adjustbox}{max width=\linewidth}
+\begin{tabular}{|l|r|r|r|r|r|r|r|}
+\hline
+\multirow{2}{*}{\textbf{Số thiết bị đích bật}} & \multicolumn{1}{c|}{\multirow{2}{*}{\textbf{Số phút}}} & \multicolumn{2}{c|}{\textbf{F1 ↑}} & \multicolumn{2}{c|}{\textbf{MAE (W) ↓}} & \multicolumn{2}{c|}{\textbf{Sai số điện năng tương đối ↓}} \\ \cline{3-8}
+ &  & \multicolumn{1}{c|}{\textbf{2Stage}} & \multicolumn{1}{c|}{\textbf{Baseline}} & \multicolumn{1}{c|}{\textbf{2Stage}} & \multicolumn{1}{c|}{\textbf{Baseline}} & \multicolumn{1}{c|}{\textbf{2Stage}} & \multicolumn{1}{c|}{\textbf{Baseline}} \\ \cline{1-1}
+\multicolumn{8}{|l|}{\textbf{Hộ mới (42 cặp hộ)}} \\ \hline
+0 & 4.735.944 & — & — & \textbf{6,4} & 11,1 & — & — \\ \hline
+1 & 190.152 & \textbf{0,512} & 0,446 & \textbf{295,7} & 347,0 & \textbf{0,422} & 0,503 \\ \hline
+2 & 7.284 & \textbf{0,594} & 0,518 & \textbf{517,6} & 599,4 & \textbf{0,468} & 0,562 \\ \hline
+3 & 252 & \textbf{0,644} & 0,525 & \textbf{750,3} & 936,0 & \textbf{0,699} & 0,764 \\ \hline
+≥2 (gộp) & 7.536 & \textbf{0,597} & 0,519 & \textbf{525,4} & 610,7 & \textbf{0,472} & 0,565 \\ \cline{1-1}
+\multicolumn{8}{|l|}{\textbf{Hộ được train (7 cặp hộ)}} \\ \hline
+0 & 789.324 & — & — & \textbf{5,2} & 7,5 & — & — \\ \hline
+1 & 31.692 & \textbf{0,683} & 0,619 & \textbf{170,9} & 228,7 & \textbf{0,245} & 0,322 \\ \hline
+2 & 1.214 & \textbf{0,739} & 0,736 & \textbf{375,8} & 448,8 & \textbf{0,299} & 0,418 \\ \hline
+3 & 42 & \textbf{0,730} & 0,689 & \textbf{656,8} & 746,2 & \textbf{0,464} & 0,582 \\ \hline
+≥2 (gộp) & 1.256 & \textbf{0,740} & 0,734 & \textbf{385,3} & 458,8 & \textbf{0,301} & 0,424 \\ \hline
+\end{tabular}
+\end{adjustbox}
+\end{table}
+
+Trên hộ mới, khi từ một lên 02 thiết bị đích bật, MAE của 2Stage tăng từ 295,7 lên 517,6 W và sai số điện năng tương đối tăng từ 0,422 lên 0,468. Với 03 thiết bị, MAE là 750,3 W và sai số là 0,699, nhưng chỉ có 42 phút thực. 2Stage thấp hơn Baseline về MAE và sai số điện năng ở từng nhóm 0–3. F1 cũng cao hơn ở các nhóm có thiết bị bật. Riêng nhóm 0, 2Stage có MAE thấp hơn (6,4 so với 11,1 W) nhưng báo bật nhầm ít nhất một thiết bị trong 78.980/4.735.944 lượt phút–mô hình hộ mới, nhiều hơn Baseline (71.667 lượt). Không thể đọc F1 nhóm 2/3 cao hơn nhóm 1 thành “chồng lấp giúp mô hình”. Trong nhóm nhiều thiết bị, tỷ lệ thiết bị bật cao hơn làm Precision dễ tăng, và mức điện tổng cũng khác. Vì vậy phần tiếp theo xem lỗi trong cùng mức điện tổng.
+
+\textbf{(3) Lỗi xuất hiện ở mức điện tổng nào?} Nhóm ≥2 tập trung ở tải cao: 82,3\% số phút có điện tổng từ 3.000 W, so với 23,0\% ở nhóm 1. Bảng~\ref{nilm:tab9} đặt nhóm 1 và nhóm ≥2 vào cùng hai khoảng điện tổng để tránh nhầm tác động của chồng lấp với tác động của tải cao. Các số liệu dưới đây là của hộ mới.
+
+
+\begin{table}[H]
+\centering
+\caption{Hộ mới, mô hình riêng. Nhóm 1 và nhóm ≥2 thiết bị đích bật trong cùng khoảng điện tổng.}\label{nilm:tab9}
+\footnotesize
+\setlength{\tabcolsep}{3.5pt}\renewcommand{\arraystretch}{1.12}
+\begin{adjustbox}{max width=\linewidth}
+\begin{tabular}{|l|r|r|r|r|r|r|r|r|r|}
+\hline
+\multirow{2}{*}{\textbf{Điện tổng – số thiết bị đích bật}} & \multicolumn{1}{c|}{\multirow{2}{*}{\textbf{Số phút}}} & \multicolumn{2}{c|}{\textbf{Precision ↑}} & \multicolumn{2}{c|}{\textbf{Recall ↑}} & \multicolumn{2}{c|}{\textbf{F1 ↑}} & \multicolumn{2}{c|}{\textbf{Sai số điện năng tương đối ↓}} \\ \cline{3-10}
+ &  & \multicolumn{1}{c|}{\textbf{2Stage}} & \multicolumn{1}{c|}{\textbf{Baseline}} & \multicolumn{1}{c|}{\textbf{2Stage}} & \multicolumn{1}{c|}{\textbf{Baseline}} & \multicolumn{1}{c|}{\textbf{2Stage}} & \multicolumn{1}{c|}{\textbf{Baseline}} & \multicolumn{1}{c|}{\textbf{2Stage}} & \multicolumn{1}{c|}{\textbf{Baseline}} \\ \hline
+{}[1.500, 3.000) W – 1 & 111.696 & \textbf{0,530} & 0,525 & \textbf{0,541} & 0,430 & \textbf{0,532} & 0,470 & \textbf{0,479} & 0,549 \\ \hline
+{}[1.500, 3.000) W – ≥2 & 1.152 & 0,740 & \textbf{0,752} & \textbf{0,453} & 0,334 & \textbf{0,506} & 0,434 & \textbf{0,489} & 0,612 \\ \hline
+{}[3.000, ∞) W – 1 & 43.704 & 0,471 & \textbf{0,511} & \textbf{0,615} & 0,459 & \textbf{0,525} & 0,475 & \textbf{0,585} & 0,652 \\ \hline
+{}[3.000, ∞) W – ≥2 & 6.204 & 0,660 & \textbf{0,688} & \textbf{0,588} & 0,445 & \textbf{0,612} & 0,534 & \textbf{0,478} & 0,563 \\ \hline
+\end{tabular}
+\end{adjustbox}
+\end{table}
+
+Trong từng khoảng điện tổng, \textbf{bỏ sót thiết bị đang chạy là lỗi gắn với chồng lấp}. Recall của 2Stage giảm từ 0,541 xuống 0,453 ở [1.500, 3.000) W và từ 0,615 xuống 0,588 ở mức từ 3.000 W khi chuyển từ nhóm 1 sang ≥2. Baseline cũng giảm tương ứng từ 0,430 xuống 0,334 và từ 0,459 xuống 0,445. Ô nhóm ≥2 ở [1.500, 3.000) W chỉ có 192 phút thực, nên mức chênh ở ô đó cần đọc thận trọng. \textbf{Sai số điện năng lớn gắn rõ hơn với tải cao}: ngay trong nhóm chỉ một thiết bị, sai số của 2Stage tăng từ 0,479 lên 0,585 khi điện tổng vượt 3.000 W. Trong nhóm ≥2 nó không tăng (0,489 xuống 0,478). Như vậy mức tải cao và chồng lấp gây hai kiểu khó khác nhau. Tải cao làm lệch điện năng, chồng lấp làm dễ bỏ sót một thiết bị.
+
+\textbf{(4) Thiết bị nào bị bỏ sót hoặc gán nhầm?} Bảng~\ref{nilm:tab10} đếm trực tiếp 02 loại lỗi theo phút trên hộ mới. Ở nhóm ≥2, 2Stage bỏ sót ít nhất một thiết bị đang bật trong 70,5\% số phút, so với 37,9\% ở nhóm 1 (Baseline: 82,2\% và 52,6\%). Tỷ lệ “có ít nhất một bỏ sót” tự nhiên cũng tăng khi mỗi phút có nhiều thiết bị để bỏ sót. Kết luận về tác động của chồng lấp vì thế dựa thêm vào Recall trong cùng mức tải ở Bảng~\ref{nilm:tab9}. Báo bật nhầm ít nhất một thiết bị đang tắt xảy ra ở 35,6\% phút nhóm ≥2 của 2Stage, so với 23,9\% của Baseline.
+
+
+\begin{table}[H]
+\centering
+\caption{Hộ mới, mô hình riêng. Lỗi bỏ sót và gán nhầm trong các phút có thiết bị đích bật, tính bằng \% số phút của nhóm (hai hàng đầu) hoặc của trường hợp ghi ở hàng (bốn hàng sau).}\label{nilm:tab10}
+\footnotesize
+\setlength{\tabcolsep}{3.5pt}\renewcommand{\arraystretch}{1.12}
+\begin{adjustbox}{max width=\linewidth}
+\begin{tabular}{|l|r|r|r|r|}
+\hline
+\multirow{2}{*}{\textbf{Loại lỗi (\% số phút của nhóm) ↓}} & \multicolumn{2}{c|}{\textbf{1 thiết bị đích bật}} & \multicolumn{2}{c|}{\textbf{≥2 thiết bị đích bật}} \\ \cline{2-5}
+ & \multicolumn{1}{c|}{\textbf{2Stage}} & \multicolumn{1}{c|}{\textbf{Baseline}} & \multicolumn{1}{c|}{\textbf{2Stage}} & \multicolumn{1}{c|}{\textbf{Baseline}} \\ \hline
+Phút có ít nhất một thiết bị đang bật bị bỏ sót & \textbf{37,9} & 52,6 & \textbf{70,5} & 82,2 \\ \hline
+Phút có báo bật nhầm ít nhất một thiết bị đang tắt & 31,6 & \textbf{23,5} & 35,6 & \textbf{23,9} \\ \hline
+Chỉ WashingMachine bật (Dishwasher tắt): báo Dishwasher bật & 42,4 & \textbf{21,6} & 58,3 & \textbf{25,0} \\ \hline
+– trong đó bỏ sót luôn WashingMachine (gán nhầm hẳn) & 22,8 & \textbf{9,5} & 22,0 & \textbf{7,9} \\ \hline
+Chỉ Dishwasher bật (WashingMachine tắt): báo WashingMachine bật & 24,5 & \textbf{23,2} & 44,2 & \textbf{35,1} \\ \hline
+– trong đó bỏ sót luôn Dishwasher (gán nhầm hẳn) & \textbf{3,1} & 8,3 & \textbf{6,9} & 15,5 \\ \hline
+\end{tabular}
+\end{adjustbox}
+\end{table}
+
+Lỗi gán nhầm rõ nhất là \textbf{WashingMachine → Dishwasher}: khi WashingMachine bật và Dishwasher tắt, 2Stage vẫn báo Dishwasher bật trong 42,4\% phút nhóm 1 và 58,3\% phút nhóm ≥2, khoảng gấp đôi Baseline (21,6\% và 25,0\%). Trong khoảng 22\% số phút thuộc các trường hợp này, nó đồng thời bỏ sót WashingMachine, tức gán hẳn sang Dishwasher. Chiều ngược lại chỉ 3,1\% và 6,9\%. Lỗi đã xuất hiện khi WashingMachine là thiết bị đích duy nhất bật, rồi nặng thêm khi có thiết bị đích khác chạy cùng. Cùng với Bảng~\ref{nilm:tab9}, điều này chỉ ra vùng cần cải thiện: phân biệt các bước gia nhiệt gần nhau khi điện tổng cao và nhiều thiết bị đích cùng hoạt động.
+
+Hình~\ref{nilm:fig8} cho thấy một cửa sổ minh họa, không đại diện cho toàn bộ tập test. Khi WashingMachine và Dishwasher cùng bật (khoảng phút 12–26), cả 02 mô hình dự đoán thiếu Dishwasher. Baseline thiếu cả WashingMachine. Khi Dishwasher và Kettle cùng bật (khoảng phút 74–78), cả hai gần như bỏ sót Kettle, còn 2Stage báo WashingMachine bật nhầm. Sau đó, khi chỉ Kettle bật (khoảng phút 83–93), 2Stage gán phần lớn công suất cho Dishwasher.
+
+\begin{figure}[H]\centering\includegraphics[max width=\linewidth,max height=0.42\textheight]{figures/nilm/hinh_dong_thoi.png}\caption{Mô hình riêng train trên hộ 2, kiểm tra trên hộ 3, cửa sổ có nhiều phút từ 02 thiết bị đích cùng bật nhất (nền vàng): điện tổng (trên cùng) và công suất từng thiết bị: thực tế (đen), 2Stage (xanh), Baseline (cam, nét đứt)}\label{nilm:fig8}\end{figure}
+
+\medskip\noindent\textbf{Trả lời câu hỏi 3.3.1}\par\nopagebreak
+
+\begin{itemize}
+\item \textbf{2Stage tốt hơn:} 8/11 chỉ số với mô hình chung (F1 0,605 so với 0,535 trên toàn bộ tập test) và cả 11/11 chỉ số trên hộ mới.
+\item \textbf{Detector có hiệu quả:} Recall tăng từ 0,553 lên 0,699. Bỏ sót ít hơn ở cả 04 thiết bị. Mask đưa công suất về 0 khi tắt (MAE dưới 500 W: 0,5 so với 2,9 W).
+\item \textbf{Tốt hơn ở:} Dishwasher và Kettle trên hộ mới. Mức điện tổng 500–3.000 W. Sự kiện dài, công suất cao.
+\item \textbf{Kém Baseline ở:} F1 trên hộ được train của Dishwasher, WashingMachine và Kettle, vì Baseline đã bắt gần đủ phút bật nên phần báo nhầm thêm của detector lớn hơn phần bắt thêm. Năng lượng tổng (SAE) trên hộ được train, vì báo nhầm mang đủ biên độ trong khi sai số của Baseline bù trừ nhau. Điện tổng từ 3.000 W, vì detector báo bật nhầm nhiều hơn, nhất là nhận WashingMachine thành Dishwasher, kể cả khi WashingMachine chạy một mình (mục~3.3.1.4).
+\item \textbf{Nhiều thiết bị đích bật đồng thời:} ở các phút có từ 02 thiết bị đích cùng bật, 2Stage vẫn tốt hơn Baseline về F1, MAE và sai số điện năng trên hộ mới (F1 0,597 so với 0,519). Trong cùng khoảng điện tổng, chồng lấp chủ yếu làm tăng bỏ sót một trong các thiết bị đang bật. Sai số điện năng tăng chủ yếu theo mức tải.
+\end{itemize}
+
+\subsubsection{Hiệu năng suy giảm thế nào trên hộ mới?}
+
+Mục 3.1 cho thấy 2Stage tốt hơn Baseline trên hộ chưa thấy, nên mục này chỉ phân tích 2Stage. Nhóm trả lời Y1.1 của đề bài 1 trên hộ mới, dùng mô hình riêng: mỗi mô hình train trên một hộ và được đánh giá trên dữ liệu của cả 07 hộ. Kết quả được vẽ thành ma trận 7$\times$7 cho từng chỉ số: hàng là mô hình train trên hộ nào, cột là đánh giá trên dữ liệu hộ nào. Đường chéo (viền xanh đậm) là mô hình đánh giá trên chính hộ của nó. Các ô còn lại là mô hình đánh giá trên hộ mới. Màu thể hiện mức tốt/xấu trong từng ma trận (xanh lá: tốt, đỏ: kém), không theo giá trị, nên chỉ số càng cao càng tốt và càng thấp càng tốt được đọc như nhau.
+
+Khi sang hộ mới, F1 của 2Stage giảm khoảng 25\% (0,557 xuống 0,415) và MAE tăng khoảng 1,5 lần (11,5 lên 17,4 W) (Bảng~\ref{nilm:tab4}). Đây là phép đo suy giảm đúng nghĩa, vì cùng một hộ test vừa xuất hiện ở đường chéo (hộ được train) vừa ở vai trò hộ mới với 06 mô hình còn lại.
+
+\paragraph{Dự đoán bật/tắt}
+
+\begin{figure}[H]\centering\includegraphics[max width=\linewidth,max height=0.42\textheight]{figures/nilm/hinh_chuyen_ho_bat_tat.png}\caption{Precision, Recall và F1 của 2Stage theo cặp hộ (hàng: mô hình train trên hộ, cột: đánh giá trên hộ; viền xanh đậm: đường chéo)}\label{nilm:fig9}\end{figure}
+
+
+\begin{table}[H]
+\centering
+\caption{Dự đoán bật/tắt: thay đổi so với mô hình đánh giá trên chính hộ train (giá trị ô trừ giá trị đường chéo cùng hàng).}\label{nilm:tab11}
+\footnotesize
+\setlength{\tabcolsep}{3.5pt}\renewcommand{\arraystretch}{1.12}
+\begin{adjustbox}{max width=\linewidth}
+\begin{tabular}{|l|r|r|r|r|r|r|r|r|}
+\hline
+\multirow{2}{*}{\textbf{Mô hình train trên hộ}} & \multicolumn{7}{c|}{\textbf{Đánh giá trên hộ}} & \multicolumn{1}{c|}{\multirow{2}{*}{\textbf{Trung bình ± độ lệch chuẩn}}} \\ \cline{2-8}
+ & \multicolumn{1}{c|}{\textbf{2}} & \multicolumn{1}{c|}{\textbf{3}} & \multicolumn{1}{c|}{\textbf{6}} & \multicolumn{1}{c|}{\textbf{9}} & \multicolumn{1}{c|}{\textbf{11}} & \multicolumn{1}{c|}{\textbf{13}} & \multicolumn{1}{c|}{\textbf{20}} \\ \cline{1-1}
+\multicolumn{9}{|l|}{\textbf{Precision ↑}} \\ \hline
+Hộ 2 & — & −0,18 & −0,03 & −0,10 & −0,08 & −0,23 & −0,06 & −0,11 ± 0,08 \\ \hline
+Hộ 3 & −0,13 & — & +0,31 & −0,04 & −0,18 & −0,05 & +0,18 & +0,02 ± 0,19 \\ \hline
+Hộ 6 & −0,17 & −0,15 & — & −0,12 & −0,10 & −0,27 & −0,06 & −0,14 ± 0,07 \\ \hline
+Hộ 9 & −0,14 & −0,13 & +0,01 & — & −0,16 & −0,21 & −0,18 & −0,14 ± 0,08 \\ \hline
+Hộ 11 & −0,18 & −0,20 & −0,10 & −0,26 & — & −0,37 & −0,20 & −0,22 ± 0,09 \\ \hline
+Hộ 13 & −0,09 & +0,02 & +0,11 & −0,00 & +0,06 & — & +0,11 & +0,04 ± 0,08 \\ \hline
+Hộ 20 & −0,31 & −0,28 & −0,11 & −0,25 & −0,20 & −0,36 & — & −0,25 ± 0,09 \\ \cline{1-1}
+\multicolumn{9}{|l|}{\textbf{Recall ↑}} \\ \hline
+Hộ 2 & — & −0,09 & −0,00 & −0,02 & −0,17 & −0,08 & −0,04 & −0,07 ± 0,06 \\ \hline
+Hộ 3 & −0,11 & — & −0,01 & −0,05 & −0,19 & −0,02 & −0,15 & −0,09 ± 0,07 \\ \hline
+Hộ 6 & −0,22 & −0,10 & — & −0,10 & −0,15 & −0,10 & −0,19 & −0,15 ± 0,05 \\ \hline
+Hộ 9 & −0,12 & −0,08 & −0,04 & — & −0,27 & −0,13 & −0,15 & −0,13 ± 0,08 \\ \hline
+Hộ 11 & −0,10 & −0,13 & −0,09 & −0,16 & — & −0,16 & −0,09 & −0,12 ± 0,03 \\ \hline
+Hộ 13 & −0,25 & −0,17 & −0,14 & −0,17 & −0,43 & — & −0,23 & −0,23 ± 0,10 \\ \hline
+Hộ 20 & −0,30 & −0,29 & −0,20 & −0,24 & −0,35 & −0,14 & — & −0,25 ± 0,08 \\ \cline{1-1}
+\multicolumn{9}{|l|}{\textbf{F1 ↑}} \\ \hline
+Hộ 2 & — & −0,10 & +0,01 & −0,04 & −0,08 & −0,14 & −0,05 & −0,07 ± 0,05 \\ \hline
+Hộ 3 & −0,11 & — & +0,04 & −0,04 & −0,16 & −0,05 & −0,12 & −0,07 ± 0,07 \\ \hline
+Hộ 6 & −0,18 & −0,16 & — & −0,13 & −0,18 & −0,26 & −0,13 & −0,17 ± 0,05 \\ \hline
+Hộ 9 & −0,13 & −0,11 & −0,02 & — & −0,21 & −0,20 & −0,18 & −0,14 ± 0,07 \\ \hline
+Hộ 11 & −0,17 & −0,20 & −0,11 & −0,22 & — & −0,31 & −0,17 & −0,20 ± 0,07 \\ \hline
+Hộ 13 & −0,13 & −0,04 & +0,02 & −0,05 & −0,16 & — & −0,03 & −0,06 ± 0,07 \\ \hline
+Hộ 20 & −0,31 & −0,30 & −0,14 & −0,28 & −0,34 & −0,32 & — & −0,28 ± 0,07 \\ \hline
+\end{tabular}
+\end{adjustbox}
+\end{table}
+
+\begin{itemize}
+\item \textbf{Mọi mô hình đều kém đi trên hộ mới:} ở cả 42 ô ngoài đường chéo, F1 đều thấp hơn ô đường chéo cùng cột, tức không mô hình của hộ khác nào đạt bằng mô hình train trên chính hộ đó. Precision và Recall giảm gần như nhau (trung bình đường chéo 0,52 và 0,65, ngoài đường chéo 0,41 và 0,50), nên trên hộ mới mô hình vừa bỏ sót nhiều hơn vừa báo nhầm nhiều hơn.
+\item \textbf{Hộ train quyết định kiểu lỗi:} mô hình train trên hộ 6 có Recall cao trên mọi hộ (0,55–0,67) và F1 chuyển giao tốt nhất (trung bình 0,447 trên 06 hộ khác). Mô hình train trên hộ 3 ngược lại, Precision cao trên hộ 6 và 20 (0,78 và 0,64) nhưng Recall thấp. Mô hình train trên hộ 11 kém nhất ở cả 03 chỉ số (F1 trung bình 0,334, thấp nhất 0,21 khi đánh giá trên hộ 13), vì hộ 11 gần như không dùng Dishwasher (chỉ 20 lần bật trong phần train).
+\item \textbf{Hộ đánh giá cũng quan trọng:} cột hộ 6 cao với mọi mô hình (F1 0,42–0,57 ngoài đường chéo), còn cột hộ 11 và 13 thấp với hầu hết các mô hình.
+\end{itemize}
+
+\paragraph{Dự đoán công suất}
+
+\begin{figure}[H]\centering\includegraphics[max width=\linewidth,max height=0.42\textheight]{figures/nilm/hinh_chuyen_ho_cong_suat.png}\caption{MAE, RMSE và NDE của 2Stage theo cặp hộ}\label{nilm:fig10}\end{figure}
+
+
+\begin{table}[H]
+\centering
+\caption{Dự đoán công suất: thay đổi so với mô hình đánh giá trên chính hộ train (giá trị ô trừ giá trị đường chéo cùng hàng).}\label{nilm:tab12}
+\footnotesize
+\setlength{\tabcolsep}{3.5pt}\renewcommand{\arraystretch}{1.12}
+\begin{adjustbox}{max width=\linewidth}
+\begin{tabular}{|l|r|r|r|r|r|r|r|r|}
+\hline
+\multirow{2}{*}{\textbf{Mô hình train trên hộ}} & \multicolumn{7}{c|}{\textbf{Đánh giá trên hộ}} & \multicolumn{1}{c|}{\multirow{2}{*}{\textbf{Trung bình ± độ lệch chuẩn}}} \\ \cline{2-8}
+ & \multicolumn{1}{c|}{\textbf{2}} & \multicolumn{1}{c|}{\textbf{3}} & \multicolumn{1}{c|}{\textbf{6}} & \multicolumn{1}{c|}{\textbf{9}} & \multicolumn{1}{c|}{\textbf{11}} & \multicolumn{1}{c|}{\textbf{13}} & \multicolumn{1}{c|}{\textbf{20}} \\ \cline{1-1}
+\multicolumn{9}{|l|}{\textbf{MAE (W) ↓}} \\ \hline
+Hộ 2 & — & +19,1 & −8,7 & +3,3 & −9,0 & +2,0 & −8,7 & −0,3 ± 11,1 \\ \hline
+Hộ 3 & +3,8 & — & −9,8 & +2,0 & −11,3 & −5,6 & −8,7 & −4,9 ± 6,4 \\ \hline
+Hộ 6 & +16,7 & +19,8 & — & +12,0 & +1,9 & +17,5 & +0,5 & +11,4 ± 8,3 \\ \hline
+Hộ 9 & +7,4 & +12,0 & −4,0 & — & −4,8 & +4,2 & −2,6 & +2,0 ± 6,9 \\ \hline
+Hộ 11 & +24,6 & +26,0 & +4,3 & +22,8 & — & +25,7 & +7,1 & +18,4 ± 9,9 \\ \hline
+Hộ 13 & +8,4 & +9,0 & −8,3 & +5,7 & −10,0 & — & −8,3 & −0,6 ± 9,2 \\ \hline
+Hộ 20 & +20,2 & +23,2 & +2,5 & +18,9 & +2,9 & +16,5 & — & +14,0 ± 9,0 \\ \cline{1-1}
+\multicolumn{9}{|l|}{\textbf{RMSE (W) ↓}} \\ \hline
+Hộ 2 & — & +72 & −24 & +16 & −36 & +26 & −22 & +5 ± 41 \\ \hline
+Hộ 3 & +23 & — & −42 & +14 & −59 & −15 & −20 & −17 ± 32 \\ \hline
+Hộ 6 & +87 & +86 & — & +67 & +10 & +79 & +23 & +59 ± 34 \\ \hline
+Hộ 9 & +45 & +59 & −14 & — & −21 & +42 & +9 & +20 ± 33 \\ \hline
+Hộ 11 & +114 & +120 & +38 & +116 & — & +118 & +59 & +94 ± 36 \\ \hline
+Hộ 13 & +40 & +38 & −28 & +34 & −38 & — & −18 & +5 ± 37 \\ \hline
+Hộ 20 & +98 & +101 & +18 & +98 & +25 & +71 & — & +69 ± 38 \\ \cline{1-1}
+\multicolumn{9}{|l|}{\textbf{NDE ↓}} \\ \hline
+Hộ 2 & — & +0,52 & +0,19 & +0,15 & +0,33 & +0,45 & +0,13 & +0,29 ± 0,17 \\ \hline
+Hộ 3 & +0,14 & — & −0,06 & +0,03 & +0,13 & +0,13 & +0,15 & +0,09 ± 0,08 \\ \hline
+Hộ 6 & +0,50 & +0,64 & — & +0,76 & +2,09 & +0,64 & +0,22 & +0,81 ± 0,66 \\ \hline
+Hộ 9 & +0,24 & +0,30 & +0,06 & — & +0,31 & +0,44 & +0,27 & +0,27 ± 0,12 \\ \hline
+Hộ 11 & +0,16 & +0,18 & +0,01 & +0,21 & — & +0,61 & +0,14 & +0,22 ± 0,20 \\ \hline
+Hộ 13 & +0,21 & +0,17 & −0,03 & +0,29 & +0,40 & — & +0,03 & +0,18 ± 0,16 \\ \hline
+Hộ 20 & +0,99 & +0,75 & +0,32 & +1,66 & +1,76 & +0,60 & — & +1,01 ± 0,58 \\ \hline
+\end{tabular}
+\end{adjustbox}
+\end{table}
+
+\begin{itemize}
+\item \textbf{Sai số tăng ở hầu hết các cặp:} MAE trung bình tăng từ 11,0 W trên đường chéo lên 16,7 W ngoài đường chéo, RMSE từ 91 lên 124 W. Có 41/42 ô RMSE và 42/42 ô NDE kém hơn ô đường chéo cùng cột.
+\item \textbf{MAE và RMSE phụ thuộc chủ yếu vào hộ đánh giá:} các ma trận này có dạng theo cột vì đây là sai số tuyệt đối tính bằng W. Hộ dùng thiết bị nhiều (hộ 2, 3, 9, 13) luôn có sai số lớn hơn hộ dùng ít (hộ 6, 11, 20), bất kể mô hình nào. Để so mức độ chuyển giao cần xem NDE, chỉ số đã chuẩn hóa theo năng lượng tín hiệu thật.
+\item \textbf{NDE gần gấp đôi trên hộ mới} (trung bình 0,50 lên 0,91). Mô hình có NDE tốt nhất trên chính hộ của nó lại chuyển giao kém nhất. Mô hình hộ 20 đạt 0,28 trên hộ 20 nhưng 1,95 trên hộ 9 và 2,04 trên hộ 11 (trung bình 1,30 trên 06 hộ khác). Mô hình hộ 6 cũng lên tới 2,48 trên hộ 11. NDE lớn hơn 1 nghĩa là sai số còn lớn hơn khi dự đoán luôn bằng 0, do mô hình dự đoán các chu trình công suất lớn ở hộ ít dùng thiết bị.
+\end{itemize}
+
+\paragraph{Dự đoán năng lượng}
+
+\begin{figure}[H]\centering\includegraphics[max width=\linewidth,max height=0.42\textheight]{figures/nilm/hinh_chuyen_ho_nang_luong.png}\caption{SAE, sai số năng lượng, NEP, TECA và MR của 2Stage theo cặp hộ}\label{nilm:fig11}\end{figure}
+
+
+\begin{table}[H]
+\centering
+\caption{Dự đoán năng lượng: thay đổi so với mô hình đánh giá trên chính hộ train (giá trị ô trừ giá trị đường chéo cùng hàng).}\label{nilm:tab13}
+\footnotesize
+\setlength{\tabcolsep}{3.5pt}\renewcommand{\arraystretch}{1.12}
+\begin{adjustbox}{max width=\linewidth}
+\begin{tabular}{|l|r|r|r|r|r|r|r|r|}
+\hline
+\multirow{2}{*}{\textbf{Mô hình train trên hộ}} & \multicolumn{7}{c|}{\textbf{Đánh giá trên hộ}} & \multicolumn{1}{c|}{\multirow{2}{*}{\textbf{Trung bình ± độ lệch chuẩn}}} \\ \cline{2-8}
+ & \multicolumn{1}{c|}{\textbf{2}} & \multicolumn{1}{c|}{\textbf{3}} & \multicolumn{1}{c|}{\textbf{6}} & \multicolumn{1}{c|}{\textbf{9}} & \multicolumn{1}{c|}{\textbf{11}} & \multicolumn{1}{c|}{\textbf{13}} & \multicolumn{1}{c|}{\textbf{20}} \\ \cline{1-1}
+\multicolumn{9}{|l|}{\textbf{SAE ↓}} \\ \hline
+Hộ 2 & — & +0,22 & +0,02 & +0,05 & +0,21 & +0,30 & +0,19 & +0,16 ± 0,11 \\ \hline
+Hộ 3 & +0,06 & — & +0,03 & +0,04 & +0,14 & +0,27 & +0,20 & +0,12 ± 0,10 \\ \hline
+Hộ 6 & +0,12 & +0,74 & — & +1,15 & +3,19 & +0,74 & −0,00 & +0,99 ± 1,16 \\ \hline
+Hộ 9 & +0,14 & +0,07 & +0,14 & — & +0,24 & +0,41 & +0,35 & +0,22 ± 0,13 \\ \hline
+Hộ 11 & +0,24 & +0,30 & +0,33 & +0,12 & — & +0,77 & +0,26 & +0,34 ± 0,22 \\ \hline
+Hộ 13 & −0,30 & −0,35 & −0,19 & −0,03 & −0,24 & — & −0,03 & −0,19 ± 0,13 \\ \hline
+Hộ 20 & +0,39 & +0,37 & −0,03 & +1,88 & +1,63 & +0,50 & — & +0,79 ± 0,78 \\ \cline{1-1}
+\multicolumn{9}{|l|}{\textbf{Sai số năng lượng (kWh) ↓}} \\ \hline
+Hộ 2 & — & +16,3 & −5,2 & −1,1 & −5,1 & +0,2 & −3,8 & +0,2 ± 8,2 \\ \hline
+Hộ 3 & +2,5 & — & −7,5 & +3,4 & −11,9 & −2,0 & −5,5 & −3,5 ± 6,0 \\ \hline
+Hộ 6 & +8,9 & +14,1 & — & +5,2 & +3,7 & +18,2 & +0,5 & +8,4 ± 6,7 \\ \hline
+Hộ 9 & +8,7 & +6,2 & +2,6 & — & −2,3 & +8,2 & +5,0 & +4,7 ± 4,1 \\ \hline
+Hộ 11 & +14,3 & +18,0 & +5,7 & +8,3 & — & +22,7 & +5,0 & +12,3 ± 7,2 \\ \hline
+Hộ 13 & −6,4 & −3,8 & −9,8 & −0,8 & −10,6 & — & −8,9 & −6,7 ± 3,8 \\ \hline
+Hộ 20 & +4,7 & +14,0 & +0,1 & +21,5 & +4,7 & +13,7 & — & +9,8 ± 7,9 \\ \cline{1-1}
+\multicolumn{9}{|l|}{\textbf{NEP ↓}} \\ \hline
+Hộ 2 & — & +0,46 & +0,12 & +0,19 & +0,35 & +0,50 & +0,10 & +0,29 ± 0,18 \\ \hline
+Hộ 3 & +0,16 & — & −0,07 & +0,07 & +0,10 & +0,25 & +0,12 & +0,10 ± 0,10 \\ \hline
+Hộ 6 & +0,48 & +1,11 & — & +1,48 & +3,35 & +1,13 & +0,03 & +1,26 ± 1,15 \\ \hline
+Hộ 9 & +0,22 & +0,32 & +0,03 & — & +0,21 & +0,48 & +0,20 & +0,24 ± 0,15 \\ \hline
+Hộ 11 & +0,31 & +0,21 & −0,04 & +0,34 & — & +0,92 & +0,22 & +0,33 ± 0,32 \\ \hline
+Hộ 13 & +0,07 & +0,03 & −0,21 & +0,37 & +0,16 & — & −0,25 & +0,03 ± 0,23 \\ \hline
+Hộ 20 & +1,07 & +0,96 & +0,33 & +2,34 & +1,91 & +1,06 & — & +1,28 ± 0,73 \\ \cline{1-1}
+\multicolumn{9}{|l|}{\textbf{TECA ↑}} \\ \hline
+Hộ 2 & — & −0,23 & −0,06 & −0,10 & −0,18 & −0,25 & −0,05 & −0,14 ± 0,09 \\ \hline
+Hộ 3 & −0,08 & — & +0,03 & −0,03 & −0,05 & −0,12 & −0,06 & −0,05 ± 0,05 \\ \hline
+Hộ 6 & −0,24 & −0,56 & — & −0,74 & −1,68 & −0,56 & −0,02 & −0,63 ± 0,57 \\ \hline
+Hộ 9 & −0,11 & −0,16 & −0,02 & — & −0,11 & −0,24 & −0,10 & −0,12 ± 0,07 \\ \hline
+Hộ 11 & −0,15 & −0,10 & +0,02 & −0,17 & — & −0,46 & −0,11 & −0,16 ± 0,16 \\ \hline
+Hộ 13 & −0,04 & −0,01 & +0,10 & −0,19 & −0,08 & — & +0,12 & −0,01 ± 0,12 \\ \hline
+Hộ 20 & −0,53 & −0,48 & −0,16 & −1,17 & −0,96 & −0,53 & — & −0,64 ± 0,36 \\ \cline{1-1}
+\multicolumn{9}{|l|}{\textbf{MR ↑}} \\ \hline
+Hộ 2 & — & −0,15 & −0,07 & −0,06 & −0,14 & −0,18 & −0,07 & −0,11 ± 0,05 \\ \hline
+Hộ 3 & −0,12 & — & −0,00 & −0,08 & −0,13 & −0,05 & −0,12 & −0,09 ± 0,05 \\ \hline
+Hộ 6 & −0,22 & −0,20 & — & −0,17 & −0,20 & −0,29 & −0,15 & −0,20 ± 0,05 \\ \hline
+Hộ 9 & −0,15 & −0,16 & −0,05 & — & −0,21 & −0,23 & −0,17 & −0,16 ± 0,06 \\ \hline
+Hộ 11 & −0,20 & −0,20 & −0,12 & −0,22 & — & −0,28 & −0,17 & −0,20 ± 0,05 \\ \hline
+Hộ 13 & −0,11 & −0,06 & −0,02 & −0,08 & −0,13 & — & −0,06 & −0,08 ± 0,04 \\ \hline
+Hộ 20 & −0,30 & −0,31 & −0,18 & −0,30 & −0,33 & −0,33 & — & −0,29 ± 0,06 \\ \hline
+\end{tabular}
+\end{adjustbox}
+\end{table}
+
+\begin{itemize}
+\item \textbf{Năng lượng suy giảm mạnh nhất trong 03 nhóm:} SAE tăng gấp đôi (0,31 lên 0,66), TECA giảm từ 0,59 xuống 0,34, MR giảm từ 0,43 xuống 0,27 (MR kém hơn đường chéo ở cả 42/42 ô).
+\item \textbf{Mô hình chuyển giao tốt về bật/tắt chưa chắc tốt về năng lượng:} mô hình hộ 6 có F1 chuyển giao tốt nhất nhưng lại kém nhất về năng lượng (SAE trung bình 1,33, TECA −0,07). Trên hộ 11, mô hình này có SAE 3,53 và TECA −1,11: nó báo bật với đủ biên độ ở một hộ gần như không dùng Dishwasher, nên điện năng dự đoán lớn gấp nhiều lần thực tế. Mô hình hộ 20 cũng có TECA âm trên hộ 9 và 11. Đây là cùng cơ chế đã phân tích ở mục~3.3.1.3: Recall cao đi kèm báo nhầm mang đủ biên độ.
+\item \textbf{Sai số năng lượng tính bằng kWh cũng theo cột} như MAE. Hộ dùng nhiều điện cho thiết bị đích (hộ 2, 3, 9, 13) luôn có sai số kWh lớn hơn.
+\item \textbf{Mô hình hộ 9 và hộ 13 chuyển giao năng lượng tốt nhất} (NEP trung bình 0,84 và TECA 0,58 với hộ 9; SAE trung bình 0,30 với hộ 13).
+\end{itemize}
+
+\paragraph{Tổng hợp mức suy giảm}
+
+
+\begin{table}[H]
+\centering
+\caption{Thay đổi khi đánh giá trên hộ mới so với trên chính hộ train, tính trên 42 cặp hộ ngoài đường chéo.}\label{nilm:tab14}
+\small
+\setlength{\tabcolsep}{3.5pt}\renewcommand{\arraystretch}{1.12}
+\begin{tabularx}{\linewidth}{|l|l|X|X|l|}
+\hline
+\textbf{Nhóm} & \textbf{Chỉ số} & \textbf{Thay đổi (trung bình ± độ lệch chuẩn)} & \textbf{Thay đổi tương đối (trung vị)} & \textbf{Số cặp kém đi} \\ \hline
+Bật/tắt & Precision ↑ & −0,116 ± 0,140 & −25\% & 35/42 \\ \hline
+Bật/tắt & Recall ↑ & −0,148 ± 0,093 & −21\% & 42/42 \\ \hline
+Bật/tắt & F1 ↑ & −0,143 ± 0,098 & −25\% & 39/42 \\ \hline
+Công suất & MAE (W) ↓ & +5,7 ± 11,6 & +47\% & 29/42 \\ \hline
+Công suất & RMSE (W) ↓ & +34 ± 50 & +34\% & 30/42 \\ \hline
+Công suất & NDE ↓ & +0,41 ± 0,47 & +57\% & 40/42 \\ \hline
+Năng lượng & SAE ↓ & +0,35 ± 0,63 & +57\% & 34/42 \\ \hline
+Năng lượng & Sai số năng lượng (kWh) ↓ & +3,6 ± 9,0 & +78\% & 27/42 \\ \hline
+Năng lượng & NEP ↓ & +0,50 ± 0,71 & +34\% & 38/42 \\ \hline
+Năng lượng & TECA ↑ & −0,25 ± 0,35 & −21\% & 38/42 \\ \hline
+Năng lượng & MR ↑ & −0,162 ± 0,086 & −36\% & 42/42 \\ \hline
+\end{tabularx}
+\end{table}
+
+Cả 11 chỉ số đều kém đi trên hộ mới: bật/tắt giảm khoảng 21–25\%, công suất (NDE) và năng lượng (SAE) tăng sai số khoảng 57\%. Recall và MR kém đi ở cả 42/42 cặp. MAE, RMSE và sai số kWh có ít cặp kém đi hơn (27–30/42) vì là sai số tuyệt đối, phụ thuộc vào mức dùng điện của hộ đánh giá.
+
+Hai cặp có F1 giảm nhiều nhất đều dùng mô hình train trên hộ 20. Hộ 20 → hộ 11 (−0,34) và hộ 20 → hộ 13 (−0,32). Hình~\ref{nilm:fig12} so tỷ lệ phút bật theo giờ của hộ 20 và hộ 11, cặp suy giảm lớn nhất. Hai hộ dùng cùng thang màu để có thể so sánh tần suất trực tiếp.
+
+\begin{figure}[H]\centering\includegraphics[max width=\linewidth,max height=0.42\textheight]{figures/nilm/hinh_xu_huong_hai_ho.png}\caption{Xu hướng sử dụng 04 thiết bị của hộ 20 và hộ 11 trên phần train: mỗi ô là tỷ lệ phút bật trong một giờ của ngày, cùng thang màu cho 02 hộ}\label{nilm:fig12}\end{figure}
+
+\begin{itemize}
+\item \textbf{Hộ 20 → hộ 11: khác giờ và khác tần suất.} Hộ 11 gần như không dùng Dishwasher. Kettle bật nhiều quanh nửa đêm trong khi hộ 20 bật buổi sáng và tối. Microwave của hộ 20 tập trung buổi sáng, của hộ 11 buổi tối.
+\item \textbf{Hộ 20 → hộ 13: cùng giờ nhưng khác tần suất.} Dishwasher và WashingMachine của hộ 13 bật cùng khung giờ với hộ 20 nhưng nhiều gấp 2–3 lần. Microwave của hộ 13 không có đỉnh buổi sáng như hộ 20.
+\end{itemize}
+
+\medskip\noindent\textbf{Trả lời câu hỏi 3.3.2}\par\nopagebreak
+
+\begin{itemize}
+\item \textbf{Hiệu năng suy giảm rõ khi sang hộ mới, ở cả 03 nhóm chỉ số:} F1 của 2Stage giảm khoảng 25\% (0,557 xuống 0,415), NDE gần gấp đôi, SAE gấp đôi. F1 và MR của mọi mô hình trên hộ mới đều thấp hơn mô hình train trên chính hộ đó.
+\item \textbf{Mức suy giảm phụ thuộc vào cả hộ train và hộ đánh giá:} mô hình train trên hộ 11, nơi gần như không dùng Dishwasher, kém nhất. Hộ 6 dễ đánh giá với mọi mô hình. Dishwasher và Kettle chuyển giao tương đối tốt (F1 trên hộ mới 0,674 và 0,618). WashingMachine (0,313) và Microwave (0,079) chưa đạt.
+\item \textbf{Năng lượng suy giảm mạnh hơn bật/tắt:} mô hình vẫn nhận ra phần lớn lần bật nhưng gán thừa điện năng ở hộ ít dùng thiết bị. Mô hình tốt nhất về F1 (hộ 6) lại kém nhất về năng lượng.
+\end{itemize}
+
+\subsubsection{Mô hình chung và mô hình riêng: hiệu năng và chi phí}
+
+Nhóm trả lời đề bài 2 (Y2.1, Y2.2). Với mỗi hộ test, 04 cấu hình được kiểm tra trên cùng 20\% thời gian cuối: \textbf{2Stage riêng, Baseline riêng} (cá nhân hóa: train chỉ trên dữ liệu đo riêng từng thiết bị của chính hộ đó) và \textbf{2Stage chung, Baseline chung} (không cá nhân hóa: một mô hình train trên hộ 6, 9, 11, 20). Với hộ 6, 9, 11, 20, câu hỏi là mô hình riêng có tốt hơn mô hình chung đã học cả hộ đó không. Với hộ 2, 3, 13, câu hỏi là có đáng đo riêng từng thiết bị tại hộ mới thay vì dùng ngay mô hình chung không. Các số sơ bộ trong hồ sơ về tinh chỉnh theo hộ và Trợ lý AI không thuộc thực nghiệm này và không được dùng.
+
+\textbf{Giả định.} So sánh này yêu cầu các hộ có cùng một bộ thiết bị cần dự đoán. Vì vậy thực nghiệm chỉ giữ 07 hộ có đủ cả 04 thiết bị đích (mục~3.2.2). Mô hình chung dự đoán cùng 04 đầu ra cho mọi hộ, và một hộ thiếu thiết bị sẽ không có nhãn để train hay kiểm tra thiết bị đó.
+
+\textbf{Giả thuyết.} Mục 3.2 cho thấy đặc tính sử dụng thiết bị khác nhau giữa các hộ và mô hình giảm hiệu năng khi sang hộ khác. Nếu vậy, mô hình train riêng trên một hộ sẽ khớp với đặc tính của hộ đó hơn và cho kết quả tốt hơn mô hình chung khi đánh giá trên chính hộ đó. Nhóm kiểm tra giả thuyết bằng cách so 2Stage riêng với 2Stage chung trên cùng hộ. Baseline được giữ trong bảng để so với NILM cơ sở.
+
+\paragraph{Độ chính xác}
+
+
+\begin{table}[H]
+\centering
+\caption{Dự đoán bật/tắt của 04 cấu hình. “Riêng” là mô hình train trên chính hộ test. Tên nhóm cột chỉ xét theo mô hình chung.}\label{nilm:tab15}
+\footnotesize
+\setlength{\tabcolsep}{3.5pt}\renewcommand{\arraystretch}{1.12}
+\begin{adjustbox}{max width=\linewidth}
+\begin{tabular}{|l|r|r|r|r|r|r|r|r|}
+\hline
+\multirow{2}{*}{\textbf{Chỉ số}} & \multicolumn{4}{c|}{\textbf{Hộ có trong mô hình chung (6, 9, 11, 20)}} & \multicolumn{4}{c|}{\textbf{Hộ mới với mô hình chung (2, 3, 13)}} \\ \cline{2-9}
+ & \multicolumn{1}{c|}{\textbf{2Stage riêng}} & \multicolumn{1}{c|}{\textbf{2Stage chung}} & \multicolumn{1}{c|}{\textbf{Baseline riêng}} & \multicolumn{1}{c|}{\textbf{Baseline chung}} & \multicolumn{1}{c|}{\textbf{2Stage riêng}} & \multicolumn{1}{c|}{\textbf{2Stage chung}} & \multicolumn{1}{c|}{\textbf{Baseline riêng}} & \multicolumn{1}{c|}{\textbf{Baseline chung}} \\ \hline
+Precision ↑ & 0,581 & 0,627 & 0,604 & \textbf{0,637} & 0,453 & \textbf{0,471} & \textbf{0,471} & 0,455 \\ \hline
+Recall ↑ & 0,701 & \textbf{0,732} & 0,613 & 0,587 & 0,605 & \textbf{0,659} & 0,526 & 0,512 \\ \hline
+F1 ↑ & 0,623 & \textbf{0,664} & 0,604 & 0,588 & 0,479 & \textbf{0,535} & 0,480 & 0,473 \\ \hline
+\end{tabular}
+\end{adjustbox}
+\end{table}
+
+
+\begin{table}[H]
+\centering
+\caption{Dự đoán công suất của 04 cấu hình.}\label{nilm:tab16}
+\footnotesize
+\setlength{\tabcolsep}{3.5pt}\renewcommand{\arraystretch}{1.12}
+\begin{adjustbox}{max width=\linewidth}
+\begin{tabular}{|l|r|r|r|r|r|r|r|r|}
+\hline
+\multirow{2}{*}{\textbf{Chỉ số}} & \multicolumn{4}{c|}{\textbf{Hộ có trong mô hình chung (6, 9, 11, 20)}} & \multicolumn{4}{c|}{\textbf{Hộ mới với mô hình chung (2, 3, 13)}} \\ \cline{2-9}
+ & \multicolumn{1}{c|}{\textbf{2Stage riêng}} & \multicolumn{1}{c|}{\textbf{2Stage chung}} & \multicolumn{1}{c|}{\textbf{Baseline riêng}} & \multicolumn{1}{c|}{\textbf{Baseline chung}} & \multicolumn{1}{c|}{\textbf{2Stage riêng}} & \multicolumn{1}{c|}{\textbf{2Stage chung}} & \multicolumn{1}{c|}{\textbf{Baseline riêng}} & \multicolumn{1}{c|}{\textbf{Baseline chung}} \\ \hline
+MAE (W) ↓ & 6,7 & \textbf{6,3} & 9,5 & 8,4 & 17,1 & \textbf{16,4} & 22,7 & 19,7 \\ \hline
+RMSE (W) ↓ & 69,5 & \textbf{68,8} & 73,7 & 70,6 & 121,6 & 125,3 & \textbf{119,8} & 126,8 \\ \hline
+NDE ↓ & \textbf{0,397} & 0,439 & 0,399 & 0,406 & 0,591 & 0,691 & \textbf{0,565} & 0,603 \\ \hline
+\end{tabular}
+\end{adjustbox}
+\end{table}
+
+
+\begin{table}[H]
+\centering
+\caption{Dự đoán năng lượng của 04 cấu hình.}\label{nilm:tab17}
+\footnotesize
+\setlength{\tabcolsep}{3.5pt}\renewcommand{\arraystretch}{1.12}
+\begin{adjustbox}{max width=\linewidth}
+\begin{tabular}{|l|r|r|r|r|r|r|r|r|}
+\hline
+\multirow{2}{*}{\textbf{Chỉ số}} & \multicolumn{4}{c|}{\textbf{Hộ có trong mô hình chung (6, 9, 11, 20)}} & \multicolumn{4}{c|}{\textbf{Hộ mới với mô hình chung (2, 3, 13)}} \\ \cline{2-9}
+ & \multicolumn{1}{c|}{\textbf{2Stage riêng}} & \multicolumn{1}{c|}{\textbf{2Stage chung}} & \multicolumn{1}{c|}{\textbf{Baseline riêng}} & \multicolumn{1}{c|}{\textbf{Baseline chung}} & \multicolumn{1}{c|}{\textbf{2Stage riêng}} & \multicolumn{1}{c|}{\textbf{2Stage chung}} & \multicolumn{1}{c|}{\textbf{Baseline riêng}} & \multicolumn{1}{c|}{\textbf{Baseline chung}} \\ \hline
+SAE ↓ & 0,240 & 0,250 & \textbf{0,164} & 0,337 & 0,422 & 0,351 & 0,381 & \textbf{0,198} \\ \hline
+Sai số năng lượng (kWh) ↓ & 2,91 & 1,99 & \textbf{1,61} & 2,97 & 13,50 & 8,01 & 13,66 & \textbf{6,67} \\ \hline
+NEP ↓ & \textbf{0,707} & 0,795 & 1,032 & 1,038 & \textbf{0,927} & 1,092 & 1,443 & 1,192 \\ \hline
+TECA ↑ & \textbf{0,647} & 0,603 & 0,484 & 0,481 & \textbf{0,537} & 0,454 & 0,279 & 0,404 \\ \hline
+MR ↑ & 0,506 & \textbf{0,533} & 0,405 & 0,418 & 0,356 & \textbf{0,391} & 0,258 & 0,308 \\ \hline
+\end{tabular}
+\end{adjustbox}
+\end{table}
+
+\begin{figure}[H]\centering\includegraphics[max width=\linewidth,max height=0.42\textheight]{figures/nilm/hinh_ca_nhan_hoa.png}\caption{F1 theo hộ test của 2Stage chung, 2Stage riêng, Baseline chung và Baseline riêng (mô hình riêng vẽ gạch chéo)}\label{nilm:fig13}\end{figure}
+
+\textbf{Kết quả kiểm định (2Stage riêng so với 2Stage chung, số hộ mô hình riêng tốt hơn trên 7 hộ):}
+
+\begin{table}[H]
+\centering
+\small
+\setlength{\tabcolsep}{3.5pt}\renewcommand{\arraystretch}{1.12}
+\begin{tabularx}{\linewidth}{|l|X|X|}
+\hline
+\textbf{Nhóm} & \textbf{Mô hình riêng tốt hơn} & \textbf{Mô hình chung tốt hơn} \\ \hline
+Bật/tắt & — & F1 (6/7 hộ), Recall (5/7), MR (6/7) \\ \hline
+Công suất & NDE (6/7 hộ) & MAE (4/7) \\ \hline
+Năng lượng & NEP, TECA (4/7 hộ, và tốt hơn ở cả 02 nhóm hộ trong Bảng~\ref{nilm:tab17}) & Sai số năng lượng (5/7) \\ \hline
+\end{tabularx}
+\end{table}
+
+\begin{itemize}
+\item \textbf{Giả thuyết chỉ đúng với độ khớp biên độ và năng lượng:} mô hình riêng có NDE thấp hơn ở 6/7 hộ, NEP và TECA tốt hơn ở cả 02 nhóm hộ. Mô hình học đúng mức công suất và điện năng của chính hộ đó.
+\item \textbf{Giả thuyết sai với phát hiện bật/tắt:} mô hình chung có F1 cao hơn ở 6/7 hộ (chỉ hộ 20 ngược lại), kể cả trên 03 hộ nó chưa từng thấy (0,535 so với 0,479 của mô hình train trên chính hộ đó). Mô hình chung được train trên lượng dữ liệu khoảng gấp 4 lần và nhiều kiểu sử dụng khác nhau, nên nhận ra lần bật tốt hơn. Lợi ích này lớn hơn lợi ích từ việc khớp đặc tính riêng của một hộ.
+\item \textbf{So với NILM cơ sở:} 2Stage chung là cấu hình tốt nhất về F1, Recall, MAE và MR. F1 cao hơn Baseline chung 0,076 trên hộ có trong train và 0,062 trên hộ mới.
+\end{itemize}
+
+\paragraph{Yêu cầu phần cứng}
+
+
+\begin{table}[H]
+\centering
+\caption{Phần cứng cần để train và chạy 04 cấu hình.}\label{nilm:tab18}
+\small
+\setlength{\tabcolsep}{3.5pt}\renewcommand{\arraystretch}{1.12}
+\begin{tabularx}{\linewidth}{|X|X|l|X|l|}
+\hline
+\textbf{Hạng mục} & \textbf{2Stage riêng} & \textbf{2Stage chung} & \textbf{Baseline riêng} & \textbf{Baseline chung} \\ \hline
+Số mô hình cần train & 1 mỗi hộ & 1 cho mọi hộ & 1 mỗi hộ & 1 cho mọi hộ \\ \hline
+Train (1 GPU L40S, 5 seed) & khoảng 20 phút mỗi hộ & khoảng 66 phút, một lần & khoảng 4 phút mỗi hộ & khoảng 17 phút, một lần \\ \hline
+Chạy suy luận 1 ngày dữ liệu (CPU 1 luồng, 5 seed) & khoảng 0,24 s & khoảng 0,24 s & khoảng 0,20 s & khoảng 0,20 s \\ \hline
+Cảm biến tại hộ dùng & cảm biến tổng + 4 ổ cắm đo trong khoảng 333 ngày & chỉ cảm biến tổng & cảm biến tổng + 4 ổ cắm đo trong khoảng 333 ngày & chỉ cảm biến tổng \\ \hline
+\end{tabularx}
+\end{table}
+
+\textbf{Cấu hình tối thiểu để chạy (demo Docker, 2Stage chung):} không cần GPU; 1 lõi CPU và 512 MB RAM là đủ (bộ nhớ đỉnh 354 MB). Image 1,21 GB, trọng số 10,4 MB. Phân rã 1.536 phút (khoảng 1 ngày) dữ liệu trong 0,33–0,36 s, kết quả khớp tuyệt đối với bản chạy ngoài container.
+
+\medskip\noindent\textbf{Trả lời câu hỏi 3.3.3}\par\nopagebreak
+
+\begin{itemize}
+\item \textbf{Học từ nhiều hộ tốt hơn về phát hiện bật/tắt, học từ một hộ tốt hơn về khớp năng lượng:} với 2Stage, mô hình chung có F1 cao hơn mô hình riêng ở 6/7 hộ (kể cả hộ chưa thấy: 0,535 so với 0,479). Mô hình riêng có NDE tốt hơn ở 6/7 hộ và NEP, TECA tốt hơn. Giả thuyết “đặc tính hộ khác nhau nên mô hình riêng tốt hơn” chỉ đúng một phần: lượng và độ đa dạng dữ liệu của mô hình chung quan trọng hơn với việc nhận ra lần bật.
+\item \textbf{Đánh đổi về train:} mô hình chung train một lần lâu hơn (khoảng 66 phút GPU) nhưng dùng cho mọi hộ. Mô hình riêng phải train lại cho từng hộ.
+\item \textbf{Đánh đổi về cảm biến:} mô hình chung chỉ cần cảm biến tổng tại hộ dùng. Mô hình riêng cần thêm 4 ổ cắm đo tại mỗi hộ trong khoảng 333 ngày để thu dữ liệu train.
+\item \textbf{Đánh đổi về phạm vi:} mô hình chung chỉ dự đoán được bộ thiết bị chung của các hộ train. Hộ có thiết bị khác cần thu thêm dữ liệu có nhãn cho thiết bị đó.
+\item \textbf{Triển khai:} cả 02 cách đều chạy được trên CPU, không cần GPU: 1 lõi và 512 MB RAM xử lý khoảng 1 ngày dữ liệu trong khoảng 0,35 s.
+\end{itemize}
+
+\subsection{Kết luận}
+
+\subsubsection{Đánh giá NILM trên hộ và thiết bị mới}
+
+\textbf{Y1.1 – Hiệu năng trên hộ mới.} Thực nghiệm tách phần kiểm tra theo thời gian của từng hộ và đánh giá chéo 7$\times$7 cặp hộ train–test. Với mô hình train riêng một hộ, khi chuyển sang hộ khác, F1 của 2Stage giảm từ 0,557 xuống 0,415 và MAE tăng từ 11,5 lên 17,4 W. Baseline giảm F1 từ 0,547 xuống 0,374 và tăng MAE từ 15,6 lên 23,7 W (Bảng~\ref{nilm:tab4}). Bảng theo thiết bị, mức điện tổng và ma trận theo cặp hộ ở mục~3.3.1–3.3.2 cho thấy mức giảm không đồng đều. Dishwasher và Kettle chuyển giao tương đối tốt, còn WashingMachine và Microwave yếu. F1 của Microwave trên hộ mới chỉ đạt 0,079. 2Stage giảm bỏ sót Dishwasher nhưng cũng báo bật nhầm nhiều hơn, nên lợi ích về F1 cần đọc cùng sai số điện năng.
+
+\textbf{Y1.2 – Nhiều thiết bị chạy đồng thời.} Mô hình dự đoán công suất của 04 thiết bị cùng lúc từ điện tổng. Hình~\ref{nilm:fig5} minh họa điện tổng và từng thiết bị trên cùng cửa sổ thời gian. Ở mức điện tổng từ 3.000 W, các bước gia nhiệt gần 2 kW dễ bị gán nhầm giữa Dishwasher, WashingMachine và Kettle. Ở mức này, 2Stage kém Baseline về F1 trên hộ được train (0,530 so với 0,572) và SAE trên hộ mới (1,049 so với 0,853). Khi chia phút test theo số thiết bị đích thực sự bật (mục~3.3.1.4), phút có từ 02 thiết bị đích cùng bật chỉ chiếm 0,15\%. Ở nhóm này, trên hộ mới, 2Stage vẫn tốt hơn Baseline: F1 0,597 so với 0,519, MAE 525 so với 611 W, sai số điện năng tương đối 0,472 so với 0,565 (Bảng~\ref{nilm:tab8}). So trong cùng khoảng điện tổng, chồng lấp làm Recall giảm, tức mô hình bỏ sót một trong các thiết bị đang chạy, còn sai số điện năng tăng chủ yếu theo mức tải (Bảng~\ref{nilm:tab9}). Lỗi gán nhầm rõ nhất là 2Stage nhận WashingMachine thành Dishwasher. Trong 42,4\% số phút WashingMachine chạy một mình và 58,3\% khi có thiết bị đích khác chạy cùng, khoảng gấp đôi Baseline (Bảng~\ref{nilm:tab10}, Hình~\ref{nilm:fig8}). Bài cũng \textbf{chưa kiểm tra loại thiết bị chưa thấy}: mọi hộ trong thí nghiệm đều có cùng 04 thiết bị đích, nên chưa thể kết luận khả năng nhận ra thiết bị mới.
+
+\subsubsection{Lợi ích và chi phí triển khai}
+
+\textbf{Y2.1–Y2.2 – Mô hình và phần cứng.} Trên cùng đầu vào, 2Stage chung có F1 cao hơn Baseline chung ở cả hộ đã thấy (0,664 so với 0,588) và hộ chưa thấy (0,535 so với 0,473). So với 2Stage train riêng trên chính hộ test, mô hình chung có F1 cao hơn ở 6/7 hộ, kể cả 03 hộ chưa thấy (0,535 so với 0,479). Mô hình riêng lại có NDE tốt hơn ở 6/7 hộ và NEP, TECA tốt hơn ở cả 02 nhóm hộ. Do đó dữ liệu nhiều hộ giúp phát hiện bật/tắt, còn dữ liệu riêng giúp khớp biên độ và năng lượng. “Cá nhân hóa” trong bài là train một mô hình riêng từ dữ liệu có nhãn của hộ, chưa phải tinh chỉnh mô hình chung tại hộ.
+
+2Stage chung cần khoảng 66 phút train một lần trên GPU L40S với 5 seed, so với khoảng 20 phút \textbf{cho mỗi hộ} nếu train riêng. Khi dùng mô hình chung, hộ chỉ cần cảm biến điện tổng. Train riêng cần thêm bốn ổ cắm đo thiết bị trong khoảng 333 ngày. Suy luận một ngày dữ liệu mất khoảng 0,24 s trên CPU một luồng. Bản demo Docker chạy với 1 lõi CPU, 512 MB RAM, dùng đỉnh 354 MB và mất 0,33–0,36 s. Các số này chứng minh khả năng chạy gọn của \textbf{khối suy luận NILM}, chưa phải chi phí tiền tệ hoặc chi phí vận hành toàn hệ thống.
+
+\textbf{Y2.3 – Trợ lý AI.} Trợ lý đọc dữ liệu điện tổng và kết quả NILM để trả lời người dùng, không thay đổi dự đoán phân rã; vì vậy bản có và không có trợ lý dùng cùng đầu ra NILM.
+
