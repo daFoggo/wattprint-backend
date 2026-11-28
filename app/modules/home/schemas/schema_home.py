@@ -25,6 +25,8 @@ class HomeRead(BaseModel):
     billing_cycle_day: int
     province_code: str | None
     role: Literal["owner", "member", "viewer"]
+    ai_detail: Literal["daily", "hourly"] | None  # None: the system default
+    ai_detail_effective: Literal["daily", "hourly"]
 
 
 class HomeUpdate(BaseModel):
@@ -38,3 +40,4 @@ class HomeUpdate(BaseModel):
     occupants: int | None = Field(default=None, ge=1, le=30)
     billing_cycle_day: int | None = Field(default=None, ge=1, le=28)
     province_code: str | None = Field(default=None, max_length=16)
+    ai_detail: Literal["daily", "hourly"] | None = None  # null: back to the system default

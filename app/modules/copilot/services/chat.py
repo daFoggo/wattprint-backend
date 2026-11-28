@@ -11,7 +11,7 @@ from typing import Any
 from sqlalchemy import func, select, update
 
 from app.database import SessionLocal
-from app.modules.home.api import HomeMember
+from app.modules.home.api import Home, HomeMember, ai_detail
 
 from ..models import Conversation, Message, ToolCall
 from ..schemas import Link, LinksWidget, Widget
@@ -336,6 +336,7 @@ async def answer(
             user_id,
             question,
             read_only=role == "viewer",
+            detail=ai_detail(await s.get(Home, home_id)),
         )
         # The guard reads the question while the model's first round runs: no word is shown and no
         # tool runs before it has answered, which that round's own wait almost always covers.

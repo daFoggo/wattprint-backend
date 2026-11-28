@@ -6,7 +6,7 @@ switches identity with SET LOCAL ROLE; no role password or login state is ever t
 
 import re
 import uuid
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime, time, timedelta
 
 import pytest
 from sqlalchemy import text
@@ -37,13 +37,10 @@ COPILOT_VIEWS = (
     "bill",
     "bill_item",
     "alert",
-    "device_cycle",
     "suggestion",
     "forecast_snapshot",
-    "reading_1m",
     "reading_1h",
     "reading_1d",
-    "device_estimate_1m",
     "device_estimate_1h",
     "device_estimate_1d",
 )
@@ -55,13 +52,10 @@ EXPECTED_ROWS = {
     "bill": 1,
     "bill_item": 2,
     "alert": 1,
-    "device_cycle": 1,
     "suggestion": 1,
     "forecast_snapshot": 1,
-    "reading_1m": 3,
     "reading_1h": 1,
     "reading_1d": 1,
-    "device_estimate_1m": 3,
     "device_estimate_1h": 1,
     "device_estimate_1d": 1,
 }
@@ -128,7 +122,10 @@ async def _seed_home(c, name: str) -> dict:
         {"h": home},
     )
     token = await c.scalar(
-        text("INSERT INTO public.tb_scope_token (home_id) VALUES (:h) RETURNING token"),
+        text(
+            "INSERT INTO public.tb_scope_token (home_id, detail) VALUES (:h, 'hourly') "
+            "RETURNING token"
+        ),
         {"h": home},
     )
     return {
@@ -225,7 +222,7 @@ async def test_copilot_sees_only_own_home(conn):
         assert await view_ids(conn, "bill") == {home["bill"]}
         assert await view_ids(conn, "alert") == {home["alert"]}
         assert await view_ids(conn, "suggestion") == {home["suggestion"]}
-        for res in ("1m", "1h", "1d"):
+        for res in ("1h", "1d"):
             for family in ("reading", "device_estimate"):
                 got = await view_ids(conn, f"{family}_{res}", "series_id")
                 assert got <= home["series"] and got.isdisjoint(other["series"])
@@ -328,14 +325,16 @@ async def test_copilot_inline_token_switch_needs_a_known_token(conn):
         assert await table_denied(conn, role, "public.tb_scope_token")
 
 
-async def test_scope_token_function_is_locked_down(conn):
+@pytest.mark.parametrize("fn", ["current_home", "current_detail"])
+async def test_scope_token_function_is_locked_down(conn, fn):
     row = (
         await conn.execute(
             text(
                 "SELECT p.prosecdef, p.provolatile, p.proconfig, pg_get_userbyid(p.proowner) "
                 "FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace "
-                "WHERE n.nspname = 'copilot_ro' AND p.proname = 'current_home'"
-            )
+                "WHERE n.nspname = 'copilot_ro' AND p.proname = :fn"
+            ),
+            {"fn": fn},
         )
     ).one()
     assert row[0] is True and row[1] in ("s", b"s")
@@ -345,18 +344,59 @@ async def test_scope_token_function_is_locked_down(conn):
         await conn.execute(
             text(
                 "SELECT a.grantee, a.is_grantable FROM pg_proc p, LATERAL aclexplode(p.proacl) a "
-                "WHERE p.oid = 'copilot_ro.current_home()'::regprocedure"
-            )
+                "WHERE p.oid = CAST(:fn AS regprocedure)"
+            ),
+            {"fn": f"copilot_ro.{fn}()"},
         )
     ).all()
     assert 0 not in {g for g, _ in acl}  # not PUBLIC
     assert not any(grantable for _, grantable in acl)
     for role, want in ((COPILOT, True), (APP, False), (INGEST, False)):
         got = await conn.scalar(
-            text("SELECT has_function_privilege(:r, 'copilot_ro.current_home()', 'EXECUTE')"),
-            {"r": role},
+            text("SELECT has_function_privilege(:r, :fn, 'EXECUTE')"),
+            {"r": role, "fn": f"copilot_ro.{fn}()"},
         )
         assert got is want, role
+
+
+async def test_copilot_reads_no_minute_runs_or_identity(conn):
+    for gone in ("reading_1m", "device_estimate_1m", "device_cycle"):
+        assert (
+            await conn.scalar(text("SELECT to_regclass(:v)"), {"v": f"copilot_ro.{gone}"}) is None
+        )
+    cols = await conn.execute(
+        text(
+            "SELECT column_name FROM information_schema.columns "
+            "WHERE table_schema = 'copilot_ro' AND table_name = 'home'"
+        )
+    )
+    assert {"name", "postal_code", "occupants"}.isdisjoint(cols.scalars())
+
+
+async def test_a_daily_token_sees_days_not_hours(conn):
+    a, _, _ = await seed(conn)
+    daily = await conn.scalar(
+        text(
+            "INSERT INTO public.tb_scope_token (home_id, detail) VALUES (:h, 'daily') "
+            "RETURNING token"
+        ),
+        {"h": a["home"]},
+    )
+    for token, hours in ((a["token"], 1), (daily, 0)):
+        await as_role(conn, COPILOT, token)
+        assert await conn.scalar(text("SELECT copilot_ro.current_detail()")) == (
+            "hourly" if hours else "daily"
+        )
+        for family in ("reading", "device_estimate"):
+            assert await view_count(conn, f"{family}_1h") == hours, (family, token)
+            assert await view_count(conn, f"{family}_1d") == 1, (family, token)
+        local = await conn.scalar(
+            text("SELECT (ts AT TIME ZONE 'Asia/Ho_Chi_Minh')::time FROM copilot_ro.alert")
+        )
+        assert (local == time(0)) is (hours == 0)  # a daily token sees the day of an alert only
+        await reset(conn)
+    await as_role(conn, COPILOT, "")  # no token: no level, so no row of any view
+    assert await conn.scalar(text("SELECT copilot_ro.current_detail()")) is None
 
 
 async def test_token_lookup_uses_the_primary_key(conn):
@@ -417,13 +457,6 @@ async def test_copilot_hostile_denormalized_rows_hidden(conn):
         await as_role(conn, COPILOT, home["token"])
         assert hostile["alert"] not in await view_ids(conn, "alert")
         assert hostile["suggestion"] not in await view_ids(conn, "suggestion")
-        assert await view_count(conn, "device_cycle") == 1
-        assert (
-            await conn.scalar(
-                text("SELECT count(*) FROM copilot_ro.device_cycle WHERE energy_wh = 999")
-            )
-            == 0
-        )
         await reset(conn)
 
 
@@ -434,8 +467,8 @@ async def test_copilot_cannot_write(conn):
     a, _, _ = await seed(conn)
     await as_role(conn, COPILOT, a["token"])
     for sql in (
-        "INSERT INTO copilot_ro.home (id, name) VALUES (gen_random_uuid(), 'x')",
-        "UPDATE copilot_ro.home SET name = 'x'",
+        "INSERT INTO copilot_ro.home (id, province_code) VALUES (gen_random_uuid(), 'x')",
+        "UPDATE copilot_ro.home SET province_code = 'x'",
         "DELETE FROM copilot_ro.alert",
         "TRUNCATE public.tb_chunk",
         "UPDATE copilot_ro.bill SET status = 'x'",
@@ -1031,7 +1064,7 @@ async def test_revision_downgrade_removes_grants_and_upgrade_restores_them(throw
 
 
 @pytest.mark.parametrize(
-    "view", ["reading_1m", "reading_1h", "reading_1d", "device_estimate_1m", "device_estimate_1h"]
+    "view", ["reading_1h", "reading_1d", "device_estimate_1h", "device_estimate_1d"]
 )
 async def test_aggregate_view_pushes_series_filter_into_index_scan(conn, view):
     a, _, _ = await seed(conn)

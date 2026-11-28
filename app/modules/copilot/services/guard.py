@@ -48,6 +48,7 @@ async def unsafe(question: str) -> str | None:
                 json={
                     "model": settings.copilot_guard_model,
                     "messages": [{"role": "user", "content": question}],
+                    "provider": llm.OPENROUTER_PRIVACY,
                 },
                 headers={"Authorization": f"Bearer {settings.openrouter_api_key}"},
             )

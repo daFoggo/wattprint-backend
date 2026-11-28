@@ -178,7 +178,8 @@ async def seed_home(cfg: dict, home: dict, kc: Keycloak, password: str, extra: l
         await s.execute(
             text(
                 "UPDATE public.tb_home SET name = :n, province_code = NULL, home_type = NULL, "
-                "floor_area_m2 = NULL, occupants = NULL, tariff_plan_code = 'vn_residential' "
+                "floor_area_m2 = NULL, occupants = NULL, tariff_plan_code = 'vn_residential', "
+                "ai_detail = 'hourly' "  # public dataset homes: Wappi may see their hours
                 "WHERE id = :h"
             ),
             {"n": name, "h": home_id},

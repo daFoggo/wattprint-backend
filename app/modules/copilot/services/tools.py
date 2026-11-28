@@ -72,6 +72,7 @@ class Ctx:
     user_id: uuid.UUID | None = None  # who asks: a watch is theirs
     question: str = ""
     read_only: bool = False  # a demo viewer: the tools in WRITES answer an error instead
+    detail: str = "daily"  # how fine the numbers sent to the model may be: 'daily' or 'hourly'
 
 
 @dataclass
@@ -559,6 +560,15 @@ async def cohort(ctx: Ctx) -> Outcome:
     )
 
 
+def _when(ctx: Ctx, a) -> dict[str, Any]:
+    """An alert's time and figures; at the daily level only its day, no clock time inside."""
+    local = a.ts.astimezone(ICT)
+    if ctx.detail == "hourly":
+        return {"since": local.isoformat(timespec="minutes"), "figures": a.payload}
+    figures = {k: v for k, v in (a.payload or {}).items() if k not in ("at", "start")}
+    return {"since": local.date().isoformat(), "figures": figures}
+
+
 async def alerts(ctx: Ctx) -> Outcome:
     rows = [
         (a, d)
@@ -570,9 +580,8 @@ async def alerts(ctx: Ctx) -> Outcome:
             {
                 "kind": a.kind,
                 "severity": a.severity,
-                "since": a.ts.astimezone(ICT).isoformat(timespec="minutes"),
+                **_when(ctx, a),
                 "device": d.name if d else None,
-                "figures": a.payload,
             }
             for a, d in rows
         ]
@@ -598,6 +607,14 @@ def standby_level(watts: list[float]) -> tuple[float, dict | None]:
 
 
 async def standby(ctx: Ctx, nights: int = 14) -> Outcome:
+    if ctx.detail != "hourly":  # it reads 00:00-05:00 minute by minute, finer than a day
+        return Outcome(
+            {
+                "error": "the owner set Wappi to daily detail, so night-by-night standby is not "
+                "read; the home's owner can allow hourly detail in Settings > Privacy"
+            },
+            _vi(ctx, "Wappi chỉ xem theo ngày", "Wappi sees days only"),
+        )
     nights = max(3, min(int(nights), 30))
     last = (ctx.now.astimezone(ICT) - timedelta(hours=5)).date()  # the last night fully over
     rows = await ctx.session.execute(
@@ -775,7 +792,7 @@ async def query_data(ctx: Ctx, question: str) -> Outcome:
     """Free-form data question through text2sql, limited to this home by a 5-minute scope token."""
     if not settings.text2sql_connection_id:
         return Outcome({"error": "free-form data questions are not configured"}, "text2sql")
-    token = ScopeToken(home_id=ctx.home_id)
+    token = ScopeToken(home_id=ctx.home_id, detail=ctx.detail)
     ctx.session.add(token)
     await ctx.session.commit()  # text2sql reads it from its own connection
     headers = (
@@ -822,6 +839,14 @@ async def query_data(ctx: Ctx, question: str) -> Outcome:
             "rows": rows[:MAX_ROWS_TO_LLM],
             "row_count": last.get("row_count", len(rows)),
             "summary": answer,
+            **(
+                {}
+                if ctx.detail == "hourly"
+                else {
+                    "detail_note": "the owner set Wappi to daily detail: no hourly or finer data "
+                    "was readable; say so if the question needs hours (Settings > Privacy)"
+                }
+            ),
         },
         detail=_vi(ctx, "Truy vấn chỉ đọc dữ liệu nhà bạn", "Read-only query of your home's data"),
         tier="estimated",
@@ -928,7 +953,7 @@ async def _one_number_sql(ctx: Ctx, question: str) -> tuple[str | None, str | No
     """(SQL, None) of the last query text2sql ran cleanly for `question`, or (None, why)."""
     if not settings.text2sql_connection_id:
         return None, "custom watches are not configured"
-    token = ScopeToken(home_id=ctx.home_id)
+    token = ScopeToken(home_id=ctx.home_id, detail=ctx.detail)
     ctx.session.add(token)
     await ctx.session.commit()  # text2sql reads it from its own connection
     headers = (
@@ -1155,8 +1180,9 @@ TOOLS: dict[str, tuple[Tool, dict]] = {
         _fn(
             "query_data",
             "Any other question about this home's own data that the other tools do not answer: "
-            "a specific day or hour, a device's runs (how many, how long, when), peaks, trends. "
-            "Answered by a read-only SQL query; ask one precise question.",
+            "a specific day (or hour, if the home allows hourly detail), peaks, trends. It sees "
+            "no minute data and no single device runs. Answered by a read-only SQL query; ask "
+            "one precise question.",
             {"question": {"type": "string", "maxLength": 500}},
             ["question"],
         ),

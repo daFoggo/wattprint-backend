@@ -462,6 +462,7 @@ async def test_query_data_reads_the_text2sql_stream(make_member, monkeypatch):
     assert reports == [("Chạy truy vấn", "kWh theo giờ")]
     assert out.sql == "SELECT 2"  # the last query that ran cleanly
     assert out.data["rows"] == [[20]] and out.data["summary"] == "20 giờ"
+    assert "daily" in out.data["detail_note"]  # default level: the model can say why hours lack
 
 
 async def test_text2sql_calls_send_the_service_key_and_report_a_refusal(make_member, monkeypatch):
@@ -489,3 +490,38 @@ async def test_text2sql_calls_send_the_service_key_and_report_a_refusal(make_mem
     assert keys == [(tools.T2S_STREAM, "k" * 40), (tools.T2S_CHAT, "k" * 40)]
     assert out.data == {"error": "text2sql answered 401"}
     assert (sql, why) == (None, "text2sql answered 401")
+
+
+@pytest.mark.parametrize(("ai_detail", "want"), [(None, "daily"), ("hourly", "hourly")])
+async def test_the_tools_see_the_home_level(
+    client, make_member, script, monkeypatch, ai_detail, want
+):
+    from app.modules.copilot.services import tools
+
+    turns, _ = script
+    me = await make_member("owner", ai_detail=ai_detail)
+    seen = []
+
+    async def spy(ctx, question):
+        seen.append(ctx.detail)
+        return tools.Outcome({"rows": []}, "Truy vấn chỉ đọc")
+
+    monkeypatch.setitem(tools.TOOLS, "query_data", (spy, tools.TOOLS["query_data"][1]))
+    turns += [("query_data", {"question": "Giờ nào?"}), ["Xong."]]
+    await ask(client, me, "Giờ nào dùng nhiều nhất?")
+    assert seen == [want]
+
+
+async def test_the_guard_reads_the_redacted_question(client, make_member, script, monkeypatch):
+    turns, _ = script
+    me = await make_member("owner")
+    screened = []
+
+    async def unsafe(question):
+        screened.append(question)
+        return None
+
+    monkeypatch.setattr(guard, "unsafe", unsafe)
+    turns += [["Được."]]
+    await ask(client, me, "Gọi mình 0912 345 678 nhé")
+    assert screened == ["Gọi mình [số điện thoại] nhé"]

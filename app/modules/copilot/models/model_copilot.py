@@ -34,7 +34,10 @@ class ScopeToken(Base):
     """
 
     __tablename__ = "tb_scope_token"
-    __table_args__ = {"schema": "public"}
+    __table_args__ = (
+        CheckConstraint("detail IN ('daily','hourly')", name="detail"),
+        {"schema": "public"},
+    )
 
     token: Mapped[uuid.UUID] = mapped_column(
         primary_key=True, default=uuid.uuid4, server_default=_UUID_DEFAULT
@@ -47,6 +50,8 @@ class ScopeToken(Base):
         index=True,
         server_default=text("now() + interval '5 minutes'"),
     )
+    # 'daily' tokens see no hourly view (copilot_ro.current_detail()).
+    detail: Mapped[str] = mapped_column(String(8), default="daily", server_default="daily")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=_NOW)
 
 

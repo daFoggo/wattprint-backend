@@ -18,6 +18,7 @@ class Home(BaseModel):
         CheckConstraint("home_type IN ('apartment','house','other')", name="home_type"),
         CheckConstraint("billing_cycle_day BETWEEN 1 AND 28", name="billing_cycle_day"),
         CheckConstraint("timezone = 'Asia/Ho_Chi_Minh'", name="timezone"),
+        CheckConstraint("ai_detail IN ('daily','hourly')", name="ai_detail"),
         {"schema": "public"},
     )
 
@@ -38,3 +39,5 @@ class Home(BaseModel):
         ForeignKey("public.tb_tariff_plan.code", onupdate="CASCADE", ondelete="SET NULL"),
     )
     billing_cycle_day: Mapped[int] = mapped_column(SmallInteger, default=1, server_default="1")
+    # How fine the numbers Wappi sends out may be; NULL follows settings.copilot_ai_detail_default.
+    ai_detail: Mapped[str | None] = mapped_column(String(8))

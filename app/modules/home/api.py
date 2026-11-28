@@ -11,10 +11,11 @@ from .models import (
     Province,
 )
 from .schemas import HomeRead
-from .services import read_home
+from .services import ai_detail, read_home
 from .utils import HomeNotFoundError
 
 __all__ = [
+    "ai_detail",
     "Device",
     "DeviceAlertRule",
     "DeviceType",

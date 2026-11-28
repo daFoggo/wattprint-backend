@@ -205,3 +205,73 @@ async def test_propose_plan_keeps_only_todays_advice_and_prices_it(monkeypatch, 
             text("SELECT count(*) FROM public.tb_suggestion WHERE home_id = :h"), {"h": me.home_id}
         )
         assert n == 0
+
+
+async def test_at_daily_standby_reads_no_night_minutes(make_member, monkeypatch):
+    me = await make_member("owner")
+    async with SessionLocal() as s:
+        ctx = tools.Ctx(s, me.home_id, datetime.now(UTC), "vi", detail="daily")
+
+        async def never(*args, **kwargs):
+            raise AssertionError("standby read readings at the daily level")
+
+        monkeypatch.setattr(s, "execute", never)
+        out = await tools.standby(ctx)
+    assert "daily" in out.data["error"]
+
+
+async def test_at_daily_alerts_give_the_day_only(make_member):
+    me = await make_member("owner")
+    at = datetime(2026, 11, 20, 14, 37, tzinfo=UTC)
+    async with SessionLocal() as s, s.begin():
+        await s.execute(
+            text(
+                "INSERT INTO public.tb_alert (home_id, kind, severity, ts, payload, dedup_key) "
+                "VALUES (:h, 'standby_high', 'warning', :t, CAST(:p AS jsonb), 'perm:x')"
+            ),
+            {
+                "h": me.home_id,
+                "t": at,
+                "p": '{"at": "2026-11-20T21:37:00+07:00", "start": "x", "usual_w": 40}',
+            },
+        )
+    async with SessionLocal() as s:
+        hourly = await tools.alerts(
+            tools.Ctx(s, me.home_id, datetime.now(UTC), "vi", detail="hourly")
+        )
+        daily = await tools.alerts(
+            tools.Ctx(s, me.home_id, datetime.now(UTC), "vi", detail="daily")
+        )
+    assert hourly.data[0]["since"] == "2026-11-20T21:37+07:00"
+    assert hourly.data[0]["figures"]["at"]
+    assert daily.data[0]["since"] == "2026-11-20"
+    assert daily.data[0]["figures"] == {"usual_w": 40}
+
+
+@pytest.mark.parametrize("detail", ["daily", "hourly"])
+async def test_text2sql_tokens_carry_the_level(make_member, monkeypatch, detail):
+    import httpx
+
+    me = await make_member("owner")
+    tokens = []
+
+    def refuse(request):
+        import json
+
+        tokens.append(json.loads(request.content)["scope_token"])
+        return httpx.Response(401)
+
+    real = httpx.AsyncClient
+    monkeypatch.setattr(
+        tools.httpx, "AsyncClient", lambda **kw: real(transport=httpx.MockTransport(refuse), **kw)
+    )
+    monkeypatch.setattr(tools.settings, "text2sql_connection_id", "x")
+    async with SessionLocal() as s:
+        ctx = tools.Ctx(s, me.home_id, datetime.now(UTC), "vi", detail=detail)
+        await tools.query_data(ctx, "Giờ nào?")
+        await tools._one_number_sql(ctx, "kWh hôm nay?")
+        got = await s.scalars(
+            text("SELECT detail FROM public.tb_scope_token WHERE token = ANY(CAST(:t AS uuid[]))"),
+            {"t": tokens},
+        )
+        assert list(got) == [detail, detail]

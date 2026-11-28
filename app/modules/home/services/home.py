@@ -1,6 +1,8 @@
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import settings
+
 from ..models import Home, HomeMember, Province
 from ..schemas import HomeRead, HomeUpdate
 from ..utils import HomeOwnerRequiredError, UnknownProvinceError
@@ -11,8 +13,14 @@ REQUIRED = {"name", "billing_cycle_day"}
 
 async def read_home(db: AsyncSession, member: HomeMember) -> HomeRead:
     home = await db.get(Home, member.home_id)
-    fields = {k: getattr(home, k) for k in HomeRead.model_fields if k != "role"}
-    return HomeRead.model_validate({**fields, "role": member.role})
+    fields = {k: getattr(home, k) for k in HomeRead.model_fields if hasattr(home, k)}
+    fields |= {"role": member.role, "ai_detail_effective": ai_detail(home)}
+    return HomeRead.model_validate(fields)
+
+
+def ai_detail(home: Home) -> str:
+    """The level Wappi uses for this home: its own choice, else the system default."""
+    return home.ai_detail or settings.copilot_ai_detail_default
 
 
 async def update_home(db: AsyncSession, member: HomeMember, patch: HomeUpdate) -> HomeRead:

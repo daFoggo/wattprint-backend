@@ -310,3 +310,39 @@ async def test_an_error_chunk_inside_a_200_stream_is_sorted_by_its_code(monkeypa
     with pytest.raises(llm.ProviderError) as e:
         [d async for d in llm._attempt(llm.providers()[0], [], None, llm.Turn())]
     assert e.value.hard is hard
+
+
+async def test_openrouter_is_asked_to_keep_and_train_on_nothing(monkeypatch):
+    import json
+
+    import httpx
+
+    from app.modules.copilot.services import documents
+
+    zdr = {"zdr": True, "data_collection": "deny"}
+    monkeypatch.setattr(settings, "openrouter_api_key", "k")
+    monkeypatch.setattr(settings, "astralx_api_key", "k")
+    by_name = {p.name: p for p in llm.providers()}
+    assert by_name["openrouter"].extra["provider"] == zdr
+    assert "provider" not in by_name["astralx"].extra  # not an OpenRouter field
+
+    bodies = []
+
+    def answer(request):
+        bodies.append((request.url.host, json.loads(request.content)))
+        if request.url.path.endswith("/embeddings"):
+            n = len(bodies[-1][1]["input"])
+            return httpx.Response(200, json={"data": [{"embedding": [0.0] * 1024}] * n})
+        return httpx.Response(200, json={"choices": [{"message": {"content": "safe"}}]})
+
+    real = httpx.AsyncClient
+    for module in (guard, documents):
+        monkeypatch.setattr(
+            module.httpx,
+            "AsyncClient",
+            lambda **kw: real(transport=httpx.MockTransport(answer), **kw),
+        )
+    await guard.unsafe("Hôm nay bao nhiêu kWh?")
+    await documents._call(settings.openrouter_base_url, "k", "m", ["x"])
+    await documents._call(settings.astralx_base_url, "k", "m", ["x"])
+    assert [b.get("provider") for _, b in bodies] == [zdr, zdr, None]

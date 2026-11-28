@@ -1,3 +1,5 @@
+from typing import Literal
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -72,6 +74,9 @@ class Settings(BaseSettings):
     copilot_llm_order: str = "openrouter,astralx"
     copilot_llm_cooldown_s: float = 60.0
     copilot_guard_model: str = "meta-llama/llama-guard-4-12b"  # empty: no content guard
+    # How fine the numbers Wappi sends to the model may be, for a home that has not chosen:
+    # 'daily' hides hourly views, night minutes and alert hours (spec R3.2).
+    copilot_ai_detail_default: Literal["daily", "hourly"] = "daily"
     text2sql_url: str = "http://host.docker.internal:11101"
     text2sql_connection_id: str = ""
     text2sql_service_key: str = ""

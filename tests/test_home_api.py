@@ -11,6 +11,8 @@ async def test_owner_reads_and_changes_the_home(client, make_member):
         "billing_cycle_day": 5,
         "province_code": None,
         "role": "owner",
+        "ai_detail": None,
+        "ai_detail_effective": "daily",
     }
 
     patch = {
@@ -122,3 +124,24 @@ async def test_changing_only_the_name_keeps_the_device_forecast_cache(client, ma
     df._CACHE[owner.home_id] = ("sentinel", None)
     r = await client.patch("/api/v1/homes/current", json={"name": "X"}, headers=owner.headers)
     assert r.status_code == 200 and df._CACHE.pop(owner.home_id) == ("sentinel", None)
+
+
+async def test_the_owner_sets_how_fine_wappi_may_see(client, make_member):
+    owner = await make_member("owner")
+    member = await make_member("member", home_id=owner.home_id)
+    home = (await client.get("/api/v1/homes/current", headers=owner.headers)).json()
+    assert (home["ai_detail"], home["ai_detail_effective"]) == (None, "daily")  # the default
+    r = await client.patch(
+        "/api/v1/homes/current", json={"ai_detail": "hourly"}, headers=owner.headers
+    )
+    assert (r.json()["ai_detail"], r.json()["ai_detail_effective"]) == ("hourly", "hourly")
+    bad = {"ai_detail": "minute"}
+    assert (
+        await client.patch("/api/v1/homes/current", json=bad, headers=owner.headers)
+    ).status_code == 422
+    r = await client.patch(
+        "/api/v1/homes/current", json={"ai_detail": "daily"}, headers=member.headers
+    )
+    assert r.status_code == 403
+    r = await client.patch("/api/v1/homes/current", json={"ai_detail": None}, headers=owner.headers)
+    assert r.json()["ai_detail_effective"] == "daily"  # null goes back to the default

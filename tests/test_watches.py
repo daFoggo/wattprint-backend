@@ -126,6 +126,17 @@ async def test_custom_query_runs_as_the_read_only_copilot_role(make_member, sql)
 
 
 @needs_copilot_db
+@pytest.mark.parametrize(("ai_detail", "want"), [(None, "daily"), ("hourly", "hourly")])
+async def test_a_custom_query_reads_at_the_home_level(make_member, ai_detail, want):
+    from app.modules.insight.services.watches import run_sql
+
+    me = await make_member("owner", ai_detail=ai_detail)
+    # 1 when the copilot views see hours for this home, 0 when they see days only
+    got = await run_sql(me.home_id, "SELECT (copilot_ro.current_detail() = 'hourly')::int")
+    assert got == (1 if want == "hourly" else 0)
+
+
+@needs_copilot_db
 async def test_refuses_what_is_already_past_and_more_than_ten(make_member):
     me = await make_member("owner")
     now = datetime.now(UTC)

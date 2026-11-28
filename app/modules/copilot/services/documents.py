@@ -12,6 +12,8 @@ from app.config import settings
 from app.models import Chunk, Document
 from app.models.knowledge import EMBEDDING_DIM
 
+from . import llm
+
 log = logging.getLogger("copilot.documents")
 EMBEDDING_MODEL = "baai/bge-m3"  # what the stored vectors are, whichever provider made them
 
@@ -106,7 +108,10 @@ async def _call(base_url: str, key: str, model: str, texts: list[str]) -> list[l
         headers=headers,
         timeout=httpx.Timeout(settings.copilot_llm_timeout_s, connect=5.0),
     ) as client:
-        r = await client.post("/embeddings", json={"model": model, "input": texts})
+        body = {"model": model, "input": texts}
+        if base_url == settings.openrouter_base_url:
+            body["provider"] = llm.OPENROUTER_PRIVACY
+        r = await client.post("/embeddings", json=body)
         r.raise_for_status()
         vectors = [d["embedding"] for d in r.json()["data"]]
     if len(vectors) != len(texts) or any(len(v) != EMBEDDING_DIM for v in vectors):

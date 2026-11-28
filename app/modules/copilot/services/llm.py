@@ -63,6 +63,9 @@ class Provider:
     extra: dict[str, Any]
 
 
+# Asked of OpenRouter on every call: only providers that keep nothing and train on nothing.
+OPENROUTER_PRIVACY = {"zdr": True, "data_collection": "deny"}
+
 _down: dict[str, float] = {}  # provider name -> monotonic time until which it is left alone
 
 
@@ -74,7 +77,7 @@ def providers() -> list[Provider]:
             settings.openrouter_base_url,
             settings.openrouter_api_key,
             settings.openrouter_model,
-            {"usage": {"include": True}},
+            {"usage": {"include": True}, "provider": OPENROUTER_PRIVACY},
         ),
         "astralx": Provider(
             "astralx",

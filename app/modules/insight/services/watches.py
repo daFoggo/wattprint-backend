@@ -88,9 +88,13 @@ async def run_sql(home_id: uuid.UUID, sql: str) -> Decimal | None:
         raise WatchError("custom_sql_disabled", "custom queries are not configured")
     body = sql.strip().rstrip(";")
     async with SessionLocal() as s, s.begin():
-        token = await s.scalar(
-            text("INSERT INTO public.tb_scope_token (home_id) VALUES (:h) RETURNING token"),
-            {"h": home_id},
+        token = await s.scalar(  # the home's level, as when Wappi wrote the query
+            text(
+                "INSERT INTO public.tb_scope_token (home_id, detail) "
+                "SELECT id, coalesce(ai_detail, :d) FROM public.tb_home WHERE id = :h "
+                "RETURNING token"
+            ),
+            {"h": home_id, "d": settings.copilot_ai_detail_default},
         )
     try:
         async with _copilot_engine().connect() as c, c.begin():
