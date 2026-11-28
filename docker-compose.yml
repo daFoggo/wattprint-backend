@@ -10,6 +10,8 @@ x-copilot-env: &copilot-env
   OPENWEATHER_API_KEY: ${OPENWEATHER_API_KEY:-}
   FEEDBACK_TELEGRAM_TOKEN: ${FEEDBACK_TELEGRAM_TOKEN:-}
   FEEDBACK_TELEGRAM_CHAT: ${FEEDBACK_TELEGRAM_CHAT:-}
+  CONSENT_ENFORCED: ${CONSENT_ENFORCED:-false}
+  RETENTION_TIERS: ${RETENTION_TIERS:-false}
   COPILOT_DATABASE_URL: postgresql+asyncpg://wattprint_copilot_ro:${COPILOT_DB_PASSWORD:-}@db:11096/${POSTGRES_DB}
 
 services:
@@ -182,6 +184,7 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:11096/${POSTGRES_DB}
       DASHBOARD_URL: ${DASHBOARD_URL:-http://localhost:11092}
+      RETENTION_TIERS: ${RETENTION_TIERS:-false}
       SMTP_HOST: ${SMTP_HOST:-mailpit}
       SMTP_PORT: ${SMTP_PORT:-1025}
       SMTP_FROM: ${SMTP_FROM:-no-reply@wattprint.local}

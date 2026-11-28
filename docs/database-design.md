@@ -122,8 +122,24 @@ chỉ cho phép một câu SELECT, chặn `set_config`, `current_setting` của 
 - **Chunk và compression:** hypertable chunk 1 ngày, compress sau 2 ngày, `segmentby series_id`. Hai
   aggregate 1m cũng được compress (migration `f3a9c1e5b7d2`), `compress_after` 14 ngày, luôn phải lớn
   hơn `start_offset` 7 ngày của refresh policy 1m. Aggregate 1h/1d nhỏ, không compress.
-- **Retention:** raw `reading`, `device_estimate` và aggregate 1m giữ 400 ngày; 1h và 1d giữ vô thời
-  hạn. Retention luôn là `drop_chunks` qua policy, không bao giờ `DELETE` từng dòng.
+- **Retention (thực tế ngày 28/11/2026, theo migration và mã; chưa truy vấn database đang chạy):**
+
+  | Dữ liệu | Giữ | Dọn bởi |
+  |---|---|---|
+  | `tb_reading`, `tb_device_estimate` (thô), `reading_1m`, `device_estimate_1m` | 400 ngày | policy TimescaleDB |
+  | Tổng theo giờ, ngày; `tb_device_cycle`; `tb_alert`; `tb_forecast_snapshot`; `tb_suggestion` | không hạn | chỉ khi xóa lịch sử hoặc tài khoản |
+  | `tb_expect_hourly` | 400 ngày | việc làm mới dự đoán (nhà có mô hình) |
+  | Hóa đơn | 25 kỳ | `refresh_bills` |
+  | Trò chuyện, kết quả công cụ, SQL | đến khi người dùng xóa | |
+  | Âm thanh đọc | 30 ngày | insight `upkeep` |
+  | Nhật ký gửi ra ngoài | 90 ngày | insight `upkeep` |
+  | Nhắc (`tb_watch`) đã kết thúc | 90 ngày | insight `upkeep` |
+  | `tb_consent` | đến khi xóa tài khoản | |
+  | `tb_inference_run`, `tb_ingest_batch` | không hạn (`tb_ingest_batch` xóa cùng tài khoản chủ nhà) | |
+
+  Thời hạn theo bậc (thô 30, phút 90, giờ 400, ngày 800 ngày; spec
+  `docs/work/2026-11-28-privacy-load-data/spec.md` R1.1) **chưa áp dụng**.
+  Retention của hypertable luôn là `drop_chunks` qua policy, không bao giờ `DELETE` từng dòng.
 - **Refresh policy:** 1m mỗi phút (cửa sổ 7 ngày), 1h mỗi giờ (30 ngày), 1d mỗi giờ (60 ngày).
 - **`public.set_policies(true|false)`** bật/tắt toàn bộ policy một cách idempotent. Chú ý: `alembic upgrade
   head` **bật tất cả policy** (14 job). Trước khi nạp lịch sử cũ hơn 400 ngày phải gọi

@@ -42,10 +42,11 @@ Các màn hình và worker `insight` đọc các bảng tổng hợp liên tục
 - **Công cụ trước, mô hình sau**: mọi con số đến từ 17 công cụ xác định (`app/modules/copilot/services/tools.py`): `devices_breakdown`, `current_bill`, `bill_forecast`, `bill_history`, `device_forecast`, `explain_usage`, `compare_periods`, `weather`, `cohort`, `alerts`, `standby`, `query_data`, `search_documents`, `propose_plan`, `create_watch`, `list_watches`, `cancel_watch`. Mô hình chỉ lập kế hoạch và diễn đạt.
 - **Vòng lặp**: tối đa 4 lần gọi công cụ, rồi một lượt trả lời không có công cụ. Lịch sử giữ 12 tin nhắn, kết quả công cụ cắt ở 6.000 ký tự.
 - **Nhà cung cấp LLM** theo thứ tự `COPILOT_LLM_ORDER` (mặc định `openrouter,astralx`): nhà cung cấp lỗi cứng được nghỉ 60 giây; lỗi trước chữ đầu tiên thì chuyển sang nhà tiếp theo.
-- **An toàn**: dữ liệu cá nhân (email, thẻ, CCCD, số điện thoại, số tài khoản) được thay bằng nhãn trước khi lưu hay gửi (`services/privacy.py`); regex chặn prompt injection chạy trước, Llama Guard (`COPILOT_GUARD_MODEL`) chạy song song với lượt LLM đầu và không chữ nào hiện ra trước khi guard trả lời (`services/guard.py`). Công cụ chỉ đọc nhà đang hỏi.
+- **An toàn**: dữ liệu cá nhân (email, thẻ, CCCD, số điện thoại, số tài khoản) trong câu hỏi gõ vào được thay bằng nhãn theo mẫu trước khi lưu hay gửi (`services/privacy.py`; không áp cho âm thanh gốc, không nhận ra tên và địa chỉ, câu trả lời cũ và kết quả công cụ gửi lại không che); regex chặn prompt injection chạy trước, Llama Guard (`COPILOT_GUARD_MODEL`) chạy song song với lượt LLM đầu và không chữ nào hiện ra trước khi guard trả lời (`services/guard.py`). Công cụ chỉ đọc nhà đang hỏi.
 - **Câu hỏi dữ liệu tự do** (`query_data`): tạo token phạm vi 5 phút rồi gọi dịch vụ text2sql (header `X-Service-Key`); dữ liệu đi qua role `wattprint_copilot_ro` và view `copilot_ro` chỉ thấy đúng một nhà, không có số theo phút; số theo giờ chỉ khi nhà đặt "theo giờ" (`ai_detail`, mặc định `COPILOT_AI_DETAIL_DEFAULT=daily`).
-- **Đồng ý và gửi ra ngoài**: mọi lời gọi ra ngoài đi qua `app/common/outbound.py` (ghi `tb_outbound_log`; OpenRouter chỉ chọn nhà cung cấp không lưu, không huấn luyện). Đồng ý theo mục đích `wappi`, `voice`, `email` (`/users/me/consents`; chặn khi `CONSENT_ENFORCED=true`); nhật ký 30 ngày ở `/users/me/outbound`.
-- **Xóa lịch sử**: `DELETE /homes/current/history?before=YYYY-MM-DD` (chủ nhà, không áp cho nhà demo), `DELETE /copilot/conversations`.
+- **Đồng ý và gửi ra ngoài**: lời gọi tới OpenRouter, AstralX, OpenWeather, Telegram, text2sql đi qua `app/common/outbound.py` (ghi `tb_outbound_log`, không ghi nội dung); mail của insight chỉ ghi nhật ký rồi gửi bằng SMTP riêng; đăng nhập và mail tài khoản của Keycloak/Google không ghi. Lời gọi OpenRouter yêu cầu không lưu, không huấn luyện; lời gọi AstralX không kèm yêu cầu đó. Đồng ý theo mục đích `wappi`, `voice`, `email` (`/users/me/consents`; **việc chặn đang tắt**: `consent_enforced = False`, và `docker-compose.yml` chưa truyền `CONSENT_ENFORCED` vào container); người dùng xem 30 ngày nhật ký ở `/users/me/outbound`, hệ thống giữ 90 ngày.
+- **Xóa lịch sử**: `DELETE /homes/current/history?before=YYYY-MM-DD` (chủ nhà, không áp cho nhà demo), `DELETE /copilot/conversations` (trò chuyện của người gọi).
+- **Quyền riêng tư**: hiện trạng, giới hạn và thời hạn lưu: [docs/evidence/privacy.md](docs/evidence/privacy.md).
 - **Hỏi đáp văn bản pháp luật** (`search_documents`): tìm kết hợp từ khóa và vector trong `tb_chunk` (embedding `baai/bge-m3` qua OpenRouter, dự phòng AstralX), luôn ưu tiên biểu giá mới nhất. Chi tiết: `docs/rag-research.md`. Nạp văn bản: `scripts/ingest_documents.py` từ `docs/sources/`.
 - Mỗi câu trả lời mang một mức nguồn gốc số liệu (`measured`, `document`, `estimated`, `inferred`) để giao diện hiện nhãn "Đo trực tiếp", "Theo văn bản", "Ước tính", "Suy luận bối cảnh". Đánh giá chất lượng: `docs/chatbot-eval.md`.
 
@@ -143,12 +144,13 @@ Thêm mô-đun: tạo `app/modules/x/` như các mô-đun khác, `routes/__init_
 
 ## Tài liệu
 
+- [docs/evidence/privacy.md](docs/evidence/privacy.md): quyền riêng tư; kèm [bảng mối đe dọa](docs/evidence/privacy/threats.md) và [quy trình sự cố](docs/evidence/privacy/incident-72h.md).
 - [docs/database-design-guide.md](docs/database-design-guide.md), [docs/database-design.md](docs/database-design.md): thiết kế cơ sở dữ liệu hiện tại (mục 7 của `database-design.md` là thiết kế đích microservices, chưa có trong mã).
 - [docs/keycloak-auth.md](docs/keycloak-auth.md): đăng nhập và phân quyền.
 - [docs/chatbot-eval.md](docs/chatbot-eval.md), [docs/rag-research.md](docs/rag-research.md): đánh giá Wappi và tìm kiếm văn bản.
 - [docs/nilm-datasets.md](docs/nilm-datasets.md), [docs/nilm-eval.md](docs/nilm-eval.md): dữ liệu và đánh giá NILM.
 - [docs/legal-basis.md](docs/legal-basis.md): căn cứ pháp lý của biểu giá và VAT.
-- Sơ đồ: [docs/diagrams/](docs/diagrams) (mỗi sơ đồ có tệp `.html` nguồn và `.svg`).
+- Sơ đồ: [docs/diagrams/](docs/diagrams) (đa số có tệp `.html` nguồn kèm `.svg`; `data-flow`, `data-lifecycle`, `er-diagram` chỉ có `.svg`).
 
 ## Chi tiết kỹ thuật
 

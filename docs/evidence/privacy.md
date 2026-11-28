@@ -15,6 +15,8 @@ trong repo, **không được chạy lại khi viết trang này**. Yêu cầu g
 | Màn hình quyền riêng tư | **Chưa có ảnh** (xem "Ảnh chụp") |
 | Thử phân quyền | [Trước khi sửa](privacy/permission-matrix-before.md); [sau khi sửa](privacy/permission-matrix-after.md) (chạy thật 28/11, 57 thao tác khớp, 6 ca database đạt); test `tests/test_permissions.py` |
 
+Bổ sung: [bảng mối đe dọa](privacy/threats.md); [quy trình sự cố 72 giờ và đầu vào đánh giá tác động](privacy/incident-72h.md) (bản nháp).
+
 ## Từng ý của đề
 
 ### "Dữ liệu phụ tải theo giờ có thể tiết lộ lịch sinh hoạt gia đình"

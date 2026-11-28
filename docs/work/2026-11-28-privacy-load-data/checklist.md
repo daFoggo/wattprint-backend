@@ -208,7 +208,7 @@ nhà demo từ chối), `DELETE /copilot/conversations`; xóa tài khoản dọn
   - [x] Đ8-C1g DFD mức 1: phân rã tiến trình Wappi (che dữ liệu, kiểm đồng ý, cửa ra chung, ghi nhật ký) và tiến trình quyền riêng tư (xóa lịch sử, dọn theo thời hạn)
 - [x] Đ8-C2 `docs/evidence/privacy/permission-matrix-after.md` · R6.3
 - [ ] Đ8-C3 Ảnh chụp: trang Quyền riêng tư (chủ nhà, thành viên theo ngày), hộp đồng ý, dòng báo trong chat, mục đã gửi, hộp xác nhận xóa · R6.2
-- [ ] Đ8-C4 `docs/evidence/privacy.md` cho giám khảo: từng ý của đề → đã làm gì → minh chứng nào; đưa lên một đường dẫn · R6.4
+- [x] Đ8-C4 `docs/evidence/privacy.md` cho giám khảo: từng ý của đề → đã làm gì → minh chứng nào; đưa lên một đường dẫn · R6.4
 - [ ] Đ8-C5 README (kể cả câu "mỗi sơ đồ có file .html"), `docs/database-design.md` mục thời hạn, đồng bộ `submission/` · R6.6
 - [ ] Đ8-C6 Gom nhật ký câu lệnh của các đợt (cuộc thi yêu cầu)
 
@@ -219,10 +219,10 @@ nhà demo từ chối), `DELETE /copilot/conversations`; xóa tài khoản dọn
 
 - [ ] Đ9-1 **[BE]** Kịch bản tấn công trong eval Wappi: dụ đọc nhà khác, dụ lấy số theo phút, dụ vượt mức xem
 - [x] Đ9-2 **[BE]** `scripts/privacy_risk_by_granularity.py` trên REFIT: đoán giờ dậy, giờ ngủ, ngày vắng nhà ở mức phút, giờ, ngày; một biểu đồ
-- [ ] Đ9-3 **[DOC]** Bảng mối đe dọa theo từng mũi tên của sơ đồ (LINDDUN)
+- [x] Đ9-3 **[DOC]** Bảng mối đe dọa theo từng mũi tên của sơ đồ (LINDDUN)
 - [ ] Đ9-4 **[BE]** Email cảnh báo bỏ giờ giấc, chi tiết xem trong app
 - [ ] Đ9-5 **[BE]** Test quét log; log lỗi Keycloak không in nguyên phản hồi
-- [ ] Đ9-6 **[DOC]** Quy trình xử lý sự cố 72 giờ; bản nháp đầu vào cho hồ sơ đánh giá tác động
+- [x] Đ9-6 **[DOC]** Quy trình xử lý sự cố 72 giờ; bản nháp đầu vào cho hồ sơ đánh giá tác động
 
 ## Song song, ngoài mã
 
