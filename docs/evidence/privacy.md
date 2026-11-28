@@ -12,7 +12,7 @@ bảng thường **chưa bật** (`RETENTION_TIERS=false`). Xem mục "Chưa là
 | Minh chứng | Ở đâu |
 |---|---|
 | Sơ đồ luồng dữ liệu | [Sơ đồ tổng quan](../diagrams/privacy-data-flow.svg); [bộ chi tiết](../diagrams/privacy/index.html): tác nhân, chức năng, hai ma trận, DFD |
-| Màn hình quyền riêng tư | **Chưa có ảnh** (xem "Ảnh chụp") |
+| Màn hình quyền riêng tư | [ảnh](privacy/anh/0-man-hinh-01-quyen-rieng-tu-chu-nha.png); toàn bộ ảnh ở [privacy/anh](privacy/anh/README.md) |
 | Thử phân quyền | [Trước khi sửa](privacy/permission-matrix-before.md); [sau khi sửa](privacy/permission-matrix-after.md) (chạy thật 28/11, 57 thao tác khớp, 6 ca database đạt); test `tests/test_permissions.py` |
 
 Bổ sung: [bảng mối đe dọa](privacy/threats.md); [quy trình sự cố 72 giờ và đầu vào đánh giá tác động](privacy/incident-72h.md) (bản nháp).
@@ -88,23 +88,25 @@ cho dịch vụ ngoài không xóa được từ WattPrint.
 | SMTP | Địa chỉ email, cảnh báo, tóm tắt tuần |
 | Google và mail tài khoản của Keycloak | Đăng nhập, xác minh; **không** qua cửa ra chung, không ghi nhật ký |
 
-## Ảnh chụp (chỗ trống, ảnh nằm ở repo web)
+## Ảnh chụp
 
-- [ ] `ANH-1` Trang Quyền riêng tư, chủ nhà
-- [ ] `ANH-2` Trang Quyền riêng tư, thành viên chỉ theo ngày
-- [ ] `ANH-3` Hộp đồng ý Wappi
-- [ ] `ANH-4` Hộp đồng ý giọng nói
-- [ ] `ANH-5` Dòng báo dưới ô chat và mục "Đã gửi ra ngoài"
-- [ ] `ANH-6` Hộp xác nhận xóa lịch sử
+Chụp trên dashboard dev ngày 28/11/2026. Danh sách đầy đủ: [privacy/anh/README.md](privacy/anh/README.md).
+
+- [x] `ANH-1` Trang Quyền riêng tư, chủ nhà: [ảnh](privacy/anh/0-man-hinh-01-quyen-rieng-tu-chu-nha.png)
+- [x] `ANH-2` Trang Quyền riêng tư, thành viên chỉ theo ngày: [ảnh](privacy/anh/2-gioi-han-quyen-09-man-hinh-thanh-vien-theo-ngay.png)
+- [x] `ANH-3` Hộp đồng ý Wappi: [ảnh](privacy/anh/4-dich-vu-ngoai-04-man-hinh-dong-y-wappi.png)
+- [x] `ANH-4` Hộp đồng ý giọng nói: [ảnh](privacy/anh/4-dich-vu-ngoai-05-man-hinh-dong-y-giong-noi.png)
+- [x] `ANH-5` Dòng báo dưới ô chat và mục "Đã gửi ra ngoài": [ảnh](privacy/anh/4-dich-vu-ngoai-06-man-hinh-thong-bao-va-da-gui.png)
+- [x] `ANH-6` Hộp xác nhận xóa lịch sử: [ảnh](privacy/anh/3-xoa-lich-su-03-man-hinh-xac-nhan-xoa.png)
 
 ## Chưa làm
 
 1. **Dọn hằng đêm cho bảng thường** theo bậc chưa bật (`RETENTION_TIERS=false`): cảnh báo, kết quả công cụ, nhật ký
-   NILM, lô công tơ chưa bị dọn theo thời hạn mới. Biểu đồ chưa ghi chú khi chi tiết theo phút đã hết hạn.
+   NILM, lô công tơ chưa bị dọn theo thời hạn mới.
 2. **Chặn theo đồng ý đang tắt** (`app/config.py`, `consent_enforced`): chờ giao diện hỏi đồng ý được triển khai.
-3. Giao diện: trang Quyền riêng tư, ô nhập mã mời, ẩn khối cho người "chỉ theo ngày", ảnh chụp. Trong
-   [checklist](../work/2026-11-28-privacy-load-data/checklist.md) các mục web chưa được đánh dấu xong.
-4. Trang chính sách trên web công khai chưa sửa theo mã mới.
+3. Giao diện đã có (trang Quyền riêng tư, mời bằng mã, chế độ theo ngày) nhưng chưa tự thử đủ ba loại người dùng và chưa
+   chạy checklist UX (Đ6-W9 trong [checklist](../work/2026-11-28-privacy-load-data/checklist.md)).
+4. Trang chính sách trên web công khai đã sửa theo mã mới trong repo web, chưa triển khai.
 5. AstralX: chưa biết nơi đặt máy chủ, thời gian giữ; chưa gửi kèm yêu cầu không lưu dữ liệu.
 6. Che dữ liệu cá nhân chỉ theo mẫu, chưa nhận ra tên người và địa chỉ.
 7. Tệp mô hình tách thiết bị riêng của nhà chưa xóa theo tài khoản (hiện chỉ huấn luyện từ dữ liệu công khai).
