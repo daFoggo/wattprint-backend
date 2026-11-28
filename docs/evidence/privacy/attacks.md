@@ -25,3 +25,6 @@ Còn mở (cần migration hoặc quyết định của chủ dự án):
 | Cảnh báo cũ còn mã UUIDv7 | Dữ liệu đã có, hết hạn giữ 400 ngày thì mất | để hết hạn, hoặc đổi mã một lần |
 | Tổng "hôm nay" (trang tổng quan, cảnh báo `today_kwh`) hỏi liên tục cho ra đường cộng dồn trong ngày | Thiết kế cho phép thành viên theo ngày xem số hôm nay | chấp nhận, hoặc chỉ cập nhật theo giờ |
 | Hội thoại cũ của thành viên bị hạ xuống "theo ngày" vẫn mở được, câu trả lời cũ có thể nêu giờ | Xóa thì mất hội thoại của họ | ẩn biểu đồ theo giờ trong hội thoại cũ |
+
+Bổ sung 28/11: ở mức theo ngày, hai view theo ngày không còn trả `last_w` (công suất đang dùng); revision
+`e7a3c91b5d40`, test `tests/db/test_roles.py::test_a_daily_token_sees_days_not_hours`.

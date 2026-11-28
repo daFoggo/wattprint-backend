@@ -398,6 +398,9 @@ async def test_a_daily_token_sees_days_not_hours(conn):
         for family in ("reading", "device_estimate"):
             assert await view_count(conn, f"{family}_1h") == hours, (family, token)
             assert await view_count(conn, f"{family}_1d") == 1, (family, token)
+            # the day's last sample is the power now: an hourly token only
+            shown = await conn.scalar(text(f"SELECT count(last_w) FROM copilot_ro.{family}_1d"))
+            assert shown == hours, (family, token)
         local = await conn.scalar(
             text("SELECT (ts AT TIME ZONE 'Asia/Ho_Chi_Minh')::time FROM copilot_ro.alert")
         )
