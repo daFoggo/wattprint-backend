@@ -7,6 +7,7 @@ from typing import Any
 
 import httpx
 
+from app.common import outbound
 from app.config import settings
 
 from ..utils import CopilotUnavailableError
@@ -74,14 +75,14 @@ def providers() -> list[Provider]:
     have = {
         "openrouter": Provider(
             "openrouter",
-            settings.openrouter_base_url,
+            outbound.base_url("openrouter"),
             settings.openrouter_api_key,
             settings.openrouter_model,
             {"usage": {"include": True}, "provider": OPENROUTER_PRIVACY},
         ),
         "astralx": Provider(
             "astralx",
-            settings.astralx_base_url,
+            outbound.base_url("astralx"),
             settings.astralx_api_key,
             settings.astralx_chat_model,
             {"stream_options": {"include_usage": True}},
@@ -152,9 +153,10 @@ async def _attempt(
         body["tools"] = tools
     calls: dict[int, Call] = {}
     timeout = httpx.Timeout(settings.copilot_llm_timeout_s, connect=5.0)
+    await outbound.record(provider.name, "wappi", ["question", "conversation", "tool results"])
     try:
         async with (
-            httpx.AsyncClient(base_url=provider.base_url, timeout=timeout) as client,
+            outbound.client(provider.name, timeout=timeout) as client,
             client.stream(
                 "POST",
                 "/chat/completions",

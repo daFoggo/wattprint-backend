@@ -11,6 +11,7 @@ import httpx
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.common import outbound
 from app.config import settings
 from app.modules.ops.api import scenarios_between
 
@@ -19,7 +20,6 @@ from ..utils import WeatherUnavailableError
 
 log = logging.getLogger(__name__)
 
-BASE = "https://api.openweathermap.org/data/2.5"
 TTL_S = 600  # OpenWeather refreshes about every 10 minutes
 TIMEOUT_S = 5.0
 SLOTS = 8  # 3-hour forecast steps: the next 24 hours
@@ -95,8 +95,9 @@ async def _fetch(lat: Decimal, lon: Decimal, lang: str) -> Weather:
         "lang": lang,  # OpenWeather writes the sky's description ("mây rải rác") in it
         "appid": settings.openweather_api_key,
     }
+    await outbound.record("openweather", "weather", ["province location"])  # no home, no person
     try:
-        async with httpx.AsyncClient(base_url=BASE, timeout=TIMEOUT_S) as client:
+        async with outbound.client("openweather", timeout=TIMEOUT_S) as client:
             current, forecast = await asyncio.gather(
                 client.get("/weather", params=params), client.get("/forecast", params=params)
             )

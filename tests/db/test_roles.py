@@ -382,6 +382,14 @@ async def test_a_daily_token_sees_days_not_hours(conn):
         ),
         {"h": a["home"]},
     )
+    await conn.execute(
+        text(
+            "INSERT INTO public.tb_alert (home_id, kind, severity, ts, payload, dedup_key) "
+            "VALUES (:h, 'unexplained_load', 'info', now(), "
+            '\'{"signal": "odd_hour", "value": 2}\', \'odd:x\')'
+        ),
+        {"h": a["home"]},
+    )
     for token, hours in ((a["token"], 1), (daily, 0)):
         await as_role(conn, COPILOT, token)
         assert await conn.scalar(text("SELECT copilot_ro.current_detail()")) == (
@@ -394,9 +402,33 @@ async def test_a_daily_token_sees_days_not_hours(conn):
             text("SELECT (ts AT TIME ZONE 'Asia/Ho_Chi_Minh')::time FROM copilot_ro.alert")
         )
         assert (local == time(0)) is (hours == 0)  # a daily token sees the day of an alert only
+        odd = await conn.scalar(
+            text("SELECT payload ? 'value' FROM copilot_ro.alert WHERE payload ? 'signal'")
+        )
+        assert odd is bool(hours)  # an odd-hour alert's start hour is in `value`
         await reset(conn)
     await as_role(conn, COPILOT, "")  # no token: no level, so no row of any view
     assert await conn.scalar(text("SELECT copilot_ro.current_detail()")) is None
+
+
+async def test_consent_rows_are_never_edited(conn):
+    user = await conn.scalar(
+        text(
+            "INSERT INTO public.tb_users (keycloak_sub, email) VALUES (gen_random_uuid()::text, "
+            "gen_random_uuid()::text || '@example.com') RETURNING id"
+        )
+    )
+    await as_role(conn, APP)
+    await conn.execute(
+        text(
+            "INSERT INTO public.tb_consent (user_id, purpose, granted, version) "
+            "VALUES (:u, 'wappi', true, 'v1')"
+        ),
+        {"u": user},
+    )
+    await denied(conn, "UPDATE public.tb_consent SET granted = false")
+    await denied(conn, "DELETE FROM public.tb_consent")
+    await reset(conn)
 
 
 async def test_token_lookup_uses_the_primary_key(conn):
@@ -745,8 +777,10 @@ AGGS = {f"public.{f}_{r}" for f in ("reading", "device_estimate") for r in ("1m"
 
 
 def expected_app(rel: str) -> set[str]:
-    if rel == "public.tb_scope_token":
+    if rel in {"public.tb_scope_token", "public.tb_outbound_log"}:  # pruned, never edited
         return {"SELECT", "INSERT", "DELETE"}
+    if rel == "public.tb_consent":  # append-only: a change is a new row, the old ones stay
+        return {"SELECT", "INSERT"}
     if rel in {
         "public.tb_home",
         "public.tb_home_member",

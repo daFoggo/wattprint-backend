@@ -8,6 +8,7 @@ import httpx
 from sqlalchemy import delete, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.common import outbound
 from app.config import settings
 from app.models import Chunk, Document
 from app.models.knowledge import EMBEDDING_DIM
@@ -101,15 +102,16 @@ def parse_source(raw: str) -> tuple[dict[str, str], str]:
     return meta, body.strip()
 
 
-async def _call(base_url: str, key: str, model: str, texts: list[str]) -> list[list[float]]:
+async def _call(party: str, key: str, model: str, texts: list[str]) -> list[list[float]]:
     headers = {"Authorization": f"Bearer {key}"}
-    async with httpx.AsyncClient(
-        base_url=base_url,
+    await outbound.record(party, "wappi", ["question"])  # its embedding, to find the documents
+    async with outbound.client(
+        party,
         headers=headers,
         timeout=httpx.Timeout(settings.copilot_llm_timeout_s, connect=5.0),
     ) as client:
         body = {"model": model, "input": texts}
-        if base_url == settings.openrouter_base_url:
+        if party == "openrouter":
             body["provider"] = llm.OPENROUTER_PRIVACY
         r = await client.post("/embeddings", json=body)
         r.raise_for_status()
@@ -120,10 +122,10 @@ async def _call(base_url: str, key: str, model: str, texts: list[str]) -> list[l
 
 
 def providers() -> list[tuple[str, str, str]]:
-    """(base_url, key, model) in the order the chat providers are tried, those with a key."""
+    """(party, key, model) in the order the chat providers are tried, those with a key."""
     known = {
-        "openrouter": (settings.openrouter_base_url, settings.openrouter_api_key),
-        "astralx": (settings.astralx_base_url, settings.astralx_api_key),
+        "openrouter": ("openrouter", settings.openrouter_api_key),
+        "astralx": ("astralx", settings.astralx_api_key),
     }
     models = {
         "openrouter": settings.openrouter_embed_model,
@@ -140,9 +142,9 @@ async def embed(texts: list[str]) -> list[list[float]]:
     record them when the model costs more or questions get long.
     """
     last: Exception = LookupError("no embedding provider has a key")
-    for base_url, key, model in providers():
+    for party, key, model in providers():
         try:
-            return await _call(base_url, key, model, texts)
+            return await _call(party, key, model, texts)
         except (httpx.HTTPError, ValueError, KeyError) as e:
             log.warning("embeddings from %s failed: %r", model, e)
             last = e

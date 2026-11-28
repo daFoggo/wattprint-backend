@@ -525,3 +525,31 @@ async def test_the_guard_reads_the_redacted_question(client, make_member, script
     turns += [["Được."]]
     await ask(client, me, "Gọi mình 0912 345 678 nhé")
     assert screened == ["Gọi mình [số điện thoại] nhé"]
+
+
+async def test_each_answer_lists_what_it_sent_out(client, make_member, script, monkeypatch):
+    from app.common import outbound
+    from app.modules.copilot.services import tools
+
+    turns, _ = script
+    me = await make_member("owner")
+
+    async def asks_text2sql(ctx, question):
+        await outbound.record("text2sql", "wappi", ["question", "home numbers"], ctx.detail)
+        return tools.Outcome({"rows": []}, "Truy vấn chỉ đọc")
+
+    monkeypatch.setitem(tools.TOOLS, "query_data", (asks_text2sql, tools.TOOLS["query_data"][1]))
+    turns += [("query_data", {"question": "Giờ nào?"}), ["Xong."]]
+    _, events = await ask(client, me, "Giờ nào dùng nhiều nhất?")
+    sent = events[-1][1]["reply"]["sent"]
+    assert sent == {
+        "parties": ["text2sql"],
+        "data": ["question", "home numbers"],
+        "detail": "daily",
+    }
+    async with SessionLocal() as s:
+        logged = await s.scalar(
+            text("SELECT count(*) FROM public.tb_outbound_log WHERE user_id = :u"),
+            {"u": me.user_id},
+        )
+    assert logged == 1  # recorded for the person who asked

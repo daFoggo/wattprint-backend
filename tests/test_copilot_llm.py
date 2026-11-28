@@ -343,6 +343,6 @@ async def test_openrouter_is_asked_to_keep_and_train_on_nothing(monkeypatch):
             lambda **kw: real(transport=httpx.MockTransport(answer), **kw),
         )
     await guard.unsafe("Hôm nay bao nhiêu kWh?")
-    await documents._call(settings.openrouter_base_url, "k", "m", ["x"])
-    await documents._call(settings.astralx_base_url, "k", "m", ["x"])
+    await documents._call("openrouter", "k", "m", ["x"])
+    await documents._call("astralx", "k", "m", ["x"])
     assert [b.get("provider") for _, b in bodies] == [zdr, zdr, None]

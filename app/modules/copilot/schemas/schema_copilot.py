@@ -51,6 +51,8 @@ class FeedbackIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     value: Literal["up", "down"] | None
+    # 👎 tells the maintainers only that an answer was rated; its words go too only when ticked.
+    share_content: bool = False
 
 
 class Transcript(BaseModel):

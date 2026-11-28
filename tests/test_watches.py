@@ -137,6 +137,16 @@ async def test_a_custom_query_reads_at_the_home_level(make_member, ai_detail, wa
 
 
 @needs_copilot_db
+async def test_a_daily_home_refuses_a_query_on_hours(make_member):
+    from app.modules.insight.services.watches import run_sql
+
+    me = await make_member("owner")  # the default level: daily
+    with pytest.raises(WatchError) as e:
+        await run_sql(me.home_id, "SELECT sum(energy_wh) FROM copilot_ro.reading_1h")
+    assert e.value.code == "needs_hourly"
+
+
+@needs_copilot_db
 async def test_refuses_what_is_already_past_and_more_than_ten(make_member):
     me = await make_member("owner")
     now = datetime.now(UTC)

@@ -1,11 +1,16 @@
 from fastapi import APIRouter
 
+from app.common import outbound
 from app.dependencies import DbSession
 
 from .. import services
 from ..dependencies import AdminUser, Claims, CurrentUser
 from ..schemas import Me, Preferences, PreferencesUpdate, UserRead
-from ..services import account  # not re-exported by services: it imports home.api (cycle)
+from ..schemas.schema_consent import Consent, ConsentUpdate, OutboundRow, Purpose
+from ..services import (
+    account,  # not re-exported by services: it imports home.api (cycle)
+    consent,
+)
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -25,6 +30,23 @@ async def update_my_preferences(
     patch: PreferencesUpdate, user: CurrentUser, db: DbSession
 ) -> Preferences:
     return await services.update_preferences(db, user.id, patch)
+
+
+@router.get("/me/consents", summary="Consent per purpose: wappi, voice, email (off until agreed)")
+async def read_my_consents(user: CurrentUser, db: DbSession) -> list[Consent]:
+    return await consent.consents(db, user.id)
+
+
+@router.put("/me/consents/{purpose}", summary="Agree or withdraw: each change is a new record")
+async def set_my_consent(
+    purpose: Purpose, body: ConsentUpdate, user: CurrentUser, db: DbSession
+) -> Consent:
+    return await consent.set_consent(db, user.id, purpose, body.granted)
+
+
+@router.get("/me/outbound", summary="What was sent outside WattPrint in the last 30 days")
+async def read_my_outbound(user: CurrentUser) -> list[OutboundRow]:
+    return [OutboundRow(**r) for r in await outbound.recent(user.id)]
 
 
 @router.delete(

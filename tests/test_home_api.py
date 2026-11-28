@@ -79,9 +79,9 @@ async def test_no_home_is_404(client, make_token):
 async def test_preferences_default_then_saved_per_user(client, make_member):
     a = await make_member("owner")
     b = await make_member("member", home_id=a.home_id)
-    defaults = {
-        "notify_anomaly": True,
-        "notify_tier": True,
+    defaults = {  # every mail starts off (R3.3)
+        "notify_anomaly": False,
+        "notify_tier": False,
         "weekly_summary": False,
     }
     assert (await client.get("/api/v1/users/me/preferences", headers=a.headers)).json() == defaults
@@ -90,9 +90,9 @@ async def test_preferences_default_then_saved_per_user(client, make_member):
     )
     assert r.json() == defaults | {"weekly_summary": True}
     r = await client.patch(
-        "/api/v1/users/me/preferences", json={"notify_tier": False}, headers=a.headers
+        "/api/v1/users/me/preferences", json={"notify_tier": True}, headers=a.headers
     )
-    assert r.json() == defaults | {"weekly_summary": True, "notify_tier": False}
+    assert r.json() == defaults | {"weekly_summary": True, "notify_tier": True}
     # another member of the same home keeps their own
     assert (await client.get("/api/v1/users/me/preferences", headers=b.headers)).json() == defaults
     r = await client.patch(

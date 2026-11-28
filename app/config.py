@@ -60,6 +60,8 @@ class Settings(BaseSettings):
 
     # Weather for the home's province (OpenWeather); empty = /energy/weather answers 503.
     openweather_api_key: str = ""
+    openweather_base_url: str = "https://api.openweathermap.org/data/2.5"
+    telegram_api_url: str = "https://api.telegram.org"
     # Where a thumbs-down on Wappi's answer is sent so the maintainers see it at once; empty = off.
     feedback_telegram_token: str = ""
     feedback_telegram_chat: str = ""
@@ -77,6 +79,9 @@ class Settings(BaseSettings):
     # How fine the numbers Wappi sends to the model may be, for a home that has not chosen:
     # 'daily' hides hourly views, night minutes and alert hours (spec R3.2).
     copilot_ai_detail_default: Literal["daily", "hourly"] = "daily"
+    # Wappi, voice and alert mail need the user's consent (R3.3). Off until the dashboard that asks
+    # for it is deployed: dev and prod share this API, and the old dashboard cannot ask.
+    consent_enforced: bool = False
     text2sql_url: str = "http://host.docker.internal:11101"
     text2sql_connection_id: str = ""
     text2sql_service_key: str = ""

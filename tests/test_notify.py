@@ -69,7 +69,7 @@ async def _conversation(home_id, user_id, question, answer):
     return a
 
 
-async def test_a_thumbs_down_sends_the_question_and_answer_but_a_thumbs_up_does_not(
+async def test_a_thumbs_down_sends_its_words_only_when_ticked_and_a_thumbs_up_nothing(
     client, make_member, telegram
 ):
     member = await make_member()
@@ -82,12 +82,16 @@ async def test_a_thumbs_down_sends_the_question_and_answer_but_a_thumbs_up_does_
     assert (await client.put(url, headers=member.headers, json={"value": None})).status_code == 204
     assert telegram == []
 
-    assert (
-        await client.put(url, headers=member.headers, json={"value": "down"})
-    ).status_code == 204
-    assert len(telegram) == 1
-    assert "Tại sao tiền điện cao?" in telegram[0]["text"]
-    assert "Vì trời nóng." in telegram[0]["text"]
+    down = {"value": "down"}
+    assert (await client.put(url, headers=member.headers, json=down)).status_code == 204
+    assert len(telegram) == 1 and "Tại sao" not in telegram[0]["text"]  # the rating only
+    assert str(reply) in telegram[0]["text"]
+
+    shared = {"value": "down", "share_content": True}
+    await client.put(url, headers=member.headers, json={"value": None})
+    assert (await client.put(url, headers=member.headers, json=shared)).status_code == 204
+    assert "Tại sao tiền điện cao?" in telegram[-1]["text"]
+    assert "Vì trời nóng." in telegram[-1]["text"]
 
 
 async def test_a_thumbs_down_repeated_does_not_message_again(client, make_member, telegram):

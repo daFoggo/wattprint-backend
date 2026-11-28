@@ -10,6 +10,7 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.common import outbound
 from app.config import settings
 from app.database import SessionLocal
 
@@ -41,8 +42,8 @@ FIRST, REST = 40, 300  # a short first piece starts the voice soon; longer ones 
 def _client() -> httpx.AsyncClient:
     if not settings.astralx_api_key:
         raise VoiceUnavailableError
-    return httpx.AsyncClient(
-        base_url=settings.astralx_base_url,
+    return outbound.client(
+        "astralx",
         timeout=TIMEOUT,
         headers={"Authorization": f"Bearer {settings.astralx_api_key}"},
     )
@@ -50,7 +51,9 @@ def _client() -> httpx.AsyncClient:
 
 async def transcribe(audio: bytes, content_type: str, lang: str) -> dict:
     """Speech to text (Whisper through AstralX): {text, language, duration}."""
-    async with _client() as client:
+    client = _client()
+    await outbound.record("astralx", "voice", ["voice recording"])
+    async with client:
         try:
             r = await client.post(
                 "/audio/transcriptions",
@@ -181,7 +184,9 @@ async def speech(text: str, lang: str) -> AsyncIterator[bytes]:
     parts = pieces(spoken(text, lang))
     if not parts:
         return
-    async with _client() as client:
+    client = _client()
+    await outbound.record("astralx", "voice", ["answer text"])
+    async with client:
         nxt = asyncio.create_task(_voice(client, parts[0]))
         try:
             for i in range(len(parts)):

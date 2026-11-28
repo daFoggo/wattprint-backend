@@ -29,6 +29,9 @@ REQUESTS: dict[tuple[str, str], dict] = {
     ("GET", "/api/v1/users/me/preferences"): {},
     ("PATCH", "/api/v1/users/me/preferences"): {"json": {"weekly_summary": False}},
     ("GET", "/api/v1/users"): {},
+    ("GET", "/api/v1/users/me/consents"): {},
+    ("PUT", "/api/v1/users/me/consents/{purpose}"): {"json": {"granted": True}},
+    ("GET", "/api/v1/users/me/outbound"): {},
     ("GET", "/api/v1/demo/homes"): {},
     ("POST", "/api/v1/demo/homes/{key}/view"): {},
     ("POST", "/api/v1/demo/homes/{key}/guest"): {},
@@ -126,6 +129,9 @@ EXPECTED: dict[tuple[str, str], tuple[int, ...]] = {
     ("GET", "/api/v1/users/me"): (401, 200, 200, 200, 200, 200),
     ("GET", "/api/v1/users/me/preferences"): (401, 200, 200, 200, 200, 200),
     ("PATCH", "/api/v1/users/me/preferences"): (401, 200, 200, 200, 200, 200),
+    ("GET", "/api/v1/users/me/consents"): (401, 200, 200, 200, 200, 200),
+    ("PUT", "/api/v1/users/me/consents/{purpose}"): (401, 200, 200, 200, 200, 200),
+    ("GET", "/api/v1/users/me/outbound"): (401, 200, 200, 200, 200, 200),
 }
 
 
@@ -236,6 +242,7 @@ async def world(client, make_member, make_token, stubs):
             c=ids["conversation_id"],
         )
     ids["key"] = "not-a-demo-home"
+    ids["purpose"] = "wappi"
     headers = {
         "anonymous": {},
         "other_owner": other.headers,

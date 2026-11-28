@@ -31,6 +31,11 @@ if settings.copilot_database_url:  # custom watch queries: the same test databas
         .render_as_string(hide_password=False)
     )
 
+from app.database import engine as _app_engine  # noqa: E402
+
+# An import above this file's switch (anything that imports app.database) would have bound the dev
+# database: stop here rather than write test rows into it.
+assert _app_engine.url.database == make_url(settings.database_url).database, _app_engine.url
 from app.main import app  # noqa: E402
 from app.modules.auth.services import token as security  # noqa: E402
 
@@ -125,7 +130,7 @@ async def make_member(client, make_token):
 
     homes: list = []
 
-    async def make(role: str = "owner", home_id=None, **home_cols):
+    async def make(role: str = "owner", home_id=None, consent=("wappi", "voice"), **home_cols):
         token = make_token(sub=str(uuid.uuid4()))
         me = await client.get("/api/v1/users/me", headers={"Authorization": f"Bearer {token}"})
         assert me.status_code == 200
@@ -146,6 +151,16 @@ async def make_member(client, make_token):
                 ),
                 {"h": home_id, "u": me.json()["id"], "r": role},
             )
+            from app.common import outbound  # here: importing it at the top binds the dev DB
+
+            for purpose in consent:  # agreed, so tests of other behaviour reach the assistant
+                await s.execute(
+                    text(
+                        "INSERT INTO public.tb_consent (user_id, purpose, granted, version) "
+                        "VALUES (:u, :p, true, :v)"
+                    ),
+                    {"u": me.json()["id"], "p": purpose, "v": outbound.CONSENT_VERSION},
+                )
         return SimpleNamespace(
             token=token,
             headers={"Authorization": f"Bearer {token}"},

@@ -269,7 +269,7 @@ async def test_embed_rejects_vectors_of_the_wrong_size(monkeypatch, both_keys):
 
     monkeypatch.setattr(documents.httpx, "AsyncClient", Client)
     with pytest.raises(ValueError, match="wrong shape"):
-        await documents._call("http://x", "k", "m", ["a"])
+        await documents._call("astralx", "k", "m", ["a"])
 
 
 async def test_a_judge_that_answers_null_is_dropped_not_fatal():

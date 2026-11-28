@@ -248,6 +248,23 @@ async def test_at_daily_alerts_give_the_day_only(make_member):
     assert daily.data[0]["figures"] == {"usual_w": 40}
 
 
+async def test_at_daily_an_odd_hour_alert_keeps_no_start_hour(make_member):
+    me = await make_member("owner")
+    odd = '{"signal": "odd_hour", "value": 2, "usual": 1.5, "unit": "%"}'
+    async with SessionLocal() as s, s.begin():
+        await s.execute(
+            text(
+                "INSERT INTO public.tb_alert (home_id, kind, severity, ts, payload, dedup_key) "
+                "VALUES (:h, 'unexplained_load', 'info', now(), CAST(:p AS jsonb), 'odd:x')"
+            ),
+            {"h": me.home_id, "p": odd},
+        )
+    async with SessionLocal() as s:
+        ctx = tools.Ctx(s, me.home_id, datetime.now(UTC), "vi", detail="daily")
+        out = await tools.alerts(ctx)
+    assert out.data[0]["figures"] == {"signal": "odd_hour", "usual": 1.5, "unit": "%"}
+
+
 @pytest.mark.parametrize("detail", ["daily", "hourly"])
 async def test_text2sql_tokens_carry_the_level(make_member, monkeypatch, detail):
     import httpx

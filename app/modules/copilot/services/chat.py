@@ -10,6 +10,7 @@ from typing import Any
 
 from sqlalchemy import func, select, update
 
+from app.common import outbound
 from app.database import SessionLocal
 from app.modules.home.api import Home, HomeMember, ai_detail
 
@@ -314,147 +315,159 @@ async def answer(
     yield event("meta", {"conversation_id": conversation_id, "message_id": reply_id})
     state = Answer(lang)
     follow = FollowUps()
-    async with SessionLocal() as s:
-        question = await s.scalar(select(Message.content).where(Message.id == question_id))
-        user_id = await s.scalar(
-            select(Conversation.user_id).where(Conversation.id == conversation_id)
-        )
-        role = await s.scalar(select(HomeMember.role).where(HomeMember.user_id == user_id))
-        messages = [
-            _system(lang),
-            *await history(s, conversation_id, question_id),
-            _clock(now),
-            {"role": "user", "content": question},
-        ]
-        progress: asyncio.Queue[tuple[str, str]] = asyncio.Queue()
-        ctx = Ctx(
-            s,
-            home_id,
-            now,
-            lang,
-            lambda label, detail: progress.put_nowait((label, detail)),
-            user_id,
-            question,
-            read_only=role == "viewer",
-            detail=ai_detail(await s.get(Home, home_id)),
-        )
-        # The guard reads the question while the model's first round runs: no word is shown and no
-        # tool runs before it has answered, which that round's own wait almost always covers.
-        screen = None if guard.injection(question) else asyncio.create_task(guard.unsafe(question))
+    # Every call this answer makes out is recorded for this person and listed in the reply.
+    with outbound.scope(None, home_id) as sent:
+        async with SessionLocal() as s:
+            question = await s.scalar(select(Message.content).where(Message.id == question_id))
+            user_id = await s.scalar(
+                select(Conversation.user_id).where(Conversation.id == conversation_id)
+            )
+            role = await s.scalar(select(HomeMember.role).where(HomeMember.user_id == user_id))
+            messages = [
+                _system(lang),
+                *await history(s, conversation_id, question_id),
+                _clock(now),
+                {"role": "user", "content": question},
+            ]
+            progress: asyncio.Queue[tuple[str, str]] = asyncio.Queue()
+            ctx = Ctx(
+                s,
+                home_id,
+                now,
+                lang,
+                lambda label, detail: progress.put_nowait((label, detail)),
+                user_id,
+                question,
+                read_only=role == "viewer",
+                detail=ai_detail(await s.get(Home, home_id)),
+            )
+            sent.user_id, sent.detail = user_id, ctx.detail
+            # The guard reads the question while the model's first round runs: no word is shown and
+            # no tool runs before it has answered, which that round's own wait almost always covers.
+            screen = (
+                None if guard.injection(question) else asyncio.create_task(guard.unsafe(question))
+            )
 
-        async def declined() -> str | None:
-            return await screen if screen else "injection"
+            async def declined() -> str | None:
+                return await screen if screen else "injection"
 
-        try:
-            for round_no in range(MAX_ROUNDS + 1):
-                if screen is None:
-                    raise DeclinedError("injection")
-                # Commit what the tools wrote (a plan) and give the connection back while the model
-                # thinks: an answer can take a minute, and the pool is shared with every request.
-                await s.commit()
-                turn = llm.Turn()
-                tools = SPECS if round_no < MAX_ROUNDS else None
-                async with aclosing(llm.stream(messages, tools, turn)) as deltas:
-                    async for delta in deltas:
-                        if why := await declined():
-                            raise DeclinedError(why)
-                        if out := follow.feed(delta):
-                            # The wait the user feels: until the first word shows.
-                            state.usage.setdefault("first_ms", _since(started))
-                            yield event("token", {"text": out})
-                state.count(turn.usage)
-                if not turn.calls:
-                    break
-                if why := await declined():
-                    raise DeclinedError(why)
-                if turn.text and not follow.answer.endswith("\n"):
-                    follow.feed("\n\n")  # words before a tool call stay; the answer goes on below
-                messages.append(
-                    {
-                        "role": "assistant",
-                        "content": turn.text or None,
-                        "tool_calls": [
-                            {
-                                "id": c.id or f"call_{i}",
-                                "type": "function",
-                                "function": {"name": c.name, "arguments": c.arguments or "{}"},
-                            }
-                            for i, c in enumerate(turn.calls)
-                        ],
-                    }
-                )
-                for i, c in enumerate(turn.calls):
-                    args = c.args()
-                    task = asyncio.ensure_future(run_tool(ctx, c.name, args))
-                    async with aclosing(progress_until(task, progress)) as reports:
-                        async for label, detail in reports:
-                            sub = {"tool": c.name, "label": label, "detail": detail}
-                            state.steps.append(sub)
-                            yield event("step", sub)
-                    outcome, ok, ms = task.result()
-                    vi, en = STEPS.get(c.name, (c.name, c.name))
-                    step = {
-                        "tool": c.name,
-                        "label": vi if lang == "vi" else en,
-                        "detail": outcome.detail,
-                    }
-                    state.steps.append(step)
-                    state.calls.append((c.name, args, outcome, ok, ms))
-                    yield event("step", step)
-                    content = json.dumps(
-                        {"cite": state.cite(outcome.sources), "data": outcome.data},
-                        ensure_ascii=False,
-                        default=str,
-                        separators=(",", ":"),  # no spaces the model pays for
-                    )[:TOOL_CHARS]
+            try:
+                for round_no in range(MAX_ROUNDS + 1):
+                    if screen is None:
+                        raise DeclinedError("injection")
+                    # Commit what the tools wrote (a plan) and give the connection back while the
+                    # model thinks: an answer can take a minute, and the pool is shared by requests.
+                    await s.commit()
+                    turn = llm.Turn()
+                    tools = SPECS if round_no < MAX_ROUNDS else None
+                    async with aclosing(llm.stream(messages, tools, turn)) as deltas:
+                        async for delta in deltas:
+                            if why := await declined():
+                                raise DeclinedError(why)
+                            if out := follow.feed(delta):
+                                # The wait the user feels: until the first word shows.
+                                state.usage.setdefault("first_ms", _since(started))
+                                yield event("token", {"text": out})
+                    state.count(turn.usage)
+                    if not turn.calls:
+                        break
+                    if why := await declined():
+                        raise DeclinedError(why)
+                    if turn.text and not follow.answer.endswith("\n"):
+                        follow.feed(
+                            "\n\n"
+                        )  # words before a tool call stay; the answer goes on below
                     messages.append(
-                        {"role": "tool", "tool_call_id": c.id or f"call_{i}", "content": content}
+                        {
+                            "role": "assistant",
+                            "content": turn.text or None,
+                            "tool_calls": [
+                                {
+                                    "id": c.id or f"call_{i}",
+                                    "type": "function",
+                                    "function": {"name": c.name, "arguments": c.arguments or "{}"},
+                                }
+                                for i, c in enumerate(turn.calls)
+                            ],
+                        }
                     )
-        except DeclinedError as e:
-            log.info("copilot question declined: %s", e.args[0])
-            await s.rollback()
-            follow = FollowUps()
-            state.usage.setdefault("first_ms", _since(started))
-            yield event("token", {"text": follow.feed(DECLINE[lang])})
-        except CopilotUnavailableError as e:
-            log.warning("copilot answer failed: %s (usage %s)", e.message, state.usage)
-            await s.rollback()
-            partial = state.reply("", [])
-            yield event("error", {"code": e.code, "message": e.message, "reply": partial})
-            return
-        finally:
-            if screen:
-                screen.cancel()
-        text, follow_ups = follow.close()
-        state.usage["ms"] = _since(started)
-        reply = state.reply(text, follow_ups)
-        s.add(
-            Message(
-                id=reply_id,
-                conversation_id=conversation_id,
-                role="assistant",
-                content=text,
-                reply=reply,
-                usage=state.usage,
+                    for i, c in enumerate(turn.calls):
+                        args = c.args()
+                        task = asyncio.ensure_future(run_tool(ctx, c.name, args))
+                        async with aclosing(progress_until(task, progress)) as reports:
+                            async for label, detail in reports:
+                                sub = {"tool": c.name, "label": label, "detail": detail}
+                                state.steps.append(sub)
+                                yield event("step", sub)
+                        outcome, ok, ms = task.result()
+                        vi, en = STEPS.get(c.name, (c.name, c.name))
+                        step = {
+                            "tool": c.name,
+                            "label": vi if lang == "vi" else en,
+                            "detail": outcome.detail,
+                        }
+                        state.steps.append(step)
+                        state.calls.append((c.name, args, outcome, ok, ms))
+                        yield event("step", step)
+                        content = json.dumps(
+                            {"cite": state.cite(outcome.sources), "data": outcome.data},
+                            ensure_ascii=False,
+                            default=str,
+                            separators=(",", ":"),  # no spaces the model pays for
+                        )[:TOOL_CHARS]
+                        messages.append(
+                            {
+                                "role": "tool",
+                                "tool_call_id": c.id or f"call_{i}",
+                                "content": content,
+                            }
+                        )
+            except DeclinedError as e:
+                log.info("copilot question declined: %s", e.args[0])
+                await s.rollback()
+                follow = FollowUps()
+                state.usage.setdefault("first_ms", _since(started))
+                yield event("token", {"text": follow.feed(DECLINE[lang])})
+            except CopilotUnavailableError as e:
+                log.warning("copilot answer failed: %s (usage %s)", e.message, state.usage)
+                await s.rollback()
+                partial = state.reply("", [])
+                yield event("error", {"code": e.code, "message": e.message, "reply": partial})
+                return
+            finally:
+                if screen:
+                    screen.cancel()
+            text, follow_ups = follow.close()
+            state.usage["ms"] = _since(started)
+            reply = state.reply(text, follow_ups)
+            reply["sent"] = outbound.summary(sent)
+            s.add(
+                Message(
+                    id=reply_id,
+                    conversation_id=conversation_id,
+                    role="assistant",
+                    content=text,
+                    reply=reply,
+                    usage=state.usage,
+                )
             )
-        )
-        await s.flush()
-        s.add_all(
-            ToolCall(
-                message_id=reply_id,
-                tool=name,
-                input=args,
-                sql_text=o.sql,
-                duration_ms=ms,
-                ok=ok,
+            await s.flush()
+            s.add_all(
+                ToolCall(
+                    message_id=reply_id,
+                    tool=name,
+                    input=args,
+                    sql_text=o.sql,
+                    duration_ms=ms,
+                    ok=ok,
+                )
+                for name, args, o, ok, ms in state.calls
             )
-            for name, args, o, ok, ms in state.calls
-        )
-        await s.execute(
-            update(Conversation)
-            .where(Conversation.id == conversation_id)
-            .values(updated_at=func.now())
-        )
-        await s.commit()
+            await s.execute(
+                update(Conversation)
+                .where(Conversation.id == conversation_id)
+                .values(updated_at=func.now())
+            )
+            await s.commit()
     log.info("copilot answer %s: %s", reply_id, state.usage)
     yield event("done", {"message_id": reply_id, "reply": reply})

@@ -76,6 +76,19 @@ async def test_alerts_list_and_acknowledge_stay_inside_the_home(client, make_mem
     assert (r.status_code, r.json()["code"]) == (404, "alert_not_found")
 
 
+async def wants_alert_mail(*members) -> None:
+    """Alert mail is off until chosen (R3.3): these members turned it on."""
+    async with SessionLocal() as s, s.begin():
+        for m in members:
+            await s.execute(
+                text(
+                    "INSERT INTO public.tb_user_preference (user_id, notify_anomaly, notify_tier) "
+                    "VALUES (:u, true, true)"
+                ),
+                {"u": m.user_id},
+            )
+
+
 async def test_new_alerts_are_mailed_once_to_members_who_want_them(make_member, monkeypatch):
     from datetime import UTC, datetime
 
@@ -90,6 +103,7 @@ async def test_new_alerts_are_mailed_once_to_members_who_want_them(make_member, 
     owner = await make_member("owner")
     quiet = await make_member("member", home_id=owner.home_id)
     await make_member("viewer", home_id=owner.home_id)  # a demo visitor: never mailed
+    await wants_alert_mail(owner)
     async with SessionLocal() as s, s.begin():
         await s.execute(
             text(
@@ -163,6 +177,7 @@ async def test_an_alert_raised_again_the_same_day_is_not_mailed_again(make_membe
 
     monkeypatch.setattr(mail, "send", fake_send)
     me = await make_member("owner")
+    await wants_alert_mail(me)
     await _alert(me.home_id)
     await mail.mail_alerts(datetime.now(UTC))
     async with SessionLocal() as s, s.begin():  # the cause goes, then comes back
@@ -182,6 +197,7 @@ async def test_a_refused_address_does_not_re_mail_the_others(make_member, monkey
 
     owner = await make_member("owner")
     other = await make_member("member", home_id=owner.home_id)
+    await wants_alert_mail(owner, other)
     async with SessionLocal() as s:
         bad = await s.scalar(
             text("SELECT email FROM public.tb_users WHERE id = :u"), {"u": other.user_id}

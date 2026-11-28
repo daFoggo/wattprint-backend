@@ -4,8 +4,8 @@ from pydantic import BaseModel, ConfigDict
 class Preferences(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
-    notify_anomaly: bool = True
-    notify_tier: bool = True
+    notify_anomaly: bool = False  # alert mail is off until chosen (R3.3)
+    notify_tier: bool = False
     weekly_summary: bool = False
 
 

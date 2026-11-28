@@ -1,6 +1,7 @@
 import functools
 import logging
 import math
+import re
 import uuid
 from datetime import UTC, date, datetime, timedelta, timezone
 from decimal import Decimal
@@ -81,6 +82,14 @@ def _copilot_engine() -> AsyncEngine:
     return create_async_engine(settings.copilot_database_url, pool_pre_ping=True, pool_size=2)
 
 
+HOURLY_VIEW = re.compile(r"\b(reading|device_estimate)_1h\b", re.IGNORECASE)
+
+
+async def _drop_token(token: uuid.UUID) -> None:
+    async with SessionLocal() as s, s.begin():
+        await s.execute(text("DELETE FROM public.tb_scope_token WHERE token = :t"), {"t": token})
+
+
 async def run_sql(home_id: uuid.UUID, sql: str) -> Decimal | None:
     """The first column of the single row `sql` returns over this home's copilot_ro views.
     None when that value is NULL (e.g. a sum over no rows)."""
@@ -88,14 +97,20 @@ async def run_sql(home_id: uuid.UUID, sql: str) -> Decimal | None:
         raise WatchError("custom_sql_disabled", "custom queries are not configured")
     body = sql.strip().rstrip(";")
     async with SessionLocal() as s, s.begin():
-        token = await s.scalar(  # the home's level, as when Wappi wrote the query
-            text(
-                "INSERT INTO public.tb_scope_token (home_id, detail) "
-                "SELECT id, coalesce(ai_detail, :d) FROM public.tb_home WHERE id = :h "
-                "RETURNING token"
-            ),
-            {"h": home_id, "d": settings.copilot_ai_detail_default},
-        )
+        token, detail = (  # the home's level, as when Wappi wrote the query
+            await s.execute(
+                text(
+                    "INSERT INTO public.tb_scope_token (home_id, detail) "
+                    "SELECT id, coalesce(ai_detail, :d) FROM public.tb_home WHERE id = :h "
+                    "RETURNING token, detail"
+                ),
+                {"h": home_id, "d": settings.copilot_ai_detail_default},
+            )
+        ).one()
+    if detail != "hourly" and HOURLY_VIEW.search(body):
+        # The views would answer NULL every time: say so, or the watch would never fire.
+        await _drop_token(token)
+        raise WatchError("needs_hourly", "this home lets Wappi see days only, not hours")
     try:
         async with _copilot_engine().connect() as c, c.begin():
             await c.execute(text("SET TRANSACTION READ ONLY"))
@@ -106,10 +121,7 @@ async def run_sql(home_id: uuid.UUID, sql: str) -> Decimal | None:
             # A subquery: one statement, and at most 2 rows ever come back.
             rows = (await c.exec_driver_sql(f"SELECT * FROM ({body}) q LIMIT 2")).all()
     finally:
-        async with SessionLocal() as s, s.begin():
-            await s.execute(
-                text("DELETE FROM public.tb_scope_token WHERE token = :t"), {"t": token}
-            )
+        await _drop_token(token)
     if len(rows) != 1 or not rows[0]:
         raise WatchError("not_one_number", f"the query returned {len(rows)} rows, not one")
     v = rows[0][0]

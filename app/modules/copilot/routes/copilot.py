@@ -8,6 +8,7 @@ from typing import Annotated, Literal
 from fastapi import APIRouter, BackgroundTasks, Header, Query, Request
 from fastapi.responses import Response, StreamingResponse
 
+from app.common import outbound
 from app.common.exceptions import UnprocessableError
 from app.common.notify import tell_maintainers
 from app.dependencies import DbSession
@@ -50,6 +51,7 @@ async def _guarded(events: AsyncIterator[str]) -> AsyncIterator[str]:
     response_class=StreamingResponse,
 )
 async def chat(body: ChatIn, member: Membership, db: DbSession) -> StreamingResponse:
+    await outbound.require(member.user_id, "wappi")  # before anything is stored or sent
     # Personal data is replaced before it is stored or reaches the model (kinds logged, not values).
     question, found = services.redact(body.question, body.lang)
     if found:
@@ -108,8 +110,11 @@ async def feedback(
 ):
     if noted := await services.rate(db, member.user_id, member.home_id, message_id, body.value):
         question, answer = noted
-        note = f"👎 Wappi trả lời chưa tốt\nHỏi: {question[:600]}\nĐáp: {answer[:1500]}"
-        background.add_task(tell_maintainers, f"{note}\nid: {message_id}")
+        note, data = "👎 Wappi trả lời chưa tốt", ["rating"]
+        if body.share_content:
+            note += f"\nHỏi: {question[:600]}\nĐáp: {answer[:1500]}"
+            data += ["question", "answer"]
+        background.add_task(tell_maintainers, f"{note}\nid: {message_id}", data)
 
 
 MAX_AUDIO = 10 * 1024 * 1024  # about 10 minutes of Opus: far more than one question
@@ -144,6 +149,7 @@ async def transcribe(
     content_type: Annotated[str, Header()],
     lang: Annotated[Literal["vi", "en"], Query()] = "vi",
 ) -> Transcript:
+    await outbound.require(member.user_id, "voice")
     _voice_quota(member.user_id)
     kind = content_type.split(";")[0].strip().lower()  # "audio/webm;codecs=opus"
     if kind not in services.EXT:
@@ -155,7 +161,9 @@ async def transcribe(
             raise AudioTooLargeError
     if not audio:
         raise UnprocessableError("The recording is empty", code="audio_empty")
-    return Transcript.model_validate(await services.transcribe(bytes(audio), kind, lang))
+    with outbound.scope(member.user_id, member.home_id):
+        heard = await services.transcribe(bytes(audio), kind, lang)
+    return Transcript.model_validate(heard)
 
 
 @router.get(
@@ -170,6 +178,7 @@ async def speech(
     db: DbSession,
     lang: Annotated[Literal["vi", "en"], Query()] = "vi",
 ) -> StreamingResponse:
+    await outbound.require(member.user_id, "voice")
     text = await services.answer_text(db, member.user_id, member.home_id, message_id)
     kept = await services.kept_speech(db, message_id, lang)
     await db.close()
@@ -177,9 +186,8 @@ async def speech(
         return Response(kept, media_type="audio/mpeg", headers={"Cache-Control": "no-store"})
     _voice_quota(member.user_id)
     audio = services.speech(text, lang)
-    first = await anext(
-        audio, b""
-    )  # a failure before any sound is an error status, not a cut stream
+    with outbound.scope(member.user_id, member.home_id):  # the call is recorded for this person
+        first = await anext(audio, b"")  # a failure before any sound: an error status, not a cut
 
     async def stream() -> AsyncIterator[bytes]:
         read = [first]

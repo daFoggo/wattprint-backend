@@ -17,6 +17,7 @@ import pandas as pd
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.common import outbound
 from app.config import settings
 from app.modules.billing.api import (
     bill_history,
@@ -565,7 +566,9 @@ def _when(ctx: Ctx, a) -> dict[str, Any]:
     local = a.ts.astimezone(ICT)
     if ctx.detail == "hourly":
         return {"since": local.isoformat(timespec="minutes"), "figures": a.payload}
-    figures = {k: v for k, v in (a.payload or {}).items() if k not in ("at", "start")}
+    payload = a.payload or {}
+    hidden = {"at", "start"} | ({"value"} if payload.get("signal") == "odd_hour" else set())
+    figures = {k: v for k, v in payload.items() if k not in hidden}  # odd_hour: value is the hour
     return {"since": local.date().isoformat(), "figures": figures}
 
 
@@ -804,9 +807,10 @@ async def query_data(ctx: Ctx, question: str) -> Outcome:
         "scope_token": str(token.token),
     }
     status, answer, steps = "error", "", []
+    await outbound.record("text2sql", "wappi", ["question", "home numbers"], ctx.detail)
     try:
         async with (
-            httpx.AsyncClient(base_url=settings.text2sql_url, timeout=120) as client,
+            outbound.client("text2sql", timeout=120) as client,
             client.stream("POST", T2S_STREAM, json=body, headers=headers) as res,
         ):
             if res.status_code != 200:
@@ -964,8 +968,9 @@ async def _one_number_sql(ctx: Ctx, question: str) -> tuple[str | None, str | No
         "question": f"{question[:400]} (một con số duy nhất, một dòng)",
         "scope_token": str(token.token),
     }
+    await outbound.record("text2sql", "wappi", ["question", "home numbers"], ctx.detail)
     try:
-        async with httpx.AsyncClient(base_url=settings.text2sql_url, timeout=120) as client:
+        async with outbound.client("text2sql", timeout=120) as client:
             res = await client.post(T2S_CHAT, json=body, headers=headers)
     except httpx.HTTPError:
         return None, "text2sql is unreachable"

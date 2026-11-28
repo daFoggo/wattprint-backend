@@ -3,6 +3,7 @@ import re
 
 import httpx
 
+from app.common import outbound
 from app.config import settings
 
 from . import llm
@@ -39,10 +40,10 @@ async def unsafe(question: str) -> str | None:
         return None
     if llm.resting("openrouter"):  # the chat just found it down: do not wait on it again
         return None
+    await outbound.record("openrouter", "wappi", ["question"])  # the safety screen
     try:
-        async with httpx.AsyncClient(
-            base_url=settings.openrouter_base_url, timeout=httpx.Timeout(10.0, connect=5.0)
-        ) as client:
+        timeout = httpx.Timeout(10.0, connect=5.0)
+        async with outbound.client("openrouter", timeout=timeout) as client:
             r = await client.post(
                 "/chat/completions",
                 json={

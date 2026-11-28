@@ -7,6 +7,7 @@ from sqlalchemy import select, text
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.common import outbound
 from app.database import SessionLocal
 from app.modules.billing.api import forecast_bill, refresh_bills
 from app.modules.copilot.api import prune_scope_tokens, prune_speech
@@ -142,3 +143,4 @@ async def upkeep(now: datetime) -> None:
         await prune_scope_tokens(s)
         await prune_watches(s, now)
         await prune_speech(s)
+    await outbound.prune()  # the outbound log keeps 90 days

@@ -75,39 +75,44 @@ Kế hoạch chi tiết: [plan-d0.md](plan-d0.md).
 ## Đ2. Giảm chi tiết gửi AI (P1)
 
 **[DB]**
-- [ ] Đ2-D1 Migration: bỏ `copilot_ro.reading_1m`, `copilot_ro.device_estimate_1m` và view lượt bật/tắt; bỏ tên nhà, mã bưu chính, số người khỏi view nhà · R3.1
-- [ ] Đ2-D2 Thêm `tb_home.ai_detail` (`daily`, `hourly`, để trống là theo thiết lập hệ thống), `tb_scope_token.detail`; view `_1h` chỉ trả dòng khi token là `hourly` · R3.2
-- [ ] Đ2-D3 Nhà demo đặt `ai_detail = 'hourly'` trong script seed (dữ liệu công khai)
+- [x] Đ2-D1 Migration: bỏ `copilot_ro.reading_1m`, `copilot_ro.device_estimate_1m` và view lượt bật/tắt; bỏ tên nhà, mã bưu chính, số người khỏi view nhà · R3.1
+- [x] Đ2-D2 Thêm `tb_home.ai_detail` (`daily`, `hourly`, để trống là theo thiết lập hệ thống), `tb_scope_token.detail`; view `_1h` chỉ trả dòng khi token là `hourly` · R3.2
+- [x] Đ2-D3 Nhà demo đặt `ai_detail = 'hourly'` trong script seed (dữ liệu công khai)
 
 **[BE]**
-- [ ] Đ2-B1 Test đỏ: vai copilot đọc view phút bị từ chối; token `daily` đọc `_1h` trả 0 dòng
-- [ ] Đ2-B2 Thiết lập `copilot_ai_detail_default` (ban đầu `daily`) trong `app/config.py`; `Ctx` mang mức hiệu lực; `query_data` tạo token theo mức đó
-- [ ] Đ2-B3 Ở mức `daily`: `standby` không chạy và nói vì sao; `alerts` chỉ đưa ngày, bỏ `start_hour` và `at`; rà `explain_usage`, `create_watch`, `list_watches`, `propose_plan` · R3.2
-- [ ] Đ2-B4 Gọi `redact` ở một chỗ, trước bước kiểm duyệt, tìm tài liệu, chat và bản chữ giọng nói; test: bước kiểm duyệt nhận câu đã che · R3.7
-- [ ] Đ2-B5 Thêm `provider: {zdr: true, data_collection: "deny"}` vào lời gọi OpenRouter (chat, kiểm duyệt, embeddings); thử một lời gọi thật; lỗi thì lùi sang AstralX và ghi lại · R3.8
-- [ ] Đ2-B6 `PATCH /homes/current` nhận `ai_detail`, chỉ chủ nhà
+- [x] Đ2-B1 Test đỏ: vai copilot đọc view phút bị từ chối; token `daily` đọc `_1h` trả 0 dòng
+- [x] Đ2-B2 Thiết lập `copilot_ai_detail_default` (ban đầu `daily`) trong `app/config.py`; `Ctx` mang mức hiệu lực; `query_data` tạo token theo mức đó
+- [x] Đ2-B3 Ở mức `daily`: `standby` không chạy và nói vì sao; `alerts` chỉ đưa ngày, bỏ `start_hour` và `at`; rà `explain_usage`, `create_watch`, `list_watches`, `propose_plan` · R3.2
+- [x] Đ2-B4 Gọi `redact` ở một chỗ, trước bước kiểm duyệt, tìm tài liệu, chat và bản chữ giọng nói; test: bước kiểm duyệt nhận câu đã che · R3.7
+- [x] Đ2-B5 Thêm `provider: {zdr: true, data_collection: "deny"}` vào lời gọi OpenRouter (chat, kiểm duyệt, embeddings); thử một lời gọi thật; lỗi thì lùi sang AstralX và ghi lại · R3.8
+- [x] Đ2-B6 `PATCH /homes/current` nhận `ai_detail`, chỉ chủ nhà
 
 **[T2S]**
-- [ ] Đ2-T1 Bỏ view phút và cột định danh khỏi mô tả schema và từ điển dữ liệu của kết nối WattPrint
-- [ ] Đ2-T2 Thêm tham số không lưu dữ liệu vào lời gọi OpenRouter của text2sql
+- [x] Đ2-T1 Bỏ view phút và cột định danh khỏi mô tả schema và từ điển dữ liệu của kết nối WattPrint
+- [x] Đ2-T2 Thêm tham số không lưu dữ liệu vào lời gọi OpenRouter của text2sql
 
 **[DOC]**
 - [ ] Đ2-C1 Chạy eval Wappi một nhà, một lượt ở mức `hourly` và `daily`; ghi số thật vào `docs/eval/` · R6.6
 
+Ghi chú Đ2 (2026-11-28): kế hoạch [plan-d2.md](plan-d2.md). Đã áp lên dev (`5f7ab6bb083c`, `5a085853fca0`), 4 nhà
+demo đặt `hourly`. ZDR thử thật với 4 model, không cần AstralX. R3.7 vốn đã che trước khi lưu, chỉ thêm test. Review
+một vòng: sửa 2 Must (giờ trong cảnh báo `odd_hour`, nhắc tùy chỉnh trên số theo giờ ở nhà `daily`) và 3 Minor.
+Đ2-C1 (eval hai mức) đang chạy.
+
 ## Đ3. Đồng ý, cửa ra chung, nhật ký (P1)
 
 **[DB]**
-- [ ] Đ3-D1 Migration: `tb_consent` (chỉ ghi thêm), `tb_outbound_log`; `notify_anomaly`, `notify_tier` mặc định tắt · R3.3, R3.5
+- [x] Đ3-D1 Migration: `tb_consent` (chỉ ghi thêm), `tb_outbound_log`; `notify_anomaly`, `notify_tier` mặc định tắt · R3.3, R3.5
 
 **[BE]**
-- [ ] Đ3-B1 Test đỏ: chưa đồng ý thì chat và giọng nói trả 403 `consent_required` và không có lời gọi nào ra ngoài; đồng ý rồi rút thì bị chặn lại ngay; mỗi lần bật tắt thêm đúng một dòng
-- [ ] Đ3-B2 `GET` và `PUT /users/me/consents/{purpose}` cho `wappi`, `voice`, `email`
-- [ ] Đ3-B3 Hàm gọi ra ngoài chung (kiểm đồng ý → ghi nhật ký → gửi); chuyển `llm.py`, `guard.py`, `documents.py`, `voice.py`, `weather.py`, `notify.py` và `query_data` sang dùng · R3.5
+- [x] Đ3-B1 Test đỏ: chưa đồng ý thì chat và giọng nói trả 403 `consent_required` và không có lời gọi nào ra ngoài; đồng ý rồi rút thì bị chặn lại ngay; mỗi lần bật tắt thêm đúng một dòng
+- [x] Đ3-B2 `GET` và `PUT /users/me/consents/{purpose}` cho `wappi`, `voice`, `email`
+- [x] Đ3-B3 Hàm gọi ra ngoài chung (kiểm đồng ý → ghi nhật ký → gửi); chuyển `llm.py`, `guard.py`, `documents.py`, `voice.py`, `weather.py`, `notify.py` và `query_data` sang dùng · R3.5
 - [ ] Đ3-B4 Test quét mã nguồn: tên máy chủ bên ngoài chỉ xuất hiện ở cấu hình và hàm chung
-- [ ] Đ3-B5 `GET /users/me/outbound` trả 30 ngày gần nhất của người gọi
+- [x] Đ3-B5 `GET /users/me/outbound` trả 30 ngày gần nhất của người gọi
 - [ ] Đ3-B6 Mỗi câu trả lời kèm mục "đã gửi ra ngoài": bên nhận (lấy từ `usage.providers`), loại dữ liệu, mức chi tiết · R3.4
-- [ ] Đ3-B7 👎 mặc định không gửi nội dung; chỉ gửi khi có `share_content` · R3.6
-- [ ] Đ3-B8 Worker gửi mail đọc đồng ý `email`
+- [x] Đ3-B7 👎 mặc định không gửi nội dung; chỉ gửi khi có `share_content` · R3.6
+- [x] Đ3-B8 Worker gửi mail đọc đồng ý `email`
 
 **[WEB]**
 - [ ] Đ3-W1 Viết chữ vào `messages/{vi,en}/copilot.json` trước (lời mời đồng ý, dòng báo, mục đã gửi)
@@ -116,6 +121,13 @@ Kế hoạch chi tiết: [plan-d0.md](plan-d0.md).
 - [ ] Đ3-W4 Ô tích "Gửi kèm nội dung cho người bảo trì" ở nút 👎
 - [ ] Đ3-W5 Trạng thái Wappi khi chưa đồng ý: `EmptyState` Hairline kèm nút bật
 - [ ] Đ3-W6 Tự thử bằng tài khoản test và khách demo
+
+Ghi chú Đ3 (đang làm): kế hoạch [plan-d3.md](plan-d3.md). Backend xong phần lớn: `tb_consent`, `tb_outbound_log`
+(đã áp lên dev, `602f4f387869`), cổng `app/common/outbound.py`, API đồng ý và nhật ký, chặn chat và giọng nói, 👎
+không gửi nội dung nếu không tích, mail theo đồng ý `email`. Việc chặn theo đồng ý nằm sau `consent_enforced`
+(mặc định tắt) vì dev và prod dùng chung API mà dashboard prod cũ chưa có hộp đồng ý; bật khi triển khai web mới.
+Còn: Đ3-B4 test quét mã, Đ3-B6 mục "đã gửi ra ngoài" (đã có trong `reply.sent`, còn test), dòng bảng thử quyền cho 3
+route mới, toàn bộ phần web Đ3-W1…W6.
 
 ## Đ4. Xóa lịch sử (P1)
 

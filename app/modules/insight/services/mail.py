@@ -9,6 +9,7 @@ from sqlalchemy import func, select, text, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.common import outbound
 from app.config import settings
 from app.database import SessionLocal
 from app.modules.billing.api import current_bill
@@ -168,11 +169,13 @@ async def _members(s: AsyncSession, home_id: uuid.UUID):
     return (
         await s.execute(
             text(
-                "SELECT u.id, u.email, coalesce(p.notify_anomaly, true) AS anomaly, "
-                "coalesce(p.notify_tier, true) AS tier "
+                # No preference row: the defaults, off (R3.3); no demo visitors; email agreed to.
+                "SELECT u.id, u.email, coalesce(p.notify_anomaly, false) AS anomaly, "
+                "coalesce(p.notify_tier, false) AS tier "
                 "FROM public.tb_home_member m JOIN public.tb_users u ON u.id = m.user_id "
                 "LEFT JOIN public.tb_user_preference p ON p.user_id = u.id "
-                "WHERE m.home_id = :h AND u.is_active AND m.role <> 'viewer'"  # no demo visitors
+                "WHERE m.home_id = :h AND u.is_active AND m.role <> 'viewer' "
+                f"AND {outbound.consented_sql('u.id', 'email')}"
             ),
             {"h": home_id},
         )
@@ -237,6 +240,8 @@ async def mail_alerts(now: datetime) -> None:
                             # row, so the others are not mailed again on the next run.
                             async with s.begin_nested():
                                 if wants and await _claim(s, m.id, "alert", ref):
+                                    data = ["email address", "alert"]
+                                    await outbound.record("smtp", "email", data, user_id=m.id)
                                     await send(m.email, f"WattPrint: {subject}", body)
                         except Exception:
                             log.exception("alert %s not mailed to %s", alert_id, m.id)
@@ -303,7 +308,8 @@ async def mail_weekly(now: datetime) -> None:
                     "JOIN public.tb_users u ON u.id = p.user_id AND u.is_active "
                     # a demo visitor (viewer) gets no mail of the demo home
                     "JOIN public.tb_home_member m ON m.user_id = u.id AND m.role <> 'viewer' "
-                    "JOIN public.tb_home h ON h.id = m.home_id WHERE p.weekly_summary"
+                    "JOIN public.tb_home h ON h.id = m.home_id WHERE p.weekly_summary "
+                    f"AND {outbound.consented_sql('u.id', 'email')}"
                 )
             )
         ).all()
@@ -313,6 +319,8 @@ async def mail_weekly(now: datetime) -> None:
                 if await _claim(s, user_id, "weekly", f"{year}-W{week:02d}:{home_id}"):
                     body = await weekly_summary(s, home_id, now)
                     body += f"\n\nXem trên WattPrint: {settings.dashboard_url}/dashboard\n"
+                    data = ["email address", "weekly summary"]
+                    await outbound.record("smtp", "email", data, user_id=user_id)
                     await send(email, f"WattPrint: tóm tắt tuần của {home}", body)
         except Exception:
             log.exception("weekly summary for %s not mailed", user_id)

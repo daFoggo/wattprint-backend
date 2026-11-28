@@ -13,7 +13,8 @@ REQUIRED = {"name", "billing_cycle_day"}
 
 async def read_home(db: AsyncSession, member: HomeMember) -> HomeRead:
     home = await db.get(Home, member.home_id)
-    fields = {k: getattr(home, k) for k in HomeRead.model_fields if hasattr(home, k)}
+    computed = {"role", "ai_detail_effective"}
+    fields = {k: getattr(home, k) for k in HomeRead.model_fields if k not in computed}
     fields |= {"role": member.role, "ai_detail_effective": ai_detail(home)}
     return HomeRead.model_validate(fields)
 
