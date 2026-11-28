@@ -128,7 +128,7 @@ EXPECTED: dict[tuple[str, str], tuple[int, ...]] = {
     ("GET", "/api/v1/energy/devices"): (401, 200, 200, 200, 200, 200, 404),
     ("GET", "/api/v1/energy/devices/{device_id}"): (401, 404, 200, 200, 200, 200, 404),
     ("GET", "/api/v1/energy/overview"): (401, 200, 200, 200, 200, 200, 404),
-    ("GET", "/api/v1/energy/series"): (401, 200, 200, 403, 200, 200, 404),
+    ("GET", "/api/v1/energy/series"): (401, 200, 200, 200, 200, 200, 404),  # daily: by day
     ("GET", "/api/v1/energy/stream"): (401, 200, 200, 403, 200, 200, 404),
     ("GET", "/api/v1/energy/weather"): (401, 200, 200, 200, 200, 200, 404),
     ("GET", "/api/v1/expected"): (401, 200, 200, 403, 200, 200, 404),

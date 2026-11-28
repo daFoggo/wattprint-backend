@@ -135,7 +135,7 @@ số đo và ước lượng (rất lớn), nhà và thiết bị, tiền điệ
 |---|---|
 | Login owner (`POSTGRES_USER`) | Chạy migration; sở hữu các view `copilot_ro` |
 | `wattprint_app` | DML trên bảng API và AI conversation/dimensions; quản lý `metric_definition`; phát/xóa `tb_scope_token`; đọc aggregate |
-| `wattprint_ingest` | Đọc `tb_meter`, `tb_series`; INSERT `tb_reading`; INSERT/UPDATE `tb_device_estimate`, `public.ingest_*` |
+| `wattprint_ingest` | Đọc `tb_meter`, `tb_series`, `tb_nilm_model`, cột `tb_home(id, history_erased_before)` (`3b6e9d2a7f15`); INSERT `tb_reading`; INSERT/UPDATE `tb_device_estimate`, `public.ingest_*` |
 | `wattprint_copilot_ro` | SELECT trên view `copilot_ro` và whitelist `public` (documents/chunks, catalogs, tariffs); `statement_timeout = 5s` |
 | `wattprint_ai_user` (member của `wattprint_ai`) | Chỉ SELECT `ai.dim_tariff_plan`, `ai.metric_definition` (thu hẹp ở `7ed04a4f7308`); `statement_timeout = 30s` |
 

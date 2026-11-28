@@ -11,7 +11,6 @@ from app.dependencies import DbSession
 from app.modules.home.api import DetailedMembership, HomeMember, Membership
 
 from .. import services
-from ..dependencies import DetailedHome
 from ..schemas import Overview, Power, SeriesPoint, Today
 
 router = APIRouter()
@@ -37,14 +36,17 @@ async def overview(member: Membership, db: DbSession) -> Overview:
 
 @router.get("/series", summary="Main-meter power series, at most ~max_points points")
 async def series(
-    home_id: DetailedHome,
+    member: Membership,
     db: DbSession,
     since: datetime,
     until: datetime,
     max_points: Annotated[int, Query(ge=1, le=2000)] = 600,
 ) -> list[SeriesPoint]:
+    daily = member.detail == "daily"  # a daily member gets day buckets, never finer
     try:
-        points = await services.meter_series(db, home_id, since, until, max_points)
+        points = await services.meter_series(
+            db, member.home_id, since, until, max_points, daily=daily
+        )
     except ValueError as exc:  # naive datetimes, empty or > 90 day window
         raise UnprocessableError(str(exc)) from None
     return [SeriesPoint.model_validate(p) for p in points]

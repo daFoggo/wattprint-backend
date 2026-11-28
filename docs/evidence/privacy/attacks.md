@@ -20,7 +20,6 @@ Còn mở (cần migration hoặc quyết định của chủ dự án):
 
 | Chỗ | Vì sao còn | Hướng sửa |
 |---|---|---|
-| Mức theo ngày: `reading_1d.last_w` và `device_estimate_1d.last_w` của ngày đang chạy là công suất lúc này | Sửa view cần migration | view trả `last_w` chỉ khi token theo giờ |
 | Mức theo giờ: `copilot_ro.alert` vẫn đưa giờ phút của cảnh báo bật/tắt thiết bị (`ts`, `at`) | Cần migration, và test cũ chủ ý giữ phút | cắt `ts` về giờ, bỏ `at` ở mức theo giờ |
 | Cảnh báo cũ còn mã UUIDv7 | Dữ liệu đã có; cảnh báo hiện chưa tự xóa (`RETENTION_TIERS=false`) | bật dọn hằng đêm (hạn 400 ngày), hoặc đổi mã một lần |
 | Tổng "hôm nay" (trang tổng quan, cảnh báo `today_kwh`) hỏi liên tục cho ra đường cộng dồn trong ngày | Thiết kế cho phép thành viên theo ngày xem số hôm nay | chấp nhận, hoặc chỉ cập nhật theo giờ |

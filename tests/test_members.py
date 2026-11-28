@@ -197,10 +197,8 @@ async def test_a_daily_member_gets_no_figure_finer_than_a_day(client, make_membe
     )
     assert r.status_code == 204, r.text
 
-    for path in ("/api/v1/energy/series", "/api/v1/energy/activity", "/api/v1/expected"):
-        params = PERIOD if path.endswith("series") else None
-        if path.endswith("expected"):
-            params = {"from": PERIOD["since"], "to": PERIOD["until"]}
+    for path in ("/api/v1/energy/activity", "/api/v1/expected"):
+        params = {"from": PERIOD["since"], "to": PERIOD["until"]} if path.endswith("ed") else None
         r = await client.get(path, params=params, headers=member.headers)
         assert (r.status_code, r.json()["code"]) == (403, "detail_restricted"), path
     r = await client.get("/api/v1/energy/stream", headers=member.headers)

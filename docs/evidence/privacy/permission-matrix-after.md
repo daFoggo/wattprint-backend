@@ -22,7 +22,7 @@ Chạy lúc 2026-11-28 03:30 UTC, 57 thao tác API.
 | `GET /api/v1/energy/devices` | 401 | 200 | 200 | 200 | 200 | 200 | 404 | đúng |
 | `GET /api/v1/energy/devices/{device_id}` | 401 | 404 | 200 | 200 | 200 | 200 | 404 | đúng |
 | `GET /api/v1/energy/overview` | 401 | 200 | 200 | 200 | 200 | 200 | 404 | đúng |
-| `GET /api/v1/energy/series` | 401 | 200 | 200 | 403 | 200 | 200 | 404 | đúng |
+| `GET /api/v1/energy/series` | 401 | 200 | 200 | 200 (theo ngày) | 200 | 200 | 404 | đúng |
 | `GET /api/v1/energy/stream` | 401 | 200 | 200 | 403 | 200 | 200 | 404 | đúng |
 | `GET /api/v1/energy/weather` | 401 | 200 | 200 | 200 | 200 | 200 | 404 | đúng |
 | `GET /api/v1/expected` | 401 | 200 | 200 | 403 | 200 | 200 | 404 | đúng |

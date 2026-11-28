@@ -141,8 +141,10 @@ async def meter_series(
     until: datetime,
     max_points: int = 600,
     now: datetime | None = None,
+    daily: bool = False,
 ) -> list[Point]:
-    """The main-meter power series of a home as at most ~max_points points.
+    """The main-meter power series of a home as at most ~max_points points (day buckets only
+    when `daily`).
 
     The step comes from `pick_step`, made coarser (and each point flagged `coarsened`) when the
     window starts before what the finer aggregate still keeps; buckets are aligned to local
@@ -159,7 +161,9 @@ async def meter_series(
     A re-bucketed `avg_w` is sample-weighted (sum(avg_w * n) / sum(n)), never a mean of means.
     Missing buckets are not filled. Returns [] for a home without a main series or data.
     """
-    step = pick_step(since, until, max_points)
+    step = pick_step(since, until, max_points)  # also checks the window
+    if daily:
+        step = "1d"
     open_minute = _minute(now)
     series_id = await _main_series(session, home_id)
     if series_id is None:

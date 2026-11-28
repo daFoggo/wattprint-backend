@@ -47,7 +47,7 @@ giờ 400 (nhà có mô hình); cảnh báo, dự báo không có hạn; hóa đ
 | Đã làm | Minh chứng |
 |---|---|
 | Chủ nhà mời người thân bằng mã dùng một lần; mức mặc định là chỉ theo ngày; đổi mức, gỡ; thành viên tự rời | `tests/test_members.py` |
-| Người "chỉ theo ngày" bị từ chối số mịn hơn một ngày, kể cả khi hỏi Wappi, đặt nhắc, nhận mail cảnh báo | `tests/test_members.py::test_a_daily_member_gets_no_figure_finer_than_a_day`, `test_a_daily_member_sets_no_watch_on_the_moment`, `test_wappi_answers_a_daily_member_by_day`; `tests/test_insight_api.py::test_a_daily_members_alert_mail_names_nothing` |
+| Người "chỉ theo ngày" bị từ chối số mịn hơn một ngày, kể cả khi hỏi Wappi, đặt nhắc, nhận mail cảnh báo | `tests/test_members.py::test_a_daily_member_gets_no_figure_finer_than_a_day`, `tests/test_energy_api.py::test_a_daily_member_gets_the_series_by_day_only` (biểu đồ chỉ theo ngày), `test_a_daily_member_sets_no_watch_on_the_moment`, `test_wappi_answers_a_daily_member_by_day`; `tests/test_insight_api.py::test_a_daily_members_alert_mail_names_nothing` |
 | Mỗi thao tác API có mã trả về mong đợi cho bảy chủ thể; thêm route mà thiếu dòng thì test đỏ | `tests/test_permissions.py` |
 | Vai database của AI chỉ thấy nhà trong token; không đọc bảng gốc, không ghi | `tests/db/test_roles.py` |
 | Dịch vụ text2sql đòi khóa ở mọi router (trừ own-knowledge, có khóa riêng) | `wattprint-text2sql-mcp/tests/test_service_key.py` |
@@ -108,5 +108,5 @@ cho dịch vụ ngoài không xóa được từ WattPrint.
 5. AstralX: chưa biết nơi đặt máy chủ, thời gian giữ; chưa gửi kèm yêu cầu không lưu dữ liệu.
 6. Che dữ liệu cá nhân chỉ theo mẫu, chưa nhận ra tên người và địa chỉ.
 7. Tệp mô hình tách thiết bị riêng của nhà chưa xóa theo tài khoản (hiện chỉ huấn luyện từ dữ liệu công khai).
-8. Chưa thử tấn công (dụ Wappi đọc nhà khác, vượt mức xem), chưa kiểm cấu hình bảo mật máy prod.
+8. Đã thử tấn công ([attacks.md](privacy/attacks.md)); chưa kiểm cấu hình bảo mật máy prod.
 9. Chưa triển khai lên prod; căn cứ pháp lý chưa đối chiếu bản Công báo.

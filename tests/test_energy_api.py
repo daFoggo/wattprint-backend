@@ -91,6 +91,26 @@ async def test_series_covers_the_window(client, member):
     assert points and all(p["energy_wh"] >= 0 for p in points)
 
 
+async def test_a_daily_member_gets_the_series_by_day_only(client, member):
+    token, now = member
+    me = (await client.get("/api/v1/users/me", headers=bearer(token))).json()["id"]
+    async with SessionLocal() as session, session.begin():
+        await session.execute(
+            text("UPDATE public.tb_home_member SET detail = 'daily' WHERE user_id = :u"),
+            {"u": me},
+        )
+    params = {
+        "since": (now - timedelta(hours=1)).isoformat(),
+        "until": now.isoformat(),
+        "max_points": 60,
+    }
+    r = await client.get("/api/v1/energy/series", headers=bearer(token), params=params)
+    assert r.status_code == 200, r.text
+    (point,) = r.json()  # one day bucket, never minutes
+    assert point["ts"].endswith("T17:00:00Z") and point["energy_wh"] > 0
+    assert point["coarsened"] is False
+
+
 async def test_series_rejects_naive_datetimes(client, member):
     token, _ = member
     params = {"since": "2026-11-01T00:00:00", "until": "2026-11-02T00:00:00"}

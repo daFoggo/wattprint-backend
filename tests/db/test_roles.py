@@ -689,6 +689,24 @@ async def test_ingest_can_write_readings_and_ops(conn):
     )
 
 
+async def test_ingest_reads_only_the_erase_day_of_a_home(conn):
+    cols = await conn.execute(
+        text(
+            "SELECT column_name FROM information_schema.columns "
+            "WHERE table_schema = 'public' AND table_name = 'tb_home'"
+        )
+    )
+    readable = {
+        c
+        for c in cols.scalars()
+        if await conn.scalar(
+            text("SELECT has_column_privilege(:r, 'public.tb_home', :c, 'SELECT')"),
+            {"r": INGEST, "c": c},
+        )
+    }
+    assert readable == {"id", "history_erased_before"}
+
+
 async def test_ingest_cannot_delete_truncate_or_read_other_tables(conn):
     await seed(conn)
     await as_role(conn, INGEST)
@@ -856,6 +874,7 @@ def expected_ingest(rel: str) -> set[str]:
         "public.tb_ingest_batch": {"SELECT", "INSERT", "UPDATE"},
         "public.tb_ingest_checkpoint": {"SELECT", "INSERT", "UPDATE"},
         "public.tb_nilm_model": {"SELECT"},
+        "public.tb_home": {"SELECT"},  # only (id, history_erased_before): see the test below
     }.get(rel, set())
 
 
