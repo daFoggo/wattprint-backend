@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1340" height="915" viewBox="0 0 1340 915" role="img" aria-labelledby="context-title">
+<title id="context-title">DFD mức ngữ cảnh WattPrint</title>
+<defs><marker id="context-a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M1 1 L9 5 L1 9" fill="none" stroke="#506981" stroke-width="1.5"/></marker><marker id="context-o" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M1 1 L9 5 L1 9" fill="none" stroke="#b2691b" stroke-width="1.5"/></marker></defs>
+<style>
+.process{fill:#e6f1fc;stroke:#2a67a4;stroke-width:2}.store{fill:#e8f5ec;stroke:#27804b;stroke-width:2}
+.actor{fill:#f0ebfa;stroke:#7653a2;stroke-width:2}.external{fill:#fff0df;stroke:#b2691b;stroke-width:2}
+.frame{fill:#f8fbfd;stroke:#b6c8d7;stroke-width:2}.planned{fill:#fff;stroke:#7a8793;stroke-width:2;stroke-dasharray:7 5}
+.wire{fill:none;stroke:#506981;stroke-width:1.8}.out{fill:none;stroke:#b2691b;stroke-width:2.4}
+text{font-family:system-ui,sans-serif;fill:#182a3a}.label{font-size:15px;font-weight:700}
+.sub{font-size:12px;fill:#40556a}.edge{font-size:12px;fill:#314b63}.h{font-size:13px;font-weight:700;letter-spacing:.04em;fill:#43576b}
+</style>
+<rect width="1340" height="915" fill="#fff"/>
+<text class="label" x="20" y="28" text-anchor="start">DFD mức ngữ cảnh</text>
+<rect class="process" x="500" y="60" width="240" height="800" rx="20"/>
+<text class="label" x="620" y="440" text-anchor="middle">0 · WattPrint</text>
+<text class="sub" x="620" y="464" text-anchor="middle">API, worker, database,</text>
+<text class="sub" x="620" y="480" text-anchor="middle">Wappi, text2sql</text>
+<rect class="actor" x="20" y="90" width="200" height="150" rx="9"/><text class="label" x="120.0" y="154.0" text-anchor="middle">Người trong nhà</text><text class="sub" x="120.0" y="172.0" text-anchor="middle">chủ nhà, thành viên,</text><text class="sub" x="120.0" y="188.0" text-anchor="middle">khách demo</text>
+<path class="wire" d="M220 135 H500" marker-end="url(#context-a)"/><text class="edge" x="360.0" y="113" text-anchor="middle">câu hỏi, giọng nói, đồng ý,</text><text class="edge" x="360.0" y="128" text-anchor="middle">mức xem, lệnh xóa</text>
+<path class="wire" d="M500 205 H220" marker-end="url(#context-a)"/><text class="edge" x="360.0" y="198" text-anchor="middle">biểu đồ, hóa đơn, trả lời, nhật ký</text>
+<rect class="actor" x="20" y="330" width="200" height="80" rx="9"/><text class="label" x="120.0" y="367.0" text-anchor="middle">Công tơ / phát lại</text><text class="sub" x="120.0" y="385.0" text-anchor="middle">REFIT, demo</text>
+<path class="wire" d="M220 370 H500" marker-end="url(#context-a)"/><text class="edge" x="360.0" y="363" text-anchor="middle">số đo + mã công tơ</text>
+<rect class="actor" x="20" y="500" width="200" height="80" rx="9"/><text class="label" x="120.0" y="537.0" text-anchor="middle">Admin</text><text class="sub" x="120.0" y="555.0" text-anchor="middle">vai Keycloak</text>
+<path class="wire" d="M500 540 H220" marker-end="url(#context-a)"/><text class="edge" x="360.0" y="533" text-anchor="middle">danh sách tài khoản</text>
+<rect class="actor" x="20" y="660" width="200" height="80" rx="9"/><text class="label" x="120.0" y="697.0" text-anchor="middle">Người bảo trì</text><text class="sub" x="120.0" y="715.0" text-anchor="middle">vận hành máy chủ</text>
+<path class="wire" d="M500 700 H220" marker-end="url(#context-a)"/><text class="edge" x="360.0" y="693" text-anchor="middle">👎; nội dung nếu người dùng tích</text>
+<rect class="external" x="1090" y="60" width="230" height="100" rx="9"/><text class="label" x="1205.0" y="107.0" text-anchor="middle">OpenRouter</text><text class="sub" x="1205.0" y="125.0" text-anchor="middle">ngoài Việt Nam</text>
+<path class="out" d="M740 95 H1090" marker-end="url(#context-o)"/><text class="edge" x="915.0" y="88" text-anchor="middle">câu hỏi đã che, kết quả công cụ</text>
+<path class="wire" d="M1090 135 H740" marker-end="url(#context-a)"/><text class="edge" x="915.0" y="128" text-anchor="middle">trả lời</text>
+<rect class="external" x="1090" y="195" width="230" height="100" rx="9"/><text class="label" x="1205.0" y="242.0" text-anchor="middle">AstralX</text><text class="sub" x="1205.0" y="260.0" text-anchor="middle">vị trí máy chủ chưa rõ</text>
+<path class="out" d="M740 230 H1090" marker-end="url(#context-o)"/><text class="edge" x="915.0" y="223" text-anchor="middle">âm thanh gốc, câu trả lời; AI dự phòng</text>
+<path class="wire" d="M1090 270 H740" marker-end="url(#context-a)"/><text class="edge" x="915.0" y="263" text-anchor="middle">bản chữ, âm thanh, trả lời</text>
+<rect class="external" x="1090" y="330" width="230" height="100" rx="9"/><text class="label" x="1205.0" y="377.0" text-anchor="middle">OpenWeather</text><text class="sub" x="1205.0" y="395.0" text-anchor="middle">thời tiết</text>
+<path class="out" d="M740 365 H1090" marker-end="url(#context-o)"/><text class="edge" x="915.0" y="358" text-anchor="middle">tọa độ tỉnh</text>
+<path class="wire" d="M1090 405 H740" marker-end="url(#context-a)"/><text class="edge" x="915.0" y="398" text-anchor="middle">dự báo thời tiết</text>
+<rect class="external" x="1090" y="465" width="230" height="100" rx="9"/><text class="label" x="1205.0" y="512.0" text-anchor="middle">Telegram</text><text class="sub" x="1205.0" y="530.0" text-anchor="middle">đến người bảo trì</text>
+<path class="out" d="M740 500 H1090" marker-end="url(#context-o)"/><text class="edge" x="915.0" y="493" text-anchor="middle">đánh giá 👎 (+ nội dung nếu tích)</text>
+<rect class="external" x="1090" y="600" width="230" height="100" rx="9"/><text class="label" x="1205.0" y="647.0" text-anchor="middle">SMTP</text><text class="sub" x="1205.0" y="665.0" text-anchor="middle">mail cảnh báo, tóm tắt</text>
+<path class="out" d="M740 635 H1090" marker-end="url(#context-o)"/><text class="edge" x="915.0" y="628" text-anchor="middle">email, nội dung cảnh báo / tóm tắt</text>
+<rect class="external" x="1090" y="735" width="230" height="100" rx="9"/><text class="label" x="1205.0" y="782.0" text-anchor="middle">Google · SMTP Keycloak</text><text class="sub" x="1205.0" y="800.0" text-anchor="middle">không qua cửa ra chung</text>
+<path class="out" d="M740 770 H1090" marker-end="url(#context-o)"/><text class="edge" x="915.0" y="763" text-anchor="middle">đăng nhập, mail xác minh</text>
+<path class="wire" d="M1090 810 H740" marker-end="url(#context-a)"/><text class="edge" x="915.0" y="803" text-anchor="middle">định danh đăng nhập</text>
+<path d="M1050 45 V870" stroke="#b2691b" stroke-width="3" stroke-dasharray="8 6" fill="none"/>
+<text class="h" x="1050" y="895" text-anchor="middle">RANH GIỚI RA NGOÀI</text>
+<text class="sub" x="20" y="895" text-anchor="start">Ở Telegram, người bảo trì đọc tin do hệ thống gửi. Chặn theo đồng ý đang tắt trên máy chủ.</text>
+</svg>

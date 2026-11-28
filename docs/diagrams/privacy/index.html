@@ -1,0 +1,1007 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WattPrint · Phân tích luồng dữ liệu riêng tư</title>
+<style>:root{font:15px/1.55 system-ui,sans-serif;color:#162332;background:#f4f6f8}body{max-width:1500px;margin:auto;padding:32px 24px 80px}
+h2{margin:48px 0 12px;font-size:1.3rem}a{color:#1455a2}.panel{background:#fff;border:1px solid #dce3ea;border-radius:14px;padding:16px;overflow-x:auto}
+.panel svg{display:block;max-width:100%;height:auto;min-width:900px}.notice{border-left:4px solid #ac6b1c;background:#fff6e8;padding:12px 18px}</style>
+</head>
+<body>
+<h1>WattPrint · Phân tích luồng dữ liệu riêng tư</h1>
+<p class="notice">Hiện trạng theo mã ngày 28/11/2026. Hai điều chưa có hiệu lực: <strong>chặn theo đồng ý đang tắt</strong> trên máy chủ (<code>consent_enforced = False</code>) và <strong>thời hạn lưu theo bậc</strong> (spec R1.1) chưa áp dụng.</p>
+<p><a href="../privacy-data-flow.svg">Sơ đồ tổng quan luồng dữ liệu</a> · <a href="../../evidence/privacy.md">Trang minh chứng</a>. Quy ước DFD: tím = tác nhân; xanh lam = tiến trình; xanh lá = kho; cam = bên ngoài; nét đứt = chưa áp dụng.</p>
+<h2>1. Tác nhân</h2>
+<div class="panel">
+<svg xmlns="http://www.w3.org/2000/svg" width="1300" height="778" viewBox="0 0 1300 778" role="img" aria-labelledby="actors-title">
+<title id="actors-title">Tác nhân tham gia (theo mã ngày 28/11/2026)</title>
+<defs><marker id="actors-a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M1 1 L9 5 L1 9" fill="none" stroke="#506981" stroke-width="1.5"/></marker><marker id="actors-o" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M1 1 L9 5 L1 9" fill="none" stroke="#b2691b" stroke-width="1.5"/></marker></defs>
+<style>
+.process{fill:#e6f1fc;stroke:#2a67a4;stroke-width:2}.store{fill:#e8f5ec;stroke:#27804b;stroke-width:2}
+.actor{fill:#f0ebfa;stroke:#7653a2;stroke-width:2}.external{fill:#fff0df;stroke:#b2691b;stroke-width:2}
+.frame{fill:#f8fbfd;stroke:#b6c8d7;stroke-width:2}.planned{fill:#fff;stroke:#7a8793;stroke-width:2;stroke-dasharray:7 5}
+.wire{fill:none;stroke:#506981;stroke-width:1.8}.out{fill:none;stroke:#b2691b;stroke-width:2.4}
+text{font-family:system-ui,sans-serif;fill:#182a3a}.label{font-size:15px;font-weight:700}
+.sub{font-size:12px;fill:#40556a}.edge{font-size:12px;fill:#314b63}.h{font-size:13px;font-weight:700;letter-spacing:.04em;fill:#43576b}
+</style>
+<rect width="1300" height="778" fill="#fff"/>
+<text class="label" x="20" y="32" text-anchor="start">Tác nhân tham gia (theo mã ngày 28/11/2026)</text>
+<rect x="20" y="56" width="220" height="34" fill="#eaf1f7" stroke="#cbd7e1"/>
+<text x="29" y="78" font-size="13" font-weight="650">Tác nhân</text>
+<rect x="240" y="56" width="360" height="34" fill="#eaf1f7" stroke="#cbd7e1"/>
+<text x="249" y="78" font-size="13" font-weight="650">Làm gì / đưa vào</text>
+<rect x="600" y="56" width="440" height="34" fill="#eaf1f7" stroke="#cbd7e1"/>
+<text x="609" y="78" font-size="13" font-weight="650">Nhận được gì / giới hạn</text>
+<rect x="1040" y="56" width="240" height="34" fill="#eaf1f7" stroke="#cbd7e1"/>
+<text x="1049" y="78" font-size="13" font-weight="650">Chặn ở đâu</text>
+<rect x="20" y="90" width="220" height="52" fill="#fff" stroke="#cbd7e1"/>
+<text x="29" y="112" font-size="13" font-weight="650">Chủ nhà</text>
+<rect x="240" y="90" width="360" height="52" fill="#fff" stroke="#cbd7e1"/>
+<text x="249" y="112" font-size="13" font-weight="400">Đặt mức Wappi xem (ngày/giờ), mời, đổi mức, gỡ</text>
+<text x="249" y="130" font-size="13" font-weight="400">thành viên, xóa lịch sử, đồng ý/rút lại</text>
+<rect x="600" y="90" width="440" height="52" fill="#fff" stroke="#cbd7e1"/>
+<text x="609" y="112" font-size="13" font-weight="400">Mọi dữ liệu nhà mình; email thành viên; nhật ký gửi ngoài</text>
+<text x="609" y="130" font-size="13" font-weight="400">của riêng mình</text>
+<rect x="1040" y="90" width="240" height="52" fill="#fff" stroke="#cbd7e1"/>
+<text x="1049" y="112" font-size="13" font-weight="400">API theo tư cách trong nhà</text>
+<rect x="20" y="142" width="220" height="52" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="29" y="164" font-size="13" font-weight="650">Thành viên đầy đủ</text>
+<rect x="240" y="142" width="360" height="52" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="249" y="164" font-size="13" font-weight="400">Xem, hỏi Wappi, đặt nhắc, kế hoạch riêng; tự rời</text>
+<text x="249" y="182" font-size="13" font-weight="400">nhà</text>
+<rect x="600" y="142" width="440" height="52" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="609" y="164" font-size="13" font-weight="400">Dữ liệu chi tiết của nhà; trò chuyện của riêng mình. Không</text>
+<text x="609" y="182" font-size="13" font-weight="400">mời, xóa lịch sử, sửa nhà</text>
+<rect x="1040" y="142" width="240" height="52" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="1049" y="164" font-size="13" font-weight="400">API theo vai member</text>
+<rect x="20" y="194" width="220" height="70" fill="#fff" stroke="#cbd7e1"/>
+<text x="29" y="216" font-size="13" font-weight="650">Thành viên chỉ theo ngày</text>
+<text x="29" y="234" font-size="13" font-weight="650">(mặc định khi nhận mời)</text>
+<rect x="240" y="194" width="360" height="70" fill="#fff" stroke="#cbd7e1"/>
+<text x="249" y="216" font-size="13" font-weight="400">Như trên, ở mức ngày</text>
+<rect x="600" y="194" width="440" height="70" fill="#fff" stroke="#cbd7e1"/>
+<text x="609" y="216" font-size="13" font-weight="400">Số theo ngày, hóa đơn. 403 ở biểu đồ công suất, dòng trực</text>
+<text x="609" y="234" font-size="13" font-weight="400">tiếp, hoạt động thiết bị, dự đoán theo giờ; Wappi chạy mức</text>
+<text x="609" y="252" font-size="13" font-weight="400">ngày</text>
+<rect x="1040" y="194" width="240" height="70" fill="#fff" stroke="#cbd7e1"/>
+<text x="1049" y="216" font-size="13" font-weight="400">members.py, DetailedMembership</text>
+<rect x="20" y="264" width="220" height="52" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="29" y="286" font-size="13" font-weight="650">Khách xem demo (viewer)</text>
+<rect x="240" y="264" width="360" height="52" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="249" y="286" font-size="13" font-weight="400">Chọn nhà mẫu, hỏi Wappi, kế hoạch riêng</text>
+<rect x="600" y="264" width="440" height="52" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="609" y="286" font-size="13" font-weight="400">Dữ liệu mẫu công khai, đầy đủ; không sửa dữ liệu chung,</text>
+<text x="609" y="304" font-size="13" font-weight="400">không xem danh sách thành viên</text>
+<rect x="1040" y="264" width="240" height="52" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="1049" y="286" font-size="13" font-weight="400">vai viewer, chỉ đọc</text>
+<rect x="20" y="316" width="220" height="52" fill="#fff" stroke="#cbd7e1"/>
+<text x="29" y="338" font-size="13" font-weight="650">Admin (vai Keycloak)</text>
+<rect x="240" y="316" width="360" height="52" fill="#fff" stroke="#cbd7e1"/>
+<text x="249" y="338" font-size="13" font-weight="400">Gọi GET /users</text>
+<rect x="600" y="316" width="440" height="52" fill="#fff" stroke="#cbd7e1"/>
+<text x="609" y="338" font-size="13" font-weight="400">Danh sách tài khoản (tên, email). Không có API đọc dữ liệu</text>
+<text x="609" y="356" font-size="13" font-weight="400">của một nhà</text>
+<rect x="1040" y="316" width="240" height="52" fill="#fff" stroke="#cbd7e1"/>
+<text x="1049" y="338" font-size="13" font-weight="400">require_admin</text>
+<rect x="20" y="368" width="220" height="52" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="29" y="390" font-size="13" font-weight="650">Người bảo trì máy chủ</text>
+<rect x="240" y="368" width="360" height="52" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="249" y="390" font-size="13" font-weight="400">Vận hành; nhận đánh giá 👎 qua Telegram</text>
+<rect x="600" y="368" width="440" height="52" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="609" y="390" font-size="13" font-weight="400">Có quyền máy chủ và database nên về kỹ thuật đọc được mọi</text>
+<text x="609" y="408" font-size="13" font-weight="400">dữ liệu; không có lớp chặn trong phần mềm</text>
+<rect x="1040" y="368" width="240" height="52" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="1049" y="390" font-size="13" font-weight="400">Chỉ quy trình vận hành</text>
+<rect x="20" y="420" width="220" height="52" fill="#fff" stroke="#cbd7e1"/>
+<text x="29" y="442" font-size="13" font-weight="650">Công tơ / bộ phát lại</text>
+<text x="29" y="460" font-size="13" font-weight="650">demo</text>
+<rect x="240" y="420" width="360" height="52" fill="#fff" stroke="#cbd7e1"/>
+<text x="249" y="442" font-size="13" font-weight="400">Gửi lô số đo</text>
+<rect x="600" y="420" width="440" height="52" fill="#fff" stroke="#cbd7e1"/>
+<text x="609" y="442" font-size="13" font-weight="400">Lô cũ hơn mốc đã xóa bị từ chối. Công tơ thật chưa có API;</text>
+<text x="609" y="460" font-size="13" font-weight="400">demo dùng script phát lại REFIT</text>
+<rect x="1040" y="420" width="240" height="52" fill="#fff" stroke="#cbd7e1"/>
+<text x="1049" y="442" font-size="13" font-weight="400">ops ingest</text>
+<rect x="20" y="472" width="220" height="52" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="29" y="494" font-size="13" font-weight="650">Worker nội bộ (nilm,</text>
+<text x="29" y="512" font-size="13" font-weight="650">insight)</text>
+<rect x="240" y="472" width="360" height="52" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="249" y="494" font-size="13" font-weight="400">Tách thiết bị, hóa đơn, dự báo, cảnh báo, nhắc,</text>
+<text x="249" y="512" font-size="13" font-weight="400">email, dọn nhật ký</text>
+<rect x="600" y="472" width="440" height="52" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="609" y="494" font-size="13" font-weight="400">Đọc kho điện cần cho tác vụ</text>
+<rect x="1040" y="472" width="240" height="52" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="1049" y="494" font-size="13" font-weight="400">Vai database</text>
+<rect x="20" y="524" width="220" height="52" fill="#fff" stroke="#cbd7e1"/>
+<text x="29" y="546" font-size="13" font-weight="650">Wappi và text2sql (trong</text>
+<text x="29" y="564" font-size="13" font-weight="650">hệ thống)</text>
+<rect x="240" y="524" width="360" height="52" fill="#fff" stroke="#cbd7e1"/>
+<text x="249" y="546" font-size="13" font-weight="400">Trả lời; truy vấn view copilot_ro bằng token 5</text>
+<text x="249" y="564" font-size="13" font-weight="400">phút theo nhà</text>
+<rect x="600" y="524" width="440" height="52" fill="#fff" stroke="#cbd7e1"/>
+<text x="609" y="546" font-size="13" font-weight="400">Không có view phút, lượt bật/tắt, tên nhà, mã bưu chính, số</text>
+<text x="609" y="564" font-size="13" font-weight="400">người; view giờ chỉ khi token mức giờ</text>
+<rect x="1040" y="524" width="240" height="52" fill="#fff" stroke="#cbd7e1"/>
+<text x="1049" y="546" font-size="13" font-weight="400">Vai wattprint_copilot_ro</text>
+<rect x="20" y="576" width="220" height="52" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="29" y="598" font-size="13" font-weight="650">OpenRouter, AstralX</text>
+<text x="29" y="616" font-size="13" font-weight="650">(ngoài)</text>
+<rect x="240" y="576" width="360" height="52" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="249" y="598" font-size="13" font-weight="400">AI trả lời, kiểm duyệt, nhúng văn bản, giọng nói</text>
+<rect x="600" y="576" width="440" height="52" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="609" y="598" font-size="13" font-weight="400">Câu hỏi đã che, kết quả công cụ; âm thanh gốc khi dùng</text>
+<text x="609" y="616" font-size="13" font-weight="400">giọng nói</text>
+<rect x="1040" y="576" width="240" height="52" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="1049" y="598" font-size="13" font-weight="400">Cửa ra chung + nhật ký</text>
+<rect x="20" y="628" width="220" height="52" fill="#fff" stroke="#cbd7e1"/>
+<text x="29" y="650" font-size="13" font-weight="650">OpenWeather, Telegram,</text>
+<text x="29" y="668" font-size="13" font-weight="650">SMTP (ngoài)</text>
+<rect x="240" y="628" width="360" height="52" fill="#fff" stroke="#cbd7e1"/>
+<text x="249" y="650" font-size="13" font-weight="400">Thời tiết, báo người bảo trì, gửi mail cảnh báo</text>
+<rect x="600" y="628" width="440" height="52" fill="#fff" stroke="#cbd7e1"/>
+<text x="609" y="650" font-size="13" font-weight="400">Tọa độ tỉnh; đánh giá (kèm nội dung chỉ khi tích); email và</text>
+<text x="609" y="668" font-size="13" font-weight="400">nội dung cảnh báo</text>
+<rect x="1040" y="628" width="240" height="52" fill="#fff" stroke="#cbd7e1"/>
+<text x="1049" y="650" font-size="13" font-weight="400">Cửa ra chung + nhật ký</text>
+<rect x="20" y="680" width="220" height="52" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="29" y="702" font-size="13" font-weight="650">Google, SMTP của</text>
+<text x="29" y="720" font-size="13" font-weight="650">Keycloak (ngoài)</text>
+<rect x="240" y="680" width="360" height="52" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="249" y="702" font-size="13" font-weight="400">Đăng nhập Google; mail xác minh, đặt lại mật</text>
+<text x="249" y="720" font-size="13" font-weight="400">khẩu</text>
+<rect x="600" y="680" width="440" height="52" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="609" y="702" font-size="13" font-weight="400">Định danh đăng nhập, địa chỉ email</text>
+<rect x="1040" y="680" width="240" height="52" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="1049" y="702" font-size="13" font-weight="400">Không qua cửa ra chung, không</text>
+<text x="1049" y="720" font-size="13" font-weight="400">ghi nhật ký</text>
+<text class="sub" x="20" y="758" text-anchor="start">Việc chặn theo đồng ý đang TẮT trên máy chủ (consent_enforced = False, app/config.py): đã có API đồng ý và nhật ký, nhưng chưa từ chối lời gọi nào.</text>
+</svg>
+</div>
+<h2>2. BFD · phân rã chức năng</h2>
+<div class="panel">
+<svg xmlns="http://www.w3.org/2000/svg" width="1260" height="630" viewBox="0 0 1260 630" role="img" aria-labelledby="bfd-title">
+<title id="bfd-title">BFD WattPrint</title>
+<defs><marker id="bfd-a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M1 1 L9 5 L1 9" fill="none" stroke="#506981" stroke-width="1.5"/></marker><marker id="bfd-o" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M1 1 L9 5 L1 9" fill="none" stroke="#b2691b" stroke-width="1.5"/></marker></defs>
+<style>
+.process{fill:#e6f1fc;stroke:#2a67a4;stroke-width:2}.store{fill:#e8f5ec;stroke:#27804b;stroke-width:2}
+.actor{fill:#f0ebfa;stroke:#7653a2;stroke-width:2}.external{fill:#fff0df;stroke:#b2691b;stroke-width:2}
+.frame{fill:#f8fbfd;stroke:#b6c8d7;stroke-width:2}.planned{fill:#fff;stroke:#7a8793;stroke-width:2;stroke-dasharray:7 5}
+.wire{fill:none;stroke:#506981;stroke-width:1.8}.out{fill:none;stroke:#b2691b;stroke-width:2.4}
+text{font-family:system-ui,sans-serif;fill:#182a3a}.label{font-size:15px;font-weight:700}
+.sub{font-size:12px;fill:#40556a}.edge{font-size:12px;fill:#314b63}.h{font-size:13px;font-weight:700;letter-spacing:.04em;fill:#43576b}
+</style>
+<rect width="1260" height="630" fill="#fff"/>
+<text class="label" x="20" y="28" text-anchor="start">BFD · phân rã chức năng</text>
+<rect class="process" x="480" y="45" width="300" height="50" rx="9"/><text class="label" x="630.0" y="75.0" text-anchor="middle">0 · WattPrint</text>
+<path class="wire" d="M630 95 V120 H165 V145"/>
+<rect class="process" x="20" y="145" width="290" height="50" rx="9"/><text class="label" x="165.0" y="175.0" text-anchor="middle">1 · Thu nhận</text>
+<rect class="store" x="40" y="215" width="270" height="40" rx="9"/><text class="label" x="175.0" y="240.0" text-anchor="middle">1.1 Nhận lô số đo</text>
+<path class="wire" d="M28 195 V235 H40"/>
+<rect class="store" x="40" y="267" width="270" height="40" rx="9"/><text class="label" x="175.0" y="292.0" text-anchor="middle">1.2 Chặn lô trước mốc xóa</text>
+<path class="wire" d="M28 235 V287 H40"/>
+<path class="wire" d="M630 95 V120 H475 V145"/>
+<rect class="process" x="330" y="145" width="290" height="50" rx="9"/><text class="label" x="475.0" y="175.0" text-anchor="middle">2 · Xử lý điện</text>
+<rect class="store" x="350" y="215" width="270" height="40" rx="9"/><text class="label" x="485.0" y="240.0" text-anchor="middle">2.1 Tổng hợp phút/giờ/ngày</text>
+<path class="wire" d="M338 195 V235 H350"/>
+<rect class="store" x="350" y="267" width="270" height="40" rx="9"/><text class="label" x="485.0" y="292.0" text-anchor="middle">2.2 Tách thiết bị</text>
+<path class="wire" d="M338 235 V287 H350"/>
+<rect class="store" x="350" y="319" width="270" height="40" rx="9"/><text class="label" x="485.0" y="344.0" text-anchor="middle">2.3 Xóa số cũ quá 400 ngày</text>
+<path class="wire" d="M338 287 V339 H350"/>
+<path class="wire" d="M630 95 V120 H785 V145"/>
+<rect class="process" x="640" y="145" width="290" height="50" rx="9"/><text class="label" x="785.0" y="175.0" text-anchor="middle">3 · Phục vụ nhà</text>
+<rect class="store" x="660" y="215" width="270" height="40" rx="9"/><text class="label" x="795.0" y="240.0" text-anchor="middle">3.1 Biểu đồ, hóa đơn</text>
+<path class="wire" d="M648 195 V235 H660"/>
+<rect class="store" x="660" y="267" width="270" height="40" rx="9"/><text class="label" x="795.0" y="292.0" text-anchor="middle">3.2 Dự báo, cảnh báo, nhắc</text>
+<path class="wire" d="M648 235 V287 H660"/>
+<rect class="store" x="660" y="319" width="270" height="40" rx="9"/><text class="label" x="795.0" y="344.0" text-anchor="middle">3.3 Wappi / text2sql</text>
+<path class="wire" d="M648 287 V339 H660"/>
+<rect class="store" x="660" y="371" width="270" height="40" rx="9"/><text class="label" x="795.0" y="396.0" text-anchor="middle">3.4 Email thông báo</text>
+<path class="wire" d="M648 339 V391 H660"/>
+<path class="wire" d="M630 95 V120 H1095 V145"/>
+<rect class="process" x="950" y="145" width="290" height="50" rx="9"/><text class="label" x="1095.0" y="175.0" text-anchor="middle">4 · Quyền riêng tư</text>
+<rect class="store" x="970" y="215" width="270" height="40" rx="9"/><text class="label" x="1105.0" y="240.0" text-anchor="middle">4.1 Thành viên, mức xem</text>
+<path class="wire" d="M958 195 V235 H970"/>
+<rect class="store" x="970" y="267" width="270" height="40" rx="9"/><text class="label" x="1105.0" y="292.0" text-anchor="middle">4.2 Đồng ý (chặn đang tắt)</text>
+<path class="wire" d="M958 235 V287 H970"/>
+<rect class="store" x="970" y="319" width="270" height="40" rx="9"/><text class="label" x="1105.0" y="344.0" text-anchor="middle">4.3 Cửa ra chung, nhật ký</text>
+<path class="wire" d="M958 287 V339 H970"/>
+<rect class="store" x="970" y="371" width="270" height="40" rx="9"/><text class="label" x="1105.0" y="396.0" text-anchor="middle">4.4 Che dữ liệu cá nhân</text>
+<path class="wire" d="M958 339 V391 H970"/>
+<rect class="store" x="970" y="423" width="270" height="40" rx="9"/><text class="label" x="1105.0" y="448.0" text-anchor="middle">4.5 Mức AI: ngày / giờ</text>
+<path class="wire" d="M958 391 V443 H970"/>
+<rect class="store" x="970" y="475" width="270" height="40" rx="9"/><text class="label" x="1105.0" y="500.0" text-anchor="middle">4.6 Xóa lịch sử, trò chuyện</text>
+<path class="wire" d="M958 443 V495 H970"/>
+<rect class="planned" x="970" y="527" width="270" height="40" rx="9"/><text class="label" x="1105.0" y="552.0" text-anchor="middle">4.7 Hạn lưu theo bậc: CHƯA</text>
+<path class="wire" d="M958 495 V547 H970"/>
+<text class="sub" x="20" y="610" text-anchor="start">Biểu đồ chức năng, không phải luồng dữ liệu. Khung nét đứt: chưa áp dụng.</text>
+</svg>
+</div>
+<h2>3. Ma trận tác nhân × chức năng</h2>
+<div class="panel">
+<svg xmlns="http://www.w3.org/2000/svg" width="1220" height="1026" viewBox="0 0 1220 1026" role="img" aria-labelledby="function-matrix-title">
+<title id="function-matrix-title">Ma trận tác nhân × chức năng (mã trả về mong đợi của test thử quyền)</title>
+<defs><marker id="function-matrix-a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M1 1 L9 5 L1 9" fill="none" stroke="#506981" stroke-width="1.5"/></marker><marker id="function-matrix-o" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M1 1 L9 5 L1 9" fill="none" stroke="#b2691b" stroke-width="1.5"/></marker></defs>
+<style>
+.process{fill:#e6f1fc;stroke:#2a67a4;stroke-width:2}.store{fill:#e8f5ec;stroke:#27804b;stroke-width:2}
+.actor{fill:#f0ebfa;stroke:#7653a2;stroke-width:2}.external{fill:#fff0df;stroke:#b2691b;stroke-width:2}
+.frame{fill:#f8fbfd;stroke:#b6c8d7;stroke-width:2}.planned{fill:#fff;stroke:#7a8793;stroke-width:2;stroke-dasharray:7 5}
+.wire{fill:none;stroke:#506981;stroke-width:1.8}.out{fill:none;stroke:#b2691b;stroke-width:2.4}
+text{font-family:system-ui,sans-serif;fill:#182a3a}.label{font-size:15px;font-weight:700}
+.sub{font-size:12px;fill:#40556a}.edge{font-size:12px;fill:#314b63}.h{font-size:13px;font-weight:700;letter-spacing:.04em;fill:#43576b}
+</style>
+<rect width="1220" height="1026" fill="#fff"/>
+<text class="label" x="20" y="32" text-anchor="start">Ma trận tác nhân × chức năng (mã trả về mong đợi của test thử quyền)</text>
+<rect x="20" y="56" width="270" height="52" fill="#eaf1f7" stroke="#cbd7e1"/>
+<text x="29" y="78" font-size="13" font-weight="650">Chức năng</text>
+<rect x="290" y="56" width="140" height="52" fill="#eaf1f7" stroke="#cbd7e1"/>
+<text x="299" y="78" font-size="13" font-weight="650">Chưa đăng nhập</text>
+<rect x="430" y="56" width="150" height="52" fill="#eaf1f7" stroke="#cbd7e1"/>
+<text x="439" y="78" font-size="13" font-weight="650">Khách demo</text>
+<rect x="580" y="56" width="170" height="52" fill="#eaf1f7" stroke="#cbd7e1"/>
+<text x="589" y="78" font-size="13" font-weight="650">TV theo ngày</text>
+<rect x="750" y="56" width="150" height="52" fill="#eaf1f7" stroke="#cbd7e1"/>
+<text x="759" y="78" font-size="13" font-weight="650">TV đầy đủ</text>
+<rect x="900" y="56" width="130" height="52" fill="#eaf1f7" stroke="#cbd7e1"/>
+<text x="909" y="78" font-size="13" font-weight="650">Chủ nhà</text>
+<rect x="1030" y="56" width="170" height="52" fill="#eaf1f7" stroke="#cbd7e1"/>
+<text x="1039" y="78" font-size="13" font-weight="650">Admin (không có</text>
+<text x="1039" y="96" font-size="13" font-weight="650">nhà)</text>
+<rect x="20" y="108" width="270" height="52" fill="#fff" stroke="#cbd7e1"/>
+<text x="29" y="130" font-size="13" font-weight="650">Công suất hiện tại, điện hôm</text>
+<text x="29" y="148" font-size="13" font-weight="650">nay</text>
+<rect x="290" y="108" width="140" height="52" fill="#fff" stroke="#cbd7e1"/>
+<text x="299" y="130" font-size="13" font-weight="400">— 401</text>
+<rect x="430" y="108" width="150" height="52" fill="#fff" stroke="#cbd7e1"/>
+<text x="439" y="130" font-size="13" font-weight="400">✓</text>
+<rect x="580" y="108" width="170" height="52" fill="#fff" stroke="#cbd7e1"/>
+<text x="589" y="130" font-size="13" font-weight="400">✓ chỉ tổng ngày</text>
+<rect x="750" y="108" width="150" height="52" fill="#fff" stroke="#cbd7e1"/>
+<text x="759" y="130" font-size="13" font-weight="400">✓</text>
+<rect x="900" y="108" width="130" height="52" fill="#fff" stroke="#cbd7e1"/>
+<text x="909" y="130" font-size="13" font-weight="400">✓</text>
+<rect x="1030" y="108" width="170" height="52" fill="#fff" stroke="#cbd7e1"/>
+<text x="1039" y="130" font-size="13" font-weight="400">— 404</text>
+<rect x="20" y="160" width="270" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="29" y="182" font-size="13" font-weight="650">Biểu đồ công suất công tơ</text>
+<rect x="290" y="160" width="140" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="299" y="182" font-size="13" font-weight="400">— 401</text>
+<rect x="430" y="160" width="150" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="439" y="182" font-size="13" font-weight="400">✓</text>
+<rect x="580" y="160" width="170" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="589" y="182" font-size="13" font-weight="400">— 403</text>
+<rect x="750" y="160" width="150" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="759" y="182" font-size="13" font-weight="400">✓</text>
+<rect x="900" y="160" width="130" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="909" y="182" font-size="13" font-weight="400">✓</text>
+<rect x="1030" y="160" width="170" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="1039" y="182" font-size="13" font-weight="400">— 404</text>
+<rect x="20" y="194" width="270" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="29" y="216" font-size="13" font-weight="650">Dòng số đo trực tiếp</text>
+<rect x="290" y="194" width="140" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="299" y="216" font-size="13" font-weight="400">— 401</text>
+<rect x="430" y="194" width="150" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="439" y="216" font-size="13" font-weight="400">✓</text>
+<rect x="580" y="194" width="170" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="589" y="216" font-size="13" font-weight="400">— 403</text>
+<rect x="750" y="194" width="150" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="759" y="216" font-size="13" font-weight="400">✓</text>
+<rect x="900" y="194" width="130" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="909" y="216" font-size="13" font-weight="400">✓</text>
+<rect x="1030" y="194" width="170" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="1039" y="216" font-size="13" font-weight="400">— 404</text>
+<rect x="20" y="228" width="270" height="52" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="29" y="250" font-size="13" font-weight="650">Danh sách thiết bị</text>
+<rect x="290" y="228" width="140" height="52" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="299" y="250" font-size="13" font-weight="400">— 401</text>
+<rect x="430" y="228" width="150" height="52" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="439" y="250" font-size="13" font-weight="400">✓</text>
+<rect x="580" y="228" width="170" height="52" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="589" y="250" font-size="13" font-weight="400">✓ không có trạng</text>
+<text x="589" y="268" font-size="13" font-weight="400">thái, W</text>
+<rect x="750" y="228" width="150" height="52" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="759" y="250" font-size="13" font-weight="400">✓</text>
+<rect x="900" y="228" width="130" height="52" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="909" y="250" font-size="13" font-weight="400">✓</text>
+<rect x="1030" y="228" width="170" height="52" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="1039" y="250" font-size="13" font-weight="400">— 404</text>
+<rect x="20" y="280" width="270" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="29" y="302" font-size="13" font-weight="650">Hoạt động (lượt chạy) thiết bị</text>
+<rect x="290" y="280" width="140" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="299" y="302" font-size="13" font-weight="400">— 401</text>
+<rect x="430" y="280" width="150" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="439" y="302" font-size="13" font-weight="400">✓</text>
+<rect x="580" y="280" width="170" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="589" y="302" font-size="13" font-weight="400">— 403</text>
+<rect x="750" y="280" width="150" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="759" y="302" font-size="13" font-weight="400">✓</text>
+<rect x="900" y="280" width="130" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="909" y="302" font-size="13" font-weight="400">✓</text>
+<rect x="1030" y="280" width="170" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="1039" y="302" font-size="13" font-weight="400">— 404</text>
+<rect x="20" y="314" width="270" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="29" y="336" font-size="13" font-weight="650">Dự đoán mức dùng theo giờ</text>
+<rect x="290" y="314" width="140" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="299" y="336" font-size="13" font-weight="400">— 401</text>
+<rect x="430" y="314" width="150" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="439" y="336" font-size="13" font-weight="400">✓</text>
+<rect x="580" y="314" width="170" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="589" y="336" font-size="13" font-weight="400">— 403</text>
+<rect x="750" y="314" width="150" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="759" y="336" font-size="13" font-weight="400">✓</text>
+<rect x="900" y="314" width="130" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="909" y="336" font-size="13" font-weight="400">✓</text>
+<rect x="1030" y="314" width="170" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="1039" y="336" font-size="13" font-weight="400">— 404</text>
+<rect x="20" y="348" width="270" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="29" y="370" font-size="13" font-weight="650">Hóa đơn kỳ này</text>
+<rect x="290" y="348" width="140" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="299" y="370" font-size="13" font-weight="400">— 401</text>
+<rect x="430" y="348" width="150" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="439" y="370" font-size="13" font-weight="400">✓</text>
+<rect x="580" y="348" width="170" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="589" y="370" font-size="13" font-weight="400">✓</text>
+<rect x="750" y="348" width="150" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="759" y="370" font-size="13" font-weight="400">✓</text>
+<rect x="900" y="348" width="130" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="909" y="370" font-size="13" font-weight="400">✓</text>
+<rect x="1030" y="348" width="170" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="1039" y="370" font-size="13" font-weight="400">— 404</text>
+<rect x="20" y="382" width="270" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="29" y="404" font-size="13" font-weight="650">Cảnh báo</text>
+<rect x="290" y="382" width="140" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="299" y="404" font-size="13" font-weight="400">— 401</text>
+<rect x="430" y="382" width="150" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="439" y="404" font-size="13" font-weight="400">✓</text>
+<rect x="580" y="382" width="170" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="589" y="404" font-size="13" font-weight="400">✓ chỉ theo ngày</text>
+<rect x="750" y="382" width="150" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="759" y="404" font-size="13" font-weight="400">✓</text>
+<rect x="900" y="382" width="130" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="909" y="404" font-size="13" font-weight="400">✓</text>
+<rect x="1030" y="382" width="170" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="1039" y="404" font-size="13" font-weight="400">— 404</text>
+<rect x="20" y="416" width="270" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="29" y="438" font-size="13" font-weight="650">Hỏi Wappi</text>
+<rect x="290" y="416" width="140" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="299" y="438" font-size="13" font-weight="400">— 401</text>
+<rect x="430" y="416" width="150" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="439" y="438" font-size="13" font-weight="400">✓</text>
+<rect x="580" y="416" width="170" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="589" y="438" font-size="13" font-weight="400">✓ mức ngày</text>
+<rect x="750" y="416" width="150" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="759" y="438" font-size="13" font-weight="400">✓</text>
+<rect x="900" y="416" width="130" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="909" y="438" font-size="13" font-weight="400">✓</text>
+<rect x="1030" y="416" width="170" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="1039" y="438" font-size="13" font-weight="400">— 404</text>
+<rect x="20" y="450" width="270" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="29" y="472" font-size="13" font-weight="650">Đặt nhắc</text>
+<rect x="290" y="450" width="140" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="299" y="472" font-size="13" font-weight="400">— 401</text>
+<rect x="430" y="450" width="150" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="439" y="472" font-size="13" font-weight="400">— 403</text>
+<rect x="580" y="450" width="170" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="589" y="472" font-size="13" font-weight="400">✓ không nhắc tức thời</text>
+<rect x="750" y="450" width="150" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="759" y="472" font-size="13" font-weight="400">✓</text>
+<rect x="900" y="450" width="130" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="909" y="472" font-size="13" font-weight="400">✓</text>
+<rect x="1030" y="450" width="170" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="1039" y="472" font-size="13" font-weight="400">— 404</text>
+<rect x="20" y="484" width="270" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="29" y="506" font-size="13" font-weight="650">Sửa nhà, mức Wappi xem</text>
+<rect x="290" y="484" width="140" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="299" y="506" font-size="13" font-weight="400">— 401</text>
+<rect x="430" y="484" width="150" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="439" y="506" font-size="13" font-weight="400">— 403</text>
+<rect x="580" y="484" width="170" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="589" y="506" font-size="13" font-weight="400">— 403</text>
+<rect x="750" y="484" width="150" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="759" y="506" font-size="13" font-weight="400">— 403</text>
+<rect x="900" y="484" width="130" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="909" y="506" font-size="13" font-weight="400">✓</text>
+<rect x="1030" y="484" width="170" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="1039" y="506" font-size="13" font-weight="400">— 404</text>
+<rect x="20" y="518" width="270" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="29" y="540" font-size="13" font-weight="650">Xem trang quyền riêng tư (API)</text>
+<rect x="290" y="518" width="140" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="299" y="540" font-size="13" font-weight="400">— 401</text>
+<rect x="430" y="518" width="150" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="439" y="540" font-size="13" font-weight="400">✓</text>
+<rect x="580" y="518" width="170" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="589" y="540" font-size="13" font-weight="400">✓</text>
+<rect x="750" y="518" width="150" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="759" y="540" font-size="13" font-weight="400">✓</text>
+<rect x="900" y="518" width="130" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="909" y="540" font-size="13" font-weight="400">✓</text>
+<rect x="1030" y="518" width="170" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="1039" y="540" font-size="13" font-weight="400">— 404</text>
+<rect x="20" y="552" width="270" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="29" y="574" font-size="13" font-weight="650">Xem danh sách thành viên</text>
+<rect x="290" y="552" width="140" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="299" y="574" font-size="13" font-weight="400">— 401</text>
+<rect x="430" y="552" width="150" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="439" y="574" font-size="13" font-weight="400">— 403</text>
+<rect x="580" y="552" width="170" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="589" y="574" font-size="13" font-weight="400">✓</text>
+<rect x="750" y="552" width="150" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="759" y="574" font-size="13" font-weight="400">✓</text>
+<rect x="900" y="552" width="130" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="909" y="574" font-size="13" font-weight="400">✓</text>
+<rect x="1030" y="552" width="170" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="1039" y="574" font-size="13" font-weight="400">— 404</text>
+<rect x="20" y="586" width="270" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="29" y="608" font-size="13" font-weight="650">Mời thành viên</text>
+<rect x="290" y="586" width="140" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="299" y="608" font-size="13" font-weight="400">— 401</text>
+<rect x="430" y="586" width="150" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="439" y="608" font-size="13" font-weight="400">— 403</text>
+<rect x="580" y="586" width="170" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="589" y="608" font-size="13" font-weight="400">— 403</text>
+<rect x="750" y="586" width="150" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="759" y="608" font-size="13" font-weight="400">— 403</text>
+<rect x="900" y="586" width="130" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="909" y="608" font-size="13" font-weight="400">✓</text>
+<rect x="1030" y="586" width="170" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="1039" y="608" font-size="13" font-weight="400">— 404</text>
+<rect x="20" y="620" width="270" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="29" y="642" font-size="13" font-weight="650">Đổi mức xem</text>
+<rect x="290" y="620" width="140" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="299" y="642" font-size="13" font-weight="400">— 401</text>
+<rect x="430" y="620" width="150" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="439" y="642" font-size="13" font-weight="400">— 403</text>
+<rect x="580" y="620" width="170" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="589" y="642" font-size="13" font-weight="400">— 403</text>
+<rect x="750" y="620" width="150" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="759" y="642" font-size="13" font-weight="400">— 403</text>
+<rect x="900" y="620" width="130" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="909" y="642" font-size="13" font-weight="400">✓</text>
+<rect x="1030" y="620" width="170" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="1039" y="642" font-size="13" font-weight="400">— 404</text>
+<rect x="20" y="654" width="270" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="29" y="676" font-size="13" font-weight="650">Gỡ thành viên</text>
+<rect x="290" y="654" width="140" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="299" y="676" font-size="13" font-weight="400">— 401</text>
+<rect x="430" y="654" width="150" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="439" y="676" font-size="13" font-weight="400">— 403</text>
+<rect x="580" y="654" width="170" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="589" y="676" font-size="13" font-weight="400">— 403</text>
+<rect x="750" y="654" width="150" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="759" y="676" font-size="13" font-weight="400">— 403</text>
+<rect x="900" y="654" width="130" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="909" y="676" font-size="13" font-weight="400">✓</text>
+<rect x="1030" y="654" width="170" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="1039" y="676" font-size="13" font-weight="400">— 404</text>
+<rect x="20" y="688" width="270" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="29" y="710" font-size="13" font-weight="650">Tự rời nhà</text>
+<rect x="290" y="688" width="140" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="299" y="710" font-size="13" font-weight="400">— 401</text>
+<rect x="430" y="688" width="150" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="439" y="710" font-size="13" font-weight="400">— 403</text>
+<rect x="580" y="688" width="170" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="589" y="710" font-size="13" font-weight="400">✓</text>
+<rect x="750" y="688" width="150" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="759" y="710" font-size="13" font-weight="400">✓</text>
+<rect x="900" y="688" width="130" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="909" y="710" font-size="13" font-weight="400">— 403</text>
+<rect x="1030" y="688" width="170" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="1039" y="710" font-size="13" font-weight="400">— 404</text>
+<rect x="20" y="722" width="270" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="29" y="744" font-size="13" font-weight="650">Xóa lịch sử điện</text>
+<rect x="290" y="722" width="140" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="299" y="744" font-size="13" font-weight="400">— 401</text>
+<rect x="430" y="722" width="150" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="439" y="744" font-size="13" font-weight="400">— 403</text>
+<rect x="580" y="722" width="170" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="589" y="744" font-size="13" font-weight="400">— 403</text>
+<rect x="750" y="722" width="150" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="759" y="744" font-size="13" font-weight="400">— 403</text>
+<rect x="900" y="722" width="130" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="909" y="744" font-size="13" font-weight="400">✓</text>
+<rect x="1030" y="722" width="170" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="1039" y="744" font-size="13" font-weight="400">— 404</text>
+<rect x="20" y="756" width="270" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="29" y="778" font-size="13" font-weight="650">Xóa mọi trò chuyện của mình</text>
+<rect x="290" y="756" width="140" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="299" y="778" font-size="13" font-weight="400">— 401</text>
+<rect x="430" y="756" width="150" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="439" y="778" font-size="13" font-weight="400">✓</text>
+<rect x="580" y="756" width="170" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="589" y="778" font-size="13" font-weight="400">✓</text>
+<rect x="750" y="756" width="150" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="759" y="778" font-size="13" font-weight="400">✓</text>
+<rect x="900" y="756" width="130" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="909" y="778" font-size="13" font-weight="400">✓</text>
+<rect x="1030" y="756" width="170" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="1039" y="778" font-size="13" font-weight="400">— 404</text>
+<rect x="20" y="790" width="270" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="29" y="812" font-size="13" font-weight="650">Đồng ý / rút theo mục đích</text>
+<rect x="290" y="790" width="140" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="299" y="812" font-size="13" font-weight="400">— 401</text>
+<rect x="430" y="790" width="150" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="439" y="812" font-size="13" font-weight="400">✓</text>
+<rect x="580" y="790" width="170" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="589" y="812" font-size="13" font-weight="400">✓</text>
+<rect x="750" y="790" width="150" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="759" y="812" font-size="13" font-weight="400">✓</text>
+<rect x="900" y="790" width="130" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="909" y="812" font-size="13" font-weight="400">✓</text>
+<rect x="1030" y="790" width="170" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="1039" y="812" font-size="13" font-weight="400">✓</text>
+<rect x="20" y="824" width="270" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="29" y="846" font-size="13" font-weight="650">Xem nhật ký gửi ngoài của mình</text>
+<rect x="290" y="824" width="140" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="299" y="846" font-size="13" font-weight="400">— 401</text>
+<rect x="430" y="824" width="150" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="439" y="846" font-size="13" font-weight="400">✓</text>
+<rect x="580" y="824" width="170" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="589" y="846" font-size="13" font-weight="400">✓</text>
+<rect x="750" y="824" width="150" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="759" y="846" font-size="13" font-weight="400">✓</text>
+<rect x="900" y="824" width="130" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="909" y="846" font-size="13" font-weight="400">✓</text>
+<rect x="1030" y="824" width="170" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="1039" y="846" font-size="13" font-weight="400">✓</text>
+<rect x="20" y="858" width="270" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="29" y="880" font-size="13" font-weight="650">Xóa tài khoản mình</text>
+<rect x="290" y="858" width="140" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="299" y="880" font-size="13" font-weight="400">— 401</text>
+<rect x="430" y="858" width="150" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="439" y="880" font-size="13" font-weight="400">✓</text>
+<rect x="580" y="858" width="170" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="589" y="880" font-size="13" font-weight="400">✓</text>
+<rect x="750" y="858" width="150" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="759" y="880" font-size="13" font-weight="400">✓</text>
+<rect x="900" y="858" width="130" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="909" y="880" font-size="13" font-weight="400">✓</text>
+<rect x="1030" y="858" width="170" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="1039" y="880" font-size="13" font-weight="400">✓</text>
+<rect x="20" y="892" width="270" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="29" y="914" font-size="13" font-weight="650">Liệt kê tài khoản</text>
+<rect x="290" y="892" width="140" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="299" y="914" font-size="13" font-weight="400">— 401</text>
+<rect x="430" y="892" width="150" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="439" y="914" font-size="13" font-weight="400">— 403</text>
+<rect x="580" y="892" width="170" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="589" y="914" font-size="13" font-weight="400">— 403</text>
+<rect x="750" y="892" width="150" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="759" y="914" font-size="13" font-weight="400">— 403</text>
+<rect x="900" y="892" width="130" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="909" y="914" font-size="13" font-weight="400">— 403</text>
+<rect x="1030" y="892" width="170" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="1039" y="914" font-size="13" font-weight="400">✓</text>
+<text class="sub" x="20" y="952" text-anchor="start">✓ = được (2xx). — 401/403/404 = bị từ chối. Ô sinh từ bảng EXPECTED của tests/test_permissions.py; chữ ghi thêm sau ✓ lấy từ mã route. Chủ nhà khác gọi vào đồ của nhà A bằng id</text>
+<text class="sub" x="20" y="970" text-anchor="start">nhận 404 (xem bảng thử quyền).</text>
+<text class="sub" x="20" y="988" text-anchor="start">Nhà demo: chủ nhà demo bị từ chối xóa lịch sử và mời. Chủ nhà không &quot;tự rời&quot; (403): xóa tài khoản; còn thành viên khác thì bị từ chối xóa.</text>
+<text class="sub" x="20" y="1006" text-anchor="start">Công tơ / bộ phát lại chỉ ghi số đo, không qua API người dùng. Worker chạy tác vụ nội bộ. Người bảo trì máy chủ không bị ma trận này ràng buộc.</text>
+</svg>
+</div>
+<h2>4. Ma trận tác nhân × dữ liệu</h2>
+<div class="panel">
+<svg xmlns="http://www.w3.org/2000/svg" width="1360" height="816" viewBox="0 0 1360 816" role="img" aria-labelledby="data-access-matrix-title">
+<title id="data-access-matrix-title">Ma trận tác nhân × dữ liệu (Đ đọc, G ghi, X xóa)</title>
+<defs><marker id="data-access-matrix-a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M1 1 L9 5 L1 9" fill="none" stroke="#506981" stroke-width="1.5"/></marker><marker id="data-access-matrix-o" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M1 1 L9 5 L1 9" fill="none" stroke="#b2691b" stroke-width="1.5"/></marker></defs>
+<style>
+.process{fill:#e6f1fc;stroke:#2a67a4;stroke-width:2}.store{fill:#e8f5ec;stroke:#27804b;stroke-width:2}
+.actor{fill:#f0ebfa;stroke:#7653a2;stroke-width:2}.external{fill:#fff0df;stroke:#b2691b;stroke-width:2}
+.frame{fill:#f8fbfd;stroke:#b6c8d7;stroke-width:2}.planned{fill:#fff;stroke:#7a8793;stroke-width:2;stroke-dasharray:7 5}
+.wire{fill:none;stroke:#506981;stroke-width:1.8}.out{fill:none;stroke:#b2691b;stroke-width:2.4}
+text{font-family:system-ui,sans-serif;fill:#182a3a}.label{font-size:15px;font-weight:700}
+.sub{font-size:12px;fill:#40556a}.edge{font-size:12px;fill:#314b63}.h{font-size:13px;font-weight:700;letter-spacing:.04em;fill:#43576b}
+</style>
+<rect width="1360" height="816" fill="#fff"/>
+<text class="label" x="20" y="32" text-anchor="start">Ma trận tác nhân × dữ liệu (Đ đọc, G ghi, X xóa)</text>
+<rect x="20" y="56" width="250" height="52" fill="#eaf1f7" stroke="#cbd7e1"/>
+<text x="29" y="78" font-size="13" font-weight="650">Kho dữ liệu · giữ bao lâu</text>
+<text x="29" y="96" font-size="13" font-weight="650">hôm nay</text>
+<rect x="270" y="56" width="170" height="52" fill="#eaf1f7" stroke="#cbd7e1"/>
+<text x="279" y="78" font-size="13" font-weight="650">Chủ nhà</text>
+<rect x="440" y="56" width="140" height="52" fill="#eaf1f7" stroke="#cbd7e1"/>
+<text x="449" y="78" font-size="13" font-weight="650">TV đầy đủ</text>
+<rect x="580" y="56" width="140" height="52" fill="#eaf1f7" stroke="#cbd7e1"/>
+<text x="589" y="78" font-size="13" font-weight="650">TV theo ngày</text>
+<rect x="720" y="56" width="140" height="52" fill="#eaf1f7" stroke="#cbd7e1"/>
+<text x="729" y="78" font-size="13" font-weight="650">Khách demo</text>
+<rect x="860" y="56" width="130" height="52" fill="#eaf1f7" stroke="#cbd7e1"/>
+<text x="869" y="78" font-size="13" font-weight="650">Admin (API)</text>
+<rect x="990" y="56" width="170" height="52" fill="#eaf1f7" stroke="#cbd7e1"/>
+<text x="999" y="78" font-size="13" font-weight="650">Worker</text>
+<rect x="1160" y="56" width="180" height="52" fill="#eaf1f7" stroke="#cbd7e1"/>
+<text x="1169" y="78" font-size="13" font-weight="650">Wappi (vai copilot)</text>
+<rect x="20" y="108" width="250" height="70" fill="#fff" stroke="#cbd7e1"/>
+<text x="29" y="130" font-size="13" font-weight="650">Số đo thô khoảng 10 giây,</text>
+<text x="29" y="148" font-size="13" font-weight="650">công tơ và thiết bị · 400</text>
+<text x="29" y="166" font-size="13" font-weight="650">ngày</text>
+<rect x="270" y="108" width="170" height="70" fill="#fff" stroke="#cbd7e1"/>
+<text x="279" y="130" font-size="13" font-weight="400">Đ số hiện tại, biểu</text>
+<text x="279" y="148" font-size="13" font-weight="400">đồ; X</text>
+<rect x="440" y="108" width="140" height="70" fill="#fff" stroke="#cbd7e1"/>
+<text x="449" y="130" font-size="13" font-weight="400">Đ như trên</text>
+<rect x="580" y="108" width="140" height="70" fill="#fff" stroke="#cbd7e1"/>
+<text x="589" y="130" font-size="13" font-weight="400">—</text>
+<rect x="720" y="108" width="140" height="70" fill="#fff" stroke="#cbd7e1"/>
+<text x="729" y="130" font-size="13" font-weight="400">Đ (nhà mẫu)</text>
+<rect x="860" y="108" width="130" height="70" fill="#fff" stroke="#cbd7e1"/>
+<text x="869" y="130" font-size="13" font-weight="400">—</text>
+<rect x="990" y="108" width="170" height="70" fill="#fff" stroke="#cbd7e1"/>
+<text x="999" y="130" font-size="13" font-weight="400">Đ/G; X theo hạn</text>
+<rect x="1160" y="108" width="180" height="70" fill="#fff" stroke="#cbd7e1"/>
+<text x="1169" y="130" font-size="13" font-weight="400">—</text>
+<rect x="20" y="178" width="250" height="88" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="29" y="200" font-size="13" font-weight="650">Tổng theo phút · 400 ngày</text>
+<rect x="270" y="178" width="170" height="88" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="279" y="200" font-size="13" font-weight="400">Đ biểu đồ; X</text>
+<rect x="440" y="178" width="140" height="88" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="449" y="200" font-size="13" font-weight="400">Đ</text>
+<rect x="580" y="178" width="140" height="88" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="589" y="200" font-size="13" font-weight="400">—</text>
+<rect x="720" y="178" width="140" height="88" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="729" y="200" font-size="13" font-weight="400">Đ</text>
+<rect x="860" y="178" width="130" height="88" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="869" y="200" font-size="13" font-weight="400">—</text>
+<rect x="990" y="178" width="170" height="88" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="999" y="200" font-size="13" font-weight="400">Đ/G; X theo hạn</text>
+<rect x="1160" y="178" width="180" height="88" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="1169" y="200" font-size="13" font-weight="400">Không view. Công cụ</text>
+<text x="1169" y="218" font-size="13" font-weight="400">điện chờ đọc khi mức</text>
+<text x="1169" y="236" font-size="13" font-weight="400">giờ, gửi kết quả theo</text>
+<text x="1169" y="254" font-size="13" font-weight="400">đêm</text>
+<rect x="20" y="266" width="250" height="52" fill="#fff" stroke="#cbd7e1"/>
+<text x="29" y="288" font-size="13" font-weight="650">Tổng theo giờ · không hạn</text>
+<rect x="270" y="266" width="170" height="52" fill="#fff" stroke="#cbd7e1"/>
+<text x="279" y="288" font-size="13" font-weight="400">Đ; X</text>
+<rect x="440" y="266" width="140" height="52" fill="#fff" stroke="#cbd7e1"/>
+<text x="449" y="288" font-size="13" font-weight="400">Đ</text>
+<rect x="580" y="266" width="140" height="52" fill="#fff" stroke="#cbd7e1"/>
+<text x="589" y="288" font-size="13" font-weight="400">—</text>
+<rect x="720" y="266" width="140" height="52" fill="#fff" stroke="#cbd7e1"/>
+<text x="729" y="288" font-size="13" font-weight="400">Đ</text>
+<rect x="860" y="266" width="130" height="52" fill="#fff" stroke="#cbd7e1"/>
+<text x="869" y="288" font-size="13" font-weight="400">—</text>
+<rect x="990" y="266" width="170" height="52" fill="#fff" stroke="#cbd7e1"/>
+<text x="999" y="288" font-size="13" font-weight="400">Đ/G</text>
+<rect x="1160" y="266" width="180" height="52" fill="#fff" stroke="#cbd7e1"/>
+<text x="1169" y="288" font-size="13" font-weight="400">Đ chỉ khi token mức</text>
+<text x="1169" y="306" font-size="13" font-weight="400">giờ</text>
+<rect x="20" y="318" width="250" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="29" y="340" font-size="13" font-weight="650">Tổng theo ngày · không hạn</text>
+<rect x="270" y="318" width="170" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="279" y="340" font-size="13" font-weight="400">Đ; X</text>
+<rect x="440" y="318" width="140" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="449" y="340" font-size="13" font-weight="400">Đ</text>
+<rect x="580" y="318" width="140" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="589" y="340" font-size="13" font-weight="400">Đ</text>
+<rect x="720" y="318" width="140" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="729" y="340" font-size="13" font-weight="400">Đ</text>
+<rect x="860" y="318" width="130" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="869" y="340" font-size="13" font-weight="400">—</text>
+<rect x="990" y="318" width="170" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="999" y="340" font-size="13" font-weight="400">Đ/G</text>
+<rect x="1160" y="318" width="180" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="1169" y="340" font-size="13" font-weight="400">Đ</text>
+<rect x="20" y="352" width="250" height="52" fill="#fff" stroke="#cbd7e1"/>
+<text x="29" y="374" font-size="13" font-weight="650">Lượt bật/tắt thiết bị ·</text>
+<text x="29" y="392" font-size="13" font-weight="650">không hạn</text>
+<rect x="270" y="352" width="170" height="52" fill="#fff" stroke="#cbd7e1"/>
+<text x="279" y="374" font-size="13" font-weight="400">Đ; X</text>
+<rect x="440" y="352" width="140" height="52" fill="#fff" stroke="#cbd7e1"/>
+<text x="449" y="374" font-size="13" font-weight="400">Đ</text>
+<rect x="580" y="352" width="140" height="52" fill="#fff" stroke="#cbd7e1"/>
+<text x="589" y="374" font-size="13" font-weight="400">— (chỉ số tóm tắt</text>
+<text x="589" y="392" font-size="13" font-weight="400">theo ngày)</text>
+<rect x="720" y="352" width="140" height="52" fill="#fff" stroke="#cbd7e1"/>
+<text x="729" y="374" font-size="13" font-weight="400">Đ</text>
+<rect x="860" y="352" width="130" height="52" fill="#fff" stroke="#cbd7e1"/>
+<text x="869" y="374" font-size="13" font-weight="400">—</text>
+<rect x="990" y="352" width="170" height="52" fill="#fff" stroke="#cbd7e1"/>
+<text x="999" y="374" font-size="13" font-weight="400">Đ/G</text>
+<rect x="1160" y="352" width="180" height="52" fill="#fff" stroke="#cbd7e1"/>
+<text x="1169" y="374" font-size="13" font-weight="400">Không view</text>
+<rect x="20" y="404" width="250" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="29" y="426" font-size="13" font-weight="650">Hóa đơn · 25 kỳ</text>
+<rect x="270" y="404" width="170" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="279" y="426" font-size="13" font-weight="400">Đ; X theo lịch sử</text>
+<rect x="440" y="404" width="140" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="449" y="426" font-size="13" font-weight="400">Đ</text>
+<rect x="580" y="404" width="140" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="589" y="426" font-size="13" font-weight="400">Đ</text>
+<rect x="720" y="404" width="140" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="729" y="426" font-size="13" font-weight="400">Đ</text>
+<rect x="860" y="404" width="130" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="869" y="426" font-size="13" font-weight="400">—</text>
+<rect x="990" y="404" width="170" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="999" y="426" font-size="13" font-weight="400">Đ/G/X (dựng lại)</text>
+<rect x="1160" y="404" width="180" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="1169" y="426" font-size="13" font-weight="400">Đ</text>
+<rect x="20" y="438" width="250" height="70" fill="#fff" stroke="#cbd7e1"/>
+<text x="29" y="460" font-size="13" font-weight="650">Cảnh báo, dự đoán giờ, dự</text>
+<text x="29" y="478" font-size="13" font-weight="650">báo · không hạn</text>
+<rect x="270" y="438" width="170" height="70" fill="#fff" stroke="#cbd7e1"/>
+<text x="279" y="460" font-size="13" font-weight="400">Đ; X</text>
+<rect x="440" y="438" width="140" height="70" fill="#fff" stroke="#cbd7e1"/>
+<text x="449" y="460" font-size="13" font-weight="400">Đ</text>
+<rect x="580" y="438" width="140" height="70" fill="#fff" stroke="#cbd7e1"/>
+<text x="589" y="460" font-size="13" font-weight="400">Đ theo ngày;</text>
+<text x="589" y="478" font-size="13" font-weight="400">không có dự đoán</text>
+<text x="589" y="496" font-size="13" font-weight="400">giờ</text>
+<rect x="720" y="438" width="140" height="70" fill="#fff" stroke="#cbd7e1"/>
+<text x="729" y="460" font-size="13" font-weight="400">Đ</text>
+<rect x="860" y="438" width="130" height="70" fill="#fff" stroke="#cbd7e1"/>
+<text x="869" y="460" font-size="13" font-weight="400">—</text>
+<rect x="990" y="438" width="170" height="70" fill="#fff" stroke="#cbd7e1"/>
+<text x="999" y="460" font-size="13" font-weight="400">Đ/G</text>
+<rect x="1160" y="438" width="180" height="70" fill="#fff" stroke="#cbd7e1"/>
+<text x="1169" y="460" font-size="13" font-weight="400">Đ cảnh báo (mức ngày:</text>
+<text x="1169" y="478" font-size="13" font-weight="400">bỏ giờ), dự báo</text>
+<rect x="20" y="508" width="250" height="70" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="29" y="530" font-size="13" font-weight="650">Trò chuyện, kèm số liệu và</text>
+<text x="29" y="548" font-size="13" font-weight="650">SQL · đến khi xóa; âm thanh</text>
+<text x="29" y="566" font-size="13" font-weight="650">đọc 30 ngày</text>
+<rect x="270" y="508" width="170" height="70" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="279" y="530" font-size="13" font-weight="400">Đ/G/X của mình</text>
+<rect x="440" y="508" width="140" height="70" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="449" y="530" font-size="13" font-weight="400">Đ/G/X của mình</text>
+<rect x="580" y="508" width="140" height="70" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="589" y="530" font-size="13" font-weight="400">Đ/G/X của mình</text>
+<rect x="720" y="508" width="140" height="70" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="729" y="530" font-size="13" font-weight="400">Đ/G/X của mình</text>
+<rect x="860" y="508" width="130" height="70" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="869" y="530" font-size="13" font-weight="400">—</text>
+<rect x="990" y="508" width="170" height="70" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="999" y="530" font-size="13" font-weight="400">X âm thanh cũ</text>
+<rect x="1160" y="508" width="180" height="70" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="1169" y="530" font-size="13" font-weight="400">Đ/G của người đang hỏi</text>
+<rect x="20" y="578" width="250" height="52" fill="#fff" stroke="#cbd7e1"/>
+<text x="29" y="600" font-size="13" font-weight="650">Đồng ý (chỉ ghi thêm) · theo</text>
+<text x="29" y="618" font-size="13" font-weight="650">tài khoản</text>
+<rect x="270" y="578" width="170" height="52" fill="#fff" stroke="#cbd7e1"/>
+<text x="279" y="600" font-size="13" font-weight="400">Đ/G của mình</text>
+<rect x="440" y="578" width="140" height="52" fill="#fff" stroke="#cbd7e1"/>
+<text x="449" y="600" font-size="13" font-weight="400">Đ/G của mình</text>
+<rect x="580" y="578" width="140" height="52" fill="#fff" stroke="#cbd7e1"/>
+<text x="589" y="600" font-size="13" font-weight="400">Đ/G của mình</text>
+<rect x="720" y="578" width="140" height="52" fill="#fff" stroke="#cbd7e1"/>
+<text x="729" y="600" font-size="13" font-weight="400">Đ/G của mình</text>
+<rect x="860" y="578" width="130" height="52" fill="#fff" stroke="#cbd7e1"/>
+<text x="869" y="600" font-size="13" font-weight="400">—</text>
+<rect x="990" y="578" width="170" height="52" fill="#fff" stroke="#cbd7e1"/>
+<text x="999" y="600" font-size="13" font-weight="400">Đ (khi gửi mail)</text>
+<rect x="1160" y="578" width="180" height="52" fill="#fff" stroke="#cbd7e1"/>
+<text x="1169" y="600" font-size="13" font-weight="400">—</text>
+<rect x="20" y="630" width="250" height="52" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="29" y="652" font-size="13" font-weight="650">Nhật ký gửi ngoài (không ghi</text>
+<text x="29" y="670" font-size="13" font-weight="650">nội dung) · 90 ngày, xem 30</text>
+<rect x="270" y="630" width="170" height="52" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="279" y="652" font-size="13" font-weight="400">Đ của mình</text>
+<rect x="440" y="630" width="140" height="52" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="449" y="652" font-size="13" font-weight="400">Đ của mình</text>
+<rect x="580" y="630" width="140" height="52" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="589" y="652" font-size="13" font-weight="400">Đ của mình</text>
+<rect x="720" y="630" width="140" height="52" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="729" y="652" font-size="13" font-weight="400">Đ của mình</text>
+<rect x="860" y="630" width="130" height="52" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="869" y="652" font-size="13" font-weight="400">—</text>
+<rect x="990" y="630" width="170" height="52" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="999" y="652" font-size="13" font-weight="400">G; X quá 90 ngày</text>
+<rect x="1160" y="630" width="180" height="52" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="1169" y="652" font-size="13" font-weight="400">—</text>
+<rect x="20" y="682" width="250" height="52" fill="#fff" stroke="#cbd7e1"/>
+<text x="29" y="704" font-size="13" font-weight="650">Tài khoản: tên, email</text>
+<rect x="270" y="682" width="170" height="52" fill="#fff" stroke="#cbd7e1"/>
+<text x="279" y="704" font-size="13" font-weight="400">Đ mình + thành viên</text>
+<rect x="440" y="682" width="140" height="52" fill="#fff" stroke="#cbd7e1"/>
+<text x="449" y="704" font-size="13" font-weight="400">Đ mình + tên</text>
+<text x="449" y="722" font-size="13" font-weight="400">người nhà</text>
+<rect x="580" y="682" width="140" height="52" fill="#fff" stroke="#cbd7e1"/>
+<text x="589" y="704" font-size="13" font-weight="400">Đ như TV đầy đủ</text>
+<rect x="720" y="682" width="140" height="52" fill="#fff" stroke="#cbd7e1"/>
+<text x="729" y="704" font-size="13" font-weight="400">Đ mình</text>
+<rect x="860" y="682" width="130" height="52" fill="#fff" stroke="#cbd7e1"/>
+<text x="869" y="704" font-size="13" font-weight="400">Đ tất cả</text>
+<rect x="990" y="682" width="170" height="52" fill="#fff" stroke="#cbd7e1"/>
+<text x="999" y="704" font-size="13" font-weight="400">Đ (gửi mail)</text>
+<rect x="1160" y="682" width="180" height="52" fill="#fff" stroke="#cbd7e1"/>
+<text x="1169" y="704" font-size="13" font-weight="400">—</text>
+<text class="sub" x="20" y="760" text-anchor="start">CHƯA ÁP DỤNG (spec R1.1, đợt Đ7): thô 30 ngày, phút và lượt bật/tắt 90, giờ 400, ngày 800. Hôm nay chỉ số thô và tổng phút có hạn xóa (400 ngày).</text>
+<text class="sub" x="20" y="778" text-anchor="start">&quot;X&quot; của chủ nhà là xóa lịch sử trước một ngày hoặc tất cả (nhà demo bị từ chối), hoặc xóa tài khoản. Người bảo trì máy chủ đọc được mọi kho bằng quyền database.</text>
+<text class="sub" x="20" y="796" text-anchor="start">Dịch vụ ngoài không truy cập kho nào: họ chỉ nhận bản sao trong từng lời gọi.</text>
+</svg>
+</div>
+<h2>5. DFD mức ngữ cảnh</h2>
+<div class="panel">
+<svg xmlns="http://www.w3.org/2000/svg" width="1340" height="915" viewBox="0 0 1340 915" role="img" aria-labelledby="context-title">
+<title id="context-title">DFD mức ngữ cảnh WattPrint</title>
+<defs><marker id="context-a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M1 1 L9 5 L1 9" fill="none" stroke="#506981" stroke-width="1.5"/></marker><marker id="context-o" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M1 1 L9 5 L1 9" fill="none" stroke="#b2691b" stroke-width="1.5"/></marker></defs>
+<style>
+.process{fill:#e6f1fc;stroke:#2a67a4;stroke-width:2}.store{fill:#e8f5ec;stroke:#27804b;stroke-width:2}
+.actor{fill:#f0ebfa;stroke:#7653a2;stroke-width:2}.external{fill:#fff0df;stroke:#b2691b;stroke-width:2}
+.frame{fill:#f8fbfd;stroke:#b6c8d7;stroke-width:2}.planned{fill:#fff;stroke:#7a8793;stroke-width:2;stroke-dasharray:7 5}
+.wire{fill:none;stroke:#506981;stroke-width:1.8}.out{fill:none;stroke:#b2691b;stroke-width:2.4}
+text{font-family:system-ui,sans-serif;fill:#182a3a}.label{font-size:15px;font-weight:700}
+.sub{font-size:12px;fill:#40556a}.edge{font-size:12px;fill:#314b63}.h{font-size:13px;font-weight:700;letter-spacing:.04em;fill:#43576b}
+</style>
+<rect width="1340" height="915" fill="#fff"/>
+<text class="label" x="20" y="28" text-anchor="start">DFD mức ngữ cảnh</text>
+<rect class="process" x="500" y="60" width="240" height="800" rx="20"/>
+<text class="label" x="620" y="440" text-anchor="middle">0 · WattPrint</text>
+<text class="sub" x="620" y="464" text-anchor="middle">API, worker, database,</text>
+<text class="sub" x="620" y="480" text-anchor="middle">Wappi, text2sql</text>
+<rect class="actor" x="20" y="90" width="200" height="150" rx="9"/><text class="label" x="120.0" y="154.0" text-anchor="middle">Người trong nhà</text><text class="sub" x="120.0" y="172.0" text-anchor="middle">chủ nhà, thành viên,</text><text class="sub" x="120.0" y="188.0" text-anchor="middle">khách demo</text>
+<path class="wire" d="M220 135 H500" marker-end="url(#context-a)"/><text class="edge" x="360.0" y="113" text-anchor="middle">câu hỏi, giọng nói, đồng ý,</text><text class="edge" x="360.0" y="128" text-anchor="middle">mức xem, lệnh xóa</text>
+<path class="wire" d="M500 205 H220" marker-end="url(#context-a)"/><text class="edge" x="360.0" y="198" text-anchor="middle">biểu đồ, hóa đơn, trả lời, nhật ký</text>
+<rect class="actor" x="20" y="330" width="200" height="80" rx="9"/><text class="label" x="120.0" y="367.0" text-anchor="middle">Công tơ / phát lại</text><text class="sub" x="120.0" y="385.0" text-anchor="middle">REFIT, demo</text>
+<path class="wire" d="M220 370 H500" marker-end="url(#context-a)"/><text class="edge" x="360.0" y="363" text-anchor="middle">số đo + mã công tơ</text>
+<rect class="actor" x="20" y="500" width="200" height="80" rx="9"/><text class="label" x="120.0" y="537.0" text-anchor="middle">Admin</text><text class="sub" x="120.0" y="555.0" text-anchor="middle">vai Keycloak</text>
+<path class="wire" d="M500 540 H220" marker-end="url(#context-a)"/><text class="edge" x="360.0" y="533" text-anchor="middle">danh sách tài khoản</text>
+<rect class="actor" x="20" y="660" width="200" height="80" rx="9"/><text class="label" x="120.0" y="697.0" text-anchor="middle">Người bảo trì</text><text class="sub" x="120.0" y="715.0" text-anchor="middle">vận hành máy chủ</text>
+<path class="wire" d="M500 700 H220" marker-end="url(#context-a)"/><text class="edge" x="360.0" y="693" text-anchor="middle">👎; nội dung nếu người dùng tích</text>
+<rect class="external" x="1090" y="60" width="230" height="100" rx="9"/><text class="label" x="1205.0" y="107.0" text-anchor="middle">OpenRouter</text><text class="sub" x="1205.0" y="125.0" text-anchor="middle">ngoài Việt Nam</text>
+<path class="out" d="M740 95 H1090" marker-end="url(#context-o)"/><text class="edge" x="915.0" y="88" text-anchor="middle">câu hỏi đã che, kết quả công cụ</text>
+<path class="wire" d="M1090 135 H740" marker-end="url(#context-a)"/><text class="edge" x="915.0" y="128" text-anchor="middle">trả lời</text>
+<rect class="external" x="1090" y="195" width="230" height="100" rx="9"/><text class="label" x="1205.0" y="242.0" text-anchor="middle">AstralX</text><text class="sub" x="1205.0" y="260.0" text-anchor="middle">vị trí máy chủ chưa rõ</text>
+<path class="out" d="M740 230 H1090" marker-end="url(#context-o)"/><text class="edge" x="915.0" y="223" text-anchor="middle">âm thanh gốc, câu trả lời; AI dự phòng</text>
+<path class="wire" d="M1090 270 H740" marker-end="url(#context-a)"/><text class="edge" x="915.0" y="263" text-anchor="middle">bản chữ, âm thanh, trả lời</text>
+<rect class="external" x="1090" y="330" width="230" height="100" rx="9"/><text class="label" x="1205.0" y="377.0" text-anchor="middle">OpenWeather</text><text class="sub" x="1205.0" y="395.0" text-anchor="middle">thời tiết</text>
+<path class="out" d="M740 365 H1090" marker-end="url(#context-o)"/><text class="edge" x="915.0" y="358" text-anchor="middle">tọa độ tỉnh</text>
+<path class="wire" d="M1090 405 H740" marker-end="url(#context-a)"/><text class="edge" x="915.0" y="398" text-anchor="middle">dự báo thời tiết</text>
+<rect class="external" x="1090" y="465" width="230" height="100" rx="9"/><text class="label" x="1205.0" y="512.0" text-anchor="middle">Telegram</text><text class="sub" x="1205.0" y="530.0" text-anchor="middle">đến người bảo trì</text>
+<path class="out" d="M740 500 H1090" marker-end="url(#context-o)"/><text class="edge" x="915.0" y="493" text-anchor="middle">đánh giá 👎 (+ nội dung nếu tích)</text>
+<rect class="external" x="1090" y="600" width="230" height="100" rx="9"/><text class="label" x="1205.0" y="647.0" text-anchor="middle">SMTP</text><text class="sub" x="1205.0" y="665.0" text-anchor="middle">mail cảnh báo, tóm tắt</text>
+<path class="out" d="M740 635 H1090" marker-end="url(#context-o)"/><text class="edge" x="915.0" y="628" text-anchor="middle">email, nội dung cảnh báo / tóm tắt</text>
+<rect class="external" x="1090" y="735" width="230" height="100" rx="9"/><text class="label" x="1205.0" y="782.0" text-anchor="middle">Google · SMTP Keycloak</text><text class="sub" x="1205.0" y="800.0" text-anchor="middle">không qua cửa ra chung</text>
+<path class="out" d="M740 770 H1090" marker-end="url(#context-o)"/><text class="edge" x="915.0" y="763" text-anchor="middle">đăng nhập, mail xác minh</text>
+<path class="wire" d="M1090 810 H740" marker-end="url(#context-a)"/><text class="edge" x="915.0" y="803" text-anchor="middle">định danh đăng nhập</text>
+<path d="M1050 45 V870" stroke="#b2691b" stroke-width="3" stroke-dasharray="8 6" fill="none"/>
+<text class="h" x="1050" y="895" text-anchor="middle">RANH GIỚI RA NGOÀI</text>
+<text class="sub" x="20" y="895" text-anchor="start">Ở Telegram, người bảo trì đọc tin do hệ thống gửi. Chặn theo đồng ý đang tắt trên máy chủ.</text>
+</svg>
+</div>
+<h2>6. DFD mức 0</h2>
+<div class="panel">
+<svg xmlns="http://www.w3.org/2000/svg" width="1420" height="1028" viewBox="0 0 1420 1028" role="img" aria-labelledby="level0-title">
+<title id="level0-title">DFD mức 0 · bảy tiến trình và kho dữ liệu (thời hạn đang áp)</title>
+<defs><marker id="level0-a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M1 1 L9 5 L1 9" fill="none" stroke="#506981" stroke-width="1.5"/></marker><marker id="level0-o" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M1 1 L9 5 L1 9" fill="none" stroke="#b2691b" stroke-width="1.5"/></marker></defs>
+<style>
+.process{fill:#e6f1fc;stroke:#2a67a4;stroke-width:2}.store{fill:#e8f5ec;stroke:#27804b;stroke-width:2}
+.actor{fill:#f0ebfa;stroke:#7653a2;stroke-width:2}.external{fill:#fff0df;stroke:#b2691b;stroke-width:2}
+.frame{fill:#f8fbfd;stroke:#b6c8d7;stroke-width:2}.planned{fill:#fff;stroke:#7a8793;stroke-width:2;stroke-dasharray:7 5}
+.wire{fill:none;stroke:#506981;stroke-width:1.8}.out{fill:none;stroke:#b2691b;stroke-width:2.4}
+text{font-family:system-ui,sans-serif;fill:#182a3a}.label{font-size:15px;font-weight:700}
+.sub{font-size:12px;fill:#40556a}.edge{font-size:12px;fill:#314b63}.h{font-size:13px;font-weight:700;letter-spacing:.04em;fill:#43576b}
+</style>
+<rect width="1420" height="1028" fill="#fff"/>
+<text class="label" x="20" y="28" text-anchor="start">DFD mức 0 · bảy tiến trình và kho dữ liệu (thời hạn đang áp)</text>
+<rect class="actor" x="20" y="50" width="290" height="84" rx="9"/><text class="label" x="165.0" y="97.0" text-anchor="middle">Công tơ / phát lại</text>
+<path class="wire" d="M310 102 H560" marker-end="url(#level0-a)"/><text class="edge" x="435.0" y="95" text-anchor="middle">lô số đo</text>
+<rect class="process" x="560" y="50" width="280" height="84" rx="9"/><text class="label" x="700.0" y="89.0" text-anchor="middle">1. Thu số đo</text><text class="sub" x="700.0" y="107.0" text-anchor="middle">bỏ lô trước mốc xóa</text>
+<path class="wire" d="M840 102 H1090" marker-end="url(#level0-a)"/><text class="edge" x="965.0" y="95" text-anchor="middle">số đo ~10 giây</text>
+<rect class="store" x="1090" y="50" width="310" height="84" rx="9"/><text class="label" x="1245.0" y="89.0" text-anchor="middle">D1 Thô</text><text class="sub" x="1245.0" y="107.0" text-anchor="middle">400 ngày</text>
+<rect class="store" x="20" y="150" width="290" height="84" rx="9"/><text class="label" x="165.0" y="189.0" text-anchor="middle">D1 Thô</text><text class="sub" x="165.0" y="207.0" text-anchor="middle">400 ngày</text>
+<path class="wire" d="M310 202 H560" marker-end="url(#level0-a)"/><text class="edge" x="435.0" y="195" text-anchor="middle">số đo</text>
+<rect class="process" x="560" y="150" width="280" height="84" rx="9"/><text class="label" x="700.0" y="189.0" text-anchor="middle">2. Tổng hợp</text><text class="sub" x="700.0" y="207.0" text-anchor="middle">xếp tầng</text>
+<path class="wire" d="M840 202 H1090" marker-end="url(#level0-a)"/><text class="edge" x="965.0" y="195" text-anchor="middle">phút / giờ / ngày</text>
+<rect class="store" x="1090" y="150" width="310" height="84" rx="9"/><text class="label" x="1245.0" y="181.0" text-anchor="middle">D2 Phút · D3 Giờ · D4 Ngày</text><text class="sub" x="1245.0" y="199.0" text-anchor="middle">phút: 400 ngày</text><text class="sub" x="1245.0" y="215.0" text-anchor="middle">giờ, ngày: không hạn</text>
+<rect class="store" x="20" y="250" width="290" height="84" rx="9"/><text class="label" x="165.0" y="289.0" text-anchor="middle">D1 Thô</text><text class="sub" x="165.0" y="307.0" text-anchor="middle">400 ngày</text>
+<path class="wire" d="M310 302 H560" marker-end="url(#level0-a)"/><text class="edge" x="435.0" y="295" text-anchor="middle">công suất tổng</text>
+<rect class="process" x="560" y="250" width="280" height="84" rx="9"/><text class="label" x="700.0" y="289.0" text-anchor="middle">3. Tách thiết bị (NILM)</text><text class="sub" x="700.0" y="307.0" text-anchor="middle">worker nilm</text>
+<path class="wire" d="M840 302 H1090" marker-end="url(#level0-a)"/><text class="edge" x="965.0" y="295" text-anchor="middle">ước tính từng thiết bị</text>
+<rect class="store" x="1090" y="250" width="310" height="84" rx="9"/><text class="label" x="1245.0" y="289.0" text-anchor="middle">D1 Thô · D2–D4 thiết bị</text><text class="sub" x="1245.0" y="307.0" text-anchor="middle">cùng thời hạn như trên</text>
+<rect class="store" x="20" y="350" width="290" height="84" rx="9"/><text class="label" x="165.0" y="397.0" text-anchor="middle">D4 Ngày</text>
+<path class="wire" d="M310 402 H560" marker-end="url(#level0-a)"/><text class="edge" x="435.0" y="395" text-anchor="middle">kWh theo ngày</text>
+<rect class="process" x="560" y="350" width="280" height="84" rx="9"/><text class="label" x="700.0" y="389.0" text-anchor="middle">4. Tính hóa đơn</text><text class="sub" x="700.0" y="407.0" text-anchor="middle">biểu giá bậc thang</text>
+<path class="wire" d="M840 402 H1090" marker-end="url(#level0-a)"/><text class="edge" x="965.0" y="395" text-anchor="middle">kỳ hóa đơn</text>
+<rect class="store" x="1090" y="350" width="310" height="84" rx="9"/><text class="label" x="1245.0" y="389.0" text-anchor="middle">D5 Hóa đơn</text><text class="sub" x="1245.0" y="407.0" text-anchor="middle">25 kỳ gần nhất</text>
+<rect class="store" x="20" y="450" width="290" height="84" rx="9"/><text class="label" x="165.0" y="489.0" text-anchor="middle">D2–D4, D1</text><text class="sub" x="165.0" y="507.0" text-anchor="middle">tổng hợp và số hiện tại</text>
+<path class="wire" d="M310 502 H560" marker-end="url(#level0-a)"/><text class="edge" x="435.0" y="495" text-anchor="middle">mức dùng</text>
+<rect class="process" x="560" y="450" width="280" height="84" rx="9"/><text class="label" x="700.0" y="489.0" text-anchor="middle">5. Dự báo, cảnh báo, nhắc</text><text class="sub" x="700.0" y="507.0" text-anchor="middle">worker insight</text>
+<path class="wire" d="M840 502 H1090" marker-end="url(#level0-a)"/><text class="edge" x="965.0" y="495" text-anchor="middle">kết quả, lượt bật/tắt</text>
+<rect class="store" x="1090" y="450" width="310" height="84" rx="9"/><text class="label" x="1245.0" y="489.0" text-anchor="middle">D8 Dự báo, cảnh báo, lượt chạy</text><text class="sub" x="1245.0" y="507.0" text-anchor="middle">không hạn</text>
+<rect class="actor" x="20" y="550" width="290" height="84" rx="9"/><text class="label" x="165.0" y="597.0" text-anchor="middle">Người hỏi</text>
+<path class="wire" d="M310 602 H560" marker-end="url(#level0-a)"/><text class="edge" x="435.0" y="595" text-anchor="middle">câu hỏi / giọng nói</text>
+<rect class="process" x="560" y="550" width="280" height="84" rx="9"/><text class="label" x="700.0" y="589.0" text-anchor="middle">6. Wappi</text><text class="sub" x="700.0" y="607.0" text-anchor="middle">theo mức ngày hoặc giờ</text>
+<path class="wire" d="M840 602 H1090" marker-end="url(#level0-a)"/><text class="edge" x="965.0" y="595" text-anchor="middle">tin nhắn, số liệu, SQL</text>
+<rect class="store" x="1090" y="550" width="310" height="84" rx="9"/><text class="label" x="1245.0" y="581.0" text-anchor="middle">D6 Trò chuyện</text><text class="sub" x="1245.0" y="599.0" text-anchor="middle">đến khi người dùng xóa</text><text class="sub" x="1245.0" y="615.0" text-anchor="middle">âm thanh đọc: 30 ngày</text>
+<rect class="actor" x="20" y="650" width="290" height="84" rx="9"/><text class="label" x="165.0" y="697.0" text-anchor="middle">Người dùng</text>
+<path class="wire" d="M310 702 H560" marker-end="url(#level0-a)"/><text class="edge" x="435.0" y="695" text-anchor="middle">đồng ý, mức xem, xóa</text>
+<rect class="process" x="560" y="650" width="280" height="84" rx="9"/><text class="label" x="700.0" y="689.0" text-anchor="middle">7. Quyền riêng tư</text><text class="sub" x="700.0" y="707.0" text-anchor="middle">API + cửa ra chung</text>
+<path class="wire" d="M840 702 H1090" marker-end="url(#level0-a)"/><text class="edge" x="965.0" y="695" text-anchor="middle">đồng ý, mức xem, mốc xóa</text>
+<rect class="store" x="1090" y="650" width="310" height="84" rx="9"/><text class="label" x="1245.0" y="681.0" text-anchor="middle">D7 Đồng ý, nhật ký, hồ sơ nhà</text><text class="sub" x="1245.0" y="699.0" text-anchor="middle">nhật ký: 90 ngày</text><text class="sub" x="1245.0" y="715.0" text-anchor="middle">đồng ý: theo tài khoản</text>
+<text class="h" x="20" y="772" text-anchor="start">Đầu ra cho người dùng và bên ngoài</text>
+<rect class="store" x="20" y="786" width="290" height="84" rx="9"/><text class="label" x="165.0" y="833.0" text-anchor="middle">D1–D5, D8</text>
+<path class="wire" d="M310 838 H560" marker-end="url(#level0-a)"/><text class="edge" x="435.0" y="831" text-anchor="middle">số liệu</text>
+<rect class="process" x="560" y="786" width="280" height="84" rx="9"/><text class="label" x="700.0" y="825.0" text-anchor="middle">API đọc dữ liệu nhà</text><text class="sub" x="700.0" y="843.0" text-anchor="middle">kiểm tư cách và mức xem</text>
+<path class="wire" d="M840 838 H1090" marker-end="url(#level0-a)"/><text class="edge" x="965.0" y="831" text-anchor="middle">biểu đồ, hóa đơn</text>
+<rect class="actor" x="1090" y="786" width="310" height="84" rx="9"/><text class="label" x="1245.0" y="825.0" text-anchor="middle">Người trong nhà</text><text class="sub" x="1245.0" y="843.0" text-anchor="middle">TV theo ngày: chỉ số ngày</text>
+<rect class="store" x="20" y="886" width="290" height="84" rx="9"/><text class="label" x="165.0" y="933.0" text-anchor="middle">D3, D4, D5, D6, D8</text>
+<path class="wire" d="M310 938 H560" marker-end="url(#level0-a)"/><text class="edge" x="435.0" y="931" text-anchor="middle">view theo token</text>
+<rect class="process" x="560" y="886" width="280" height="84" rx="9"/><text class="label" x="700.0" y="925.0" text-anchor="middle">6. Wappi</text><text class="sub" x="700.0" y="943.0" text-anchor="middle">che, ghi nhật ký</text>
+<path class="out" d="M840 938 H1090" marker-end="url(#level0-o)"/><text class="edge" x="965.0" y="931" text-anchor="middle">câu hỏi, kết quả công cụ</text>
+<rect class="external" x="1090" y="886" width="310" height="84" rx="9"/><text class="label" x="1245.0" y="925.0" text-anchor="middle">OpenRouter / AstralX</text><text class="sub" x="1245.0" y="943.0" text-anchor="middle">ngoài hệ thống</text>
+<text class="sub" x="20" y="1004" text-anchor="start">Kho lặp lại ở nhiều dòng là cùng một kho. Thời hạn theo bậc (thô 30, phút 90, giờ 400, ngày 800 ngày) CHƯA áp dụng.</text>
+</svg>
+</div>
+<h2>7. DFD mức 1 · Wappi và quyền riêng tư</h2>
+<div class="panel">
+<svg xmlns="http://www.w3.org/2000/svg" width="1420" height="1382" viewBox="0 0 1420 1382" role="img" aria-labelledby="level1-title">
+<title id="level1-title">DFD mức 1 · Wappi (6) và quyền riêng tư (7)</title>
+<defs><marker id="level1-a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M1 1 L9 5 L1 9" fill="none" stroke="#506981" stroke-width="1.5"/></marker><marker id="level1-o" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M1 1 L9 5 L1 9" fill="none" stroke="#b2691b" stroke-width="1.5"/></marker></defs>
+<style>
+.process{fill:#e6f1fc;stroke:#2a67a4;stroke-width:2}.store{fill:#e8f5ec;stroke:#27804b;stroke-width:2}
+.actor{fill:#f0ebfa;stroke:#7653a2;stroke-width:2}.external{fill:#fff0df;stroke:#b2691b;stroke-width:2}
+.frame{fill:#f8fbfd;stroke:#b6c8d7;stroke-width:2}.planned{fill:#fff;stroke:#7a8793;stroke-width:2;stroke-dasharray:7 5}
+.wire{fill:none;stroke:#506981;stroke-width:1.8}.out{fill:none;stroke:#b2691b;stroke-width:2.4}
+text{font-family:system-ui,sans-serif;fill:#182a3a}.label{font-size:15px;font-weight:700}
+.sub{font-size:12px;fill:#40556a}.edge{font-size:12px;fill:#314b63}.h{font-size:13px;font-weight:700;letter-spacing:.04em;fill:#43576b}
+</style>
+<rect width="1420" height="1382" fill="#fff"/>
+<text class="label" x="20" y="28" text-anchor="start">DFD mức 1 · Wappi (6) và quyền riêng tư (7)</text>
+<text class="h" x="20" y="72" text-anchor="start">6 · WAPPI</text>
+<rect class="actor" x="20" y="86" width="290" height="84" rx="9"/><text class="label" x="165.0" y="133.0" text-anchor="middle">Người hỏi</text>
+<path class="wire" d="M310 138 H560" marker-end="url(#level1-a)"/><text class="edge" x="435.0" y="131" text-anchor="middle">câu hỏi</text>
+<rect class="process" x="560" y="86" width="280" height="84" rx="9"/><text class="label" x="700.0" y="125.0" text-anchor="middle">6.1 Kiểm đồng ý</text><text class="sub" x="700.0" y="143.0" text-anchor="middle">đang TẮT: không chặn</text>
+<path class="wire" d="M840 138 H1090" marker-end="url(#level1-a)"/><text class="edge" x="965.0" y="131" text-anchor="middle">câu hỏi</text>
+<rect class="process" x="1090" y="86" width="310" height="84" rx="9"/><text class="label" x="1245.0" y="125.0" text-anchor="middle">6.2 Che dữ liệu cá nhân</text><text class="sub" x="1245.0" y="143.0" text-anchor="middle">email, số điện thoại, giấy tờ…</text>
+<rect class="process" x="20" y="186" width="290" height="84" rx="9"/><text class="label" x="165.0" y="233.0" text-anchor="middle">6.2 Che dữ liệu</text>
+<path class="wire" d="M310 238 H560" marker-end="url(#level1-a)"/><text class="edge" x="435.0" y="231" text-anchor="middle">câu đã che</text>
+<rect class="process" x="560" y="186" width="280" height="84" rx="9"/><text class="label" x="700.0" y="225.0" text-anchor="middle">6.3 Lưu câu hỏi</text><text class="sub" x="700.0" y="243.0" text-anchor="middle">đã che trước khi lưu</text>
+<path class="wire" d="M840 238 H1090" marker-end="url(#level1-a)"/><text class="edge" x="965.0" y="231" text-anchor="middle">câu đã che</text>
+<rect class="store" x="1090" y="186" width="310" height="84" rx="9"/><text class="label" x="1245.0" y="233.0" text-anchor="middle">D6 Trò chuyện</text>
+<rect class="store" x="20" y="286" width="290" height="84" rx="9"/><text class="label" x="165.0" y="325.0" text-anchor="middle">D3, D4, D5, D8</text><text class="sub" x="165.0" y="343.0" text-anchor="middle">view copilot_ro</text>
+<path class="wire" d="M310 338 H560" marker-end="url(#level1-a)"/><text class="edge" x="435.0" y="331" text-anchor="middle">mức ngày: view giờ rỗng</text>
+<rect class="process" x="560" y="286" width="280" height="84" rx="9"/><text class="label" x="700.0" y="317.0" text-anchor="middle">6.4 Công cụ, text2sql</text><text class="sub" x="700.0" y="335.0" text-anchor="middle">mức = thấp hơn giữa nhà</text><text class="sub" x="700.0" y="351.0" text-anchor="middle">và người hỏi; token 5 phút</text>
+<path class="out" d="M840 338 H1090" marker-end="url(#level1-o)"/><text class="edge" x="965.0" y="331" text-anchor="middle">câu hỏi + số của nhà</text>
+<rect class="external" x="1090" y="286" width="310" height="84" rx="9"/><text class="label" x="1245.0" y="325.0" text-anchor="middle">OpenRouter</text><text class="sub" x="1245.0" y="343.0" text-anchor="middle">do text2sql gọi, ZDR</text>
+<rect class="store" x="20" y="386" width="290" height="84" rx="9"/><text class="label" x="165.0" y="433.0" text-anchor="middle">D6 Trò chuyện</text>
+<path class="wire" d="M310 438 H560" marker-end="url(#level1-a)"/><text class="edge" x="435.0" y="431" text-anchor="middle">lịch sử, câu hỏi</text>
+<rect class="process" x="560" y="386" width="280" height="84" rx="9"/><text class="label" x="700.0" y="417.0" text-anchor="middle">6.5 Gọi AI, kiểm duyệt</text><text class="sub" x="700.0" y="435.0" text-anchor="middle">và tìm tài liệu;</text><text class="sub" x="700.0" y="451.0" text-anchor="middle">ghi nhật ký rồi gửi</text>
+<path class="out" d="M840 438 H1090" marker-end="url(#level1-o)"/><text class="edge" x="965.0" y="431" text-anchor="middle">câu hỏi, hội thoại, số liệu</text>
+<rect class="external" x="1090" y="386" width="310" height="84" rx="9"/><text class="label" x="1245.0" y="425.0" text-anchor="middle">OpenRouter (ZDR)</text><text class="sub" x="1245.0" y="443.0" text-anchor="middle">dự phòng: AstralX</text>
+<rect class="actor" x="20" y="486" width="290" height="84" rx="9"/><text class="label" x="165.0" y="533.0" text-anchor="middle">Người hỏi</text>
+<path class="wire" d="M310 538 H560" marker-end="url(#level1-a)"/><text class="edge" x="435.0" y="531" text-anchor="middle">ghi âm</text>
+<rect class="process" x="560" y="486" width="280" height="84" rx="9"/><text class="label" x="700.0" y="525.0" text-anchor="middle">6.6 Giọng nói (AstralX)</text><text class="sub" x="700.0" y="543.0" text-anchor="middle">âm thanh KHÔNG che được</text>
+<path class="out" d="M840 538 H1090" marker-end="url(#level1-o)"/><text class="edge" x="965.0" y="531" text-anchor="middle">âm thanh; câu cần đọc</text>
+<rect class="external" x="1090" y="486" width="310" height="84" rx="9"/><text class="label" x="1245.0" y="525.0" text-anchor="middle">AstralX</text><text class="sub" x="1245.0" y="543.0" text-anchor="middle">vị trí máy chủ chưa rõ</text>
+<rect class="process" x="20" y="586" width="290" height="84" rx="9"/><text class="label" x="165.0" y="633.0" text-anchor="middle">6.5 Gọi AI</text>
+<path class="wire" d="M310 638 H560" marker-end="url(#level1-a)"/><text class="edge" x="435.0" y="631" text-anchor="middle">trả lời</text>
+<rect class="process" x="560" y="586" width="280" height="84" rx="9"/><text class="label" x="700.0" y="625.0" text-anchor="middle">6.7 Lưu, trả lời</text><text class="sub" x="700.0" y="643.0" text-anchor="middle">kèm mục &quot;đã gửi ra ngoài&quot;</text>
+<path class="wire" d="M840 638 H1090" marker-end="url(#level1-a)"/><text class="edge" x="965.0" y="631" text-anchor="middle">trả lời</text>
+<rect class="actor" x="1090" y="586" width="310" height="84" rx="9"/><text class="label" x="1245.0" y="633.0" text-anchor="middle">Người hỏi</text>
+<rect class="actor" x="20" y="686" width="290" height="84" rx="9"/><text class="label" x="165.0" y="733.0" text-anchor="middle">Người hỏi</text>
+<path class="wire" d="M310 738 H560" marker-end="url(#level1-a)"/><text class="edge" x="435.0" y="731" text-anchor="middle">bấm 👎</text>
+<rect class="process" x="560" y="686" width="280" height="84" rx="9"/><text class="label" x="700.0" y="725.0" text-anchor="middle">6.8 Phản hồi</text><text class="sub" x="700.0" y="743.0" text-anchor="middle">nội dung chỉ khi tích</text>
+<path class="out" d="M840 738 H1090" marker-end="url(#level1-o)"/><text class="edge" x="965.0" y="731" text-anchor="middle">đánh giá (+ nội dung)</text>
+<rect class="external" x="1090" y="686" width="310" height="84" rx="9"/><text class="label" x="1245.0" y="725.0" text-anchor="middle">Telegram</text><text class="sub" x="1245.0" y="743.0" text-anchor="middle">người bảo trì đọc</text>
+<text class="h" x="20" y="808" text-anchor="start">7 · QUYỀN RIÊNG TƯ</text>
+<rect class="actor" x="20" y="822" width="290" height="84" rx="9"/><text class="label" x="165.0" y="869.0" text-anchor="middle">Mỗi người dùng</text>
+<path class="wire" d="M310 874 H560" marker-end="url(#level1-a)"/><text class="edge" x="435.0" y="867" text-anchor="middle">bật / tắt</text>
+<rect class="process" x="560" y="822" width="280" height="84" rx="9"/><text class="label" x="700.0" y="861.0" text-anchor="middle">7.1 Đồng ý theo mục đích</text><text class="sub" x="700.0" y="879.0" text-anchor="middle">wappi, voice, email</text>
+<path class="wire" d="M840 874 H1090" marker-end="url(#level1-a)"/><text class="edge" x="965.0" y="867" text-anchor="middle">thêm một dòng</text>
+<rect class="store" x="1090" y="822" width="310" height="84" rx="9"/><text class="label" x="1245.0" y="861.0" text-anchor="middle">D7 tb_consent</text><text class="sub" x="1245.0" y="879.0" text-anchor="middle">không sửa dòng cũ</text>
+<rect class="actor" x="20" y="922" width="290" height="84" rx="9"/><text class="label" x="165.0" y="969.0" text-anchor="middle">Chủ nhà</text>
+<path class="wire" d="M310 974 H560" marker-end="url(#level1-a)"/><text class="edge" x="435.0" y="967" text-anchor="middle">mời, mức, gỡ</text>
+<rect class="process" x="560" y="922" width="280" height="84" rx="9"/><text class="label" x="700.0" y="953.0" text-anchor="middle">7.2 Thành viên, mức AI</text><text class="sub" x="700.0" y="971.0" text-anchor="middle">gỡ: xóa nhắc, kế hoạch,</text><text class="sub" x="700.0" y="987.0" text-anchor="middle">trò chuyện của người đó</text>
+<path class="wire" d="M840 974 H1090" marker-end="url(#level1-a)"/><text class="edge" x="965.0" y="967" text-anchor="middle">mức xem, ai_detail</text>
+<rect class="store" x="1090" y="922" width="310" height="84" rx="9"/><text class="label" x="1245.0" y="969.0" text-anchor="middle">D7 Hồ sơ nhà, thành viên</text>
+<rect class="actor" x="20" y="1022" width="290" height="84" rx="9"/><text class="label" x="165.0" y="1069.0" text-anchor="middle">Chủ nhà</text>
+<path class="wire" d="M310 1074 H560" marker-end="url(#level1-a)"/><text class="edge" x="435.0" y="1067" text-anchor="middle">xóa trước ngày / tất cả</text>
+<rect class="process" x="560" y="1022" width="280" height="84" rx="9"/><text class="label" x="700.0" y="1053.0" text-anchor="middle">7.3 Xóa lịch sử</text><text class="sub" x="700.0" y="1071.0" text-anchor="middle">dựng lại hóa đơn;</text><text class="sub" x="700.0" y="1087.0" text-anchor="middle">không đụng trò chuyện</text>
+<path class="wire" d="M840 1074 H1090" marker-end="url(#level1-a)"/><text class="edge" x="965.0" y="1067" text-anchor="middle">xóa, ghi mốc</text>
+<rect class="store" x="1090" y="1022" width="310" height="84" rx="9"/><text class="label" x="1245.0" y="1061.0" text-anchor="middle">D1–D5, D8</text><text class="sub" x="1245.0" y="1079.0" text-anchor="middle">và mốc chặn gửi lại lô cũ</text>
+<rect class="actor" x="20" y="1122" width="290" height="84" rx="9"/><text class="label" x="165.0" y="1169.0" text-anchor="middle">Mỗi người dùng</text>
+<path class="wire" d="M310 1174 H560" marker-end="url(#level1-a)"/><text class="edge" x="435.0" y="1167" text-anchor="middle">xóa trò chuyện</text>
+<rect class="process" x="560" y="1122" width="280" height="84" rx="9"/><text class="label" x="700.0" y="1161.0" text-anchor="middle">7.4 Xóa trò chuyện</text><text class="sub" x="700.0" y="1179.0" text-anchor="middle">kèm âm thanh đã lưu</text>
+<path class="wire" d="M840 1174 H1090" marker-end="url(#level1-a)"/><text class="edge" x="965.0" y="1167" text-anchor="middle">xóa</text>
+<rect class="store" x="1090" y="1122" width="310" height="84" rx="9"/><text class="label" x="1245.0" y="1161.0" text-anchor="middle">D6 Trò chuyện</text><text class="sub" x="1245.0" y="1179.0" text-anchor="middle">chỉ của người gọi</text>
+<rect class="store" x="20" y="1222" width="290" height="84" rx="9"/><text class="label" x="165.0" y="1269.0" text-anchor="middle">D7 Nhật ký gửi ngoài</text>
+<path class="wire" d="M310 1274 H560" marker-end="url(#level1-a)"/><text class="edge" x="435.0" y="1267" text-anchor="middle">30 ngày của mình</text>
+<rect class="process" x="560" y="1222" width="280" height="84" rx="9"/><text class="label" x="700.0" y="1261.0" text-anchor="middle">7.5 Xem và dọn nhật ký</text><text class="sub" x="700.0" y="1279.0" text-anchor="middle">dọn quá 90 ngày</text>
+<path class="wire" d="M840 1274 H1090" marker-end="url(#level1-a)"/><text class="edge" x="965.0" y="1267" text-anchor="middle">danh sách</text>
+<rect class="actor" x="1090" y="1222" width="310" height="84" rx="9"/><text class="label" x="1245.0" y="1269.0" text-anchor="middle">Người dùng</text>
+<text class="sub" x="20" y="1340" text-anchor="start">Mọi lời gọi tới OpenRouter, AstralX, OpenWeather, Telegram, text2sql đi qua app/common/outbound.py; mail được ghi nhật ký trước khi gửi.</text>
+<text class="sub" x="20" y="1358" text-anchor="start">Chưa có: tiến trình dọn theo bậc thời hạn (đợt Đ7). Dữ liệu đã gửi ra ngoài không xóa được từ WattPrint.</text>
+</svg>
+</div>
+
+</body>
+</html>

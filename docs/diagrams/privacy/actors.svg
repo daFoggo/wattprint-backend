@@ -1,0 +1,143 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1300" height="778" viewBox="0 0 1300 778" role="img" aria-labelledby="actors-title">
+<title id="actors-title">Tác nhân tham gia (theo mã ngày 28/11/2026)</title>
+<defs><marker id="actors-a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M1 1 L9 5 L1 9" fill="none" stroke="#506981" stroke-width="1.5"/></marker><marker id="actors-o" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M1 1 L9 5 L1 9" fill="none" stroke="#b2691b" stroke-width="1.5"/></marker></defs>
+<style>
+.process{fill:#e6f1fc;stroke:#2a67a4;stroke-width:2}.store{fill:#e8f5ec;stroke:#27804b;stroke-width:2}
+.actor{fill:#f0ebfa;stroke:#7653a2;stroke-width:2}.external{fill:#fff0df;stroke:#b2691b;stroke-width:2}
+.frame{fill:#f8fbfd;stroke:#b6c8d7;stroke-width:2}.planned{fill:#fff;stroke:#7a8793;stroke-width:2;stroke-dasharray:7 5}
+.wire{fill:none;stroke:#506981;stroke-width:1.8}.out{fill:none;stroke:#b2691b;stroke-width:2.4}
+text{font-family:system-ui,sans-serif;fill:#182a3a}.label{font-size:15px;font-weight:700}
+.sub{font-size:12px;fill:#40556a}.edge{font-size:12px;fill:#314b63}.h{font-size:13px;font-weight:700;letter-spacing:.04em;fill:#43576b}
+</style>
+<rect width="1300" height="778" fill="#fff"/>
+<text class="label" x="20" y="32" text-anchor="start">Tác nhân tham gia (theo mã ngày 28/11/2026)</text>
+<rect x="20" y="56" width="220" height="34" fill="#eaf1f7" stroke="#cbd7e1"/>
+<text x="29" y="78" font-size="13" font-weight="650">Tác nhân</text>
+<rect x="240" y="56" width="360" height="34" fill="#eaf1f7" stroke="#cbd7e1"/>
+<text x="249" y="78" font-size="13" font-weight="650">Làm gì / đưa vào</text>
+<rect x="600" y="56" width="440" height="34" fill="#eaf1f7" stroke="#cbd7e1"/>
+<text x="609" y="78" font-size="13" font-weight="650">Nhận được gì / giới hạn</text>
+<rect x="1040" y="56" width="240" height="34" fill="#eaf1f7" stroke="#cbd7e1"/>
+<text x="1049" y="78" font-size="13" font-weight="650">Chặn ở đâu</text>
+<rect x="20" y="90" width="220" height="52" fill="#fff" stroke="#cbd7e1"/>
+<text x="29" y="112" font-size="13" font-weight="650">Chủ nhà</text>
+<rect x="240" y="90" width="360" height="52" fill="#fff" stroke="#cbd7e1"/>
+<text x="249" y="112" font-size="13" font-weight="400">Đặt mức Wappi xem (ngày/giờ), mời, đổi mức, gỡ</text>
+<text x="249" y="130" font-size="13" font-weight="400">thành viên, xóa lịch sử, đồng ý/rút lại</text>
+<rect x="600" y="90" width="440" height="52" fill="#fff" stroke="#cbd7e1"/>
+<text x="609" y="112" font-size="13" font-weight="400">Mọi dữ liệu nhà mình; email thành viên; nhật ký gửi ngoài</text>
+<text x="609" y="130" font-size="13" font-weight="400">của riêng mình</text>
+<rect x="1040" y="90" width="240" height="52" fill="#fff" stroke="#cbd7e1"/>
+<text x="1049" y="112" font-size="13" font-weight="400">API theo tư cách trong nhà</text>
+<rect x="20" y="142" width="220" height="52" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="29" y="164" font-size="13" font-weight="650">Thành viên đầy đủ</text>
+<rect x="240" y="142" width="360" height="52" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="249" y="164" font-size="13" font-weight="400">Xem, hỏi Wappi, đặt nhắc, kế hoạch riêng; tự rời</text>
+<text x="249" y="182" font-size="13" font-weight="400">nhà</text>
+<rect x="600" y="142" width="440" height="52" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="609" y="164" font-size="13" font-weight="400">Dữ liệu chi tiết của nhà; trò chuyện của riêng mình. Không</text>
+<text x="609" y="182" font-size="13" font-weight="400">mời, xóa lịch sử, sửa nhà</text>
+<rect x="1040" y="142" width="240" height="52" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="1049" y="164" font-size="13" font-weight="400">API theo vai member</text>
+<rect x="20" y="194" width="220" height="70" fill="#fff" stroke="#cbd7e1"/>
+<text x="29" y="216" font-size="13" font-weight="650">Thành viên chỉ theo ngày</text>
+<text x="29" y="234" font-size="13" font-weight="650">(mặc định khi nhận mời)</text>
+<rect x="240" y="194" width="360" height="70" fill="#fff" stroke="#cbd7e1"/>
+<text x="249" y="216" font-size="13" font-weight="400">Như trên, ở mức ngày</text>
+<rect x="600" y="194" width="440" height="70" fill="#fff" stroke="#cbd7e1"/>
+<text x="609" y="216" font-size="13" font-weight="400">Số theo ngày, hóa đơn. 403 ở biểu đồ công suất, dòng trực</text>
+<text x="609" y="234" font-size="13" font-weight="400">tiếp, hoạt động thiết bị, dự đoán theo giờ; Wappi chạy mức</text>
+<text x="609" y="252" font-size="13" font-weight="400">ngày</text>
+<rect x="1040" y="194" width="240" height="70" fill="#fff" stroke="#cbd7e1"/>
+<text x="1049" y="216" font-size="13" font-weight="400">members.py, DetailedMembership</text>
+<rect x="20" y="264" width="220" height="52" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="29" y="286" font-size="13" font-weight="650">Khách xem demo (viewer)</text>
+<rect x="240" y="264" width="360" height="52" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="249" y="286" font-size="13" font-weight="400">Chọn nhà mẫu, hỏi Wappi, kế hoạch riêng</text>
+<rect x="600" y="264" width="440" height="52" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="609" y="286" font-size="13" font-weight="400">Dữ liệu mẫu công khai, đầy đủ; không sửa dữ liệu chung,</text>
+<text x="609" y="304" font-size="13" font-weight="400">không xem danh sách thành viên</text>
+<rect x="1040" y="264" width="240" height="52" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="1049" y="286" font-size="13" font-weight="400">vai viewer, chỉ đọc</text>
+<rect x="20" y="316" width="220" height="52" fill="#fff" stroke="#cbd7e1"/>
+<text x="29" y="338" font-size="13" font-weight="650">Admin (vai Keycloak)</text>
+<rect x="240" y="316" width="360" height="52" fill="#fff" stroke="#cbd7e1"/>
+<text x="249" y="338" font-size="13" font-weight="400">Gọi GET /users</text>
+<rect x="600" y="316" width="440" height="52" fill="#fff" stroke="#cbd7e1"/>
+<text x="609" y="338" font-size="13" font-weight="400">Danh sách tài khoản (tên, email). Không có API đọc dữ liệu</text>
+<text x="609" y="356" font-size="13" font-weight="400">của một nhà</text>
+<rect x="1040" y="316" width="240" height="52" fill="#fff" stroke="#cbd7e1"/>
+<text x="1049" y="338" font-size="13" font-weight="400">require_admin</text>
+<rect x="20" y="368" width="220" height="52" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="29" y="390" font-size="13" font-weight="650">Người bảo trì máy chủ</text>
+<rect x="240" y="368" width="360" height="52" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="249" y="390" font-size="13" font-weight="400">Vận hành; nhận đánh giá 👎 qua Telegram</text>
+<rect x="600" y="368" width="440" height="52" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="609" y="390" font-size="13" font-weight="400">Có quyền máy chủ và database nên về kỹ thuật đọc được mọi</text>
+<text x="609" y="408" font-size="13" font-weight="400">dữ liệu; không có lớp chặn trong phần mềm</text>
+<rect x="1040" y="368" width="240" height="52" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="1049" y="390" font-size="13" font-weight="400">Chỉ quy trình vận hành</text>
+<rect x="20" y="420" width="220" height="52" fill="#fff" stroke="#cbd7e1"/>
+<text x="29" y="442" font-size="13" font-weight="650">Công tơ / bộ phát lại</text>
+<text x="29" y="460" font-size="13" font-weight="650">demo</text>
+<rect x="240" y="420" width="360" height="52" fill="#fff" stroke="#cbd7e1"/>
+<text x="249" y="442" font-size="13" font-weight="400">Gửi lô số đo</text>
+<rect x="600" y="420" width="440" height="52" fill="#fff" stroke="#cbd7e1"/>
+<text x="609" y="442" font-size="13" font-weight="400">Lô cũ hơn mốc đã xóa bị từ chối. Công tơ thật chưa có API;</text>
+<text x="609" y="460" font-size="13" font-weight="400">demo dùng script phát lại REFIT</text>
+<rect x="1040" y="420" width="240" height="52" fill="#fff" stroke="#cbd7e1"/>
+<text x="1049" y="442" font-size="13" font-weight="400">ops ingest</text>
+<rect x="20" y="472" width="220" height="52" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="29" y="494" font-size="13" font-weight="650">Worker nội bộ (nilm,</text>
+<text x="29" y="512" font-size="13" font-weight="650">insight)</text>
+<rect x="240" y="472" width="360" height="52" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="249" y="494" font-size="13" font-weight="400">Tách thiết bị, hóa đơn, dự báo, cảnh báo, nhắc,</text>
+<text x="249" y="512" font-size="13" font-weight="400">email, dọn nhật ký</text>
+<rect x="600" y="472" width="440" height="52" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="609" y="494" font-size="13" font-weight="400">Đọc kho điện cần cho tác vụ</text>
+<rect x="1040" y="472" width="240" height="52" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="1049" y="494" font-size="13" font-weight="400">Vai database</text>
+<rect x="20" y="524" width="220" height="52" fill="#fff" stroke="#cbd7e1"/>
+<text x="29" y="546" font-size="13" font-weight="650">Wappi và text2sql (trong</text>
+<text x="29" y="564" font-size="13" font-weight="650">hệ thống)</text>
+<rect x="240" y="524" width="360" height="52" fill="#fff" stroke="#cbd7e1"/>
+<text x="249" y="546" font-size="13" font-weight="400">Trả lời; truy vấn view copilot_ro bằng token 5</text>
+<text x="249" y="564" font-size="13" font-weight="400">phút theo nhà</text>
+<rect x="600" y="524" width="440" height="52" fill="#fff" stroke="#cbd7e1"/>
+<text x="609" y="546" font-size="13" font-weight="400">Không có view phút, lượt bật/tắt, tên nhà, mã bưu chính, số</text>
+<text x="609" y="564" font-size="13" font-weight="400">người; view giờ chỉ khi token mức giờ</text>
+<rect x="1040" y="524" width="240" height="52" fill="#fff" stroke="#cbd7e1"/>
+<text x="1049" y="546" font-size="13" font-weight="400">Vai wattprint_copilot_ro</text>
+<rect x="20" y="576" width="220" height="52" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="29" y="598" font-size="13" font-weight="650">OpenRouter, AstralX</text>
+<text x="29" y="616" font-size="13" font-weight="650">(ngoài)</text>
+<rect x="240" y="576" width="360" height="52" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="249" y="598" font-size="13" font-weight="400">AI trả lời, kiểm duyệt, nhúng văn bản, giọng nói</text>
+<rect x="600" y="576" width="440" height="52" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="609" y="598" font-size="13" font-weight="400">Câu hỏi đã che, kết quả công cụ; âm thanh gốc khi dùng</text>
+<text x="609" y="616" font-size="13" font-weight="400">giọng nói</text>
+<rect x="1040" y="576" width="240" height="52" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="1049" y="598" font-size="13" font-weight="400">Cửa ra chung + nhật ký</text>
+<rect x="20" y="628" width="220" height="52" fill="#fff" stroke="#cbd7e1"/>
+<text x="29" y="650" font-size="13" font-weight="650">OpenWeather, Telegram,</text>
+<text x="29" y="668" font-size="13" font-weight="650">SMTP (ngoài)</text>
+<rect x="240" y="628" width="360" height="52" fill="#fff" stroke="#cbd7e1"/>
+<text x="249" y="650" font-size="13" font-weight="400">Thời tiết, báo người bảo trì, gửi mail cảnh báo</text>
+<rect x="600" y="628" width="440" height="52" fill="#fff" stroke="#cbd7e1"/>
+<text x="609" y="650" font-size="13" font-weight="400">Tọa độ tỉnh; đánh giá (kèm nội dung chỉ khi tích); email và</text>
+<text x="609" y="668" font-size="13" font-weight="400">nội dung cảnh báo</text>
+<rect x="1040" y="628" width="240" height="52" fill="#fff" stroke="#cbd7e1"/>
+<text x="1049" y="650" font-size="13" font-weight="400">Cửa ra chung + nhật ký</text>
+<rect x="20" y="680" width="220" height="52" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="29" y="702" font-size="13" font-weight="650">Google, SMTP của</text>
+<text x="29" y="720" font-size="13" font-weight="650">Keycloak (ngoài)</text>
+<rect x="240" y="680" width="360" height="52" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="249" y="702" font-size="13" font-weight="400">Đăng nhập Google; mail xác minh, đặt lại mật</text>
+<text x="249" y="720" font-size="13" font-weight="400">khẩu</text>
+<rect x="600" y="680" width="440" height="52" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="609" y="702" font-size="13" font-weight="400">Định danh đăng nhập, địa chỉ email</text>
+<rect x="1040" y="680" width="240" height="52" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="1049" y="702" font-size="13" font-weight="400">Không qua cửa ra chung, không</text>
+<text x="1049" y="720" font-size="13" font-weight="400">ghi nhật ký</text>
+<text class="sub" x="20" y="758" text-anchor="start">Việc chặn theo đồng ý đang TẮT trên máy chủ (consent_enforced = False, app/config.py): đã có API đồng ý và nhật ký, nhưng chưa từ chối lời gọi nào.</text>
+</svg>

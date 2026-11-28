@@ -198,15 +198,15 @@ nhà demo từ chối), `DELETE /copilot/conversations`; xóa tài khoản dọn
 ## Đ8. Minh chứng và tài liệu (P1)
 
 **[DOC]**
-- [ ] Đ8-C1 Bộ sơ đồ phân tích hệ thống trong `docs/diagrams/privacy/` (mỗi sơ đồ có file `.html` nguồn và `.svg`) · R6.1
-  - [ ] Đ8-C1a Danh sách tác nhân: chủ nhà, người thân (đầy đủ, chỉ theo ngày), khách demo, admin, người bảo trì, công tơ, các worker, Wappi, dịch vụ ngoài (OpenRouter, AstralX, OpenWeather, Telegram, Google, SMTP)
-  - [ ] Đ8-C1b BFD phân rã chức năng: thu số đo → lưu theo bậc → tách thiết bị → hóa đơn, dự báo, cảnh báo → Wappi → quản lý quyền riêng tư (đồng ý, mức xem, xóa, nhật ký)
-  - [ ] Đ8-C1c Ma trận tác nhân × chức năng (ai được làm gì), sinh từ bảng thử quyền Đ1 để khớp với test
-  - [ ] Đ8-C1d Ma trận tác nhân × quyền truy cập dữ liệu: mỗi kho dữ liệu (thô, phút, giờ, ngày, hóa đơn, lượt bật/tắt, trò chuyện, đồng ý, nhật ký gửi ra ngoài) × tác nhân → Đọc/Ghi/Xóa và mức chi tiết
-  - [ ] Đ8-C1e DFD mức ngữ cảnh: WattPrint là một tiến trình, các tác nhân ngoài và luồng vào ra, đánh dấu ranh giới Việt Nam/nước ngoài
-  - [ ] Đ8-C1f DFD mức 0: các tiến trình chính (thu số đo, tổng hợp, NILM, tính tiền, insight, Wappi, quyền riêng tư) và các kho dữ liệu kèm thời hạn
-  - [ ] Đ8-C1g DFD mức 1: phân rã tiến trình Wappi (che dữ liệu, kiểm đồng ý, cửa ra chung, ghi nhật ký) và tiến trình quyền riêng tư (xóa lịch sử, dọn theo thời hạn)
-- [ ] Đ8-C2 `docs/evidence/privacy/permission-matrix-after.md` · R6.3
+- [x] Đ8-C1 Bộ sơ đồ phân tích hệ thống trong `docs/diagrams/privacy/` (mỗi sơ đồ có file `.html` nguồn và `.svg`) · R6.1
+  - [x] Đ8-C1a Danh sách tác nhân: chủ nhà, người thân (đầy đủ, chỉ theo ngày), khách demo, admin, người bảo trì, công tơ, các worker, Wappi, dịch vụ ngoài (OpenRouter, AstralX, OpenWeather, Telegram, Google, SMTP)
+  - [x] Đ8-C1b BFD phân rã chức năng: thu số đo → lưu theo bậc → tách thiết bị → hóa đơn, dự báo, cảnh báo → Wappi → quản lý quyền riêng tư (đồng ý, mức xem, xóa, nhật ký)
+  - [x] Đ8-C1c Ma trận tác nhân × chức năng (ai được làm gì), sinh từ bảng thử quyền Đ1 để khớp với test
+  - [x] Đ8-C1d Ma trận tác nhân × quyền truy cập dữ liệu: mỗi kho dữ liệu (thô, phút, giờ, ngày, hóa đơn, lượt bật/tắt, trò chuyện, đồng ý, nhật ký gửi ra ngoài) × tác nhân → Đọc/Ghi/Xóa và mức chi tiết
+  - [x] Đ8-C1e DFD mức ngữ cảnh: WattPrint là một tiến trình, các tác nhân ngoài và luồng vào ra, đánh dấu ranh giới Việt Nam/nước ngoài
+  - [x] Đ8-C1f DFD mức 0: các tiến trình chính (thu số đo, tổng hợp, NILM, tính tiền, insight, Wappi, quyền riêng tư) và các kho dữ liệu kèm thời hạn
+  - [x] Đ8-C1g DFD mức 1: phân rã tiến trình Wappi (che dữ liệu, kiểm đồng ý, cửa ra chung, ghi nhật ký) và tiến trình quyền riêng tư (xóa lịch sử, dọn theo thời hạn)
+- [x] Đ8-C2 `docs/evidence/privacy/permission-matrix-after.md` · R6.3
 - [ ] Đ8-C3 Ảnh chụp: trang Quyền riêng tư (chủ nhà, thành viên theo ngày), hộp đồng ý, dòng báo trong chat, mục đã gửi, hộp xác nhận xóa · R6.2
 - [ ] Đ8-C4 `docs/evidence/privacy.md` cho giám khảo: từng ý của đề → đã làm gì → minh chứng nào; đưa lên một đường dẫn · R6.4
 - [ ] Đ8-C5 README (kể cả câu "mỗi sơ đồ có file .html"), `docs/database-design.md` mục thời hạn, đồng bộ `submission/` · R6.6

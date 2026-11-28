@@ -1,0 +1,78 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1420" height="1382" viewBox="0 0 1420 1382" role="img" aria-labelledby="level1-title">
+<title id="level1-title">DFD mức 1 · Wappi (6) và quyền riêng tư (7)</title>
+<defs><marker id="level1-a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M1 1 L9 5 L1 9" fill="none" stroke="#506981" stroke-width="1.5"/></marker><marker id="level1-o" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M1 1 L9 5 L1 9" fill="none" stroke="#b2691b" stroke-width="1.5"/></marker></defs>
+<style>
+.process{fill:#e6f1fc;stroke:#2a67a4;stroke-width:2}.store{fill:#e8f5ec;stroke:#27804b;stroke-width:2}
+.actor{fill:#f0ebfa;stroke:#7653a2;stroke-width:2}.external{fill:#fff0df;stroke:#b2691b;stroke-width:2}
+.frame{fill:#f8fbfd;stroke:#b6c8d7;stroke-width:2}.planned{fill:#fff;stroke:#7a8793;stroke-width:2;stroke-dasharray:7 5}
+.wire{fill:none;stroke:#506981;stroke-width:1.8}.out{fill:none;stroke:#b2691b;stroke-width:2.4}
+text{font-family:system-ui,sans-serif;fill:#182a3a}.label{font-size:15px;font-weight:700}
+.sub{font-size:12px;fill:#40556a}.edge{font-size:12px;fill:#314b63}.h{font-size:13px;font-weight:700;letter-spacing:.04em;fill:#43576b}
+</style>
+<rect width="1420" height="1382" fill="#fff"/>
+<text class="label" x="20" y="28" text-anchor="start">DFD mức 1 · Wappi (6) và quyền riêng tư (7)</text>
+<text class="h" x="20" y="72" text-anchor="start">6 · WAPPI</text>
+<rect class="actor" x="20" y="86" width="290" height="84" rx="9"/><text class="label" x="165.0" y="133.0" text-anchor="middle">Người hỏi</text>
+<path class="wire" d="M310 138 H560" marker-end="url(#level1-a)"/><text class="edge" x="435.0" y="131" text-anchor="middle">câu hỏi</text>
+<rect class="process" x="560" y="86" width="280" height="84" rx="9"/><text class="label" x="700.0" y="125.0" text-anchor="middle">6.1 Kiểm đồng ý</text><text class="sub" x="700.0" y="143.0" text-anchor="middle">đang TẮT: không chặn</text>
+<path class="wire" d="M840 138 H1090" marker-end="url(#level1-a)"/><text class="edge" x="965.0" y="131" text-anchor="middle">câu hỏi</text>
+<rect class="process" x="1090" y="86" width="310" height="84" rx="9"/><text class="label" x="1245.0" y="125.0" text-anchor="middle">6.2 Che dữ liệu cá nhân</text><text class="sub" x="1245.0" y="143.0" text-anchor="middle">email, số điện thoại, giấy tờ…</text>
+<rect class="process" x="20" y="186" width="290" height="84" rx="9"/><text class="label" x="165.0" y="233.0" text-anchor="middle">6.2 Che dữ liệu</text>
+<path class="wire" d="M310 238 H560" marker-end="url(#level1-a)"/><text class="edge" x="435.0" y="231" text-anchor="middle">câu đã che</text>
+<rect class="process" x="560" y="186" width="280" height="84" rx="9"/><text class="label" x="700.0" y="225.0" text-anchor="middle">6.3 Lưu câu hỏi</text><text class="sub" x="700.0" y="243.0" text-anchor="middle">đã che trước khi lưu</text>
+<path class="wire" d="M840 238 H1090" marker-end="url(#level1-a)"/><text class="edge" x="965.0" y="231" text-anchor="middle">câu đã che</text>
+<rect class="store" x="1090" y="186" width="310" height="84" rx="9"/><text class="label" x="1245.0" y="233.0" text-anchor="middle">D6 Trò chuyện</text>
+<rect class="store" x="20" y="286" width="290" height="84" rx="9"/><text class="label" x="165.0" y="325.0" text-anchor="middle">D3, D4, D5, D8</text><text class="sub" x="165.0" y="343.0" text-anchor="middle">view copilot_ro</text>
+<path class="wire" d="M310 338 H560" marker-end="url(#level1-a)"/><text class="edge" x="435.0" y="331" text-anchor="middle">mức ngày: view giờ rỗng</text>
+<rect class="process" x="560" y="286" width="280" height="84" rx="9"/><text class="label" x="700.0" y="317.0" text-anchor="middle">6.4 Công cụ, text2sql</text><text class="sub" x="700.0" y="335.0" text-anchor="middle">mức = thấp hơn giữa nhà</text><text class="sub" x="700.0" y="351.0" text-anchor="middle">và người hỏi; token 5 phút</text>
+<path class="out" d="M840 338 H1090" marker-end="url(#level1-o)"/><text class="edge" x="965.0" y="331" text-anchor="middle">câu hỏi + số của nhà</text>
+<rect class="external" x="1090" y="286" width="310" height="84" rx="9"/><text class="label" x="1245.0" y="325.0" text-anchor="middle">OpenRouter</text><text class="sub" x="1245.0" y="343.0" text-anchor="middle">do text2sql gọi, ZDR</text>
+<rect class="store" x="20" y="386" width="290" height="84" rx="9"/><text class="label" x="165.0" y="433.0" text-anchor="middle">D6 Trò chuyện</text>
+<path class="wire" d="M310 438 H560" marker-end="url(#level1-a)"/><text class="edge" x="435.0" y="431" text-anchor="middle">lịch sử, câu hỏi</text>
+<rect class="process" x="560" y="386" width="280" height="84" rx="9"/><text class="label" x="700.0" y="417.0" text-anchor="middle">6.5 Gọi AI, kiểm duyệt</text><text class="sub" x="700.0" y="435.0" text-anchor="middle">và tìm tài liệu;</text><text class="sub" x="700.0" y="451.0" text-anchor="middle">ghi nhật ký rồi gửi</text>
+<path class="out" d="M840 438 H1090" marker-end="url(#level1-o)"/><text class="edge" x="965.0" y="431" text-anchor="middle">câu hỏi, hội thoại, số liệu</text>
+<rect class="external" x="1090" y="386" width="310" height="84" rx="9"/><text class="label" x="1245.0" y="425.0" text-anchor="middle">OpenRouter (ZDR)</text><text class="sub" x="1245.0" y="443.0" text-anchor="middle">dự phòng: AstralX</text>
+<rect class="actor" x="20" y="486" width="290" height="84" rx="9"/><text class="label" x="165.0" y="533.0" text-anchor="middle">Người hỏi</text>
+<path class="wire" d="M310 538 H560" marker-end="url(#level1-a)"/><text class="edge" x="435.0" y="531" text-anchor="middle">ghi âm</text>
+<rect class="process" x="560" y="486" width="280" height="84" rx="9"/><text class="label" x="700.0" y="525.0" text-anchor="middle">6.6 Giọng nói (AstralX)</text><text class="sub" x="700.0" y="543.0" text-anchor="middle">âm thanh KHÔNG che được</text>
+<path class="out" d="M840 538 H1090" marker-end="url(#level1-o)"/><text class="edge" x="965.0" y="531" text-anchor="middle">âm thanh; câu cần đọc</text>
+<rect class="external" x="1090" y="486" width="310" height="84" rx="9"/><text class="label" x="1245.0" y="525.0" text-anchor="middle">AstralX</text><text class="sub" x="1245.0" y="543.0" text-anchor="middle">vị trí máy chủ chưa rõ</text>
+<rect class="process" x="20" y="586" width="290" height="84" rx="9"/><text class="label" x="165.0" y="633.0" text-anchor="middle">6.5 Gọi AI</text>
+<path class="wire" d="M310 638 H560" marker-end="url(#level1-a)"/><text class="edge" x="435.0" y="631" text-anchor="middle">trả lời</text>
+<rect class="process" x="560" y="586" width="280" height="84" rx="9"/><text class="label" x="700.0" y="625.0" text-anchor="middle">6.7 Lưu, trả lời</text><text class="sub" x="700.0" y="643.0" text-anchor="middle">kèm mục &quot;đã gửi ra ngoài&quot;</text>
+<path class="wire" d="M840 638 H1090" marker-end="url(#level1-a)"/><text class="edge" x="965.0" y="631" text-anchor="middle">trả lời</text>
+<rect class="actor" x="1090" y="586" width="310" height="84" rx="9"/><text class="label" x="1245.0" y="633.0" text-anchor="middle">Người hỏi</text>
+<rect class="actor" x="20" y="686" width="290" height="84" rx="9"/><text class="label" x="165.0" y="733.0" text-anchor="middle">Người hỏi</text>
+<path class="wire" d="M310 738 H560" marker-end="url(#level1-a)"/><text class="edge" x="435.0" y="731" text-anchor="middle">bấm 👎</text>
+<rect class="process" x="560" y="686" width="280" height="84" rx="9"/><text class="label" x="700.0" y="725.0" text-anchor="middle">6.8 Phản hồi</text><text class="sub" x="700.0" y="743.0" text-anchor="middle">nội dung chỉ khi tích</text>
+<path class="out" d="M840 738 H1090" marker-end="url(#level1-o)"/><text class="edge" x="965.0" y="731" text-anchor="middle">đánh giá (+ nội dung)</text>
+<rect class="external" x="1090" y="686" width="310" height="84" rx="9"/><text class="label" x="1245.0" y="725.0" text-anchor="middle">Telegram</text><text class="sub" x="1245.0" y="743.0" text-anchor="middle">người bảo trì đọc</text>
+<text class="h" x="20" y="808" text-anchor="start">7 · QUYỀN RIÊNG TƯ</text>
+<rect class="actor" x="20" y="822" width="290" height="84" rx="9"/><text class="label" x="165.0" y="869.0" text-anchor="middle">Mỗi người dùng</text>
+<path class="wire" d="M310 874 H560" marker-end="url(#level1-a)"/><text class="edge" x="435.0" y="867" text-anchor="middle">bật / tắt</text>
+<rect class="process" x="560" y="822" width="280" height="84" rx="9"/><text class="label" x="700.0" y="861.0" text-anchor="middle">7.1 Đồng ý theo mục đích</text><text class="sub" x="700.0" y="879.0" text-anchor="middle">wappi, voice, email</text>
+<path class="wire" d="M840 874 H1090" marker-end="url(#level1-a)"/><text class="edge" x="965.0" y="867" text-anchor="middle">thêm một dòng</text>
+<rect class="store" x="1090" y="822" width="310" height="84" rx="9"/><text class="label" x="1245.0" y="861.0" text-anchor="middle">D7 tb_consent</text><text class="sub" x="1245.0" y="879.0" text-anchor="middle">không sửa dòng cũ</text>
+<rect class="actor" x="20" y="922" width="290" height="84" rx="9"/><text class="label" x="165.0" y="969.0" text-anchor="middle">Chủ nhà</text>
+<path class="wire" d="M310 974 H560" marker-end="url(#level1-a)"/><text class="edge" x="435.0" y="967" text-anchor="middle">mời, mức, gỡ</text>
+<rect class="process" x="560" y="922" width="280" height="84" rx="9"/><text class="label" x="700.0" y="953.0" text-anchor="middle">7.2 Thành viên, mức AI</text><text class="sub" x="700.0" y="971.0" text-anchor="middle">gỡ: xóa nhắc, kế hoạch,</text><text class="sub" x="700.0" y="987.0" text-anchor="middle">trò chuyện của người đó</text>
+<path class="wire" d="M840 974 H1090" marker-end="url(#level1-a)"/><text class="edge" x="965.0" y="967" text-anchor="middle">mức xem, ai_detail</text>
+<rect class="store" x="1090" y="922" width="310" height="84" rx="9"/><text class="label" x="1245.0" y="969.0" text-anchor="middle">D7 Hồ sơ nhà, thành viên</text>
+<rect class="actor" x="20" y="1022" width="290" height="84" rx="9"/><text class="label" x="165.0" y="1069.0" text-anchor="middle">Chủ nhà</text>
+<path class="wire" d="M310 1074 H560" marker-end="url(#level1-a)"/><text class="edge" x="435.0" y="1067" text-anchor="middle">xóa trước ngày / tất cả</text>
+<rect class="process" x="560" y="1022" width="280" height="84" rx="9"/><text class="label" x="700.0" y="1053.0" text-anchor="middle">7.3 Xóa lịch sử</text><text class="sub" x="700.0" y="1071.0" text-anchor="middle">dựng lại hóa đơn;</text><text class="sub" x="700.0" y="1087.0" text-anchor="middle">không đụng trò chuyện</text>
+<path class="wire" d="M840 1074 H1090" marker-end="url(#level1-a)"/><text class="edge" x="965.0" y="1067" text-anchor="middle">xóa, ghi mốc</text>
+<rect class="store" x="1090" y="1022" width="310" height="84" rx="9"/><text class="label" x="1245.0" y="1061.0" text-anchor="middle">D1–D5, D8</text><text class="sub" x="1245.0" y="1079.0" text-anchor="middle">và mốc chặn gửi lại lô cũ</text>
+<rect class="actor" x="20" y="1122" width="290" height="84" rx="9"/><text class="label" x="165.0" y="1169.0" text-anchor="middle">Mỗi người dùng</text>
+<path class="wire" d="M310 1174 H560" marker-end="url(#level1-a)"/><text class="edge" x="435.0" y="1167" text-anchor="middle">xóa trò chuyện</text>
+<rect class="process" x="560" y="1122" width="280" height="84" rx="9"/><text class="label" x="700.0" y="1161.0" text-anchor="middle">7.4 Xóa trò chuyện</text><text class="sub" x="700.0" y="1179.0" text-anchor="middle">kèm âm thanh đã lưu</text>
+<path class="wire" d="M840 1174 H1090" marker-end="url(#level1-a)"/><text class="edge" x="965.0" y="1167" text-anchor="middle">xóa</text>
+<rect class="store" x="1090" y="1122" width="310" height="84" rx="9"/><text class="label" x="1245.0" y="1161.0" text-anchor="middle">D6 Trò chuyện</text><text class="sub" x="1245.0" y="1179.0" text-anchor="middle">chỉ của người gọi</text>
+<rect class="store" x="20" y="1222" width="290" height="84" rx="9"/><text class="label" x="165.0" y="1269.0" text-anchor="middle">D7 Nhật ký gửi ngoài</text>
+<path class="wire" d="M310 1274 H560" marker-end="url(#level1-a)"/><text class="edge" x="435.0" y="1267" text-anchor="middle">30 ngày của mình</text>
+<rect class="process" x="560" y="1222" width="280" height="84" rx="9"/><text class="label" x="700.0" y="1261.0" text-anchor="middle">7.5 Xem và dọn nhật ký</text><text class="sub" x="700.0" y="1279.0" text-anchor="middle">dọn quá 90 ngày</text>
+<path class="wire" d="M840 1274 H1090" marker-end="url(#level1-a)"/><text class="edge" x="965.0" y="1267" text-anchor="middle">danh sách</text>
+<rect class="actor" x="1090" y="1222" width="310" height="84" rx="9"/><text class="label" x="1245.0" y="1269.0" text-anchor="middle">Người dùng</text>
+<text class="sub" x="20" y="1340" text-anchor="start">Mọi lời gọi tới OpenRouter, AstralX, OpenWeather, Telegram, text2sql đi qua app/common/outbound.py; mail được ghi nhật ký trước khi gửi.</text>
+<text class="sub" x="20" y="1358" text-anchor="start">Chưa có: tiến trình dọn theo bậc thời hạn (đợt Đ7). Dữ liệu đã gửi ra ngoài không xóa được từ WattPrint.</text>
+</svg>

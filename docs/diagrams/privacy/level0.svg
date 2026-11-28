@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1420" height="1028" viewBox="0 0 1420 1028" role="img" aria-labelledby="level0-title">
+<title id="level0-title">DFD mức 0 · bảy tiến trình và kho dữ liệu (thời hạn đang áp)</title>
+<defs><marker id="level0-a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M1 1 L9 5 L1 9" fill="none" stroke="#506981" stroke-width="1.5"/></marker><marker id="level0-o" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M1 1 L9 5 L1 9" fill="none" stroke="#b2691b" stroke-width="1.5"/></marker></defs>
+<style>
+.process{fill:#e6f1fc;stroke:#2a67a4;stroke-width:2}.store{fill:#e8f5ec;stroke:#27804b;stroke-width:2}
+.actor{fill:#f0ebfa;stroke:#7653a2;stroke-width:2}.external{fill:#fff0df;stroke:#b2691b;stroke-width:2}
+.frame{fill:#f8fbfd;stroke:#b6c8d7;stroke-width:2}.planned{fill:#fff;stroke:#7a8793;stroke-width:2;stroke-dasharray:7 5}
+.wire{fill:none;stroke:#506981;stroke-width:1.8}.out{fill:none;stroke:#b2691b;stroke-width:2.4}
+text{font-family:system-ui,sans-serif;fill:#182a3a}.label{font-size:15px;font-weight:700}
+.sub{font-size:12px;fill:#40556a}.edge{font-size:12px;fill:#314b63}.h{font-size:13px;font-weight:700;letter-spacing:.04em;fill:#43576b}
+</style>
+<rect width="1420" height="1028" fill="#fff"/>
+<text class="label" x="20" y="28" text-anchor="start">DFD mức 0 · bảy tiến trình và kho dữ liệu (thời hạn đang áp)</text>
+<rect class="actor" x="20" y="50" width="290" height="84" rx="9"/><text class="label" x="165.0" y="97.0" text-anchor="middle">Công tơ / phát lại</text>
+<path class="wire" d="M310 102 H560" marker-end="url(#level0-a)"/><text class="edge" x="435.0" y="95" text-anchor="middle">lô số đo</text>
+<rect class="process" x="560" y="50" width="280" height="84" rx="9"/><text class="label" x="700.0" y="89.0" text-anchor="middle">1. Thu số đo</text><text class="sub" x="700.0" y="107.0" text-anchor="middle">bỏ lô trước mốc xóa</text>
+<path class="wire" d="M840 102 H1090" marker-end="url(#level0-a)"/><text class="edge" x="965.0" y="95" text-anchor="middle">số đo ~10 giây</text>
+<rect class="store" x="1090" y="50" width="310" height="84" rx="9"/><text class="label" x="1245.0" y="89.0" text-anchor="middle">D1 Thô</text><text class="sub" x="1245.0" y="107.0" text-anchor="middle">400 ngày</text>
+<rect class="store" x="20" y="150" width="290" height="84" rx="9"/><text class="label" x="165.0" y="189.0" text-anchor="middle">D1 Thô</text><text class="sub" x="165.0" y="207.0" text-anchor="middle">400 ngày</text>
+<path class="wire" d="M310 202 H560" marker-end="url(#level0-a)"/><text class="edge" x="435.0" y="195" text-anchor="middle">số đo</text>
+<rect class="process" x="560" y="150" width="280" height="84" rx="9"/><text class="label" x="700.0" y="189.0" text-anchor="middle">2. Tổng hợp</text><text class="sub" x="700.0" y="207.0" text-anchor="middle">xếp tầng</text>
+<path class="wire" d="M840 202 H1090" marker-end="url(#level0-a)"/><text class="edge" x="965.0" y="195" text-anchor="middle">phút / giờ / ngày</text>
+<rect class="store" x="1090" y="150" width="310" height="84" rx="9"/><text class="label" x="1245.0" y="181.0" text-anchor="middle">D2 Phút · D3 Giờ · D4 Ngày</text><text class="sub" x="1245.0" y="199.0" text-anchor="middle">phút: 400 ngày</text><text class="sub" x="1245.0" y="215.0" text-anchor="middle">giờ, ngày: không hạn</text>
+<rect class="store" x="20" y="250" width="290" height="84" rx="9"/><text class="label" x="165.0" y="289.0" text-anchor="middle">D1 Thô</text><text class="sub" x="165.0" y="307.0" text-anchor="middle">400 ngày</text>
+<path class="wire" d="M310 302 H560" marker-end="url(#level0-a)"/><text class="edge" x="435.0" y="295" text-anchor="middle">công suất tổng</text>
+<rect class="process" x="560" y="250" width="280" height="84" rx="9"/><text class="label" x="700.0" y="289.0" text-anchor="middle">3. Tách thiết bị (NILM)</text><text class="sub" x="700.0" y="307.0" text-anchor="middle">worker nilm</text>
+<path class="wire" d="M840 302 H1090" marker-end="url(#level0-a)"/><text class="edge" x="965.0" y="295" text-anchor="middle">ước tính từng thiết bị</text>
+<rect class="store" x="1090" y="250" width="310" height="84" rx="9"/><text class="label" x="1245.0" y="289.0" text-anchor="middle">D1 Thô · D2–D4 thiết bị</text><text class="sub" x="1245.0" y="307.0" text-anchor="middle">cùng thời hạn như trên</text>
+<rect class="store" x="20" y="350" width="290" height="84" rx="9"/><text class="label" x="165.0" y="397.0" text-anchor="middle">D4 Ngày</text>
+<path class="wire" d="M310 402 H560" marker-end="url(#level0-a)"/><text class="edge" x="435.0" y="395" text-anchor="middle">kWh theo ngày</text>
+<rect class="process" x="560" y="350" width="280" height="84" rx="9"/><text class="label" x="700.0" y="389.0" text-anchor="middle">4. Tính hóa đơn</text><text class="sub" x="700.0" y="407.0" text-anchor="middle">biểu giá bậc thang</text>
+<path class="wire" d="M840 402 H1090" marker-end="url(#level0-a)"/><text class="edge" x="965.0" y="395" text-anchor="middle">kỳ hóa đơn</text>
+<rect class="store" x="1090" y="350" width="310" height="84" rx="9"/><text class="label" x="1245.0" y="389.0" text-anchor="middle">D5 Hóa đơn</text><text class="sub" x="1245.0" y="407.0" text-anchor="middle">25 kỳ gần nhất</text>
+<rect class="store" x="20" y="450" width="290" height="84" rx="9"/><text class="label" x="165.0" y="489.0" text-anchor="middle">D2–D4, D1</text><text class="sub" x="165.0" y="507.0" text-anchor="middle">tổng hợp và số hiện tại</text>
+<path class="wire" d="M310 502 H560" marker-end="url(#level0-a)"/><text class="edge" x="435.0" y="495" text-anchor="middle">mức dùng</text>
+<rect class="process" x="560" y="450" width="280" height="84" rx="9"/><text class="label" x="700.0" y="489.0" text-anchor="middle">5. Dự báo, cảnh báo, nhắc</text><text class="sub" x="700.0" y="507.0" text-anchor="middle">worker insight</text>
+<path class="wire" d="M840 502 H1090" marker-end="url(#level0-a)"/><text class="edge" x="965.0" y="495" text-anchor="middle">kết quả, lượt bật/tắt</text>
+<rect class="store" x="1090" y="450" width="310" height="84" rx="9"/><text class="label" x="1245.0" y="489.0" text-anchor="middle">D8 Dự báo, cảnh báo, lượt chạy</text><text class="sub" x="1245.0" y="507.0" text-anchor="middle">không hạn</text>
+<rect class="actor" x="20" y="550" width="290" height="84" rx="9"/><text class="label" x="165.0" y="597.0" text-anchor="middle">Người hỏi</text>
+<path class="wire" d="M310 602 H560" marker-end="url(#level0-a)"/><text class="edge" x="435.0" y="595" text-anchor="middle">câu hỏi / giọng nói</text>
+<rect class="process" x="560" y="550" width="280" height="84" rx="9"/><text class="label" x="700.0" y="589.0" text-anchor="middle">6. Wappi</text><text class="sub" x="700.0" y="607.0" text-anchor="middle">theo mức ngày hoặc giờ</text>
+<path class="wire" d="M840 602 H1090" marker-end="url(#level0-a)"/><text class="edge" x="965.0" y="595" text-anchor="middle">tin nhắn, số liệu, SQL</text>
+<rect class="store" x="1090" y="550" width="310" height="84" rx="9"/><text class="label" x="1245.0" y="581.0" text-anchor="middle">D6 Trò chuyện</text><text class="sub" x="1245.0" y="599.0" text-anchor="middle">đến khi người dùng xóa</text><text class="sub" x="1245.0" y="615.0" text-anchor="middle">âm thanh đọc: 30 ngày</text>
+<rect class="actor" x="20" y="650" width="290" height="84" rx="9"/><text class="label" x="165.0" y="697.0" text-anchor="middle">Người dùng</text>
+<path class="wire" d="M310 702 H560" marker-end="url(#level0-a)"/><text class="edge" x="435.0" y="695" text-anchor="middle">đồng ý, mức xem, xóa</text>
+<rect class="process" x="560" y="650" width="280" height="84" rx="9"/><text class="label" x="700.0" y="689.0" text-anchor="middle">7. Quyền riêng tư</text><text class="sub" x="700.0" y="707.0" text-anchor="middle">API + cửa ra chung</text>
+<path class="wire" d="M840 702 H1090" marker-end="url(#level0-a)"/><text class="edge" x="965.0" y="695" text-anchor="middle">đồng ý, mức xem, mốc xóa</text>
+<rect class="store" x="1090" y="650" width="310" height="84" rx="9"/><text class="label" x="1245.0" y="681.0" text-anchor="middle">D7 Đồng ý, nhật ký, hồ sơ nhà</text><text class="sub" x="1245.0" y="699.0" text-anchor="middle">nhật ký: 90 ngày</text><text class="sub" x="1245.0" y="715.0" text-anchor="middle">đồng ý: theo tài khoản</text>
+<text class="h" x="20" y="772" text-anchor="start">Đầu ra cho người dùng và bên ngoài</text>
+<rect class="store" x="20" y="786" width="290" height="84" rx="9"/><text class="label" x="165.0" y="833.0" text-anchor="middle">D1–D5, D8</text>
+<path class="wire" d="M310 838 H560" marker-end="url(#level0-a)"/><text class="edge" x="435.0" y="831" text-anchor="middle">số liệu</text>
+<rect class="process" x="560" y="786" width="280" height="84" rx="9"/><text class="label" x="700.0" y="825.0" text-anchor="middle">API đọc dữ liệu nhà</text><text class="sub" x="700.0" y="843.0" text-anchor="middle">kiểm tư cách và mức xem</text>
+<path class="wire" d="M840 838 H1090" marker-end="url(#level0-a)"/><text class="edge" x="965.0" y="831" text-anchor="middle">biểu đồ, hóa đơn</text>
+<rect class="actor" x="1090" y="786" width="310" height="84" rx="9"/><text class="label" x="1245.0" y="825.0" text-anchor="middle">Người trong nhà</text><text class="sub" x="1245.0" y="843.0" text-anchor="middle">TV theo ngày: chỉ số ngày</text>
+<rect class="store" x="20" y="886" width="290" height="84" rx="9"/><text class="label" x="165.0" y="933.0" text-anchor="middle">D3, D4, D5, D6, D8</text>
+<path class="wire" d="M310 938 H560" marker-end="url(#level0-a)"/><text class="edge" x="435.0" y="931" text-anchor="middle">view theo token</text>
+<rect class="process" x="560" y="886" width="280" height="84" rx="9"/><text class="label" x="700.0" y="925.0" text-anchor="middle">6. Wappi</text><text class="sub" x="700.0" y="943.0" text-anchor="middle">che, ghi nhật ký</text>
+<path class="out" d="M840 938 H1090" marker-end="url(#level0-o)"/><text class="edge" x="965.0" y="931" text-anchor="middle">câu hỏi, kết quả công cụ</text>
+<rect class="external" x="1090" y="886" width="310" height="84" rx="9"/><text class="label" x="1245.0" y="925.0" text-anchor="middle">OpenRouter / AstralX</text><text class="sub" x="1245.0" y="943.0" text-anchor="middle">ngoài hệ thống</text>
+<text class="sub" x="20" y="1004" text-anchor="start">Kho lặp lại ở nhiều dòng là cùng một kho. Thời hạn theo bậc (thô 30, phút 90, giờ 400, ngày 800 ngày) CHƯA áp dụng.</text>
+</svg>

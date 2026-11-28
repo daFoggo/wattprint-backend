@@ -1,0 +1,357 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1220" height="1026" viewBox="0 0 1220 1026" role="img" aria-labelledby="function-matrix-title">
+<title id="function-matrix-title">Ma trận tác nhân × chức năng (mã trả về mong đợi của test thử quyền)</title>
+<defs><marker id="function-matrix-a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M1 1 L9 5 L1 9" fill="none" stroke="#506981" stroke-width="1.5"/></marker><marker id="function-matrix-o" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M1 1 L9 5 L1 9" fill="none" stroke="#b2691b" stroke-width="1.5"/></marker></defs>
+<style>
+.process{fill:#e6f1fc;stroke:#2a67a4;stroke-width:2}.store{fill:#e8f5ec;stroke:#27804b;stroke-width:2}
+.actor{fill:#f0ebfa;stroke:#7653a2;stroke-width:2}.external{fill:#fff0df;stroke:#b2691b;stroke-width:2}
+.frame{fill:#f8fbfd;stroke:#b6c8d7;stroke-width:2}.planned{fill:#fff;stroke:#7a8793;stroke-width:2;stroke-dasharray:7 5}
+.wire{fill:none;stroke:#506981;stroke-width:1.8}.out{fill:none;stroke:#b2691b;stroke-width:2.4}
+text{font-family:system-ui,sans-serif;fill:#182a3a}.label{font-size:15px;font-weight:700}
+.sub{font-size:12px;fill:#40556a}.edge{font-size:12px;fill:#314b63}.h{font-size:13px;font-weight:700;letter-spacing:.04em;fill:#43576b}
+</style>
+<rect width="1220" height="1026" fill="#fff"/>
+<text class="label" x="20" y="32" text-anchor="start">Ma trận tác nhân × chức năng (mã trả về mong đợi của test thử quyền)</text>
+<rect x="20" y="56" width="270" height="52" fill="#eaf1f7" stroke="#cbd7e1"/>
+<text x="29" y="78" font-size="13" font-weight="650">Chức năng</text>
+<rect x="290" y="56" width="140" height="52" fill="#eaf1f7" stroke="#cbd7e1"/>
+<text x="299" y="78" font-size="13" font-weight="650">Chưa đăng nhập</text>
+<rect x="430" y="56" width="150" height="52" fill="#eaf1f7" stroke="#cbd7e1"/>
+<text x="439" y="78" font-size="13" font-weight="650">Khách demo</text>
+<rect x="580" y="56" width="170" height="52" fill="#eaf1f7" stroke="#cbd7e1"/>
+<text x="589" y="78" font-size="13" font-weight="650">TV theo ngày</text>
+<rect x="750" y="56" width="150" height="52" fill="#eaf1f7" stroke="#cbd7e1"/>
+<text x="759" y="78" font-size="13" font-weight="650">TV đầy đủ</text>
+<rect x="900" y="56" width="130" height="52" fill="#eaf1f7" stroke="#cbd7e1"/>
+<text x="909" y="78" font-size="13" font-weight="650">Chủ nhà</text>
+<rect x="1030" y="56" width="170" height="52" fill="#eaf1f7" stroke="#cbd7e1"/>
+<text x="1039" y="78" font-size="13" font-weight="650">Admin (không có</text>
+<text x="1039" y="96" font-size="13" font-weight="650">nhà)</text>
+<rect x="20" y="108" width="270" height="52" fill="#fff" stroke="#cbd7e1"/>
+<text x="29" y="130" font-size="13" font-weight="650">Công suất hiện tại, điện hôm</text>
+<text x="29" y="148" font-size="13" font-weight="650">nay</text>
+<rect x="290" y="108" width="140" height="52" fill="#fff" stroke="#cbd7e1"/>
+<text x="299" y="130" font-size="13" font-weight="400">— 401</text>
+<rect x="430" y="108" width="150" height="52" fill="#fff" stroke="#cbd7e1"/>
+<text x="439" y="130" font-size="13" font-weight="400">✓</text>
+<rect x="580" y="108" width="170" height="52" fill="#fff" stroke="#cbd7e1"/>
+<text x="589" y="130" font-size="13" font-weight="400">✓ chỉ tổng ngày</text>
+<rect x="750" y="108" width="150" height="52" fill="#fff" stroke="#cbd7e1"/>
+<text x="759" y="130" font-size="13" font-weight="400">✓</text>
+<rect x="900" y="108" width="130" height="52" fill="#fff" stroke="#cbd7e1"/>
+<text x="909" y="130" font-size="13" font-weight="400">✓</text>
+<rect x="1030" y="108" width="170" height="52" fill="#fff" stroke="#cbd7e1"/>
+<text x="1039" y="130" font-size="13" font-weight="400">— 404</text>
+<rect x="20" y="160" width="270" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="29" y="182" font-size="13" font-weight="650">Biểu đồ công suất công tơ</text>
+<rect x="290" y="160" width="140" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="299" y="182" font-size="13" font-weight="400">— 401</text>
+<rect x="430" y="160" width="150" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="439" y="182" font-size="13" font-weight="400">✓</text>
+<rect x="580" y="160" width="170" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="589" y="182" font-size="13" font-weight="400">— 403</text>
+<rect x="750" y="160" width="150" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="759" y="182" font-size="13" font-weight="400">✓</text>
+<rect x="900" y="160" width="130" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="909" y="182" font-size="13" font-weight="400">✓</text>
+<rect x="1030" y="160" width="170" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="1039" y="182" font-size="13" font-weight="400">— 404</text>
+<rect x="20" y="194" width="270" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="29" y="216" font-size="13" font-weight="650">Dòng số đo trực tiếp</text>
+<rect x="290" y="194" width="140" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="299" y="216" font-size="13" font-weight="400">— 401</text>
+<rect x="430" y="194" width="150" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="439" y="216" font-size="13" font-weight="400">✓</text>
+<rect x="580" y="194" width="170" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="589" y="216" font-size="13" font-weight="400">— 403</text>
+<rect x="750" y="194" width="150" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="759" y="216" font-size="13" font-weight="400">✓</text>
+<rect x="900" y="194" width="130" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="909" y="216" font-size="13" font-weight="400">✓</text>
+<rect x="1030" y="194" width="170" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="1039" y="216" font-size="13" font-weight="400">— 404</text>
+<rect x="20" y="228" width="270" height="52" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="29" y="250" font-size="13" font-weight="650">Danh sách thiết bị</text>
+<rect x="290" y="228" width="140" height="52" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="299" y="250" font-size="13" font-weight="400">— 401</text>
+<rect x="430" y="228" width="150" height="52" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="439" y="250" font-size="13" font-weight="400">✓</text>
+<rect x="580" y="228" width="170" height="52" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="589" y="250" font-size="13" font-weight="400">✓ không có trạng</text>
+<text x="589" y="268" font-size="13" font-weight="400">thái, W</text>
+<rect x="750" y="228" width="150" height="52" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="759" y="250" font-size="13" font-weight="400">✓</text>
+<rect x="900" y="228" width="130" height="52" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="909" y="250" font-size="13" font-weight="400">✓</text>
+<rect x="1030" y="228" width="170" height="52" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="1039" y="250" font-size="13" font-weight="400">— 404</text>
+<rect x="20" y="280" width="270" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="29" y="302" font-size="13" font-weight="650">Hoạt động (lượt chạy) thiết bị</text>
+<rect x="290" y="280" width="140" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="299" y="302" font-size="13" font-weight="400">— 401</text>
+<rect x="430" y="280" width="150" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="439" y="302" font-size="13" font-weight="400">✓</text>
+<rect x="580" y="280" width="170" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="589" y="302" font-size="13" font-weight="400">— 403</text>
+<rect x="750" y="280" width="150" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="759" y="302" font-size="13" font-weight="400">✓</text>
+<rect x="900" y="280" width="130" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="909" y="302" font-size="13" font-weight="400">✓</text>
+<rect x="1030" y="280" width="170" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="1039" y="302" font-size="13" font-weight="400">— 404</text>
+<rect x="20" y="314" width="270" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="29" y="336" font-size="13" font-weight="650">Dự đoán mức dùng theo giờ</text>
+<rect x="290" y="314" width="140" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="299" y="336" font-size="13" font-weight="400">— 401</text>
+<rect x="430" y="314" width="150" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="439" y="336" font-size="13" font-weight="400">✓</text>
+<rect x="580" y="314" width="170" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="589" y="336" font-size="13" font-weight="400">— 403</text>
+<rect x="750" y="314" width="150" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="759" y="336" font-size="13" font-weight="400">✓</text>
+<rect x="900" y="314" width="130" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="909" y="336" font-size="13" font-weight="400">✓</text>
+<rect x="1030" y="314" width="170" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="1039" y="336" font-size="13" font-weight="400">— 404</text>
+<rect x="20" y="348" width="270" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="29" y="370" font-size="13" font-weight="650">Hóa đơn kỳ này</text>
+<rect x="290" y="348" width="140" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="299" y="370" font-size="13" font-weight="400">— 401</text>
+<rect x="430" y="348" width="150" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="439" y="370" font-size="13" font-weight="400">✓</text>
+<rect x="580" y="348" width="170" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="589" y="370" font-size="13" font-weight="400">✓</text>
+<rect x="750" y="348" width="150" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="759" y="370" font-size="13" font-weight="400">✓</text>
+<rect x="900" y="348" width="130" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="909" y="370" font-size="13" font-weight="400">✓</text>
+<rect x="1030" y="348" width="170" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="1039" y="370" font-size="13" font-weight="400">— 404</text>
+<rect x="20" y="382" width="270" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="29" y="404" font-size="13" font-weight="650">Cảnh báo</text>
+<rect x="290" y="382" width="140" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="299" y="404" font-size="13" font-weight="400">— 401</text>
+<rect x="430" y="382" width="150" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="439" y="404" font-size="13" font-weight="400">✓</text>
+<rect x="580" y="382" width="170" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="589" y="404" font-size="13" font-weight="400">✓ chỉ theo ngày</text>
+<rect x="750" y="382" width="150" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="759" y="404" font-size="13" font-weight="400">✓</text>
+<rect x="900" y="382" width="130" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="909" y="404" font-size="13" font-weight="400">✓</text>
+<rect x="1030" y="382" width="170" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="1039" y="404" font-size="13" font-weight="400">— 404</text>
+<rect x="20" y="416" width="270" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="29" y="438" font-size="13" font-weight="650">Hỏi Wappi</text>
+<rect x="290" y="416" width="140" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="299" y="438" font-size="13" font-weight="400">— 401</text>
+<rect x="430" y="416" width="150" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="439" y="438" font-size="13" font-weight="400">✓</text>
+<rect x="580" y="416" width="170" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="589" y="438" font-size="13" font-weight="400">✓ mức ngày</text>
+<rect x="750" y="416" width="150" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="759" y="438" font-size="13" font-weight="400">✓</text>
+<rect x="900" y="416" width="130" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="909" y="438" font-size="13" font-weight="400">✓</text>
+<rect x="1030" y="416" width="170" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="1039" y="438" font-size="13" font-weight="400">— 404</text>
+<rect x="20" y="450" width="270" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="29" y="472" font-size="13" font-weight="650">Đặt nhắc</text>
+<rect x="290" y="450" width="140" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="299" y="472" font-size="13" font-weight="400">— 401</text>
+<rect x="430" y="450" width="150" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="439" y="472" font-size="13" font-weight="400">— 403</text>
+<rect x="580" y="450" width="170" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="589" y="472" font-size="13" font-weight="400">✓ không nhắc tức thời</text>
+<rect x="750" y="450" width="150" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="759" y="472" font-size="13" font-weight="400">✓</text>
+<rect x="900" y="450" width="130" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="909" y="472" font-size="13" font-weight="400">✓</text>
+<rect x="1030" y="450" width="170" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="1039" y="472" font-size="13" font-weight="400">— 404</text>
+<rect x="20" y="484" width="270" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="29" y="506" font-size="13" font-weight="650">Sửa nhà, mức Wappi xem</text>
+<rect x="290" y="484" width="140" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="299" y="506" font-size="13" font-weight="400">— 401</text>
+<rect x="430" y="484" width="150" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="439" y="506" font-size="13" font-weight="400">— 403</text>
+<rect x="580" y="484" width="170" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="589" y="506" font-size="13" font-weight="400">— 403</text>
+<rect x="750" y="484" width="150" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="759" y="506" font-size="13" font-weight="400">— 403</text>
+<rect x="900" y="484" width="130" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="909" y="506" font-size="13" font-weight="400">✓</text>
+<rect x="1030" y="484" width="170" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="1039" y="506" font-size="13" font-weight="400">— 404</text>
+<rect x="20" y="518" width="270" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="29" y="540" font-size="13" font-weight="650">Xem trang quyền riêng tư (API)</text>
+<rect x="290" y="518" width="140" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="299" y="540" font-size="13" font-weight="400">— 401</text>
+<rect x="430" y="518" width="150" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="439" y="540" font-size="13" font-weight="400">✓</text>
+<rect x="580" y="518" width="170" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="589" y="540" font-size="13" font-weight="400">✓</text>
+<rect x="750" y="518" width="150" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="759" y="540" font-size="13" font-weight="400">✓</text>
+<rect x="900" y="518" width="130" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="909" y="540" font-size="13" font-weight="400">✓</text>
+<rect x="1030" y="518" width="170" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="1039" y="540" font-size="13" font-weight="400">— 404</text>
+<rect x="20" y="552" width="270" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="29" y="574" font-size="13" font-weight="650">Xem danh sách thành viên</text>
+<rect x="290" y="552" width="140" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="299" y="574" font-size="13" font-weight="400">— 401</text>
+<rect x="430" y="552" width="150" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="439" y="574" font-size="13" font-weight="400">— 403</text>
+<rect x="580" y="552" width="170" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="589" y="574" font-size="13" font-weight="400">✓</text>
+<rect x="750" y="552" width="150" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="759" y="574" font-size="13" font-weight="400">✓</text>
+<rect x="900" y="552" width="130" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="909" y="574" font-size="13" font-weight="400">✓</text>
+<rect x="1030" y="552" width="170" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="1039" y="574" font-size="13" font-weight="400">— 404</text>
+<rect x="20" y="586" width="270" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="29" y="608" font-size="13" font-weight="650">Mời thành viên</text>
+<rect x="290" y="586" width="140" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="299" y="608" font-size="13" font-weight="400">— 401</text>
+<rect x="430" y="586" width="150" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="439" y="608" font-size="13" font-weight="400">— 403</text>
+<rect x="580" y="586" width="170" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="589" y="608" font-size="13" font-weight="400">— 403</text>
+<rect x="750" y="586" width="150" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="759" y="608" font-size="13" font-weight="400">— 403</text>
+<rect x="900" y="586" width="130" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="909" y="608" font-size="13" font-weight="400">✓</text>
+<rect x="1030" y="586" width="170" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="1039" y="608" font-size="13" font-weight="400">— 404</text>
+<rect x="20" y="620" width="270" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="29" y="642" font-size="13" font-weight="650">Đổi mức xem</text>
+<rect x="290" y="620" width="140" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="299" y="642" font-size="13" font-weight="400">— 401</text>
+<rect x="430" y="620" width="150" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="439" y="642" font-size="13" font-weight="400">— 403</text>
+<rect x="580" y="620" width="170" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="589" y="642" font-size="13" font-weight="400">— 403</text>
+<rect x="750" y="620" width="150" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="759" y="642" font-size="13" font-weight="400">— 403</text>
+<rect x="900" y="620" width="130" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="909" y="642" font-size="13" font-weight="400">✓</text>
+<rect x="1030" y="620" width="170" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="1039" y="642" font-size="13" font-weight="400">— 404</text>
+<rect x="20" y="654" width="270" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="29" y="676" font-size="13" font-weight="650">Gỡ thành viên</text>
+<rect x="290" y="654" width="140" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="299" y="676" font-size="13" font-weight="400">— 401</text>
+<rect x="430" y="654" width="150" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="439" y="676" font-size="13" font-weight="400">— 403</text>
+<rect x="580" y="654" width="170" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="589" y="676" font-size="13" font-weight="400">— 403</text>
+<rect x="750" y="654" width="150" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="759" y="676" font-size="13" font-weight="400">— 403</text>
+<rect x="900" y="654" width="130" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="909" y="676" font-size="13" font-weight="400">✓</text>
+<rect x="1030" y="654" width="170" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="1039" y="676" font-size="13" font-weight="400">— 404</text>
+<rect x="20" y="688" width="270" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="29" y="710" font-size="13" font-weight="650">Tự rời nhà</text>
+<rect x="290" y="688" width="140" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="299" y="710" font-size="13" font-weight="400">— 401</text>
+<rect x="430" y="688" width="150" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="439" y="710" font-size="13" font-weight="400">— 403</text>
+<rect x="580" y="688" width="170" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="589" y="710" font-size="13" font-weight="400">✓</text>
+<rect x="750" y="688" width="150" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="759" y="710" font-size="13" font-weight="400">✓</text>
+<rect x="900" y="688" width="130" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="909" y="710" font-size="13" font-weight="400">— 403</text>
+<rect x="1030" y="688" width="170" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="1039" y="710" font-size="13" font-weight="400">— 404</text>
+<rect x="20" y="722" width="270" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="29" y="744" font-size="13" font-weight="650">Xóa lịch sử điện</text>
+<rect x="290" y="722" width="140" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="299" y="744" font-size="13" font-weight="400">— 401</text>
+<rect x="430" y="722" width="150" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="439" y="744" font-size="13" font-weight="400">— 403</text>
+<rect x="580" y="722" width="170" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="589" y="744" font-size="13" font-weight="400">— 403</text>
+<rect x="750" y="722" width="150" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="759" y="744" font-size="13" font-weight="400">— 403</text>
+<rect x="900" y="722" width="130" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="909" y="744" font-size="13" font-weight="400">✓</text>
+<rect x="1030" y="722" width="170" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="1039" y="744" font-size="13" font-weight="400">— 404</text>
+<rect x="20" y="756" width="270" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="29" y="778" font-size="13" font-weight="650">Xóa mọi trò chuyện của mình</text>
+<rect x="290" y="756" width="140" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="299" y="778" font-size="13" font-weight="400">— 401</text>
+<rect x="430" y="756" width="150" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="439" y="778" font-size="13" font-weight="400">✓</text>
+<rect x="580" y="756" width="170" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="589" y="778" font-size="13" font-weight="400">✓</text>
+<rect x="750" y="756" width="150" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="759" y="778" font-size="13" font-weight="400">✓</text>
+<rect x="900" y="756" width="130" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="909" y="778" font-size="13" font-weight="400">✓</text>
+<rect x="1030" y="756" width="170" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="1039" y="778" font-size="13" font-weight="400">— 404</text>
+<rect x="20" y="790" width="270" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="29" y="812" font-size="13" font-weight="650">Đồng ý / rút theo mục đích</text>
+<rect x="290" y="790" width="140" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="299" y="812" font-size="13" font-weight="400">— 401</text>
+<rect x="430" y="790" width="150" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="439" y="812" font-size="13" font-weight="400">✓</text>
+<rect x="580" y="790" width="170" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="589" y="812" font-size="13" font-weight="400">✓</text>
+<rect x="750" y="790" width="150" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="759" y="812" font-size="13" font-weight="400">✓</text>
+<rect x="900" y="790" width="130" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="909" y="812" font-size="13" font-weight="400">✓</text>
+<rect x="1030" y="790" width="170" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="1039" y="812" font-size="13" font-weight="400">✓</text>
+<rect x="20" y="824" width="270" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="29" y="846" font-size="13" font-weight="650">Xem nhật ký gửi ngoài của mình</text>
+<rect x="290" y="824" width="140" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="299" y="846" font-size="13" font-weight="400">— 401</text>
+<rect x="430" y="824" width="150" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="439" y="846" font-size="13" font-weight="400">✓</text>
+<rect x="580" y="824" width="170" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="589" y="846" font-size="13" font-weight="400">✓</text>
+<rect x="750" y="824" width="150" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="759" y="846" font-size="13" font-weight="400">✓</text>
+<rect x="900" y="824" width="130" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="909" y="846" font-size="13" font-weight="400">✓</text>
+<rect x="1030" y="824" width="170" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="1039" y="846" font-size="13" font-weight="400">✓</text>
+<rect x="20" y="858" width="270" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="29" y="880" font-size="13" font-weight="650">Xóa tài khoản mình</text>
+<rect x="290" y="858" width="140" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="299" y="880" font-size="13" font-weight="400">— 401</text>
+<rect x="430" y="858" width="150" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="439" y="880" font-size="13" font-weight="400">✓</text>
+<rect x="580" y="858" width="170" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="589" y="880" font-size="13" font-weight="400">✓</text>
+<rect x="750" y="858" width="150" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="759" y="880" font-size="13" font-weight="400">✓</text>
+<rect x="900" y="858" width="130" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="909" y="880" font-size="13" font-weight="400">✓</text>
+<rect x="1030" y="858" width="170" height="34" fill="#f8fbfd" stroke="#cbd7e1"/>
+<text x="1039" y="880" font-size="13" font-weight="400">✓</text>
+<rect x="20" y="892" width="270" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="29" y="914" font-size="13" font-weight="650">Liệt kê tài khoản</text>
+<rect x="290" y="892" width="140" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="299" y="914" font-size="13" font-weight="400">— 401</text>
+<rect x="430" y="892" width="150" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="439" y="914" font-size="13" font-weight="400">— 403</text>
+<rect x="580" y="892" width="170" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="589" y="914" font-size="13" font-weight="400">— 403</text>
+<rect x="750" y="892" width="150" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="759" y="914" font-size="13" font-weight="400">— 403</text>
+<rect x="900" y="892" width="130" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="909" y="914" font-size="13" font-weight="400">— 403</text>
+<rect x="1030" y="892" width="170" height="34" fill="#fff" stroke="#cbd7e1"/>
+<text x="1039" y="914" font-size="13" font-weight="400">✓</text>
+<text class="sub" x="20" y="952" text-anchor="start">✓ = được (2xx). — 401/403/404 = bị từ chối. Ô sinh từ bảng EXPECTED của tests/test_permissions.py; chữ ghi thêm sau ✓ lấy từ mã route. Chủ nhà khác gọi vào đồ của nhà A bằng id</text>
+<text class="sub" x="20" y="970" text-anchor="start">nhận 404 (xem bảng thử quyền).</text>
+<text class="sub" x="20" y="988" text-anchor="start">Nhà demo: chủ nhà demo bị từ chối xóa lịch sử và mời. Chủ nhà không &quot;tự rời&quot; (403): xóa tài khoản; còn thành viên khác thì bị từ chối xóa.</text>
+<text class="sub" x="20" y="1006" text-anchor="start">Công tơ / bộ phát lại chỉ ghi số đo, không qua API người dùng. Worker chạy tác vụ nội bộ. Người bảo trì máy chủ không bị ma trận này ràng buộc.</text>
+</svg>
