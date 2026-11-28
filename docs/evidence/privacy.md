@@ -4,8 +4,8 @@ Hiện trạng ngày 28/11/2026, trên môi trường dev. Trang này đối chi
 trong repo, **không được chạy lại khi viết trang này**. Yêu cầu gốc:
 [intent.md](../work/2026-11-28-privacy-load-data/intent.md).
 
-**Đọc trước:** việc chặn theo đồng ý đang **tắt** trên máy chủ (`consent_enforced = False`), và thời hạn lưu theo bậc
-**chưa áp dụng**. Xem mục "Chưa làm".
+**Đọc trước:** việc chặn theo đồng ý đang **tắt** trên máy chủ (`consent_enforced = False`), và việc dọn hằng đêm cho
+bảng thường **chưa bật** (`RETENTION_TIERS=false`). Xem mục "Chưa làm".
 
 ## Ba minh chứng ban giám khảo yêu cầu
 
@@ -25,7 +25,7 @@ Chúng tôi rà toàn bộ nơi lưu, người đọc và nơi gửi đi trướ
 
 ### "Giảm độ chi tiết phải lưu/chia sẻ"
 
-**Chia sẻ: đã làm. Lưu: chưa làm.**
+**Chia sẻ: đã làm. Lưu: đã áp thời hạn theo bậc cho số đo; bảng thường chưa dọn theo bậc.**
 
 | Đã làm | Minh chứng |
 |---|---|
@@ -34,12 +34,13 @@ Chúng tôi rà toàn bộ nơi lưu, người đọc và nơi gửi đi trướ
 | Ở mức ngày: không đọc số theo phút ban đêm, cảnh báo bỏ giờ | `tests/test_copilot_tools.py`: `test_at_daily_standby_reads_no_night_minutes`, `test_at_daily_alerts_give_the_day_only`, `test_at_daily_an_odd_hour_alert_keeps_no_start_hour` |
 | Email, số điện thoại, số giấy tờ trong câu hỏi bị che trước khi lưu và gửi | `tests/test_privacy.py`; `tests/test_copilot_api.py::test_the_guard_reads_the_redacted_question` |
 | Gọi OpenRouter kèm yêu cầu không lưu, không dùng để huấn luyện | `tests/test_copilot_llm.py::test_openrouter_is_asked_to_keep_and_train_on_nothing` |
+| Thời hạn theo bậc cho số đo, áp ngày 28/11/2026 | `scripts/apply_retention.py`; so trước và sau trên database dùng chung (không phải trên bản sao): hóa đơn và tổng theo giờ, theo ngày không đổi; database 3161 MB còn 1165 MB |
 | Đo chất lượng Wappi ở hai mức (một nhà, một lượt) | [d2-ai-detail](../eval/d2-ai-detail-2026-11-28.md) |
 
 Ở mức theo giờ, công cụ xem điện chờ vẫn đọc số theo phút trong hệ thống và gửi cho AI kết quả theo từng đêm.
 
-Thời gian lưu hôm nay: số thô và tổng theo phút 400 ngày; tổng theo giờ, theo ngày, lượt bật/tắt, cảnh báo, dự báo
-không có hạn; hóa đơn 25 kỳ; trò chuyện đến khi xóa; âm thanh đọc 30 ngày; nhật ký gửi ngoài 90 ngày.
+Thời gian lưu hôm nay: số thô 30 ngày; tổng theo phút 90; theo giờ 400; theo ngày 800; lượt bật/tắt 90; dự đoán theo
+giờ 400 (nhà có mô hình); cảnh báo, dự báo không có hạn; hóa đơn 25 kỳ; trò chuyện đến khi xóa; âm thanh đọc 30 ngày; nhật ký gửi ngoài 90 ngày.
 
 ### "Giới hạn quyền truy cập"
 
@@ -98,14 +99,14 @@ cho dịch vụ ngoài không xóa được từ WattPrint.
 
 ## Chưa làm
 
-1. **Thời hạn lưu theo bậc** (thô 30, phút 90, giờ 400, ngày 800 ngày): chưa áp dụng.
+1. **Dọn hằng đêm cho bảng thường** theo bậc chưa bật (`RETENTION_TIERS=false`): cảnh báo, kết quả công cụ, nhật ký
+   NILM, lô công tơ chưa bị dọn theo thời hạn mới. Biểu đồ chưa ghi chú khi chi tiết theo phút đã hết hạn.
 2. **Chặn theo đồng ý đang tắt** (`app/config.py`, `consent_enforced`): chờ giao diện hỏi đồng ý được triển khai.
 3. Giao diện: trang Quyền riêng tư, ô nhập mã mời, ẩn khối cho người "chỉ theo ngày", ảnh chụp. Trong
    [checklist](../work/2026-11-28-privacy-load-data/checklist.md) các mục web chưa được đánh dấu xong.
 4. Trang chính sách trên web công khai chưa sửa theo mã mới.
 5. AstralX: chưa biết nơi đặt máy chủ, thời gian giữ; chưa gửi kèm yêu cầu không lưu dữ liệu.
-6. Chưa tự dọn kết quả công cụ và SQL trong trò chuyện, nhật ký NILM, lô công tơ.
-7. Che dữ liệu cá nhân chỉ theo mẫu, chưa nhận ra tên người và địa chỉ.
-8. Tệp mô hình tách thiết bị riêng của nhà chưa xóa theo tài khoản (hiện chỉ huấn luyện từ dữ liệu công khai).
-9. Chưa thử tấn công (dụ Wappi đọc nhà khác, vượt mức xem), chưa kiểm cấu hình bảo mật máy prod.
-10. Chưa triển khai lên prod; căn cứ pháp lý chưa đối chiếu bản Công báo.
+6. Che dữ liệu cá nhân chỉ theo mẫu, chưa nhận ra tên người và địa chỉ.
+7. Tệp mô hình tách thiết bị riêng của nhà chưa xóa theo tài khoản (hiện chỉ huấn luyện từ dữ liệu công khai).
+8. Chưa thử tấn công (dụ Wappi đọc nhà khác, vượt mức xem), chưa kiểm cấu hình bảo mật máy prod.
+9. Chưa triển khai lên prod; căn cứ pháp lý chưa đối chiếu bản Công báo.

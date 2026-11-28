@@ -74,7 +74,7 @@ theo bố cục của mẫu (chưa đọc mẫu). Còn bỏ ngỏ: dữ liệu �
 | Mục đích | Theo dõi điện, tách thiết bị, hóa đơn, dự báo, cảnh báo, trợ lý hỏi đáp |
 | Chủ thể | Chủ nhà, người thân được mời, khách demo |
 | Loại dữ liệu | Email, họ tên; thông tin nhà; số đo khoảng 10 giây và các tổng; ước tính thiết bị, lượt bật/tắt; trò chuyện, âm thanh đọc; đồng ý, nhật ký gửi ngoài |
-| Thời hạn lưu | Xem mục thời hạn trong [database-design.md](../../database-design.md) |
+| Thời hạn lưu | Thô 30 ngày, phút 90, giờ 400, ngày 800, lượt bật/tắt 90 (áp 28/11/2026); bảng thường chưa dọn theo bậc. Chi tiết: [database-design.md](../../database-design.md) |
 | Bên nhận và nước | OpenRouter (ngoài Việt Nam); AstralX `[ĐIỀN nơi đặt máy chủ]`; OpenWeather, Telegram, Google `[ĐIỀN]`; SMTP `[ĐIỀN nhà cung cấp prod]` (dev: Mailpit cục bộ) |
 | Thỏa thuận với bên xử lý | `[ĐIỀN]` |
 | Đồng ý | Theo mục đích `wappi`, `voice`, `email`; **chặn đang tắt**; chưa có đồng ý riêng cho việc thu số đo trong các mục đích này |

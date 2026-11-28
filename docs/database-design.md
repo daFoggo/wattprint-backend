@@ -122,12 +122,16 @@ chỉ cho phép một câu SELECT, chặn `set_config`, `current_setting` của 
 - **Chunk và compression:** hypertable chunk 1 ngày, compress sau 2 ngày, `segmentby series_id`. Hai
   aggregate 1m cũng được compress (migration `f3a9c1e5b7d2`), `compress_after` 14 ngày, luôn phải lớn
   hơn `start_offset` 7 ngày của refresh policy 1m. Aggregate 1h/1d nhỏ, không compress.
-- **Retention (thực tế ngày 28/11/2026, theo migration và mã; chưa truy vấn database đang chạy):**
+- **Retention (thời hạn theo bậc, đã áp lên database đang chạy ngày 28/11/2026 bằng `scripts/apply_retention.py`):**
 
   | Dữ liệu | Giữ | Dọn bởi |
   |---|---|---|
-  | `tb_reading`, `tb_device_estimate` (thô), `reading_1m`, `device_estimate_1m` | 400 ngày | policy TimescaleDB |
-  | Tổng theo giờ, ngày; `tb_device_cycle`; `tb_alert`; `tb_forecast_snapshot`; `tb_suggestion` | không hạn | chỉ khi xóa lịch sử hoặc tài khoản |
+  | `tb_reading`, `tb_device_estimate` (thô) | 30 ngày | policy TimescaleDB |
+  | `reading_1m`, `device_estimate_1m` | 90 ngày | policy TimescaleDB |
+  | `reading_1h`, `device_estimate_1h` | 400 ngày | policy TimescaleDB |
+  | `reading_1d`, `device_estimate_1d` | 800 ngày | policy TimescaleDB |
+  | `tb_device_cycle` | 90 ngày | policy TimescaleDB |
+  | `tb_alert`; `tb_forecast_snapshot`; `tb_suggestion` | không hạn | chỉ khi xóa lịch sử hoặc tài khoản |
   | `tb_expect_hourly` | 400 ngày | việc làm mới dự đoán (nhà có mô hình) |
   | Hóa đơn | 25 kỳ | `refresh_bills` |
   | Trò chuyện, kết quả công cụ, SQL | đến khi người dùng xóa | |
@@ -137,12 +141,17 @@ chỉ cho phép một câu SELECT, chặn `set_config`, `current_setting` của 
   | `tb_consent` | đến khi xóa tài khoản | |
   | `tb_inference_run`, `tb_ingest_batch` | không hạn (`tb_ingest_batch` xóa cùng tài khoản chủ nhà) | |
 
-  Thời hạn theo bậc (thô 30, phút 90, giờ 400, ngày 800 ngày; spec
-  `docs/work/2026-11-28-privacy-load-data/spec.md` R1.1) **chưa áp dụng**.
+  So trước và sau khi áp (trên chính database dùng chung): hóa đơn và tổng theo giờ, theo ngày không đổi; database từ
+  3161 MB còn 1165 MB. Việc dọn hằng đêm cho bảng thường (spec
+  `docs/work/2026-11-28-privacy-load-data/spec.md` R1.1) **chưa bật** (`RETENTION_TIERS=false`): các thời hạn mới cho
+  `tb_expect_hourly`, `tb_alert`, `ai_tool_call`, `tb_inference_run`, `tb_ingest_batch` chưa có hiệu lực
+  (`app/modules/insight/services/jobs.py`). Database mới dựng chỉ có policy của migration cho đến khi chạy script.
   Retention của hypertable luôn là `drop_chunks` qua policy, không bao giờ `DELETE` từng dòng.
 - **Refresh policy:** 1m mỗi phút (cửa sổ 7 ngày), 1h mỗi giờ (30 ngày), 1d mỗi giờ (60 ngày).
 - **`public.set_policies(true|false)`** bật/tắt toàn bộ policy một cách idempotent. Chú ý: `alembic upgrade
-  head` **bật tất cả policy** (14 job). Trước khi nạp lịch sử cũ hơn 400 ngày phải gọi
+  head` **bật tất cả policy** (14 job). Trước khi nạp lịch sử cũ hơn thời hạn đang áp phải chạy
+  `python -m scripts.apply_retention --revert` (vì `set_policies(false)` không gỡ policy `_1h`, `_1d`,
+  `tb_device_cycle`), rồi gọi
   `public.set_policies(false)`, nếu không retention sẽ xóa chính dữ liệu vừa nạp; nạp xong, backfill rồi mới
   bật lại. CLI nạp REFIT từ chối chạy (mã thoát 2, thông báo nêu `--shift-days` hoặc `set_policies(false)`) khi job retention hoặc compression của `public.tb_reading` đang bật và dữ liệu sau khi dời cũ hơn cửa sổ của chúng; `--allow-active-policies` để ghi đè.
 - **Backfill:** dữ liệu trễ cũ hơn cửa sổ refresh được lấy bằng

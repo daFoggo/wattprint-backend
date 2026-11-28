@@ -181,7 +181,7 @@ nhà demo từ chối), `DELETE /copilot/conversations`; xóa tài khoản dọn
 **[DB]**
 - [x] Đ7-D1 Test đỏ đọc `timescaledb_information.jobs`: thời hạn đúng bảng R1.1 và bất biến refresh · R1.6
 - [x] Đ7-D2 `scripts/apply_retention.py` (thay cho migration, xem ghi chú): số thô 30 ngày, `_1m` 90, `_1h` 400, `_1d` 800, `tb_device_cycle` 90; `--revert` trả về như cũ · R1.1
-- [ ] Đ7-D3 Chạy thử trên bản sao database: sau khi policy chạy, `_1h` và `_1d` không mất bucket, hóa đơn 25 kỳ không đổi
+- [x] Đ7-D3 Chạy thử trên bản sao database: sau khi policy chạy, `_1h` và `_1d` không mất bucket, hóa đơn 25 kỳ không đổi (verified by before/after comparison on the shared database, not on a copy)
 
 **[BE]**
 - [x] Đ7-B1 `meter.py` chọn mức theo cả tuổi dữ liệu, trả cờ `coarsened`; test · R1.3
@@ -193,18 +193,18 @@ nhà demo từ chối), `DELETE /copilot/conversations`; xóa tài khoản dọn
 - [ ] Đ7-W1 Biểu đồ ghi "Chi tiết theo phút chỉ giữ 90 ngày" khi nhận cờ `coarsened`
 
 **[OPS]**
-- [ ] Đ7-O1 Áp trên dev; prod chờ chủ dự án yêu cầu; không áp trong 48 giờ trước giờ chấm
+- [x] Đ7-O1 Áp trên dev; prod chờ chủ dự án yêu cầu; không áp trong 48 giờ trước giờ chấm (đã áp 28/11; database 3161 → 1165 MB, hóa đơn và số giờ/ngày không đổi)
 
 Ghi chú Đ7 (2026-11-28): D1/D2 là script, không phải migration, vì dev và prod chung một database, container api chạy
-`alembic upgrade head` mỗi lần khởi động, việc xóa không đảo ngược được và chủ dự án chưa duyệt áp. **Chưa áp policy
-nào, chưa xóa dòng nào.** Chạy `docker compose exec -T api python -m scripts.apply_retention` (chỉ xem), `--apply`,
+`alembic upgrade head` mỗi lần khởi động, việc xóa không đảo ngược được và chủ dự án khi đó chưa duyệt áp. **Ngày 28/11/2026 chủ
+dự án duyệt và policy đã áp lên database đang chạy.** Chạy `docker compose exec -T api python -m scripts.apply_retention` (chỉ xem), `--apply`,
 `--revert` (trả policy, không lấy lại dữ liệu). Việc dọn bảng thường chỉ chạy khi `RETENTION_TIERS=true` (mặc định tắt;
 insight worker phải khởi động lại để nhận mã và biến mới). Lượt chạy "ok" mới nhất của mỗi nhà trong `tb_inference_run`
 được giữ. `public.set_policies(false)` không gỡ policy `_1h`, `_1d`, `tb_device_cycle`: `--revert` trước khi nạp dữ liệu cũ.
-Dry run trên database thật: số thô 8.733.669 dòng và ước tính thiết bị 59.607.320 dòng (trước 2026-10-29), `reading_1m`
+Dry run trước khi áp: số thô 8.733.669 dòng và ước tính thiết bị 59.607.320 dòng (trước 2026-10-29), `reading_1m`
 1.357.354 và `device_estimate_1m` 10.586.468 (trước 2026-08-25), các tầng khác 0.
-Còn: D3 (chạy policy trên bản sao, so `_1h`, `_1d`, hóa đơn), W1, O1; chưa review R1. `widgets` trong `ai_message.reply`
-vẫn giữ mãi (R1.2 chỉ dọn `ai_tool_call`).
+Còn: W1; việc dọn bảng thường chưa bật; chưa review R1. `widgets` trong `ai_message.reply` vẫn giữ mãi (R1.2 chỉ dọn
+`ai_tool_call`).
 
 ## Đ8. Minh chứng và tài liệu (P1)
 

@@ -24,8 +24,8 @@
   <div class="frame">
     <p class="eyebrow">Privacy · Diagram Design</p>
     <h1>WattPrint · Phân tích luồng dữ liệu riêng tư</h1>
-    <p>Hiện trạng theo mã ngày 28/11/2026. Hai điều chưa có hiệu lực: <strong>chặn theo đồng ý đang tắt</strong> trên máy chủ (<code>consent_enforced = False</code>) và <strong>thời hạn lưu theo bậc</strong> (spec R1.1) chưa áp dụng.</p>
-    <p><a href="../../evidence/privacy.md">Trang minh chứng</a>. Mỗi khối ghi loại của nó (tác nhân, xử lý, kho, ngoài); khung màu cam là điểm chính; nét đứt là chưa áp dụng.</p>
+    <p>Hiện trạng theo mã ngày 28/11/2026. Hai điều chưa có hiệu lực: <strong>chặn theo đồng ý đang tắt</strong> trên máy chủ (<code>consent_enforced = False</code>) và <strong>việc dọn hằng đêm cho bảng thường chưa bật</strong> (<code>RETENTION_TIERS=false</code>). Thời hạn theo bậc cho số đo đã áp ngày 28/11/2026.</p>
+    <p><a href="../../evidence/privacy.md">Trang minh chứng</a>. Mỗi khối ghi loại của nó (tác nhân, xử lý, kho, ngoài); khung màu cam là điểm chính; nét đứt là chưa bật.</p>
 <h2>1. Luồng dữ liệu riêng tư của WattPrint</h2>
 <p><a href="../privacy-data-flow.html">Trang riêng</a> · <a href="../privacy-data-flow.svg">SVG</a></p>
 <div class="diagram-container"><object type="image/svg+xml" data="../privacy-data-flow.svg" width="1176" height="616" aria-label="Luồng dữ liệu riêng tư của WattPrint"></object></div>
@@ -40,7 +40,7 @@
 <div class="diagram-container"><object type="image/svg+xml" data="actors.svg" width="1088" height="672" aria-label="Tác nhân tham gia (theo mã ngày 28/11/2026)"></object></div>
 <h2>5. BFD WattPrint · phân rã chức năng</h2>
 <p><a href="bfd.html">Trang riêng</a> · <a href="bfd.svg">SVG</a></p>
-<div class="diagram-container"><object type="image/svg+xml" data="bfd.svg" width="1088" height="560" aria-label="BFD WattPrint · phân rã chức năng"></object></div>
+<div class="diagram-container"><object type="image/svg+xml" data="bfd.svg" width="1088" height="600" aria-label="BFD WattPrint · phân rã chức năng"></object></div>
 <h2>6. Ma trận tác nhân × chức năng: xem số liệu, hỏi, đặt nhắc</h2>
 <p><a href="function-matrix.html">Trang riêng</a> · <a href="function-matrix.svg">SVG</a></p>
 <div class="diagram-container"><object type="image/svg+xml" data="function-matrix.svg" width="1008" height="512" aria-label="Ma trận tác nhân × chức năng: xem số liệu, hỏi, đặt nhắc"></object></div>
@@ -49,10 +49,10 @@
 <div class="diagram-container"><object type="image/svg+xml" data="function-matrix-manage.svg" width="1008" height="596" aria-label="Ma trận tác nhân × chức năng: quản lý nhà và tài khoản"></object></div>
 <h2>8. Ma trận người × dữ liệu (Đ đọc, G ghi, X xóa)</h2>
 <p><a href="data-access-matrix.html">Trang riêng</a> · <a href="data-access-matrix.svg">SVG</a></p>
-<div class="diagram-container"><object type="image/svg+xml" data="data-access-matrix.svg" width="936" height="604" aria-label="Ma trận người × dữ liệu (Đ đọc, G ghi, X xóa)"></object></div>
+<div class="diagram-container"><object type="image/svg+xml" data="data-access-matrix.svg" width="936" height="620" aria-label="Ma trận người × dữ liệu (Đ đọc, G ghi, X xóa)"></object></div>
 <h2>9. Ma trận hệ thống × dữ liệu (Đ đọc, G ghi, X xóa)</h2>
 <p><a href="data-access-matrix-system.html">Trang riêng</a> · <a href="data-access-matrix-system.svg">SVG</a></p>
-<div class="diagram-container"><object type="image/svg+xml" data="data-access-matrix-system.svg" width="936" height="592" aria-label="Ma trận hệ thống × dữ liệu (Đ đọc, G ghi, X xóa)"></object></div>
+<div class="diagram-container"><object type="image/svg+xml" data="data-access-matrix-system.svg" width="936" height="608" aria-label="Ma trận hệ thống × dữ liệu (Đ đọc, G ghi, X xóa)"></object></div>
 <h2>10. DFD mức ngữ cảnh WattPrint</h2>
 <p><a href="context.html">Trang riêng</a> · <a href="context.svg">SVG</a></p>
 <div class="diagram-container"><object type="image/svg+xml" data="context.svg" width="944" height="524" aria-label="DFD mức ngữ cảnh WattPrint"></object></div>
@@ -64,7 +64,7 @@
 <div class="diagram-container"><object type="image/svg+xml" data="level0.svg" width="1088" height="368" aria-label="DFD mức 0 · thu số đo, tổng hợp, tách thiết bị"></object></div>
 <h2>13. DFD mức 0 · hóa đơn, dự báo, đọc số liệu</h2>
 <p><a href="level0-insight.html">Trang riêng</a> · <a href="level0-insight.svg">SVG</a></p>
-<div class="diagram-container"><object type="image/svg+xml" data="level0-insight.svg" width="1088" height="372" aria-label="DFD mức 0 · hóa đơn, dự báo, đọc số liệu"></object></div>
+<div class="diagram-container"><object type="image/svg+xml" data="level0-insight.svg" width="1088" height="384" aria-label="DFD mức 0 · hóa đơn, dự báo, đọc số liệu"></object></div>
 <h2>14. DFD mức 0 · Wappi và quyền riêng tư</h2>
 <p><a href="level0-wappi.html">Trang riêng</a> · <a href="level0-wappi.svg">SVG</a></p>
 <div class="diagram-container"><object type="image/svg+xml" data="level0-wappi.svg" width="1088" height="396" aria-label="DFD mức 0 · Wappi và quyền riêng tư"></object></div>

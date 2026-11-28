@@ -116,7 +116,9 @@ số đo và ước lượng (rất lớn), nhà và thiết bị, tiền điệ
 
 ### 3.3 Quy tắc vận hành cần nhớ
 
-- **`alembic upgrade head` bật cả 14 policy job.** Trước khi nạp lịch sử cũ hơn 400 ngày phải chạy
+- **`alembic upgrade head` bật cả 14 policy job.** Số thô hiện giữ 30 ngày (phút 90, giờ 400, ngày 800, `tb_device_cycle` 90; áp
+  28/11/2026 bằng `scripts/apply_retention.py`). Trước khi nạp lịch sử cũ hơn thế phải chạy
+  `python -m scripts.apply_retention --revert`, rồi
   `SELECT public.set_policies(false)`, nếu không retention xóa chính dữ liệu vừa nạp; nạp xong, backfill rồi
   `set_policies(true)`. CLI REFIT từ chối chạy (mã thoát 2) khi policy sẽ đụng dữ liệu; `--shift-days`
   dời ngày vào cửa sổ, `--allow-active-policies` để ép.
@@ -215,7 +217,7 @@ Ràng buộc: `main` thì `device_id` phải NULL; `plug` và `tb_device` thì `
 metric; index unique `(meter_id, source_channel)` khi cả hai khác NULL, là chỗ ingest đổi "meter X, kênh
 Appliance3" thành `series_id`.
 
-**Hai hypertable ghi** (chunk 1 ngày, nén sau 2 ngày, giữ 400 ngày):
+**Hai hypertable ghi** (chunk 1 ngày, nén sau 2 ngày, giữ 30 ngày):
 
 | Bảng | Cột | Ghi chú |
 |---|---|---|
@@ -234,8 +236,8 @@ Appliance3" thành `series_id`.
 | `energy_wh` | `double precision` | 1m: `avg_w × 60/3600`; 1h, 1d: tổng `energy_wh` bucket con |
 | `covered_minutes` | `bigint` | Chỉ có ở 1h, 1d: số phút có dữ liệu; coverage = `covered_minutes` / phút kỳ vọng |
 
-Policy: refresh 1m mỗi phút (cửa sổ 7 ngày), 1h mỗi giờ (30 ngày), 1d mỗi giờ (60 ngày); 1m giữ 400
-ngày và nén sau 14 ngày; 1h, 1d giữ vô hạn, không nén.
+Policy: refresh 1m mỗi phút (cửa sổ 7 ngày), 1h mỗi giờ (30 ngày), 1d mỗi giờ (60 ngày); 1m giữ 90
+ngày và nén sau 14 ngày; 1h giữ 400 ngày, 1d giữ 800 ngày, không nén.
 
 | Bảng | Cột | Ghi chú |
 |---|---|---|
