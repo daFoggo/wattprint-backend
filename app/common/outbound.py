@@ -17,7 +17,7 @@ from .exceptions import AppError
 # it), record one row in tb_outbound_log (never the content), then send with client(party).
 # External addresses live only in app/config.py and in this file (tests/test_outbound.py).
 
-CONSENT_VERSION = "2026-11-28"  # change it with the wording: everyone is asked again
+CONSENT_VERSION = "2026-11-28.2"  # change it with the wording: everyone is asked again
 PURPOSES = ("wappi", "voice", "email")
 
 
