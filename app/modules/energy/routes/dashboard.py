@@ -8,9 +8,10 @@ from fastapi.responses import StreamingResponse
 from app.common.exceptions import UnprocessableError
 from app.database import SessionLocal
 from app.dependencies import DbSession
+from app.modules.home.api import DetailedMembership, HomeMember, Membership
 
 from .. import services
-from ..dependencies import CurrentHome
+from ..dependencies import DetailedHome
 from ..schemas import Overview, Power, SeriesPoint, Today
 
 router = APIRouter()
@@ -22,9 +23,11 @@ STREAM_MAX = timedelta(minutes=10)  # auth is checked on connect; EventSource re
 
 
 @router.get("/overview", summary="Live power and today's energy of the user's home")
-async def overview(home_id: CurrentHome, db: DbSession) -> Overview:
+async def overview(member: Membership, db: DbSession) -> Overview:
     now = datetime.now(UTC)
-    live = await services.latest_reading(db, home_id, now)
+    home_id = member.home_id
+    # The day's total is for everyone; the moment's power is not for a daily member.
+    live = None if member.detail == "daily" else await services.latest_reading(db, home_id, now)
     today = await services.today_energy(db, home_id, now)
     return Overview(
         live=Power.model_validate(live) if live else None,
@@ -34,7 +37,7 @@ async def overview(home_id: CurrentHome, db: DbSession) -> Overview:
 
 @router.get("/series", summary="Main-meter power series, at most ~max_points points")
 async def series(
-    home_id: CurrentHome,
+    home_id: DetailedHome,
     db: DbSession,
     since: datetime,
     until: datetime,
@@ -54,7 +57,8 @@ async def series(
         "`nilm.updated` when the device estimates move on (data: `analyzed_until`)"
     ),
 )
-async def stream(request: Request, home_id: CurrentHome, db: DbSession) -> StreamingResponse:
+async def stream(request: Request, member: DetailedMembership, db: DbSession) -> StreamingResponse:
+    home_id, user_id = member.home_id, member.user_id
     # Release the auth session's pooled connection now: the stream lives for minutes.
     await db.close()
 
@@ -67,6 +71,10 @@ async def stream(request: Request, home_id: CurrentHome, db: DbSession) -> Strea
         while datetime.now(UTC) - opened < STREAM_MAX and not await request.is_disconnected():
             # shortcut: one poll per open stream every 3 s; use LISTEN/NOTIFY when many watch.
             async with SessionLocal() as session:
+                # Removed or cut to daily while the stream is open: it ends.
+                now_member = await session.get(HomeMember, (home_id, user_id))
+                if now_member is None or now_member.detail == "daily":
+                    return
                 samples = await services.main_readings(session, home_id, last)
                 newest = await services.analyzed_until(session, home_id)
             if newest is not None and (analyzed is None or newest > analyzed):

@@ -148,13 +148,13 @@ nhà demo từ chối), `DELETE /copilot/conversations`; xóa tài khoản dọn
 ## Đ5. Thành viên và mức xem (P1)
 
 **[DB]**
-- [ ] Đ5-D1 Migration: `tb_home_member.detail` (`full`, `daily`) · R4.2
+- [x] Đ5-D1 Migration: `tb_home_member.detail` (`full`, `daily`) · R4.2
 
 **[BE]**
-- [ ] Đ5-B1 Test đỏ: mời, nhận, danh sách, đổi mức, gỡ, rời; người đã có nhà không nhận được; dòng xem demo bị thay · R4.1
-- [ ] Đ5-B2 Route mời, nhận lời mời, danh sách, đổi mức, gỡ, tự rời trong `home/routes`
-- [ ] Đ5-B3 `OwnerMembership`, `DetailedMembership` trong `home/dependencies.py`; gắn vào mọi route trả số mịn hơn một ngày hoặc giờ chạy thiết bị; Wappi của người "chỉ theo ngày" chạy ở mức `daily` · R4.3, R4.4
-- [ ] Đ5-B4 Thêm chủ thể "thành viên theo ngày" vào bảng thử quyền
+- [x] Đ5-B1 Test đỏ: mời, nhận, danh sách, đổi mức, gỡ, rời; người đã có nhà không nhận được; dòng xem demo bị thay · R4.1
+- [x] Đ5-B2 Route mời, nhận lời mời, danh sách, đổi mức, gỡ, tự rời trong `home/routes`
+- [x] Đ5-B3 `OwnerMembership`, `DetailedMembership` trong `home/dependencies.py`; gắn vào mọi route trả số mịn hơn một ngày hoặc giờ chạy thiết bị; Wappi của người "chỉ theo ngày" chạy ở mức `daily` · R4.3, R4.4
+- [x] Đ5-B4 Thêm chủ thể "thành viên theo ngày" vào bảng thử quyền
 
 **[WEB]**
 - [ ] Đ5-W1 Màn "Chưa có nhà" thêm ô nhập mã mời

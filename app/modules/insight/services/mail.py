@@ -170,7 +170,7 @@ async def _members(s: AsyncSession, home_id: uuid.UUID):
         await s.execute(
             text(
                 # No preference row: the defaults, off (R3.3); no demo visitors; email agreed to.
-                "SELECT u.id, u.email, coalesce(p.notify_anomaly, false) AS anomaly, "
+                "SELECT u.id, u.email, m.detail, coalesce(p.notify_anomaly, false) AS anomaly, "
                 "coalesce(p.notify_tier, false) AS tier "
                 "FROM public.tb_home_member m JOIN public.tb_users u ON u.id = m.user_id "
                 "LEFT JOIN public.tb_user_preference p ON p.user_id = u.id "
@@ -227,6 +227,7 @@ async def mail_alerts(now: datetime) -> None:
                     # The alerts page is where the alert is rated; the overview only lists it.
                     link = f"{settings.dashboard_url}/dashboard/alerts"
                     body += f"\n\nXem và đánh giá trên WattPrint: {link}\n"
+                    generic = f"Nhà bạn có một cảnh báo mới. Xem trên WattPrint: {link}\n"
                     # Per day, not per alert: a cause that comes and goes is mailed once a day.
                     ref = f"{a.home_id}:{a.dedup_key}:{now.astimezone(ICT).date()}"
                     owner = await _watch_owner(s, a)
@@ -235,6 +236,9 @@ async def mail_alerts(now: datetime) -> None:
                             wants = m.id == owner
                         else:
                             wants = m.tier if a.kind == "tier_near" else m.anomaly
+                        # A daily member's mail names no time, power or device (R4.3).
+                        text_ = body if m.detail != "daily" else generic
+                        title = subject if m.detail != "daily" else "Nhà bạn có cảnh báo mới"
                         try:
                             # Each member on their own: a refused address rolls back only its log
                             # row, so the others are not mailed again on the next run.
@@ -242,7 +246,7 @@ async def mail_alerts(now: datetime) -> None:
                                 if wants and await _claim(s, m.id, "alert", ref):
                                     data = ["email address", "alert"]
                                     await outbound.record("smtp", "email", data, user_id=m.id)
-                                    await send(m.email, f"WattPrint: {subject}", body)
+                                    await send(m.email, f"WattPrint: {title}", text_)
                         except Exception:
                             log.exception("alert %s not mailed to %s", alert_id, m.id)
                             missed = True

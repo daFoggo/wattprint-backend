@@ -222,3 +222,31 @@ async def test_a_refused_address_does_not_re_mail_the_others(make_member, monkey
             text("SELECT notified_at IS NOT NULL FROM public.tb_alert WHERE id = :a"), {"a": alert}
         )
     assert done
+
+
+async def test_a_daily_members_alert_mail_names_nothing(make_member, monkeypatch):
+    from datetime import UTC, datetime
+
+    from app.modules.insight.services import mail
+
+    sent = []
+
+    async def fake_send(to, subject, body):
+        sent.append((subject, body))
+
+    monkeypatch.setattr(mail, "send", fake_send)
+    owner = await make_member("owner")
+    member = await make_member("member", home_id=owner.home_id)
+    async with SessionLocal() as s, s.begin():
+        await s.execute(
+            text("UPDATE public.tb_home_member SET detail = 'daily' WHERE user_id = :u"),
+            {"u": member.user_id},
+        )
+    await wants_alert_mail(member)
+    await _alert(owner.home_id)
+
+    await mail.mail_alerts(datetime.now(UTC))
+
+    ((subject, body),) = sent
+    assert subject == "WattPrint: Nhà bạn có cảnh báo mới"
+    assert "tải lạ" not in subject + body

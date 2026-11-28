@@ -19,14 +19,21 @@ REQUIRED = {"name", "billing_cycle_day"}
 
 async def read_home(db: AsyncSession, member: HomeMember) -> HomeRead:
     home = await db.get(Home, member.home_id)
-    computed = {"role", "ai_detail_effective"}
+    computed = {"role", "detail", "ai_detail_effective"}
     fields = {k: getattr(home, k) for k in HomeRead.model_fields if k not in computed}
-    fields |= {"role": member.role, "ai_detail_effective": ai_detail(home)}
+    fields |= {
+        "role": member.role,
+        "detail": member.detail,
+        "ai_detail_effective": ai_detail(home, member),
+    }
     return HomeRead.model_validate(fields)
 
 
-def ai_detail(home: Home) -> str:
-    """The level Wappi uses for this home: its own choice, else the system default."""
+def ai_detail(home: Home, member: HomeMember | None = None) -> str:
+    """The level Wappi uses: the home's choice, else the system default; never finer than what the
+    asking member may see."""
+    if member is not None and member.detail == "daily":
+        return "daily"
     return home.ai_detail or settings.copilot_ai_detail_default
 
 

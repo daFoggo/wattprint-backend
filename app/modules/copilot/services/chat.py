@@ -322,7 +322,7 @@ async def answer(
             user_id = await s.scalar(
                 select(Conversation.user_id).where(Conversation.id == conversation_id)
             )
-            role = await s.scalar(select(HomeMember.role).where(HomeMember.user_id == user_id))
+            member = await s.scalar(select(HomeMember).where(HomeMember.user_id == user_id))
             messages = [
                 _system(lang),
                 *await history(s, conversation_id, question_id),
@@ -338,8 +338,8 @@ async def answer(
                 lambda label, detail: progress.put_nowait((label, detail)),
                 user_id,
                 question,
-                read_only=role == "viewer",
-                detail=ai_detail(await s.get(Home, home_id)),
+                read_only=member is not None and member.role == "viewer",
+                detail=ai_detail(await s.get(Home, home_id), member),
             )
             sent.user_id, sent.detail = user_id, ctx.detail
             # The guard reads the question while the model's first round runs: no word is shown and

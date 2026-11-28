@@ -1,4 +1,4 @@
-from .dependencies import Membership, WritableMembership
+from .dependencies import DetailedMembership, Membership, WritableMembership
 from .models import (
     Device,
     DeviceAlertRule,
@@ -16,6 +16,7 @@ from .utils import HomeNotFoundError
 
 __all__ = [
     "ai_detail",
+    "DetailedMembership",
     "Device",
     "DeviceAlertRule",
     "DeviceType",

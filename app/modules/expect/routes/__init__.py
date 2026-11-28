@@ -6,7 +6,7 @@ from fastapi import APIRouter, Query
 from fastapi.exceptions import RequestValidationError
 
 from app.dependencies import DbSession
-from app.modules.energy.api import CurrentHome
+from app.modules.energy.api import DetailedHome
 
 from ..schemas import ExpectedHour
 from ..services import expected, hourly_actual
@@ -17,7 +17,7 @@ MAX_SPAN = timedelta(days=8)
 
 @router.get("", summary="Expected kWh per hour (P10–P90, P50 the mean) and measured kWh")
 async def hours(
-    home_id: CurrentHome,
+    home_id: DetailedHome,
     db: DbSession,
     since: Annotated[datetime, Query(alias="from")],
     until: Annotated[datetime, Query(alias="to")],

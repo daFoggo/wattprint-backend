@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal
 from typing import Literal
 from uuid import UUID
@@ -26,6 +26,7 @@ class HomeRead(BaseModel):
     billing_cycle_day: int
     province_code: str | None
     role: Literal["owner", "member", "viewer"]
+    detail: Literal["full", "daily"]  # how fine this account may see the home
     ai_detail: Literal["daily", "hourly"] | None  # None: the system default
     ai_detail_effective: Literal["daily", "hourly"]
 
@@ -40,6 +41,31 @@ class PrivacyOverview(BaseModel):
     levels: list[KeptLevel]
     erased_before: date | None
     can_erase: bool  # the owner of a home that is not a demo
+
+
+class Invite(BaseModel):
+    code: str  # shown once: only its hash is kept
+    expires_at: datetime
+
+
+class InviteAccept(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    code: str = Field(min_length=1, max_length=32)
+
+
+class MemberRead(BaseModel):
+    user_id: UUID
+    name: str | None
+    email: str | None  # to the owner only
+    role: Literal["owner", "member"]
+    detail: Literal["full", "daily"]
+
+
+class MemberUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    detail: Literal["full", "daily"]
 
 
 class HomeUpdate(BaseModel):

@@ -7,7 +7,7 @@ from app.dependencies import DbSession
 from app.modules.auth.api import CurrentUser
 
 from .models import HomeMember
-from .utils import HomeNotFoundError, HomeReadOnlyError
+from .utils import DetailRestrictedError, HomeNotFoundError, HomeReadOnlyError
 
 
 async def get_membership(user: CurrentUser, db: DbSession) -> HomeMember:
@@ -29,3 +29,13 @@ async def get_writable_membership(member: Membership) -> HomeMember:
 
 
 WritableMembership = Annotated[HomeMember, Depends(get_writable_membership)]
+
+
+async def get_detailed_membership(member: Membership) -> HomeMember:
+    """A membership that may see figures finer than a day (R4.3)."""
+    if member.detail == "daily":
+        raise DetailRestrictedError
+    return member
+
+
+DetailedMembership = Annotated[HomeMember, Depends(get_detailed_membership)]

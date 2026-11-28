@@ -10,10 +10,20 @@ from .plans import (
     stop_plan,
     visible_plan,
 )
-from .watches import cancel_watch, check_due, create_watch, list_watches, prune_watches
+from .watches import (
+    cancel_watch,
+    check_due,
+    create_watch,
+    forget_fine_watches,
+    forget_member,
+    list_watches,
+    prune_watches,
+)
 
 __all__ = [
     "create_plan",
+    "forget_fine_watches",
+    "forget_member",
     "current_plan",
     "freeze_plans",
     "plan_history",

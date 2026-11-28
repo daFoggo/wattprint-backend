@@ -17,6 +17,7 @@ class HomeMember(Base):
     __tablename__ = "tb_home_member"
     __table_args__ = (
         CheckConstraint("role IN ('owner','member','viewer')", name="role"),
+        CheckConstraint("detail IN ('full','daily')", name="detail"),
         UniqueConstraint("user_id"),  # one account, one home
         {"schema": "public"},
     )
@@ -28,4 +29,6 @@ class HomeMember(Base):
         ForeignKey("public.tb_users.id", ondelete="CASCADE"), primary_key=True
     )
     role: Mapped[str] = mapped_column(String(16), default="member", server_default="member")
+    # 'daily': nothing finer than a day, on the pages and from Wappi
+    detail: Mapped[str] = mapped_column(String(8), default="full", server_default="full")
     joined_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=NOW)

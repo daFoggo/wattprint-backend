@@ -128,7 +128,7 @@ async def view_demo_home(db: AsyncSession, user: User, key: str) -> HomeRead:
     if moved.scalar() is None:
         raise DemoNotForMembersError()
     await db.commit()
-    member = HomeMember(home_id=home_id, user_id=user.id, role="viewer")
+    member = HomeMember(home_id=home_id, user_id=user.id, role="viewer", detail="full")
     return await read_home(db, member)
 
 

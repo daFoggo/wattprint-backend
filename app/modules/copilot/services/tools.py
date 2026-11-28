@@ -613,7 +613,7 @@ async def standby(ctx: Ctx, nights: int = 14) -> Outcome:
     if ctx.detail != "hourly":  # it reads 00:00-05:00 minute by minute, finer than a day
         return Outcome(
             {
-                "error": "the owner set Wappi to daily detail, so night-by-night standby is not "
+                "error": "Wappi is on daily detail here, so night-by-night standby is not "
                 "read; the home's owner can allow hourly detail in Settings > Privacy"
             },
             _vi(ctx, "Wappi chỉ xem theo ngày", "Wappi sees days only"),

@@ -1,5 +1,6 @@
 import uuid
 from typing import Annotated, Literal
+from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Query
 
@@ -22,7 +23,7 @@ async def alerts(
 ) -> list[AlertRead]:
     rows = await services.list_alerts(db, member.home_id, status, limit)
     mine = await services.verdicts(db, member.user_id, [a.id for a, _ in rows])
-    return [
+    out = [
         AlertRead(
             id=a.id,
             kind=a.kind,
@@ -36,6 +37,21 @@ async def alerts(
         )
         for a, d in rows
     ]
+    return [_by_day(a) for a in out] if member.detail == "daily" else out
+
+
+def _by_day(alert: AlertRead) -> AlertRead:
+    """The day only, as `copilot_ro.alert` shows a daily token: no clock time, and no start hour
+    in an odd-hour alert (its `value`)."""
+    hidden = {"start", "at"} | ({"value"} if alert.payload.get("signal") == "odd_hour" else set())
+    day = alert.ts.astimezone(ZoneInfo("Asia/Ho_Chi_Minh"))
+    return alert.model_copy(
+        update={
+            "ts": day.replace(hour=0, minute=0, second=0, microsecond=0),
+            "resolved_at": None,
+            "payload": {k: v for k, v in alert.payload.items() if k not in hidden},
+        }
+    )
 
 
 @router.patch(

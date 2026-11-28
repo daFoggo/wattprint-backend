@@ -13,6 +13,7 @@ ACTORS = {
     "anonymous": "Chưa đăng nhập",
     "other_owner": "Chủ nhà khác",
     "viewer": "Khách demo",
+    "daily_member": "Thành viên theo ngày",
     "member": "Thành viên",
     "owner": "Chủ nhà",
     "admin": "Admin",

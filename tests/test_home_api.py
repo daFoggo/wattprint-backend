@@ -13,6 +13,7 @@ async def test_owner_reads_and_changes_the_home(client, make_member):
         "role": "owner",
         "ai_detail": None,
         "ai_detail_effective": "daily",
+        "detail": "full",
     }
 
     patch = {

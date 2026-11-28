@@ -1,4 +1,4 @@
-# Permission matrix: every API operation x six actors, one expected status per cell (spec R4.6).
+# Permission matrix: every API operation x seven actors, one expected status per cell (spec R4.6).
 # PERMISSION_MATRIX_OUT=<file> also writes what came back (scripts/print_permission_matrix.py).
 
 import json
@@ -15,8 +15,8 @@ from app.database import SessionLocal
 from app.main import app
 
 # Display order. The owner runs last so its own deletes cannot hide another actor's result.
-ACTORS = ("anonymous", "other_owner", "viewer", "member", "owner", "admin")
-RUN_ORDER = ("anonymous", "other_owner", "viewer", "member", "admin", "owner")
+ACTORS = ("anonymous", "other_owner", "viewer", "daily_member", "member", "owner", "admin")
+RUN_ORDER = ("anonymous", "other_owner", "viewer", "daily_member", "member", "admin", "owner")
 
 NOW = datetime.now(UTC)
 SINCE, UNTIL = (NOW - timedelta(hours=2)).isoformat(), NOW.isoformat()
@@ -40,6 +40,12 @@ REQUESTS: dict[tuple[str, str], dict] = {
     ("DELETE", "/api/v1/homes/current/history"): {},
     ("PATCH", "/api/v1/homes/current"): {"json": {"name": "Nhà thử quyền"}},
     ("GET", "/api/v1/homes/provinces"): {},
+    ("POST", "/api/v1/homes/current/invites"): {},
+    ("POST", "/api/v1/homes/invites/accept"): {"json": {"code": "NOSUCHCODE"}},
+    ("GET", "/api/v1/homes/current/members"): {},
+    ("PATCH", "/api/v1/homes/current/members/{user_id}"): {"json": {"detail": "full"}},
+    ("DELETE", "/api/v1/homes/current/members/{user_id}"): {},
+    ("DELETE", "/api/v1/homes/current/membership"): {},
     ("GET", "/api/v1/energy/overview"): {},
     ("GET", "/api/v1/energy/series"): {"params": {"since": SINCE, "until": UNTIL}},
     ("GET", "/api/v1/energy/stream"): {},
@@ -87,57 +93,79 @@ REQUESTS: dict[tuple[str, str], dict] = {
 # "not enough data" (a week of readings, ten homes), not a refusal: those routes read only the
 # caller's own home. A cell that changes on purpose changes here, in the same commit.
 EXPECTED: dict[tuple[str, str], tuple[int, ...]] = {
-    ("GET", "/api/v1/billing/current"): (401, 200, 200, 200, 200, 404),
-    ("GET", "/api/v1/billing/devices/forecast"): (401, 404, 404, 404, 404, 404),
-    ("GET", "/api/v1/billing/forecast"): (401, 404, 404, 404, 404, 404),
-    ("GET", "/api/v1/billing/history"): (401, 200, 200, 200, 200, 404),
-    ("POST", "/api/v1/copilot/chat"): (401, 200, 200, 200, 200, 404),
-    ("GET", "/api/v1/copilot/conversations"): (401, 200, 200, 200, 200, 404),
-    ("DELETE", "/api/v1/copilot/conversations/{conversation_id}"): (401, 404, 404, 404, 204, 404),
-    ("GET", "/api/v1/copilot/conversations/{conversation_id}"): (401, 404, 404, 404, 200, 404),
-    ("PATCH", "/api/v1/copilot/conversations/{conversation_id}"): (401, 404, 404, 404, 200, 404),
-    ("PUT", "/api/v1/copilot/messages/{message_id}/feedback"): (401, 404, 404, 404, 204, 404),
-    ("GET", "/api/v1/copilot/messages/{message_id}/speech"): (401, 404, 404, 404, 200, 404),
-    ("POST", "/api/v1/copilot/voice/transcribe"): (401, 200, 200, 200, 200, 404),
-    ("GET", "/api/v1/demo/homes"): (200, 200, 200, 200, 200, 200),
-    ("POST", "/api/v1/demo/homes/{key}/guest"): (403, 403, 403, 403, 403, 403),
-    ("POST", "/api/v1/demo/homes/{key}/view"): (401, 404, 404, 404, 404, 404),
-    ("GET", "/api/v1/energy/activity"): (401, 200, 200, 200, 200, 404),
-    ("GET", "/api/v1/energy/devices"): (401, 200, 200, 200, 200, 404),
-    ("GET", "/api/v1/energy/devices/{device_id}"): (401, 404, 200, 200, 200, 404),
-    ("GET", "/api/v1/energy/overview"): (401, 200, 200, 200, 200, 404),
-    ("GET", "/api/v1/energy/series"): (401, 200, 200, 200, 200, 404),
-    ("GET", "/api/v1/energy/stream"): (401, 200, 200, 200, 200, 404),
-    ("GET", "/api/v1/energy/weather"): (401, 200, 200, 200, 200, 404),
-    ("GET", "/api/v1/expected"): (401, 200, 200, 200, 200, 404),
-    ("GET", "/api/v1/health"): (200, 200, 200, 200, 200, 200),
-    ("GET", "/api/v1/homes/current"): (401, 200, 200, 200, 200, 404),
-    ("GET", "/api/v1/homes/current/privacy"): (401, 200, 200, 200, 200, 404),
-    ("PATCH", "/api/v1/homes/current"): (401, 200, 403, 403, 200, 404),
-    ("GET", "/api/v1/homes/provinces"): (200, 200, 200, 200, 200, 200),
-    ("GET", "/api/v1/insights/alerts"): (401, 200, 200, 200, 200, 404),
-    ("PATCH", "/api/v1/insights/alerts/{alert_id}"): (401, 404, 403, 204, 204, 404),
-    ("POST", "/api/v1/insights/alerts/{alert_id}/feedback"): (401, 404, 403, 204, 204, 404),
-    ("GET", "/api/v1/insights/cohort"): (401, 404, 404, 404, 404, 404),
-    ("POST", "/api/v1/insights/plans"): (401, 422, 409, 409, 409, 404),
-    ("GET", "/api/v1/insights/plans/basis"): (401, 422, 422, 422, 422, 404),
-    ("DELETE", "/api/v1/insights/plans/current"): (401, 404, 204, 204, 204, 404),
-    ("GET", "/api/v1/insights/plans/current"): (401, 404, 200, 200, 200, 404),
-    ("GET", "/api/v1/insights/plans/history"): (401, 200, 200, 200, 200, 404),
-    ("GET", "/api/v1/insights/plans/{plan_id}"): (401, 404, 200, 200, 200, 404),
-    ("GET", "/api/v1/insights/watches"): (401, 200, 200, 200, 200, 404),
-    ("POST", "/api/v1/insights/watches"): (401, 201, 403, 201, 201, 404),
-    ("DELETE", "/api/v1/insights/watches/{watch_id}"): (401, 404, 403, 404, 204, 404),
-    ("GET", "/api/v1/users"): (401, 403, 403, 403, 403, 200),
-    ("DELETE", "/api/v1/users/me"): (401, 204, 204, 204, 204, 204),
-    ("GET", "/api/v1/users/me"): (401, 200, 200, 200, 200, 200),
-    ("GET", "/api/v1/users/me/preferences"): (401, 200, 200, 200, 200, 200),
-    ("PATCH", "/api/v1/users/me/preferences"): (401, 200, 200, 200, 200, 200),
-    ("GET", "/api/v1/users/me/consents"): (401, 200, 200, 200, 200, 200),
-    ("PUT", "/api/v1/users/me/consents/{purpose}"): (401, 200, 200, 200, 200, 200),
-    ("GET", "/api/v1/users/me/outbound"): (401, 200, 200, 200, 200, 200),
-    ("DELETE", "/api/v1/homes/current/history"): (401, 204, 403, 403, 204, 404),
-    ("DELETE", "/api/v1/copilot/conversations"): (401, 204, 204, 204, 204, 404),
+    ("GET", "/api/v1/billing/current"): (401, 200, 200, 200, 200, 200, 404),
+    ("GET", "/api/v1/billing/devices/forecast"): (401, 404, 404, 404, 404, 404, 404),
+    ("GET", "/api/v1/billing/forecast"): (401, 404, 404, 404, 404, 404, 404),
+    ("GET", "/api/v1/billing/history"): (401, 200, 200, 200, 200, 200, 404),
+    ("POST", "/api/v1/copilot/chat"): (401, 200, 200, 200, 200, 200, 404),
+    ("GET", "/api/v1/copilot/conversations"): (401, 200, 200, 200, 200, 200, 404),
+    ("DELETE", "/api/v1/copilot/conversations/{conversation_id}"): (
+        401,
+        404,
+        404,
+        404,
+        404,
+        204,
+        404,
+    ),
+    ("GET", "/api/v1/copilot/conversations/{conversation_id}"): (401, 404, 404, 404, 404, 200, 404),
+    ("PATCH", "/api/v1/copilot/conversations/{conversation_id}"): (
+        401,
+        404,
+        404,
+        404,
+        404,
+        200,
+        404,
+    ),
+    ("PUT", "/api/v1/copilot/messages/{message_id}/feedback"): (401, 404, 404, 404, 404, 204, 404),
+    ("GET", "/api/v1/copilot/messages/{message_id}/speech"): (401, 404, 404, 404, 404, 200, 404),
+    ("POST", "/api/v1/copilot/voice/transcribe"): (401, 200, 200, 200, 200, 200, 404),
+    ("GET", "/api/v1/demo/homes"): (200, 200, 200, 200, 200, 200, 200),
+    ("POST", "/api/v1/demo/homes/{key}/guest"): (403, 403, 403, 403, 403, 403, 403),
+    ("POST", "/api/v1/demo/homes/{key}/view"): (401, 404, 404, 404, 404, 404, 404),
+    ("GET", "/api/v1/energy/activity"): (401, 200, 200, 403, 200, 200, 404),
+    ("GET", "/api/v1/energy/devices"): (401, 200, 200, 200, 200, 200, 404),
+    ("GET", "/api/v1/energy/devices/{device_id}"): (401, 404, 200, 200, 200, 200, 404),
+    ("GET", "/api/v1/energy/overview"): (401, 200, 200, 200, 200, 200, 404),
+    ("GET", "/api/v1/energy/series"): (401, 200, 200, 403, 200, 200, 404),
+    ("GET", "/api/v1/energy/stream"): (401, 200, 200, 403, 200, 200, 404),
+    ("GET", "/api/v1/energy/weather"): (401, 200, 200, 200, 200, 200, 404),
+    ("GET", "/api/v1/expected"): (401, 200, 200, 403, 200, 200, 404),
+    ("GET", "/api/v1/health"): (200, 200, 200, 200, 200, 200, 200),
+    ("GET", "/api/v1/homes/current"): (401, 200, 200, 200, 200, 200, 404),
+    ("GET", "/api/v1/homes/current/privacy"): (401, 200, 200, 200, 200, 200, 404),
+    ("PATCH", "/api/v1/homes/current"): (401, 200, 403, 403, 403, 200, 404),
+    ("GET", "/api/v1/homes/provinces"): (200, 200, 200, 200, 200, 200, 200),
+    ("GET", "/api/v1/insights/alerts"): (401, 200, 200, 200, 200, 200, 404),
+    ("PATCH", "/api/v1/insights/alerts/{alert_id}"): (401, 404, 403, 204, 204, 204, 404),
+    ("POST", "/api/v1/insights/alerts/{alert_id}/feedback"): (401, 404, 403, 204, 204, 204, 404),
+    ("GET", "/api/v1/insights/cohort"): (401, 404, 404, 404, 404, 404, 404),
+    ("POST", "/api/v1/insights/plans"): (401, 422, 409, 409, 409, 409, 404),
+    ("GET", "/api/v1/insights/plans/basis"): (401, 422, 422, 422, 422, 422, 404),
+    ("DELETE", "/api/v1/insights/plans/current"): (401, 404, 204, 204, 204, 204, 404),
+    ("GET", "/api/v1/insights/plans/current"): (401, 404, 200, 200, 200, 200, 404),
+    ("GET", "/api/v1/insights/plans/history"): (401, 200, 200, 200, 200, 200, 404),
+    ("GET", "/api/v1/insights/plans/{plan_id}"): (401, 404, 200, 200, 200, 200, 404),
+    ("GET", "/api/v1/insights/watches"): (401, 200, 200, 200, 200, 200, 404),
+    ("POST", "/api/v1/insights/watches"): (401, 201, 403, 201, 201, 201, 404),
+    ("DELETE", "/api/v1/insights/watches/{watch_id}"): (401, 404, 403, 404, 404, 204, 404),
+    ("GET", "/api/v1/users"): (401, 403, 403, 403, 403, 403, 200),
+    ("DELETE", "/api/v1/users/me"): (401, 204, 204, 204, 204, 204, 204),
+    ("GET", "/api/v1/users/me"): (401, 200, 200, 200, 200, 200, 200),
+    ("GET", "/api/v1/users/me/preferences"): (401, 200, 200, 200, 200, 200, 200),
+    ("PATCH", "/api/v1/users/me/preferences"): (401, 200, 200, 200, 200, 200, 200),
+    ("GET", "/api/v1/users/me/consents"): (401, 200, 200, 200, 200, 200, 200),
+    ("PUT", "/api/v1/users/me/consents/{purpose}"): (401, 200, 200, 200, 200, 200, 200),
+    ("GET", "/api/v1/users/me/outbound"): (401, 200, 200, 200, 200, 200, 200),
+    ("DELETE", "/api/v1/homes/current/history"): (401, 204, 403, 403, 403, 204, 404),
+    ("DELETE", "/api/v1/copilot/conversations"): (401, 204, 204, 204, 204, 204, 404),
+    ("POST", "/api/v1/homes/current/invites"): (401, 201, 403, 403, 403, 201, 404),
+    ("POST", "/api/v1/homes/invites/accept"): (401, 404, 404, 404, 404, 404, 404),
+    ("GET", "/api/v1/homes/current/members"): (401, 200, 403, 200, 200, 200, 404),
+    ("PATCH", "/api/v1/homes/current/members/{user_id}"): (401, 404, 403, 403, 403, 204, 404),
+    ("DELETE", "/api/v1/homes/current/members/{user_id}"): (401, 404, 403, 403, 403, 204, 404),
+    ("DELETE", "/api/v1/homes/current/membership"): (401, 403, 403, 204, 204, 403, 404),
 }
 
 
@@ -195,6 +223,12 @@ async def world(client, make_member, make_token, stubs):
     home = {"tariff_plan_code": "vn_residential", "province_code": "79"}
     owner = await make_member("owner", **home)
     member = await make_member("member", home_id=owner.home_id)
+    daily = await make_member("member", home_id=owner.home_id)
+    async with SessionLocal() as s, s.begin():
+        await s.execute(
+            text("UPDATE public.tb_home_member SET detail = 'daily' WHERE user_id = :u"),
+            {"u": daily.user_id},
+        )
     viewer = await make_member("viewer", home_id=owner.home_id)
     other = await make_member("owner", **home)
     admin_token = make_token(roles=["admin"])
@@ -235,7 +269,11 @@ async def world(client, make_member, make_token, stubs):
             "VALUES (:h, 'device', :d, 'power_w', 'W') RETURNING series_id",
             d=ids["device_id"],
         )
-        for person in (member, viewer):  # each has a plan of their own: plan cells then show the
+        for person in (
+            member,
+            daily,
+            viewer,
+        ):  # each has a plan of their own: plan cells then show the
             await one(  # permission check, not "no plan yet"
                 "INSERT INTO public.tb_savings_plan (user_id, home_id, start_on, end_on, "
                 "model_version, forecast_kwh, actions) VALUES (:p, :h, current_date, "
@@ -249,10 +287,12 @@ async def world(client, make_member, make_token, stubs):
         )
     ids["key"] = "not-a-demo-home"
     ids["purpose"] = "wappi"
+    ids["user_id"] = member.user_id
     headers = {
         "anonymous": {},
         "other_owner": other.headers,
         "viewer": viewer.headers,
+        "daily_member": daily.headers,
         "member": member.headers,
         "owner": owner.headers,
         "admin": admin,

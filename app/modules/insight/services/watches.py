@@ -6,7 +6,7 @@ import uuid
 from datetime import UTC, date, datetime, timedelta, timezone
 from decimal import Decimal
 
-from sqlalchemy import case, func, select, text, update
+from sqlalchemy import case, delete, func, select, text, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
 
@@ -21,9 +21,9 @@ from app.modules.energy.api import (
     runs,
     today_energy,
 )
-from app.modules.home.api import Device
+from app.modules.home.api import Device, HomeMember
 
-from ..models import DEVICE_RUNS, WATCH_METRICS, Alert, Watch
+from ..models import DEVICE_RUNS, WATCH_METRICS, Alert, SavingsPlan, Watch
 from ..utils import WatchError
 
 log = logging.getLogger("insight.watches")
@@ -66,6 +66,8 @@ RUN_KIND = {
     "device_run_min": "device_long_run",
     "device_power_w": "device_high_power",
 }
+# What tells of one moment or run: not for a member who sees days only.
+FINE = {"power_w", *RUN_KIND}
 RUN_LOOKBACK = timedelta(hours=24)  # runs are re-read whole each check; a run's start is its key
 RUN_BEFORE = timedelta(hours=6)  # read this far before creation so an older run is seen as older
 SAME_RUN = timedelta(minutes=15)  # NILM rewrites a run's edges while its window is a draft
@@ -215,6 +217,17 @@ async def create_watch(
         raise WatchError("bad_threshold", "the threshold is not a usable number")
     if (metric == "sql") != bool(sql):
         raise WatchError("bad_metric", "a sql watch needs its query, and only it")
+    fine = metric in FINE or (metric == "sql" and HOURLY_VIEW.search(sql or ""))
+    if (
+        fine
+        and await s.scalar(
+            select(HomeMember.detail).where(
+                HomeMember.home_id == home_id, HomeMember.user_id == user_id
+            )
+        )
+        == "daily"
+    ):
+        raise WatchError("needs_hourly", "you see this home by the day, not by the moment")
     if metric.startswith("device_"):
         kind = await s.scalar(
             select(Device.device_type_code).where(Device.id == device_id, Device.home_id == home_id)
@@ -512,3 +525,20 @@ async def prune_watches(s: AsyncSession, now: datetime) -> None:
         ),
         {"t": now - timedelta(days=KEEP_DAYS)},
     )
+
+
+async def forget_fine_watches(s: AsyncSession, user_id: uuid.UUID, home_id: uuid.UUID) -> None:
+    """Their alerts on the moment (and every custom query, which may read hours) are deleted."""
+    await s.execute(
+        delete(Watch).where(
+            Watch.user_id == user_id,
+            Watch.home_id == home_id,
+            Watch.metric.in_((*FINE, "sql")),
+        )
+    )
+
+
+async def forget_member(s: AsyncSession, user_id: uuid.UUID, home_id: uuid.UUID) -> None:
+    """The alerts and savings plans of someone leaving the home, in the caller's transaction."""
+    for model in (Watch, SavingsPlan):
+        await s.execute(delete(model).where(model.user_id == user_id, model.home_id == home_id))

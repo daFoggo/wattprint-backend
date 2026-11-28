@@ -20,8 +20,8 @@ class Device(BaseModel):
     room: str | None
     type: str  # cat_device_type.code
     show_on_timeline: bool
-    on: bool
-    watts: float
+    on: bool | None  # null with watts: this account sees days only
+    watts: float | None
     today_kwh: float
     month_kwh: float  # from the 1st of this month, local time
     week_kwh: list[float]  # the last 7 local days, today last

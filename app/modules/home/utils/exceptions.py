@@ -1,4 +1,10 @@
-from app.common.exceptions import ForbiddenError, NotFoundError, UnprocessableError
+from app.common.exceptions import (
+    AppError,
+    ConflictError,
+    ForbiddenError,
+    NotFoundError,
+    UnprocessableError,
+)
 
 
 class HomeNotFoundError(NotFoundError):
@@ -19,6 +25,32 @@ class DemoHomeReadOnlyError(ForbiddenError):
 class HomeReadOnlyError(ForbiddenError):
     code = "home_read_only"
     message = "This demo home is read-only"
+
+
+class DetailRestrictedError(ForbiddenError):
+    code = "detail_restricted"
+    message = "The home's owner lets you see days only"
+
+
+class InviteInvalidError(NotFoundError):
+    code = "invite_invalid"
+    message = "This code is wrong, used or out of date"
+
+
+class AlreadyHasHomeError(ConflictError):
+    code = "already_has_home"
+    message = "This account already belongs to a home"
+
+
+class MemberNotFoundError(NotFoundError):
+    code = "member_not_found"
+    message = "No such member in this home"
+
+
+class InviteRateLimitedError(AppError):
+    status_code = 429
+    code = "invite_rate_limited"
+    message = "Too many tries, wait a quarter of an hour"
 
 
 class UnknownProvinceError(UnprocessableError):

@@ -1,5 +1,13 @@
 from .models import MIN_COHORT_HOMES, Alert, CohortStat, DeviceCycle, ForecastSnapshot, Watch
-from .services import cancel_watch, cohort_for, create_watch, list_alerts, list_watches
+from .services import (
+    cancel_watch,
+    cohort_for,
+    create_watch,
+    forget_fine_watches,
+    forget_member,
+    list_alerts,
+    list_watches,
+)
 from .utils import WatchError
 
 __all__ = [
@@ -13,6 +21,8 @@ __all__ = [
     "cancel_watch",
     "cohort_for",
     "create_watch",
+    "forget_fine_watches",
+    "forget_member",
     "list_alerts",
     "list_watches",
 ]

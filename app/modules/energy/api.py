@@ -1,4 +1,4 @@
-from .dependencies import CurrentHome
+from .dependencies import CurrentHome, DetailedHome
 from .models import (
     HomeWeatherHourly,
     InferenceRun,
@@ -30,6 +30,7 @@ from .services import (
 __all__ = [
     "HomeWeatherHourly",
     "CurrentHome",
+    "DetailedHome",
     "DeviceEnergy",
     "InferenceRun",
     "LatestPower",

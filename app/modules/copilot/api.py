@@ -7,7 +7,7 @@ from .models import (
     SuggestionFeedback,
     ToolCall,
 )
-from .services import prune_scope_tokens, prune_speech
+from .services import delete_all_conversations, prune_scope_tokens, prune_speech
 
 __all__ = [
     "Conversation",
@@ -17,6 +17,7 @@ __all__ = [
     "Suggestion",
     "SuggestionFeedback",
     "ToolCall",
+    "delete_all_conversations",
     "prune_scope_tokens",
     "prune_speech",
 ]
