@@ -175,6 +175,34 @@ async def test_removing_or_leaving_takes_the_persons_things_with_it(client, make
     assert r.status_code == 403
 
 
+async def chats(home_id, user_id) -> int:
+    async with SessionLocal() as s:
+        return await s.scalar(
+            text("SELECT count(*) FROM ai.ai_conversation WHERE home_id = :h AND user_id = :u"),
+            {"h": home_id, "u": user_id},
+        )
+
+
+async def test_cutting_a_member_to_daily_deletes_their_chats_here(client, make_member):
+    owner = await make_member("owner")
+    member = await make_member("member", home_id=owner.home_id)
+    one = f"/api/v1/homes/current/members/{member.user_id}"
+    await client.patch(one, json={"detail": "full"}, headers=owner.headers)
+    await seed_own_things(member)
+
+    await set_daily(client, owner, member)  # old answers may name hours
+
+    assert await chats(owner.home_id, member.user_id) == 0
+    assert await own_things(owner.home_id, member.user_id) == 1  # the savings plan stays
+    async with SessionLocal() as s, s.begin():
+        await s.execute(
+            text("INSERT INTO ai.ai_conversation (home_id, user_id) VALUES (:h, :u)"),
+            {"h": owner.home_id, "u": member.user_id},
+        )
+    await set_daily(client, owner, member)  # already daily: chats made by day stay
+    assert await chats(owner.home_id, member.user_id) == 1
+
+
 async def test_a_daily_member_gets_no_figure_finer_than_a_day(client, make_member):
     owner = await make_member("owner")
     member = await make_member("member", home_id=owner.home_id)

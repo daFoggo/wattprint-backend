@@ -25,9 +25,11 @@ STREAM_MAX = timedelta(minutes=10)  # auth is checked on connect; EventSource re
 async def overview(member: Membership, db: DbSession) -> Overview:
     now = datetime.now(UTC)
     home_id = member.home_id
-    # The day's total is for everyone; the moment's power is not for a daily member.
-    live = None if member.detail == "daily" else await services.latest_reading(db, home_id, now)
-    today = await services.today_energy(db, home_id, now)
+    # The day's total is for everyone (a daily member's up to the last 6-hour block); the
+    # moment's power is not for a daily member.
+    daily = member.detail == "daily"
+    live = None if daily else await services.latest_reading(db, home_id, now)
+    today = await services.today_energy(db, home_id, services.daily_now(now) if daily else now)
     return Overview(
         live=Power.model_validate(live) if live else None,
         today=Today.model_validate(today) if today else None,

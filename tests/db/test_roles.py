@@ -385,8 +385,8 @@ async def test_a_daily_token_sees_days_not_hours(conn):
     await conn.execute(
         text(
             "INSERT INTO public.tb_alert (home_id, kind, severity, ts, payload, dedup_key) "
-            "VALUES (:h, 'unexplained_load', 'info', now(), "
-            '\'{"signal": "odd_hour", "value": 2}\', \'odd:x\')'
+            "VALUES (:h, 'unexplained_load', 'info', '2026-11-20 13:13+07', "
+            '\'{"signal": "odd_hour", "value": 2, "at": "13:13"}\', \'odd:x\')'
         ),
         {"h": a["home"]},
     )
@@ -402,9 +402,14 @@ async def test_a_daily_token_sees_days_not_hours(conn):
             shown = await conn.scalar(text(f"SELECT count(last_w) FROM copilot_ro.{family}_1d"))
             assert shown == hours, (family, token)
         local = await conn.scalar(
-            text("SELECT (ts AT TIME ZONE 'Asia/Ho_Chi_Minh')::time FROM copilot_ro.alert")
+            text(
+                "SELECT (ts AT TIME ZONE 'Asia/Ho_Chi_Minh')::time FROM copilot_ro.alert "
+                "WHERE payload ? 'signal'"
+            )
         )
-        assert (local == time(0)) is (hours == 0)  # a daily token sees the day of an alert only
+        # a daily token sees the day of an alert only, an hourly one its hour, never the minute
+        assert local == (time(13) if hours else time(0))
+        assert not await conn.scalar(text("SELECT bool_or(payload ? 'at') FROM copilot_ro.alert"))
         odd = await conn.scalar(
             text("SELECT payload ? 'value' FROM copilot_ro.alert WHERE payload ? 'signal'")
         )

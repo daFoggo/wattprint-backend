@@ -574,11 +574,14 @@ async def cohort(ctx: Ctx) -> Outcome:
 
 
 def _when(ctx: Ctx, a) -> dict[str, Any]:
-    """An alert's time and figures; at the daily level only its day, no clock time inside."""
+    """An alert's time and figures: its hour at the hourly level, its day at the daily one; no
+    minute inside (`at` is a run's start minute), as `copilot_ro.alert` shows them."""
     local = a.ts.astimezone(ICT)
-    if ctx.detail == "hourly":
-        return {"since": local.isoformat(timespec="minutes"), "figures": a.payload}
     payload = a.payload or {}
+    if ctx.detail == "hourly":
+        hour = local.replace(minute=0, second=0, microsecond=0)
+        figures = {k: v for k, v in payload.items() if k != "at"}
+        return {"since": hour.isoformat(timespec="minutes"), "figures": figures}
     hidden = {"at", "start"} | ({"value"} if payload.get("signal") == "odd_hour" else set())
     figures = {k: v for k, v in payload.items() if k not in hidden}  # odd_hour: value is the hour
     return {"since": local.date().isoformat(), "figures": figures}

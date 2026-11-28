@@ -107,6 +107,18 @@ docker compose up -d replay nilm           # công tơ chạy tiếp, ước tí
 Chỉ một `replay` chạy cùng lúc (bản thứ hai thoát ngay). Chạy lại sau khi sửa mã: `docker compose restart replay`.
 Mỗi nhà có một mô hình riêng (`tb_nilm_model`). Việc nạp cần Internet để lấy thời tiết lịch sử (Open-Meteo).
 
+### Thời hạn lưu theo bậc
+
+`alembic upgrade head` chỉ đặt thời hạn cũ (400 ngày cho số thô); migration cố ý không xóa dữ liệu khi container
+khởi động. Database mới chạy thêm một lần, sau khi nạp nhà demo (xóa rồi không lấy lại được):
+
+```bash
+docker compose exec -T api python -m scripts.apply_retention           # xem trước, chỉ đọc
+docker compose exec -T api python -m scripts.apply_retention --apply   # thô 30 ngày, phút 90, giờ 400, ngày 800
+```
+
+Dọn hằng đêm cho bảng thường (cảnh báo, kết quả công cụ...) bật riêng bằng `RETENTION_TIERS=true`.
+
 ### Wappi
 
 Điền khóa vào `.env` rồi `docker compose up -d api insight`. Câu hỏi dữ liệu tự do cần thêm dịch vụ text2sql (`TEXT2SQL_URL`, `TEXT2SQL_CONNECTION_ID`, `TEXT2SQL_SERVICE_KEY`; container gọi tới `host.docker.internal:11101`).

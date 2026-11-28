@@ -1,11 +1,14 @@
 import uuid
 from datetime import UTC, datetime, timedelta
+from zoneinfo import ZoneInfo
 
 import pytest
 from sqlalchemy import text
 
-from app.database import SessionLocal
+from app.database import SessionLocal, engine
+from app.modules.energy.api import backfill_aggregates
 from app.modules.energy.routes import dashboard
+from app.modules.energy.services import daily_now, today_energy
 
 
 def bearer(token: str) -> dict:
@@ -91,24 +94,65 @@ async def test_series_covers_the_window(client, member):
     assert points and all(p["energy_wh"] >= 0 for p in points)
 
 
-async def test_a_daily_member_gets_the_series_by_day_only(client, member):
-    token, now = member
+async def make_daily(client, token) -> tuple[uuid.UUID, uuid.UUID]:
+    """The member's home and user ids, the member now seeing days only."""
     me = (await client.get("/api/v1/users/me", headers=bearer(token))).json()["id"]
     async with SessionLocal() as session, session.begin():
-        await session.execute(
-            text("UPDATE public.tb_home_member SET detail = 'daily' WHERE user_id = :u"),
+        home = await session.scalar(
+            text(
+                "UPDATE public.tb_home_member SET detail = 'daily' WHERE user_id = :u "
+                "RETURNING home_id"
+            ),
             {"u": me},
         )
-    params = {
-        "since": (now - timedelta(hours=1)).isoformat(),
-        "until": now.isoformat(),
-        "max_points": 60,
-    }
+    return home, uuid.UUID(me)
+
+
+async def test_a_daily_member_gets_the_series_by_day_only(client, member):
+    token, now = member
+    home, _ = await make_daily(client, token)
+    async with SessionLocal() as session, session.begin():
+        await session.execute(  # yesterday, same time: a day already over
+            text(
+                "INSERT INTO public.tb_reading (series_id, ts, value, quality) "
+                "SELECT series_id, :t, 300, 0 FROM public.tb_series WHERE home_id = :h"
+            ),
+            {"t": now - timedelta(days=1), "h": home},
+        )
+    local = (now - timedelta(days=1)).astimezone(ZoneInfo("Asia/Ho_Chi_Minh"))
+    yesterday = local.replace(hour=0, minute=0, second=0, microsecond=0)
+    async with engine.connect() as c:  # that day only: today stays real-time
+        c = await c.execution_options(isolation_level="AUTOCOMMIT")
+        await backfill_aggregates(c, yesterday, yesterday + timedelta(days=1))
+    params = {"since": (now - timedelta(days=2)).isoformat(), "until": now.isoformat()}
     r = await client.get("/api/v1/energy/series", headers=bearer(token), params=params)
     assert r.status_code == 200, r.text
-    (point,) = r.json()  # one day bucket, never minutes
+    # one day bucket, never minutes, and not the running day (its total is the overview's)
+    (point,) = r.json()
     assert point["ts"].endswith("T17:00:00Z") and point["energy_wh"] > 0
     assert point["coarsened"] is False
+    assert datetime.fromisoformat(point["ts"]) < now - timedelta(hours=1)
+
+
+def test_daily_now_is_the_last_6_hour_block():
+    for at, block in (("13:13", "12:00"), ("05:59", "00:00"), ("18:00", "18:00")):
+        t = datetime.fromisoformat(f"2026-11-20T{at}:00+07:00")
+        assert daily_now(t) == datetime.fromisoformat(f"2026-11-20T{block}:00+07:00")
+
+
+async def test_a_daily_member_reads_today_as_of_the_last_6_hour_block(client, member):
+    from app.modules.insight.services.watches import measure
+
+    token, _ = member
+    full = (await client.get("/api/v1/energy/overview", headers=bearer(token))).json()
+    assert full["today"]["kwh"] > 0  # the last two minutes count for a full member
+    home, user = await make_daily(client, token)
+    seen = (await client.get("/api/v1/energy/overview", headers=bearer(token))).json()
+    async with SessionLocal() as s:
+        block = await today_energy(s, home, daily_now(datetime.now(UTC)))
+        watched = await measure(s, home, "today_kwh", datetime.now(UTC), user_id=user)
+    assert seen["today"]["kwh"] == block.kwh < full["today"]["kwh"]
+    assert float(watched) == round(block.kwh, 3)
 
 
 async def test_series_rejects_naive_datetimes(client, member):

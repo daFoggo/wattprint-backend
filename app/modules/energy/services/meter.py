@@ -101,6 +101,13 @@ def _floor(ts: datetime, step: timedelta) -> datetime:
     return ORIGIN + ((ts - ORIGIN) // step) * step
 
 
+def daily_now(now: datetime) -> datetime:
+    """The "now" of an account that sees days only: the last 6-hour local boundary (00, 06, 12,
+    18 h), so today's running total moves four times a day and polling it cannot rebuild the day's
+    curve (R4.3)."""
+    return _floor(now, _STEP["6h"])
+
+
 def _ceil(ts: datetime, step: timedelta) -> datetime:
     """First step boundary at or after ts (aligned to local midnight)."""
     return ORIGIN - ((ORIGIN - ts) // step) * step
@@ -143,8 +150,8 @@ async def meter_series(
     now: datetime | None = None,
     daily: bool = False,
 ) -> list[Point]:
-    """The main-meter power series of a home as at most ~max_points points (day buckets only
-    when `daily`).
+    """The main-meter power series of a home as at most ~max_points points (when `daily`: day
+    buckets of the days already over, never the running day).
 
     The step comes from `pick_step`, made coarser (and each point flagged `coarsened`) when the
     window starts before what the finer aggregate still keeps; buckets are aligned to local
@@ -177,6 +184,8 @@ async def meter_series(
     }
     if view == "reading_1m":
         params["hi"] = min(params["hi"], open_minute)
+    if daily:  # whole days only: the running day is the overview's, up to `daily_now`
+        params["hi"] = min(params["hi"], _floor(now or datetime.now(UTC), _STEP["1d"]))
     if rebucket:
         sql = (
             "SELECT time_bucket(CAST(:step AS interval), bucket, "

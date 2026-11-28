@@ -15,6 +15,7 @@ from app.database import SessionLocal
 from app.modules.billing.api import current_bill, forecast_bill
 from app.modules.energy.api import (
     analyzed_until,
+    daily_now,
     device_breakdown,
     latest_power,
     on_w,
@@ -148,7 +149,16 @@ async def measure(
     sql: str | None = None,
     user_id: uuid.UUID | None = None,
 ) -> Decimal | None:
-    """The metric's value now; None while there is no figure (no reading yet, no forecast)."""
+    """The metric's value now; None while there is no figure (no reading yet, no forecast).
+    Today's running kWh of a member who sees days only is as of the last 6-hour block."""
+    if metric in TODAY and user_id is not None:
+        detail = await s.scalar(
+            select(HomeMember.detail).where(
+                HomeMember.home_id == home_id, HomeMember.user_id == user_id
+            )
+        )
+        if detail == "daily":
+            now = daily_now(now)
     match metric:
         case "bill_vnd" | "bill_kwh":
             try:
@@ -172,6 +182,8 @@ async def measure(
             return Decimal(str(round(p.watts, 3))) if fresh else None
         case "device_kwh_today":
             since = _midnight(now.astimezone(ICT).date())
+            if since == now:  # a daily member before 06:00: nothing counted yet
+                return Decimal(0)
             for d in await device_breakdown(s, home_id, since, now):
                 if d.device_id == device_id:
                     return Decimal(str(round(d.kwh, 3)))

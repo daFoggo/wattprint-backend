@@ -868,3 +868,79 @@ async def test_domain_tables_downgrade_upgrade(throwaway_dsn):
             assert await c.scalar(func) == 1
     finally:
         await engine.dispose()
+
+
+@pytest.mark.migrations
+async def test_old_alerts_get_random_ids_and_keep_what_points_at_them(throwaway_dsn):
+    engine = create_async_engine(
+        throwaway_dsn, isolation_level="AUTOCOMMIT", connect_args=LOCK_TIMEOUT
+    )
+    run_alembic(throwaway_dsn, "downgrade", "3b6e9d2a7f15")  # before the new ids
+    try:
+        async with engine.connect() as c:
+            home = await c.scalar(
+                text("INSERT INTO public.tb_home (name) VALUES ('h') RETURNING id")
+            )
+            user = await c.scalar(
+                text("INSERT INTO public.tb_users (email) VALUES ('ids@x.vn') RETURNING id")
+            )
+            old = await c.scalar(
+                text(
+                    "INSERT INTO public.tb_alert (home_id, kind, severity, ts, dedup_key) "
+                    "VALUES (:h, 'standby_high', 'info', now(), 'k') RETURNING id"
+                ),
+                {"h": home},
+            )
+            assert old.version == 7
+            p = {"h": home, "u": user, "a": old}
+            await c.execute(
+                text(
+                    "INSERT INTO public.tb_alert_feedback (alert_id, user_id, home_id, kind, "
+                    "verdict) VALUES (:a, :u, :h, 'standby_high', 'useful')"
+                ),
+                p,
+            )
+            await c.execute(
+                text(
+                    "INSERT INTO public.tb_suggestion (home_id, alert_id, kind, title, body) "
+                    "VALUES (:h, :a, 'k', 't', 'b')"
+                ),
+                p,
+            )
+            await c.execute(
+                text(
+                    "INSERT INTO public.tb_notification_log (user_id, kind, ref) "
+                    "VALUES (:u, 'alert', :r)"
+                ),
+                p | {"r": str(old)},
+            )
+        run_alembic(throwaway_dsn, "upgrade", "head")
+        async with engine.connect() as c:
+            new = await c.scalar(text("SELECT id FROM public.tb_alert WHERE home_id = :h"), p)
+            assert new.version == 4
+            refs = await c.execute(
+                text(
+                    "SELECT (SELECT alert_id FROM public.tb_alert_feedback WHERE home_id = :h), "
+                    "(SELECT alert_id FROM public.tb_suggestion WHERE home_id = :h), "
+                    "(SELECT ref FROM public.tb_notification_log WHERE user_id = :u)"
+                ),
+                p,
+            )
+            assert tuple(refs.one()) == (new, new, str(new))
+            fresh = await c.scalar(
+                text(
+                    "INSERT INTO public.tb_alert (home_id, kind, severity, ts, dedup_key) "
+                    "VALUES (:h, 'standby_high', 'info', now(), 'k2') RETURNING id"
+                ),
+                p,
+            )
+            assert fresh.version == 4  # the column default is random too
+            rule = await c.scalar(
+                text(
+                    "SELECT pg_get_constraintdef(oid) FROM pg_constraint "
+                    "WHERE conname = 'fk_tb_alert_feedback_alert_id_tb_alert'"
+                )
+            )
+            assert "ON UPDATE" not in rule  # the keys are back as they were
+    finally:
+        await engine.dispose()

@@ -243,8 +243,9 @@ async def test_at_daily_alerts_give_the_day_only(make_member):
         daily = await tools.alerts(
             tools.Ctx(s, me.home_id, datetime.now(UTC), "vi", detail="daily")
         )
-    assert hourly.data[0]["since"] == "2026-11-20T21:37+07:00"
-    assert hourly.data[0]["figures"]["at"]
+    # hourly: the hour, never the minute (the view does the same)
+    assert hourly.data[0]["since"] == "2026-11-20T21:00+07:00"
+    assert hourly.data[0]["figures"] == {"start": "x", "usual_w": 40}
     assert daily.data[0]["since"] == "2026-11-20"
     assert daily.data[0]["figures"] == {"usual_w": 40}
 

@@ -16,14 +16,20 @@ Thử phá các chốt bảo vệ dữ liệu (Đ9-1, Đ9-4, Đ9-5), 2026-11-28.
 | Lời gọi ghi log in ra token, mật khẩu, email, câu hỏi, nội dung phản hồi | Quét toàn bộ `app/`: không còn chỗ nào | `test_no_log_call_prints_a_token_or_personal_data` |
 | Keycloak từ chối tạo khách demo, log in nguyên nội dung trả về (có email) | **Lỗ, đã vá**: chỉ ghi mã trạng thái | `test_a_keycloak_refusal_logs_no_response_body` |
 
-Còn mở (cần migration hoặc quyết định của chủ dự án):
+Còn mở:
 
 | Chỗ | Vì sao còn | Hướng sửa |
 |---|---|---|
-| Mức theo giờ: `copilot_ro.alert` vẫn đưa giờ phút của cảnh báo bật/tắt thiết bị (`ts`, `at`) | Cần migration, và test cũ chủ ý giữ phút | cắt `ts` về giờ, bỏ `at` ở mức theo giờ |
-| Cảnh báo cũ còn mã UUIDv7 | Dữ liệu đã có; cảnh báo hiện chưa tự xóa (`RETENTION_TIERS=false`) | bật dọn hằng đêm (hạn 400 ngày), hoặc đổi mã một lần |
-| Tổng "hôm nay" (trang tổng quan, cảnh báo `today_kwh`) hỏi liên tục cho ra đường cộng dồn trong ngày | Thiết kế cho phép thành viên theo ngày xem số hôm nay | chấp nhận, hoặc chỉ cập nhật theo giờ |
-| Hội thoại cũ của thành viên bị hạ xuống "theo ngày" vẫn mở được, câu trả lời cũ có thể nêu giờ | Xóa thì mất hội thoại của họ | ẩn biểu đồ theo giờ trong hội thoại cũ |
+| Người "theo ngày": số hôm nay của từng thiết bị, tiền điện hôm nay (`/energy/devices`, `/billing/current`, cảnh báo `bill_*`) vẫn chạy liên tục | Đọc ô ngày của `*_1d`, chưa cắt theo mốc 6 giờ | đọc phần hôm nay từ `*_1h` tới `daily_now` |
+
+Đã vá 28/11 (trước là "còn mở"):
+
+| Chỗ | Cách vá | Test |
+|---|---|---|
+| Mức theo giờ: `copilot_ro.alert` và công cụ `alerts` của Wappi đưa giờ phút của cảnh báo (`ts`, `at`) | View cắt `ts` về giờ, bỏ `at` (revision `b7d3e1a9c625`); công cụ làm như view | `tests/db/test_roles.py::test_a_daily_token_sees_days_not_hours`, `tests/test_copilot_tools.py::test_at_daily_alerts_give_the_day_only` |
+| Cảnh báo cũ còn mã UUIDv7 | Đổi một lần sang mã ngẫu nhiên, giữ phản hồi, gợi ý, nhật ký mail trỏ đúng; mặc định cột là `gen_random_uuid()` (revision `a4f9c2e7b318`) | `tests/db/test_domain_tables.py::test_old_alerts_get_random_ids_and_keep_what_points_at_them` |
+| Tổng "hôm nay" hỏi liên tục cho ra đường cộng dồn trong ngày | Người "theo ngày": tổng hôm nay và cảnh báo `today_kwh`, `device_kwh_today` tính tới mốc 6 giờ gần nhất (0, 6, 12, 18 giờ); `/energy/series` chỉ trả những ngày đã qua | `tests/test_energy_api.py::test_a_daily_member_reads_today_as_of_the_last_6_hour_block`, `test_a_daily_member_gets_the_series_by_day_only` |
+| Hội thoại cũ của thành viên bị hạ xuống "theo ngày" vẫn mở được | Hạ xuống "theo ngày" xóa trò chuyện của người đó ở nhà này, như khi gỡ; màn đổi mức báo trước | `tests/test_members.py::test_cutting_a_member_to_daily_deletes_their_chats_here` |
 
 Bổ sung 28/11: ở mức theo ngày, hai view theo ngày không còn trả `last_w` (công suất đang dùng); revision
 `e7a3c91b5d40`, test `tests/db/test_roles.py::test_a_daily_token_sees_days_not_hours`.

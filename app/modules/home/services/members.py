@@ -131,12 +131,16 @@ async def set_member_detail(
 ) -> None:
     _owner(member)
     other = await _member_of(db, member.home_id, user_id)
+    cut = detail == "daily" and other.detail != "daily"
     other.detail = detail
-    if detail == "daily":
+    if cut:
         # Lazy: insight reads homes through home.api, so a top-level import is a cycle.
+        from app.modules.copilot.api import delete_all_conversations
         from app.modules.insight.api import forget_fine_watches
 
         await forget_fine_watches(db, user_id, member.home_id)
+        # Their old answers here may name hours: they go, as on removal.
+        await delete_all_conversations(db, user_id, member.home_id)  # commits
     await db.commit()
 
 

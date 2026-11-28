@@ -53,10 +53,8 @@ class Alert(IdMixin, Base):
 
     # Random, not UUIDv7: a v7 id carries its creation time to the millisecond, which a member
     # who sees days only (and a daily copilot token) must not read off the alert (D9-1).
-    # shortcut: the column default is still uuidv7() (raw SQL inserts only), change it with
-    # the next tb_alert migration.
     id: Mapped[uuid.UUID] = mapped_column(
-        Uuid, primary_key=True, default=uuid.uuid4, server_default=text("uuidv7()")
+        Uuid, primary_key=True, default=uuid.uuid4, server_default=text("gen_random_uuid()")
     )
     home_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("public.tb_home.id", ondelete="CASCADE"))
     device_id: Mapped[uuid.UUID | None] = mapped_column(
