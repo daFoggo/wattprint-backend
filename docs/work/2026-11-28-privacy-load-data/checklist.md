@@ -166,14 +166,14 @@ nhà demo từ chối), `DELETE /copilot/conversations`; xóa tài khoản dọn
 - [x] Đ6-B1 `GET /homes/current/privacy`: thời hạn đang áp, ngày cũ nhất thật ở từng mức, mức của Wappi, thành viên · R5.1 (chưa có phần thành viên: chờ Đ5)
 
 **[WEB]**
-- [ ] Đ6-W1 Dựng bố cục bằng Hallmark trước; viết chữ vào `messages/{vi,en}/privacy.json`
-- [ ] Đ6-W2 `features/privacy/` và route `/dashboard/settings/privacy`; đường vào từ Cài đặt và menu tài khoản
-- [ ] Đ6-W3 Khối "Đang giữ gì": bốn bậc kèm ngày cũ nhất thật
+- [x] Đ6-W1 Dựng bố cục bằng Hallmark trước; viết chữ vào `messages/{vi,en}/privacy.json` (chưa xác nhận đã qua Hallmark)
+- [x] Đ6-W2 `features/privacy/` và route `/dashboard/settings/privacy`; đường vào từ Cài đặt và menu tài khoản
+- [x] Đ6-W3 Khối "Đang giữ gì": bốn bậc kèm ngày cũ nhất thật
 - [ ] Đ6-W4 Khối "Ai xem được": danh sách, mức xem, mời, gỡ
-- [ ] Đ6-W5 Khối "Gửi ra ngoài": từng dịch vụ gửi gì, mức nào; công tắc Wappi, giọng nói, email; mức của Wappi; nhật ký 30 ngày
-- [ ] Đ6-W6 Khối "Xóa": lịch sử điện (trước ngày, tất cả), trò chuyện, tài khoản; hộp xác nhận nói rõ cái gì mất và cái gì không xóa được · R5.3
-- [ ] Đ6-W7 Khối "AI dùng dữ liệu của bạn thế nào"
-- [ ] Đ6-W8 Chế độ chỉ xem cho người không phải chủ nhà · R5.2
+- [x] Đ6-W5 Khối "Gửi ra ngoài": từng dịch vụ gửi gì, mức nào; công tắc Wappi, giọng nói, email; mức của Wappi; nhật ký 30 ngày
+- [ ] Đ6-W6 Khối "Xóa": lịch sử điện (trước ngày, tất cả), trò chuyện, tài khoản; hộp xác nhận nói rõ cái gì mất và cái gì không xóa được · R5.3 (đã dựng, chưa tự thử bằng chủ nhà)
+- [x] Đ6-W7 Khối "AI dùng dữ liệu của bạn thế nào"
+- [x] Đ6-W8 Chế độ chỉ xem cho người không phải chủ nhà · R5.2
 - [ ] Đ6-W9 Tự thử: chủ nhà, thành viên theo ngày, khách demo; chạy checklist laws-of-ux
 
 ## Đ7. Thời hạn lưu theo bậc (P1, làm sau cùng)
