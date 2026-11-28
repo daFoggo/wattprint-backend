@@ -55,7 +55,7 @@ Các màn hình và worker `insight` đọc các bảng tổng hợp liên tục
 
 - Extension: `timescaledb`, `vector`, `unaccent`, `pg_trgm`. Schema: `public` (nghiệp vụ), `ai` (hội thoại, tin nhắn, lệnh gọi công cụ, giọng nói), `etl` (mốc nạp dữ liệu), `copilot_ro` (view chỉ đọc cho Wappi).
 - Hypertable `tb_reading`, `tb_device_estimate`, `tb_device_cycle`; bảng tổng hợp liên tục nói ở trên.
-- Role: `wattprint_app`, `wattprint_ingest`, `wattprint_copilot_ro` (`statement_timeout` 5 giây), `wattprint_ai`. Thiết kế: [docs/database-design-guide.md](docs/database-design-guide.md).
+- Role: `wattprint_app`, `wattprint_ingest`, `wattprint_copilot_ro` (`statement_timeout` 5 giây), `wattprint_ai` (chỉ đọc dữ liệu tham chiếu). Thiết kế: [docs/database-design-guide.md](docs/database-design-guide.md).
 - Migration viết tay trong `alembic/versions/{public,ai,updates}` (hypertable, bảng tổng hợp, quyền và view cần DDL tường minh).
 
 ## Cài đặt và chạy

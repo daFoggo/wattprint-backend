@@ -496,6 +496,20 @@ async def test_copilot_can_read_reference_data(conn):
     assert await conn.scalar(text("SELECT count(*) FROM public.tb_tariff_tier")) > 0
 
 
+async def test_ai_role_reads_reference_data_only(conn):
+    # wattprint_ai has no runtime user; it keeps the catalogue, never home energy or chat content
+    rows = await conn.execute(
+        text(
+            "SELECT table_schema, table_name, privilege_type "
+            "FROM information_schema.role_table_grants WHERE grantee = 'wattprint_ai'"
+        )
+    )
+    assert set(rows.all()) == {
+        ("ai", "dim_tariff_plan", "SELECT"),
+        ("ai", "metric_definition", "SELECT"),
+    }
+
+
 async def test_copilot_cannot_create_objects(conn):
     await as_role(conn, COPILOT)
     for schema in ("public", "copilot_ro"):
@@ -1037,3 +1051,30 @@ async def test_aggregate_view_pushes_series_filter_into_index_scan(conn, view):
     # without the pushdown the aggregate is computed for every home and filtered afterwards
     assert "InitPlan" in plan, plan
     assert re.search(r"Index Cond: .*series_id = ANY \(\(InitPlan \d+\)\.col1\)", plan), plan
+
+
+@pytest.mark.migrations
+async def test_ai_role_revoke_round_trips(throwaway_dsn):
+    engine = create_async_engine(throwaway_dsn, poolclass=NullPool)
+
+    async def grants():
+        async with engine.connect() as c:
+            rows = await c.execute(
+                text(
+                    "SELECT table_name, privilege_type FROM information_schema.role_table_grants "
+                    "WHERE grantee = 'wattprint_ai'"
+                )
+            )
+            return set(rows.all())
+
+    try:
+        reference = {("dim_tariff_plan", "SELECT"), ("metric_definition", "SELECT")}
+        assert await grants() == reference
+        run_alembic(throwaway_dsn, "downgrade", "f4b8c2e6a913")
+        restored = await grants()
+        assert {("fact_reading_1m", "SELECT"), ("dim_home", "SELECT")} <= restored
+        assert ("ai_message", "DELETE") in restored
+        run_alembic(throwaway_dsn, "upgrade", "head")
+        assert await grants() == reference
+    finally:
+        await engine.dispose()

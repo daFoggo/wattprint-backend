@@ -27,9 +27,9 @@ số đo và ước lượng (rất lớn), nhà và thiết bị, tiền điệ
 | Schema | Bảng | Mục đích |
 |---|---|---|
 | `public` | Các bảng nghiệp vụ `tb_*` và catalog `cat_*` | Home, device, hồ sơ người dùng, energy raw/aggregates, billing, insight, ops, knowledge và suggestions |
-| `ai` | `ai_conversation`, `ai_message`, `ai_tool_call` | Hội thoại AI; `wattprint_app` và `wattprint_ai` được đọc/ghi |
-| | `dim_tariff_plan`, `dim_home`, `dim_device` | Dimensions đồng bộ từ nguồn `public`; AI chỉ đọc |
-| | `fact_reading_1m`, `fact_estimate_1m`, `fact_energy` | Views dữ liệu phút, khóa theo dimension; AI chỉ đọc |
+| `ai` | `ai_conversation`, `ai_message`, `ai_tool_call` | Hội thoại AI; chỉ `wattprint_app` được đọc/ghi |
+| | `dim_tariff_plan`, `dim_home`, `dim_device` | Dimensions đồng bộ từ nguồn `public`; `wattprint_ai` chỉ đọc `dim_tariff_plan` |
+| | `fact_reading_1m`, `fact_estimate_1m`, `fact_energy` | Views dữ liệu phút, khóa theo dimension; `wattprint_ai` không đọc được |
 | | `metric_definition` | Metric seed cùng SQL truy vấn fact; AI đọc, app quản lý |
 | `copilot_ro` | 15 view + `current_home()` | Lớp đọc giới hạn theo home của role Copilot cũ; không phải lớp truy cập của `wattprint_ai` |
 
@@ -135,7 +135,7 @@ số đo và ước lượng (rất lớn), nhà và thiết bị, tiền điệ
 | `wattprint_app` | DML trên bảng API và AI conversation/dimensions; quản lý `metric_definition`; phát/xóa `tb_scope_token`; đọc aggregate |
 | `wattprint_ingest` | Đọc `tb_meter`, `tb_series`; INSERT `tb_reading`; INSERT/UPDATE `tb_device_estimate`, `public.ingest_*` |
 | `wattprint_copilot_ro` | SELECT trên view `copilot_ro` và whitelist `public` (documents/chunks, catalogs, tariffs); `statement_timeout = 5s` |
-| `wattprint_ai_user` (member của `wattprint_ai`) | DML conversation; SELECT dimensions, facts và metrics; `statement_timeout = 30s` |
+| `wattprint_ai_user` (member của `wattprint_ai`) | Chỉ SELECT `ai.dim_tariff_plan`, `ai.metric_definition` (thu hẹp ở `7ed04a4f7308`); `statement_timeout = 30s` |
 
 Revision `cf93b7d8a102` chỉ tạo role `wattprint_app` (login, `CONNECT`); mọi quyền trên object đến từ ma trận ở `4d7b1e9a3c52` và các revision `ai`, được `tests/db/test_roles.py` kiểm đúng từng quyền.
 

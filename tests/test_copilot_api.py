@@ -462,3 +462,30 @@ async def test_query_data_reads_the_text2sql_stream(make_member, monkeypatch):
     assert reports == [("Chạy truy vấn", "kWh theo giờ")]
     assert out.sql == "SELECT 2"  # the last query that ran cleanly
     assert out.data["rows"] == [[20]] and out.data["summary"] == "20 giờ"
+
+
+async def test_text2sql_calls_send_the_service_key_and_report_a_refusal(make_member, monkeypatch):
+    import httpx
+
+    from app.modules.copilot.services import tools
+
+    me = await make_member("owner")
+    keys = []
+
+    def refuse(request):
+        keys.append((request.url.path, request.headers.get("X-Service-Key")))
+        return httpx.Response(401, json={"detail": "Thiếu hoặc sai X-Service-Key."})
+
+    real = httpx.AsyncClient
+    monkeypatch.setattr(
+        tools.httpx, "AsyncClient", lambda **kw: real(transport=httpx.MockTransport(refuse), **kw)
+    )
+    monkeypatch.setattr(tools.settings, "text2sql_connection_id", str(uuid.uuid4()))
+    monkeypatch.setattr(tools.settings, "text2sql_service_key", "k" * 40)
+    async with SessionLocal() as s:
+        ctx = tools.Ctx(s, me.home_id, None, "vi", lambda *step: None)
+        out = await tools.query_data(ctx, "Giờ nào?")
+        sql, why = await tools._one_number_sql(ctx, "kWh hôm nay?")
+    assert keys == [(tools.T2S_STREAM, "k" * 40), (tools.T2S_CHAT, "k" * 40)]
+    assert out.data == {"error": "text2sql answered 401"}
+    assert (sql, why) == (None, "text2sql answered 401")

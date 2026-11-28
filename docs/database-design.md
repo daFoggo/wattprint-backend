@@ -141,8 +141,9 @@ chỉ cho phép một câu SELECT, chặn `set_config`, `current_setting` của 
   từ mới về cũ (xem mục chi phí refresh 1d bên dưới).
 - **Roles:** migration chạy bằng login owner của database (`POSTGRES_USER`); các role gồm
   `wattprint_app`, `wattprint_ingest`, `wattprint_copilot_ro` và `wattprint_ai` (login
-  `wattprint_ai_user`). AI chỉ đọc dimensions/facts, đọc/ghi conversation; app cũng có quyền
-  quản lý conversation và dimensions.
+  `wattprint_ai_user`). Từ `7ed04a4f7308`, `wattprint_ai` chỉ còn đọc dữ liệu
+  tham chiếu (`ai.dim_tariff_plan`, `ai.metric_definition`), không đọc năng lượng, nhà, thiết bị
+  hay hội thoại; app quản lý conversation và dimensions.
   Quyền của `wattprint_app` chỉ đến từ ma trận quyền (`4d7b1e9a3c52`) và các revision `ai`;
   `cf93b7d8a102` chỉ tạo role, không cấp `ALL PRIVILEGES` hay default privileges.
 - **Migration** viết tay bằng Alembic, mỗi thay đổi một revision, DDL của TimescaleDB đặt trong

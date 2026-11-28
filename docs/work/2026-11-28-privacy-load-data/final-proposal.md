@@ -62,7 +62,7 @@ nằm ở [spec.md](spec.md); việc phải làm nằm ở [checklist.md](checkl
 | Giới hạn quyền | Mời người thân kèm mức xem; việc nhạy cảm chỉ chủ nhà làm; bảng thử quyền bảy chủ thể | Người được mời mặc định chỉ xem theo ngày; khách demo xem đầy đủ |
 | Xóa lịch sử | Xóa lịch sử điện trước một ngày hoặc tất cả; xóa mọi trò chuyện; xóa tài khoản dọn nốt phần còn sót | Chỉ chủ nhà xóa lịch sử điện; nhà demo từ chối |
 | Nêu rõ dịch vụ ngoài | Đồng ý theo từng mục đích, mặc định tắt; dòng báo cố định trong chat; mục "Đã gửi ra ngoài" ở mỗi câu trả lời; nhật ký 30 ngày | Ba mục đích: Wappi, giọng nói, email. Chưa đồng ý thì backend chặn, không có lời gọi nào ra ngoài |
-| Minh chứng | Sơ đồ luồng dữ liệu có ranh giới ra ngoài; trang Quyền riêng tư; bảng thử quyền trước và sau | Bảng in từ lần chạy test thật, không gõ tay |
+| Minh chứng | Bộ sơ đồ phân tích: danh sách tác nhân, BFD phân rã chức năng, ma trận tác nhân × chức năng, ma trận tác nhân × quyền truy cập dữ liệu, DFD mức ngữ cảnh, mức 0 và mức 1 có ranh giới ra ngoài; trang Quyền riêng tư; bảng thử quyền trước và sau | Bảng in từ lần chạy test thật, không gõ tay |
 
 ### Tầng 2. Làm dày (vượt đề)
 

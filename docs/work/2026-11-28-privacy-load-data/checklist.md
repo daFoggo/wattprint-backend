@@ -43,34 +43,34 @@ Mỗi đợt là một thay đổi riêng, đủ các bước dưới đây. Tà
 ## Đ0. Vá text2sql và vai database (P0)
 
 **[T2S]**
-- [ ] Đ0-T1 Test đỏ: gọi không kèm khóa tới từng router (kết nối, metadata, từ điển, mô hình nghiệp vụ, lineage, metric, glossary, expert rule, hội thoại, ingestion, chart, chat) đều nhận 401 · R0.1
-- [ ] Đ0-T2 Gắn kiểm khóa ở mức app cho mọi router trừ own-knowledge; khóa chưa đặt thì mọi route trả 503; `/openapi.json` vẫn mở · R0.1
-- [ ] Đ0-T3 Giao diện text2sql gọi API qua route chuyển tiếp cùng nguồn `app/api/v1/[...path]` gắn khóa ở phía server; kiểm luồng SSE không bị gom · R0.1
-- [ ] Đ0-T4 Script và công cụ gọi API qua HTTP gửi kèm khóa
-- [ ] Đ0-T5 Cập nhật README, `.env.example`, handbook của text2sql
+- [x] Đ0-T1 Test đỏ: gọi không kèm khóa tới từng router (kết nối, metadata, từ điển, mô hình nghiệp vụ, lineage, metric, glossary, expert rule, hội thoại, ingestion, chart, chat) đều nhận 401 · R0.1
+- [x] Đ0-T2 Gắn kiểm khóa ở mức app cho mọi router trừ own-knowledge; khóa chưa đặt thì mọi route trả 503; `/openapi.json` vẫn mở · R0.1
+- [x] Đ0-T3 Giao diện text2sql gọi API qua route chuyển tiếp cùng nguồn `app/api/v1/[...path]` gắn khóa ở phía server; kiểm luồng SSE không bị gom · R0.1
+- [x] Đ0-T4 Script và công cụ gọi API qua HTTP gửi kèm khóa
+- [x] Đ0-T5 Cập nhật README, `.env.example`, handbook của text2sql
 
 Kế hoạch chi tiết: [plan-d0.md](plan-d0.md).
 
 **[DB]**
-- [ ] Đ0-D1 Migration thu `SELECT` của `wattprint_ai` trên `ai.fact_reading_1m`, `ai.fact_estimate_1m`, `ai.fact_energy`, `ai.dim_home`, `ai.dim_device`; test: vai đó đọc bị từ chối · R0.3
+- [x] Đ0-D1 Migration thu `SELECT` của `wattprint_ai` trên `ai.fact_reading_1m`, `ai.fact_estimate_1m`, `ai.fact_energy`, `ai.dim_home`, `ai.dim_device`; test: vai đó đọc bị từ chối · R0.3
 
 **[BE]**
-- [ ] Đ0-B1 Test: lời gọi tới text2sql luôn kèm `X-Service-Key`; thiếu cấu hình thì công cụ hỏi tự do báo "chưa cấu hình", không gọi
+- [x] Đ0-B1 Test: lời gọi tới text2sql luôn kèm `X-Service-Key`; thiếu cấu hình thì công cụ hỏi tự do báo "chưa cấu hình", không gọi
 
 **[OPS]**
-- [ ] Đ0-O1 Đặt khóa ở text2sql và backend trên dev (khởi động lại dịch vụ cần chủ dự án duyệt)
-- [ ] Đ0-O2 Xem kết nối text2sql đã lưu đăng nhập bằng vai nào; không phải `wattprint_copilot_ro` thì đổi · R0.2
+- [x] Đ0-O1 Đặt khóa ở text2sql và backend trên dev (khởi động lại dịch vụ cần chủ dự án duyệt)
+- [x] Đ0-O2 Xem kết nối text2sql đã lưu đăng nhập bằng vai nào; không phải `wattprint_copilot_ro` thì đổi · R0.2
 
 ## Đ1. Bảng thử quyền, bản "trước" (P0)
 
 **[BE]**
-- [ ] Đ1-B1 `tests/test_permissions.py`: sáu chủ thể (chưa đăng nhập, chủ nhà khác, khách demo, thành viên, chủ nhà, admin) × mọi route có dữ liệu nhà, mỗi ô một mã trả về mong đợi · R4.6
-- [ ] Đ1-B2 Test đủ bảng: route mới trong `app.routes` chưa có dòng mong đợi thì test đỏ
-- [ ] Đ1-B3 Ca mức database: vai copilot không đọc được bảng gốc; scope token hết hạn trả 0 dòng; token nhà A không đọc được nhà B
-- [ ] Đ1-B4 `scripts/print_permission_matrix.py` in bảng Markdown từ lần chạy thật
+- [x] Đ1-B1 `tests/test_permissions.py`: sáu chủ thể (chưa đăng nhập, chủ nhà khác, khách demo, thành viên, chủ nhà, admin) × mọi route có dữ liệu nhà, mỗi ô một mã trả về mong đợi · R4.6
+- [x] Đ1-B2 Test đủ bảng: route mới trong `app.routes` chưa có dòng mong đợi thì test đỏ
+- [x] Đ1-B3 Ca mức database: vai copilot không đọc được bảng gốc; scope token hết hạn trả 0 dòng; token nhà A không đọc được nhà B
+- [x] Đ1-B4 `scripts/print_permission_matrix.py` in bảng Markdown từ lần chạy thật
 
 **[DOC]**
-- [ ] Đ1-C1 Lưu `docs/evidence/privacy/permission-matrix-before.md`, để nguyên các ô sai · R6.3
+- [x] Đ1-C1 Lưu `docs/evidence/privacy/permission-matrix-before.md`, để nguyên các ô sai · R6.3
 
 ## Đ2. Giảm chi tiết gửi AI (P1)
 
@@ -184,7 +184,14 @@ Kế hoạch chi tiết: [plan-d0.md](plan-d0.md).
 ## Đ8. Minh chứng và tài liệu (P1)
 
 **[DOC]**
-- [ ] Đ8-C1 `docs/diagrams/privacy-data-flow.html` và `.svg`: nguồn → các bậc lưu kèm thời hạn → ai đọc được → ranh giới ra ngoài · R6.1
+- [ ] Đ8-C1 Bộ sơ đồ phân tích hệ thống trong `docs/diagrams/privacy/` (mỗi sơ đồ có file `.html` nguồn và `.svg`) · R6.1
+  - [ ] Đ8-C1a Danh sách tác nhân: chủ nhà, người thân (đầy đủ, chỉ theo ngày), khách demo, admin, người bảo trì, công tơ, các worker, Wappi, dịch vụ ngoài (OpenRouter, AstralX, OpenWeather, Telegram, Google, SMTP)
+  - [ ] Đ8-C1b BFD phân rã chức năng: thu số đo → lưu theo bậc → tách thiết bị → hóa đơn, dự báo, cảnh báo → Wappi → quản lý quyền riêng tư (đồng ý, mức xem, xóa, nhật ký)
+  - [ ] Đ8-C1c Ma trận tác nhân × chức năng (ai được làm gì), sinh từ bảng thử quyền Đ1 để khớp với test
+  - [ ] Đ8-C1d Ma trận tác nhân × quyền truy cập dữ liệu: mỗi kho dữ liệu (thô, phút, giờ, ngày, hóa đơn, lượt bật/tắt, trò chuyện, đồng ý, nhật ký gửi ra ngoài) × tác nhân → Đọc/Ghi/Xóa và mức chi tiết
+  - [ ] Đ8-C1e DFD mức ngữ cảnh: WattPrint là một tiến trình, các tác nhân ngoài và luồng vào ra, đánh dấu ranh giới Việt Nam/nước ngoài
+  - [ ] Đ8-C1f DFD mức 0: các tiến trình chính (thu số đo, tổng hợp, NILM, tính tiền, insight, Wappi, quyền riêng tư) và các kho dữ liệu kèm thời hạn
+  - [ ] Đ8-C1g DFD mức 1: phân rã tiến trình Wappi (che dữ liệu, kiểm đồng ý, cửa ra chung, ghi nhật ký) và tiến trình quyền riêng tư (xóa lịch sử, dọn theo thời hạn)
 - [ ] Đ8-C2 `docs/evidence/privacy/permission-matrix-after.md` · R6.3
 - [ ] Đ8-C3 Ảnh chụp: trang Quyền riêng tư (chủ nhà, thành viên theo ngày), hộp đồng ý, dòng báo trong chat, mục đã gửi, hộp xác nhận xóa · R6.2
 - [ ] Đ8-C4 `docs/evidence/privacy.md` cho giám khảo: từng ý của đề → đã làm gì → minh chứng nào; đưa lên một đường dẫn · R6.4
