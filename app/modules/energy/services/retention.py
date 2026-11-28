@@ -10,22 +10,24 @@ _LEVELS = (("raw", "tb_reading", "ts"),) + tuple(
 )
 
 
+async def keep_days(db: AsyncSession) -> dict[str, int]:
+    """Days each relation's retention policy keeps it, as the database has it now."""
+    rows = await db.execute(
+        text(
+            "SELECT COALESCE(c.view_name, j.hypertable_name), "
+            "(extract(epoch FROM (j.config->>'drop_after')::interval) / 86400)::int "
+            "FROM timescaledb_information.jobs j "
+            "LEFT JOIN timescaledb_information.continuous_aggregates c "
+            "ON c.materialization_hypertable_name = j.hypertable_name "
+            "WHERE j.proc_name = 'policy_retention'"
+        )
+    )
+    return dict(rows.all())
+
+
 async def kept_history(db: AsyncSession, home_id: uuid.UUID) -> list[tuple[str, int | None, date]]:
     """(level, days the retention policy keeps it or None, the home's oldest local day or None)."""
-    policies = dict(
-        (
-            await db.execute(
-                text(
-                    "SELECT COALESCE(c.view_name, j.hypertable_name), "
-                    "(extract(epoch FROM (j.config->>'drop_after')::interval) / 86400)::int "
-                    "FROM timescaledb_information.jobs j "
-                    "LEFT JOIN timescaledb_information.continuous_aggregates c "
-                    "ON c.materialization_hypertable_name = j.hypertable_name "
-                    "WHERE j.proc_name = 'policy_retention'"
-                )
-            )
-        ).all()
-    )
+    policies = await keep_days(db)
     out = []
     for level, relation, ts in _LEVELS:
         # shortcut: the one screen query on raw `tb_reading` (the oldest kept raw row is what the

@@ -36,6 +36,8 @@ JOBS = [
     Job("watches", 60, jobs.watches),
     Job("mail", 60, jobs.mail),  # a watch the user set is mailed within a minute of firing
     Job("upkeep", 3600, jobs.upkeep),
+    Job("cleanup", 86_400, jobs.cleanup),
+    Job("nilm_lag", 86_400, jobs.nilm_lag),
 ]
 
 

@@ -6,6 +6,8 @@ from datetime import UTC, datetime, timedelta
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from .retention import keep_days
+
 LADDER = ("1m", "5m", "15m", "30m", "1h", "3h", "6h", "1d")
 _STEP = {
     "1m": timedelta(minutes=1),
@@ -43,6 +45,7 @@ class Point:
     min_w: float
     max_w: float
     energy_wh: float
+    coarsened: bool = False  # coarser than asked: the finer level is no longer kept
 
 
 @dataclass
@@ -119,6 +122,18 @@ async def _main_series(session: AsyncSession, home_id: uuid.UUID) -> uuid.UUID |
     )
 
 
+async def _kept_step(session: AsyncSession, step: str, since: datetime) -> str:
+    """`step`, or the next coarser level still kept for a window starting at `since` (by the real
+    clock, which is what the retention jobs run on)."""
+    if _SOURCE[step][0] == "reading_1d":
+        return step
+    kept, age = await keep_days(session), datetime.now(UTC) - since
+    for view, coarser in (("reading_1m", "1h"), ("reading_1h", "1d")):
+        if _SOURCE[step][0] == view and view in kept and age > timedelta(days=kept[view]):
+            step = coarser
+    return step
+
+
 async def meter_series(
     session: AsyncSession,
     home_id: uuid.UUID,
@@ -129,7 +144,9 @@ async def meter_series(
 ) -> list[Point]:
     """The main-meter power series of a home as at most ~max_points points.
 
-    The step comes from `pick_step`; buckets are aligned to local midnight (17:00 UTC).
+    The step comes from `pick_step`, made coarser (and each point flagged `coarsened`) when the
+    window starts before what the finer aggregate still keeps; buckets are aligned to local
+    midnight (17:00 UTC).
 
     The window `[since, until)` is bucket-granular: every bucket whose start lies in
     `[floor(since), until)` is returned whole, never cut at `since` or `until`. The only cap is
@@ -147,6 +164,7 @@ async def meter_series(
     series_id = await _main_series(session, home_id)
     if series_id is None:
         return []
+    asked, step = step, await _kept_step(session, step, since)
     view, rebucket = _SOURCE[step]
     params = {
         "sid": series_id,
@@ -173,7 +191,14 @@ async def meter_series(
         )
     rows = await session.execute(text(sql), params)
     return [
-        Point(r.ts, float(r.avg_w), float(r.min_w), float(r.max_w), float(r.energy_wh))
+        Point(
+            r.ts,
+            float(r.avg_w),
+            float(r.min_w),
+            float(r.max_w),
+            float(r.energy_wh),
+            step != asked,
+        )
         for r in rows
     ]
 

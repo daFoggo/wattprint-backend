@@ -1,5 +1,5 @@
 from .models import NilmModel
-from .services import DEVICE_TYPES, OTHER, SOURCE, Score, device_scores, ensure_devices
+from .services import DEVICE_TYPES, OTHER, SOURCE, Score, device_scores, ensure_devices, lagging
 
 __all__ = [
     "DEVICE_TYPES",
@@ -9,4 +9,5 @@ __all__ = [
     "Score",
     "device_scores",
     "ensure_devices",
+    "lagging",
 ]

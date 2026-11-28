@@ -1,18 +1,20 @@
 import logging
 import uuid
 from collections.abc import Awaitable, Callable
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from sqlalchemy import select, text
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.common import outbound
+from app.common import notify, outbound
+from app.config import settings
 from app.database import SessionLocal
 from app.modules.billing.api import forecast_bill, refresh_bills
 from app.modules.copilot.api import prune_scope_tokens, prune_speech
 from app.modules.expect.api import refresh_home, train_device, train_home
 from app.modules.home.api import Home
+from app.modules.nilm.api import lagging
 
 from ..models import ForecastSnapshot
 from .cohort import refresh_cohorts
@@ -22,6 +24,21 @@ from .plans import freeze_plans
 from .watches import check_due, prune_watches
 
 log = logging.getLogger("insight.jobs")
+
+NILM_LAG = timedelta(days=20)  # raw readings are kept 30 days: past that, estimates are lost
+# Ordinary tables by age (privacy spec R1.2); the hypertables have policies instead.
+_OLDER = "< CAST(:now AS timestamptz) - interval"
+CLEANUP = (
+    f"DELETE FROM public.tb_expect_hourly WHERE ts {_OLDER} '400 days'",
+    f"DELETE FROM public.tb_alert WHERE ts {_OLDER} '400 days'",
+    "DELETE FROM ai.ai_tool_call t USING ai.ai_message m "
+    f"WHERE m.id = t.message_id AND m.created_at {_OLDER} '30 days'",
+    # each home's last good run stays: it says how far NILM has got (analyzed_until)
+    f"DELETE FROM public.tb_inference_run WHERE started_at {_OLDER} '90 days' "
+    "AND run_id NOT IN (SELECT DISTINCT ON (home_id) run_id FROM public.tb_inference_run "
+    "WHERE status = 'ok' ORDER BY home_id, window_end DESC)",
+    f"DELETE FROM public.tb_ingest_batch WHERE started_at {_OLDER} '90 days'",
+)
 
 
 async def each_home(work: Callable[[AsyncSession, uuid.UUID], Awaitable[None]]) -> None:
@@ -135,6 +152,26 @@ async def watches(now: datetime) -> None:
 async def mail(now: datetime) -> None:
     await mail_alerts(now)
     await mail_weekly(now)
+
+
+async def cleanup(now: datetime) -> None:
+    """Old rows of ordinary tables out; does nothing unless settings.retention_tiers."""
+    if not settings.retention_tiers:
+        return
+    async with SessionLocal() as s, s.begin():
+        for statement in CLEANUP:
+            await s.execute(text(statement), {"now": now})
+
+
+async def nilm_lag(now: datetime) -> None:
+    """Tell the maintainers of homes whose NILM is far behind their meter (daily, until fixed)."""
+    async with SessionLocal() as s:
+        late = await lagging(s, NILM_LAG)
+    if not late:
+        return
+    message = "NILM is behind the meter: " + ", ".join(f"home {h} by {d} days" for h, d in late)
+    log.warning(message)
+    await notify.tell_maintainers(message, ["home_id"])
 
 
 async def upkeep(now: datetime) -> None:

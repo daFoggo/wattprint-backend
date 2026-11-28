@@ -90,6 +90,17 @@ async def _start(session: AsyncSession, t: Target, history: timedelta) -> dateti
     )
 
 
+async def lagging(session: AsyncSession, limit: timedelta) -> list[tuple[uuid.UUID, int]]:
+    """(home, days) for homes whose newest reading is more than `limit` past where NILM is."""
+    out = []
+    for t in await targets(session):
+        newest = await _newest(session, t.main_series)
+        done = await _start(session, t, timedelta(days=400))
+        if newest and done and newest - done > limit:
+            out.append((t.home_id, (newest - done).days))
+    return out
+
+
 async def _read(session: AsyncSession, series_id: uuid.UUID, lo: datetime, hi: datetime):
     """Good readings only: flagged ones (REFIT `Issues`) were dropped from the training data and
     count as missing time in the aggregates too."""

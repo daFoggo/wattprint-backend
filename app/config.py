@@ -39,6 +39,9 @@ class Settings(BaseSettings):
 
     # Insight worker (app.modules.insight.worker): bills, forecasts, cohorts, alerts, mail.
     insight_poll_s: int = 60
+    # Nightly cleanup of ordinary tables by age (privacy spec R1.2). Off until the owner approves
+    # tiered retention: what it deletes cannot be got back. Hypertables: scripts/apply_retention.py.
+    retention_tiers: bool = False
     # Expected-usage model (app.modules.expect): days of history it learns from.
     expect_history_days: int = 365
     # In-context home anomaly: the least excess over the expected band worth an alert (VND).

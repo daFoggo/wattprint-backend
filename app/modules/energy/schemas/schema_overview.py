@@ -30,3 +30,4 @@ class SeriesPoint(BaseModel):
     min_w: float
     max_w: float
     energy_wh: float
+    coarsened: bool = False
