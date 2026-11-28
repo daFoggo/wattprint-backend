@@ -82,9 +82,8 @@ class Settings(BaseSettings):
     # How fine the numbers Wappi sends to the model may be, for a home that has not chosen:
     # 'daily' hides hourly views, night minutes and alert hours (spec R3.2).
     copilot_ai_detail_default: Literal["daily", "hourly"] = "daily"
-    # Wappi, voice and alert mail need the user's consent (R3.3). Off until the dashboard that asks
-    # for it is deployed: dev and prod share this API, and the old dashboard cannot ask.
-    # shortcut: nothing is refused while False; set CONSENT_ENFORCED=true when that dashboard ships.
+    # Wappi, voice and alert mail need the user's consent (R3.3). On in production (.env); off by
+    # default so a deployment whose dashboard cannot ask is not cut off.
     consent_enforced: bool = False
     text2sql_url: str = "http://host.docker.internal:11101"
     text2sql_connection_id: str = ""
