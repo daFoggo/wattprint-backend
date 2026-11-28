@@ -1,3 +1,3 @@
-from .schema_home import HomeRead, HomeUpdate, Province
+from .schema_home import HomeRead, HomeUpdate, KeptLevel, PrivacyOverview, Province
 
-__all__ = ["HomeRead", "HomeUpdate", "Province"]
+__all__ = ["HomeRead", "HomeUpdate", "KeptLevel", "PrivacyOverview", "Province"]

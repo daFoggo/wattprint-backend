@@ -23,10 +23,12 @@ from .meter import (
     meter_series,
     today_energy,
 )
+from .retention import kept_history
 from .weather import stored_weather, weather_at
 from .weather_inputs import weather_inputs
 
 __all__ = [
+    "kept_history",
     "SKIP_REASON",
     "Cycle",
     "DeviceDetail",

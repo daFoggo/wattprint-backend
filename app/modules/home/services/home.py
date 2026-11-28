@@ -1,16 +1,15 @@
-import tomllib
 import uuid
 from datetime import UTC, date, datetime, time, timedelta, timezone
-from pathlib import Path
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.common.demo import demo_home_entries
 from app.config import settings
 from app.modules.auth.api import User
 
 from ..models import Home, HomeMember, Province
-from ..schemas import HomeRead, HomeUpdate
+from ..schemas import HomeRead, HomeUpdate, KeptLevel, PrivacyOverview
 from ..utils import DemoHomeReadOnlyError, HomeOwnerRequiredError, UnknownProvinceError
 
 ICT = timezone(timedelta(hours=7))
@@ -60,14 +59,28 @@ async def provinces(db: AsyncSession) -> list[Province]:
 
 
 async def _is_demo_home(db: AsyncSession, home_id: uuid.UUID) -> bool:
-    homes = tomllib.loads(Path(settings.demo_homes_file).read_text())["home"]
-    owners = [h["owner"]["email"].lower() for h in homes]
+    owners = [h["owner"]["email"].lower() for h in demo_home_entries()]
     found = await db.scalar(
         select(HomeMember.home_id)
         .join(User, User.id == HomeMember.user_id)
         .where(HomeMember.home_id == home_id, User.email.in_(owners))
     )
     return found is not None
+
+
+async def privacy_overview(db: AsyncSession, member: HomeMember) -> PrivacyOverview:
+    from app.modules.energy.api import kept_history  # lazy: see erase_history
+
+    home = await db.get(Home, member.home_id)
+    erased = home.history_erased_before
+    return PrivacyOverview(
+        levels=[
+            KeptLevel(level=level, keep_days=days, oldest=oldest)
+            for level, days, oldest in await kept_history(db, home.id)
+        ],
+        erased_before=erased.astimezone(ICT).date() if erased else None,
+        can_erase=member.role == "owner" and not await _is_demo_home(db, home.id),
+    )
 
 
 async def erase_history(db: AsyncSession, member: HomeMember, before: date | None) -> None:
@@ -82,11 +95,10 @@ async def erase_history(db: AsyncSession, member: HomeMember, before: date | Non
     from app.modules.energy.api import erase_home_history
 
     now = datetime.now(UTC)
-    cut = now if before is None else datetime.combine(before, time(), ICT)
+    cut = now if before is None else min(now, datetime.combine(before, time(), ICT))
     home = await db.get(Home, member.home_id)
-    await erase_home_history(db, member.home_id, min(cut, now))
-    mark = min(cut, now)
-    home.history_erased_before = max(mark, home.history_erased_before or mark)
+    await erase_home_history(db, member.home_id, cut)
+    home.history_erased_before = max(cut, home.history_erased_before or cut)
     await db.flush()
     await refresh_bills(db, member.home_id, now)
     await db.commit()

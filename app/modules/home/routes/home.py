@@ -6,7 +6,7 @@ from app.dependencies import DbSession
 
 from .. import services
 from ..dependencies import Membership, WritableMembership
-from ..schemas import HomeRead, HomeUpdate, Province
+from ..schemas import HomeRead, HomeUpdate, PrivacyOverview, Province
 
 router = APIRouter()
 
@@ -14,6 +14,11 @@ router = APIRouter()
 @router.get("/current", summary="The account's home: profile and the account's role in it")
 async def read_current_home(member: Membership, db: DbSession) -> HomeRead:
     return await services.read_home(db, member)
+
+
+@router.get("/current/privacy", summary="What is kept of the home's use, for how long, since when")
+async def read_privacy(member: Membership, db: DbSession) -> PrivacyOverview:
+    return await services.privacy_overview(db, member)
 
 
 @router.patch("/current", summary="Change the home's profile (owner only)")

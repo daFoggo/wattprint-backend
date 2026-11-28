@@ -1,3 +1,4 @@
+from datetime import date
 from decimal import Decimal
 from typing import Literal
 from uuid import UUID
@@ -27,6 +28,18 @@ class HomeRead(BaseModel):
     role: Literal["owner", "member", "viewer"]
     ai_detail: Literal["daily", "hourly"] | None  # None: the system default
     ai_detail_effective: Literal["daily", "hourly"]
+
+
+class KeptLevel(BaseModel):
+    level: Literal["raw", "1m", "1h", "1d"]
+    keep_days: int | None  # None: nothing drops it
+    oldest: date | None  # None: nothing stored
+
+
+class PrivacyOverview(BaseModel):
+    levels: list[KeptLevel]
+    erased_before: date | None
+    can_erase: bool  # the owner of a home that is not a demo
 
 
 class HomeUpdate(BaseModel):

@@ -2,10 +2,8 @@ import hmac
 import logging
 import secrets
 import time
-import tomllib
 from collections import defaultdict, deque
 from datetime import timedelta
-from pathlib import Path
 
 import httpx
 import jwt
@@ -15,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.concurrency import run_in_threadpool
 
 from app.common.base_model import utcnow
+from app.common.demo import demo_home_entries
 from app.config import settings
 from app.modules.home.api import HomeMember, HomeRead, read_home
 
@@ -71,7 +70,7 @@ def _quota(visitor: str) -> None:
 
 async def _homes(db: AsyncSession) -> list[tuple[DemoHome, str]]:
     """(home, owner email) for each toml home whose owner is a member of a home."""
-    homes = tomllib.loads(Path(settings.demo_homes_file).read_text())["home"]
+    homes = demo_home_entries()
     emails = [h["owner"]["email"].lower() for h in homes]
     seeded = set(
         await db.scalars(

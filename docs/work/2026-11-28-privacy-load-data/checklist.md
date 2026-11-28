@@ -92,12 +92,12 @@ Kế hoạch chi tiết: [plan-d0.md](plan-d0.md).
 - [x] Đ2-T2 Thêm tham số không lưu dữ liệu vào lời gọi OpenRouter của text2sql
 
 **[DOC]**
-- [ ] Đ2-C1 Chạy eval Wappi một nhà, một lượt ở mức `hourly` và `daily`; ghi số thật vào `docs/eval/` · R6.6
+- [x] Đ2-C1 Chạy eval Wappi một nhà, một lượt ở mức `hourly` và `daily`; ghi số thật vào `docs/eval/` · R6.6
 
 Ghi chú Đ2 (2026-11-28): kế hoạch [plan-d2.md](plan-d2.md). Đã áp lên dev (`5f7ab6bb083c`, `5a085853fca0`), 4 nhà
 demo đặt `hourly`. ZDR thử thật với 4 model, không cần AstralX. R3.7 vốn đã che trước khi lưu, chỉ thêm test. Review
 một vòng: sửa 2 Must (giờ trong cảnh báo `odd_hour`, nhắc tùy chỉnh trên số theo giờ ở nhà `daily`) và 3 Minor.
-Đ2-C1 (eval hai mức) đang chạy.
+Eval hai mức: [docs/eval/d2-ai-detail-2026-11-28.md](../../eval/d2-ai-detail-2026-11-28.md): điểm gần như bằng nhau, chỉ hai câu về điện chờ khác ở mức `daily`.
 
 ## Đ3. Đồng ý, cửa ra chung, nhật ký (P1)
 
@@ -115,12 +115,12 @@ một vòng: sửa 2 Must (giờ trong cảnh báo `odd_hour`, nhắc tùy chỉ
 - [x] Đ3-B8 Worker gửi mail đọc đồng ý `email`
 
 **[WEB]**
-- [ ] Đ3-W1 Viết chữ vào `messages/{vi,en}/copilot.json` trước (lời mời đồng ý, dòng báo, mục đã gửi)
-- [ ] Đ3-W2 Hộp đồng ý lần đầu mở Wappi và lần đầu bấm mic (dùng `responsive-dialog` có sẵn) · R3.3
-- [ ] Đ3-W3 Dòng báo cố định dưới ô chat; mục "Đã gửi ra ngoài" ở mỗi câu trả lời · R3.4
-- [ ] Đ3-W4 Ô tích "Gửi kèm nội dung cho người bảo trì" ở nút 👎
-- [ ] Đ3-W5 Trạng thái Wappi khi chưa đồng ý: `EmptyState` Hairline kèm nút bật
-- [ ] Đ3-W6 Tự thử bằng tài khoản test và khách demo
+- [x] Đ3-W1 Viết chữ vào `messages/{vi,en}/copilot.json` trước (lời mời đồng ý, dòng báo, mục đã gửi)
+- [x] Đ3-W2 Hộp đồng ý lần đầu mở Wappi và lần đầu bấm mic (dùng `responsive-dialog` có sẵn) · R3.3
+- [x] Đ3-W3 Dòng báo cố định dưới ô chat; mục "Đã gửi ra ngoài" ở mỗi câu trả lời · R3.4
+- [x] Đ3-W4 Ô tích "Gửi kèm nội dung cho người bảo trì" ở nút 👎
+- [x] Đ3-W5 Trạng thái Wappi khi chưa đồng ý: `EmptyState` Hairline kèm nút bật
+- [x] Đ3-W6 Tự thử bằng tài khoản test và khách demo
 
 Ghi chú Đ3 (2026-11-28): kế hoạch [plan-d3.md](plan-d3.md), review [review-d3.md](review-d3.md). Backend xong và đã
 review: revision `602f4f387869`, `8c1e47aa2d90` đã áp lên dev; bảng thử quyền 48 thao tác. Việc chặn theo đồng ý còn
@@ -143,7 +143,7 @@ tắt (`CONSENT_ENFORCED`) cho tới khi dashboard mới triển khai. Còn: ph�
 Ghi chú Đ4 (2026-11-28): revision `9d2b6f3a1c58` đã áp lên dev. `DELETE /homes/current/history?before=` (chỉ chủ nhà,
 nhà demo từ chối), `DELETE /copilot/conversations`; xóa tài khoản dọn thêm `ai.dim_home`, `tb_ingest_batch`,
 `last_seen_at`. File mô hình NILM chưa xóa vì hiện chỉ huấn luyện từ dữ liệu công khai (`shortcut:` trong
-`account.py`). Chưa có giao diện (Đ6). Đang review.
+`account.py`). Chưa có giao diện (Đ6). Review xong, đã sửa (review-d4.md).
 
 ## Đ5. Thành viên và mức xem (P1)
 
@@ -163,7 +163,7 @@ nhà demo từ chối), `DELETE /copilot/conversations`; xóa tài khoản dọn
 ## Đ6. Trang Quyền riêng tư (P1)
 
 **[BE]**
-- [ ] Đ6-B1 `GET /homes/current/privacy`: thời hạn đang áp, ngày cũ nhất thật ở từng mức, mức của Wappi, thành viên · R5.1
+- [x] Đ6-B1 `GET /homes/current/privacy`: thời hạn đang áp, ngày cũ nhất thật ở từng mức, mức của Wappi, thành viên · R5.1 (chưa có phần thành viên: chờ Đ5)
 
 **[WEB]**
 - [ ] Đ6-W1 Dựng bố cục bằng Hallmark trước; viết chữ vào `messages/{vi,en}/privacy.json`

@@ -146,6 +146,10 @@ async def refresh_home(s: AsyncSession, home_id: uuid.UUID, now: datetime) -> in
         return 0
     tz = await _tz(s, home_id)
     lo = _midnight(now, tz) - PAST
+    erased = await s.scalar(
+        text("SELECT history_erased_before FROM public.tb_home WHERE id = :h"), {"h": home_id}
+    )
+    lo = max(lo, erased) if erased else lo  # what the owner erased stays erased
     x = await feature_frame(s, home_id, lo, now + AHEAD, now)
     p = predict(bundle, x).dropna(subset=list(HOUR_COLS))
     rows = [

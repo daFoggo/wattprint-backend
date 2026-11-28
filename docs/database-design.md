@@ -51,7 +51,7 @@ Foreign key có ở mọi nơi trừ chiều đi vào hypertable (tính toàn v�
 |---|---|
 | `public` | Các bảng nghiệp vụ `tb_*`, catalog `cat_*`, gồm auth profile, home/device, energy raw và continuous aggregates, billing, insight, ops, knowledge, suggestions và scope token |
 | `ai` | `ai_conversation`, `ai_message`, `ai_tool_call`; `dim_tariff_plan`, `dim_home`, `dim_device`; views `fact_reading_1m`, `fact_estimate_1m`, `fact_energy`; bảng `metric_definition` |
-| `copilot_ro` | 15 view chỉ đọc cho Copilot: `home`, `device`, `series`, `bill`, `bill_item`, `alert`, `device_cycle`, `suggestion`, `forecast_snapshot` và 6 view bọc các aggregate; hàm `current_home()` |
+| `copilot_ro` | 12 view chỉ đọc cho Copilot: `home`, `device`, `series`, `bill`, `bill_item`, `alert`, `suggestion`, `forecast_snapshot` và 4 view bọc aggregate theo giờ, ngày; hàm `current_home()`, `current_detail()` |
 
 ## 3. Đường ghi và đường đọc
 

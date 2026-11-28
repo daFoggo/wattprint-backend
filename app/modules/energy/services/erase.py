@@ -19,7 +19,6 @@ _DERIVED = (
     ("tb_expect_hourly", "ts"),
     ("tb_forecast_snapshot", "generated_at"),
     ("tb_suggestion", "created_at"),
-    ("tb_savings_plan", "created_at"),
 )
 
 
@@ -32,6 +31,17 @@ async def erase_home_history(db: AsyncSession, home_id: uuid.UUID, before: datet
             text(f"DELETE FROM public.{table} WHERE home_id = :h AND {ts} < :t"),
             {"h": home_id, "t": before},
         )
+    # A savings plan is its person's own: it stays, without the erased days' kWh.
+    await db.execute(
+        text(
+            "UPDATE public.tb_savings_plan p SET days = COALESCE("
+            "(SELECT jsonb_object_agg(key, value) FROM jsonb_each(p.days) "
+            "WHERE key >= (CAST(:t AS timestamptz) AT TIME ZONE "
+            "(SELECT timezone FROM public.tb_home WHERE id = :h))::date::text), '{}'::jsonb) "
+            "WHERE p.home_id = :h"
+        ),
+        {"h": home_id, "t": before},
+    )
 
 
 async def erase_home_readings(

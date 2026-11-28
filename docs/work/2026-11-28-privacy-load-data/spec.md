@@ -51,7 +51,7 @@ R1.6 Bất biến của bản tổng hợp xếp tầng: cửa sổ refresh củ
 
 R2.1 `DELETE /api/v1/homes/current/history?before=YYYY-MM-DD` (chỉ chủ nhà, 204). Xóa số đo, ước tính thiết bị,
      mọi bản tổng hợp, lượt bật/tắt, cảnh báo, dự đoán và dự báo trước ngày đó; bỏ `before` là xóa tất cả. Giữ tài
-     khoản, nhà, thiết bị, mô hình. Hóa đơn đi theo số theo ngày: kỳ nằm trọn trước mốc mất, kỳ bị cắt ngang hiện
+     khoản, nhà, thiết bị, mô hình. Kế hoạch tiết kiệm của từng người giữ lại, bỏ số của các ngày đã xóa. Hóa đơn đi theo số theo ngày: kỳ nằm trọn trước mốc mất, kỳ bị cắt ngang hiện
      "chưa đủ dữ liệu". Nhà demo từ chối thao tác này. Hộp xác nhận nói rõ hóa đơn nào mất, và rằng bản đã gửi cho
      dịch vụ ngoài không xóa được từ đây (kèm link chính sách lưu của họ).
 R2.2 Nhà ghi lại mốc đã xóa; công tơ gửi lại lô cũ hơn mốc thì bị từ chối (C4).

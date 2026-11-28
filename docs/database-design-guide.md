@@ -31,7 +31,7 @@ số đo và ước lượng (rất lớn), nhà và thiết bị, tiền điệ
 | | `dim_tariff_plan`, `dim_home`, `dim_device` | Dimensions đồng bộ từ nguồn `public`; `wattprint_ai` chỉ đọc `dim_tariff_plan` |
 | | `fact_reading_1m`, `fact_estimate_1m`, `fact_energy` | Views dữ liệu phút, khóa theo dimension; `wattprint_ai` không đọc được |
 | | `metric_definition` | Metric seed cùng SQL truy vấn fact; AI đọc, app quản lý |
-| `copilot_ro` | 15 view + `current_home()` | Lớp đọc giới hạn theo home của role Copilot cũ; không phải lớp truy cập của `wattprint_ai` |
+| `copilot_ro` | 12 view + `current_home()`, `current_detail()` | Lớp đọc giới hạn theo home của role Copilot cũ; không phải lớp truy cập của `wattprint_ai` |
 
 ---
 
@@ -139,10 +139,11 @@ số đo và ước lượng (rất lớn), nhà và thiết bị, tiền điệ
 
 Revision `cf93b7d8a102` chỉ tạo role `wattprint_app` (login, `CONNECT`); mọi quyền trên object đến từ ma trận ở `4d7b1e9a3c52` và các revision `ai`, được `tests/db/test_roles.py` kiểm đúng từng quyền.
 
-Copilot cũ không đọc bảng mà đọc 15 view
+Copilot không đọc bảng mà đọc 12 view
 `copilot_ro` (`security_barrier`). Phạm vi home do `copilot_ro.current_home()` phân giải từ
 `app.copilot_token`; token thiếu, sai định dạng, không tồn tại hoặc quá 5 phút thì trả `NULL` nên mọi
-view trả 0 dòng (fail closed). Backend phải đặt token bằng bind parameter với `is_local = true`. Executor
+view trả 0 dòng (fail closed). Token còn mang mức chi tiết (`tb_scope_token.detail`: `daily` hoặc `hourly`, theo
+`tb_home.ai_detail`): `copilot_ro.current_detail()` chỉ cho view theo giờ khi là `hourly`; ở `daily`, `alert` bỏ giờ. Backend phải đặt token bằng bind parameter với `is_local = true`. Executor
 SQL của Copilot phải có login riêng và validator SELECT-only trên parse tree (chưa viết).
 
 ---
@@ -180,7 +181,7 @@ các FK tương ứng dùng `uuid`; khóa tự nhiên (mã, `event_type`, `(prov
 
 | Bảng | Cột | Ràng buộc và ghi chú |
 |---|---|---|
-| `tb_home` | `id`, `name`, `postal_code`, `province_code`, `home_type`, `floor_area_m2 numeric(8,2)`, `year_built`, `occupants`, `timezone`, `tariff_plan_code`, `billing_cycle_day`, `created_at` | `home_type` ∈ apartment/house/other; `billing_cycle_day` 1-28 (mặc định 1); `timezone` CHECK = `Asia/Ho_Chi_Minh` (cột có sẵn để sau này hỗ trợ đa múi giờ); `tariff_plan_code` FK `ON UPDATE CASCADE ON DELETE SET NULL` |
+| `tb_home` | `id`, `name`, `postal_code`, `province_code`, `home_type`, `floor_area_m2 numeric(8,2)`, `year_built`, `occupants`, `timezone`, `tariff_plan_code`, `billing_cycle_day`, `ai_detail` *null*, `history_erased_before` *null*, `created_at` | `home_type` ∈ apartment/house/other; `billing_cycle_day` 1-28 (mặc định 1); `timezone` CHECK = `Asia/Ho_Chi_Minh` (cột có sẵn để sau này hỗ trợ đa múi giờ); `tariff_plan_code` FK `ON UPDATE CASCADE ON DELETE SET NULL` |
 | `tb_home_member` | `home_id`, `user_id`, `role`, `joined_at` | PK `(home_id, user_id)`; `UNIQUE (user_id)`; `role` ∈ owner/member |
 | `tb_home_invite` | `id`, `home_id`, `code_hash`, `role`, `expires_at`, `used_by`, `used_at` | `code_hash` UNIQUE (chỉ lưu hash) |
 | `tb_meter` | `id`, `serial`, `home_id` *null*, `claim_code_hash` *null*, `claimed_at`, `firmware`, `last_seen_at`, `status` | `serial` UNIQUE; `claim_code_hash` UNIQUE khi khác NULL; `status` ∈ new/active/retired. Meter xuất xưởng với mã ghép cặp dùng một lần, lần claim đầu gắn nó vào home |
@@ -271,6 +272,8 @@ tắc chính thức chưa có.
 | Bảng | Cột | Ghi chú |
 |---|---|---|
 | `tb_scope_token` | `token uuid` PK, `home_id uuid` FK, `expires_at` (mặc định `now() + 5 phút`), `created_at` | Chỉ `wattprint_app` đọc/ghi; **không có job dọn**, backend tự xóa token hết hạn |
+| `tb_consent` | `id`, `user_id`, `purpose`, `granted`, `version`, `created_at` | Chỉ ghi thêm; `wattprint_app` chỉ INSERT/SELECT |
+| `tb_outbound_log` | `id`, `created_at`, `user_id`, `home_id`, `party`, `purpose`, `data text[]`, `detail` | Mỗi lời gọi ra ngoài một dòng, không ghi nội dung; giữ 90 ngày |
 | `ai.ai_conversation` | `id`, `home_id`, `user_id`, `title`, `created_at` | |
 | `ai.ai_message` | `id`, `conversation_id`, `role`, `content`, `created_at` | `role` ∈ user/assistant/tool/system |
 | `ai.ai_tool_call` | `id`, `message_id`, `tool`, `input jsonb`, `sql_text`, `unit`, `duration_ms`, `ok` | Truy vết mỗi con số về truy vấn và đơn vị |
@@ -278,10 +281,10 @@ tắc chính thức chưa có.
 | `tb_suggestion_feedback` | `id`, `suggestion_id`, `user_id`, `action`, `at`, `note` | `action` ∈ accept/ignore/done/dislike |
 | `tb_savings_measure` | `suggestion_id` PK, `baseline_kwh`, `actual_kwh`, `weather_adjusted_kwh` *null*, `method` (mặc định `M&V`), `measured_at` | Bản ghi đo tiết kiệm trước/sau |
 
-`copilot_ro`: 9 view bọc bảng (`home`, `device`, `series`, `bill`, `bill_item`, `alert`, `device_cycle`,
-`suggestion`, `forecast_snapshot`) và 6 view bọc aggregate (`reading_1m/1h/1d`,
-`device_estimate_1m/1h/1d`). Mọi view lọc theo `current_home()`, và đi qua `tb_series` / `tb_device` / `tb_home` chứ
-không tin `home_id` phi chuẩn hóa.
+`copilot_ro`: 8 view bọc bảng (`home`, `device`, `series`, `bill`, `bill_item`, `alert`, `suggestion`,
+`forecast_snapshot`) và 4 view bọc aggregate (`reading_1h/1d`, `device_estimate_1h/1d`). Không có view theo phút hay
+lượt bật/tắt thiết bị; `home` không có tên, mã bưu chính, số người (`5f7ab6bb083c`). Mọi view lọc theo
+`current_home()`, và đi qua `tb_series` / `tb_device` / `tb_home` chứ không tin `home_id` phi chuẩn hóa.
 
 ### 5.7 `knowledge` và `ops`
 

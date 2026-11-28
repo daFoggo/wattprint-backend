@@ -1,4 +1,6 @@
+import json
 from datetime import UTC, datetime, timedelta, timezone
+from types import SimpleNamespace
 
 from sqlalchemy import text
 
@@ -9,7 +11,9 @@ ICT = timezone(timedelta(hours=7))
 TODAY = datetime.now(ICT).replace(hour=0, minute=0, second=0, microsecond=0)
 OLD, KEPT = TODAY - timedelta(days=40), TODAY - timedelta(days=3)
 RAW = ("tb_reading", "tb_device_estimate")
-VIEWS = ("reading_1m", "reading_1h", "reading_1d", "device_estimate_1m", "device_estimate_1d")
+VIEWS = tuple(
+    f"{family}_{res}" for family in ("reading", "device_estimate") for res in ("1m", "1h", "1d")
+)
 
 
 async def seed(home_id) -> int:
@@ -275,3 +279,127 @@ async def test_deleting_the_account_leaves_no_row_about_the_home(client, make_me
     finally:
         async with SessionLocal() as s, s.begin():
             await s.execute(text("DELETE FROM public.tb_meter WHERE id = :m"), {"m": meter})
+
+
+async def seed_derived(home_id, user_id) -> None:
+    """A suggestion, an expected hour and a forecast on each side of the cut, and a plan started
+    on the old day (made today) that holds both days."""
+    days = {d.date().isoformat(): {"expected": 1.0, "kwh": 1.0} for d in (OLD, KEPT)}
+    async with SessionLocal() as s, s.begin():
+        for day in (OLD, KEPT):
+            p = {"h": home_id, "t": day + timedelta(hours=4)}
+            await s.execute(
+                text(
+                    "INSERT INTO public.tb_suggestion (home_id, kind, title, body, created_at) "
+                    "VALUES (:h, 'tip', 't', 'b', :t)"
+                ),
+                p,
+            )
+            await s.execute(
+                text(
+                    "INSERT INTO public.tb_expect_hourly (home_id, ts, p05, p10, p50, p90, p95, "
+                    "c_weather, c_calendar, c_occupancy, c_trend, c_base, model_version) "
+                    "VALUES (:h, :t, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 'v')"
+                ),
+                p,
+            )
+            await s.execute(
+                text(
+                    "INSERT INTO public.tb_forecast_snapshot (home_id, generated_at, "
+                    "horizon_date, kwh, amount, model_version) "
+                    "VALUES (:h, :t, current_date, 1, 1, 'v')"
+                ),
+                p,
+            )
+        await s.execute(
+            text(
+                "INSERT INTO public.tb_savings_plan (user_id, home_id, start_on, end_on, "
+                "model_version, forecast_kwh, actions, days) VALUES (:u, :h, :a, :b, 'v', 10, "
+                "'[]'::jsonb, CAST(:d AS jsonb))"
+            ),
+            {
+                "u": user_id,
+                "h": home_id,
+                "a": OLD.date(),
+                "b": TODAY.date(),
+                "d": json.dumps(days),
+            },
+        )
+
+
+async def test_derived_rows_go_by_their_own_date_and_a_plan_keeps_only_kept_days(
+    client, make_member
+):
+    owner = await make_member("owner")
+    await seed_derived(owner.home_id, owner.user_id)
+    cut = (KEPT - timedelta(days=1)).date().isoformat()
+    r = await client.delete(f"/api/v1/homes/current/history?before={cut}", headers=owner.headers)
+    assert r.status_code == 204, r.text
+    async with SessionLocal() as s:
+        for table in ("tb_suggestion", "tb_expect_hourly", "tb_forecast_snapshot"):
+            n = await s.scalar(
+                text(f"SELECT count(*) FROM public.{table} WHERE home_id = :h"),
+                {"h": owner.home_id},
+            )
+            assert n == 1, table
+        days = await s.scalar(
+            text("SELECT days FROM public.tb_savings_plan WHERE home_id = :h"),
+            {"h": owner.home_id},
+        )
+    assert list(days) == [KEPT.date().isoformat()]  # the plan stays, its erased day does not
+
+
+async def test_the_nightly_refresh_does_not_predict_erased_days_again(make_member, monkeypatch):
+    import pandas as pd
+
+    from app.modules.expect.services import refresh
+
+    owner = await make_member("owner", history_erased_before=KEPT)
+    asked = []
+
+    async def bundle(*_):
+        return SimpleNamespace(version="v")
+
+    async def frame(_s, _h, lo, *_):
+        asked.append(lo)
+        return None
+
+    monkeypatch.setattr(refresh, "active_bundle", bundle)
+    monkeypatch.setattr(refresh, "feature_frame", frame)
+    monkeypatch.setattr(refresh, "predict", lambda *_: pd.DataFrame(columns=refresh.HOUR_COLS))
+    async with SessionLocal() as s, s.begin():
+        await refresh.refresh_home(s, owner.home_id, datetime.now(UTC))
+    assert asked == [KEPT]
+
+
+async def test_another_homes_totals_survive_without_their_raw_rows(client, make_member):
+    owner, other = await make_member("owner"), await make_member("owner")
+    await seed(owner.home_id)
+    theirs = await seed(other.home_id)
+    async with SessionLocal() as s, s.begin():  # as retention leaves them
+        for table in RAW:
+            await s.execute(text(f"DELETE FROM {table} WHERE series_id = :s"), {"s": theirs})
+
+    async def totals():
+        async with SessionLocal() as s:
+            return {
+                v: (
+                    await s.execute(
+                        text(
+                            f"SELECT * FROM public.{v} WHERE series_id = :s "
+                            "AND bucket < :t ORDER BY bucket"
+                        ),
+                        {"s": theirs, "t": KEPT},
+                    )
+                ).all()
+                for v in ("reading_1h", "reading_1d")
+            }
+
+    before = await totals()
+    assert all(before.values())
+    r = await client.delete("/api/v1/homes/current/history", headers=owner.headers)
+    assert r.status_code == 204, r.text
+    async with engine.connect() as c:
+        c = await c.execution_options(isolation_level="AUTOCOMMIT")
+        await backfill_aggregates(c, OLD, OLD + timedelta(days=1))
+    assert await totals() == before
