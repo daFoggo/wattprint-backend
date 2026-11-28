@@ -58,7 +58,8 @@ def _amount(x: float, unit: str) -> str:
 
 
 def alert_text(a: Alert, device: str | None) -> tuple[str, str]:
-    """Subject and first lines of an alert's mail (the dashboard says the same in vi/en)."""
+    """Subject and first lines of an alert's mail. No clock time for anyone (Đ9-4): a mail leaves
+    WattPrint and may be read by others; the time is in the app."""
     p = a.payload
     match a.kind:
         case "watch_hit":
@@ -74,11 +75,10 @@ def alert_text(a: Alert, device: str | None) -> tuple[str, str]:
                 ),
             )
         case "device_on" | "device_off":
-            at = datetime.fromisoformat(p["at"]).astimezone(ICT).strftime("%H:%M")
             did = "bật" if a.kind == "device_on" else "tắt"
             return (
                 f"{p['device']} vừa {did}",
-                f"Lần chạy bắt đầu lúc {at}. Bạn nhờ Wappi báo mỗi lần thiết bị này {did}.",
+                f"Bạn nhờ Wappi báo mỗi lần thiết bị này {did}. Giờ chạy xem trong ứng dụng.",
             )
         case "device_long_run":
             return (
@@ -116,8 +116,9 @@ def alert_text(a: Alert, device: str | None) -> tuple[str, str]:
                 case "odd_hour":
                     return (
                         f"{name} chạy vào giờ hiếm thấy",
-                        f"Thiết bị bắt đầu chạy lúc {int(p['value'])} giờ; 60 ngày qua nó chạy giờ "
-                        f"này chỉ {_num(p['usual'])}% số ngày. Có ai bật không?",
+                        "Thiết bị bắt đầu chạy vào một giờ mà 60 ngày qua nó chỉ chạy "
+                        f"{_num(p['usual'])}% số ngày. Có ai bật không? "
+                        "Giờ cụ thể xem trong ứng dụng.",
                     )
                 case "denser":
                     return (
@@ -134,9 +135,8 @@ def alert_text(a: Alert, device: str | None) -> tuple[str, str]:
                         f"{_num(p['usual'], 2)} kWh trong ngữ cảnh như hôm nay{money}.",
                     )
         case "usage_anomaly":
-            start = datetime.fromisoformat(p["start"]).astimezone(ICT).strftime("%H:%M")
             body = (
-                f"Từ {start} nhà dùng hơn mức thường {_num(p['excess_kwh'])} kWh "
+                f"Hôm nay nhà dùng hơn mức thường {_num(p['excess_kwh'])} kWh "
                 f"(≈ {_vnd(p['excess_vnd'])}), dù thời tiết và lịch như dự kiến."
             )
             if device:

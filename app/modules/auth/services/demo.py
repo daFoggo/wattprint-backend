@@ -175,7 +175,8 @@ class _Keycloak:
             },
         )
         if r.status_code != 201:
-            log.warning("demo guest: user not created (%s): %s", r.status_code, r.text[:300])
+            # Status only: Keycloak's error body can echo the username, an e-mail (D9-5).
+            log.warning("demo guest: user not created (%s)", r.status_code)
             raise DemoUnavailableError()
         return r.headers["Location"].rsplit("/", 1)[-1]
 
@@ -200,7 +201,7 @@ class _Keycloak:
             },
         )
         if r.status_code != 200:
-            log.warning("demo guest: grant refused (%s): %s", r.status_code, r.text[:300])
+            log.warning("demo guest: grant refused (%s)", r.status_code)
             raise DemoUnavailableError()
         return DemoTokens.model_validate(r.json())
 

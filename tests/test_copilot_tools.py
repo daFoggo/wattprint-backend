@@ -47,7 +47,8 @@ async def test_explain_usage_today_in_the_first_hour_says_no_whole_hour(make_mem
     me = await make_member("owner")
     at = datetime(2026, 11, 24, 0, minute, tzinfo=timezone(timedelta(hours=7))).astimezone(UTC)
     async with SessionLocal() as s:
-        out = await tools.explain_usage(tools.Ctx(s, me.home_id, at, "vi"), "today")
+        ctx = tools.Ctx(s, me.home_id, at, "vi", detail="hourly")
+        out = await tools.explain_usage(ctx, "today")
     assert "whole hour" in out.data["error"] and "model" not in out.data["error"]
 
 

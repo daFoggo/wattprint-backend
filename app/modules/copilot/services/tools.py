@@ -390,6 +390,18 @@ async def explain_usage(ctx: Ctx, period: str = "cycle") -> Outcome:
     hour = now.replace(minute=0, second=0, microsecond=0)
     local = now.astimezone(ICT)
     midnight = datetime(local.year, local.month, local.day, tzinfo=ICT).astimezone(UTC)
+    if ctx.detail != "hourly":
+        # Whole days only: a span ending at this hour, asked hour after hour, rebuilds the hours
+        # of today and of the period it is compared with (D9-1).
+        if period == "today":
+            return Outcome(
+                {
+                    "error": "Wappi is on daily detail here, so today's hours are not compared; "
+                    "ask about this week or cycle (the owner can allow hours in Settings > Privacy)"
+                },
+                _vi(ctx, "Wappi chỉ xem theo ngày", "Wappi sees days only"),
+            )
+        hour = midnight
     if period == "today":
         span, lo = hour - midnight, midnight
         prev_lo = lo - timedelta(days=1)
