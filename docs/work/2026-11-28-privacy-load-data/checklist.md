@@ -221,7 +221,7 @@ Còn: W1; việc dọn bảng thường chưa bật; chưa review R1. `widgets` 
 - [ ] Đ8-C3 Ảnh chụp: trang Quyền riêng tư (chủ nhà, thành viên theo ngày), hộp đồng ý, dòng báo trong chat, mục đã gửi, hộp xác nhận xóa · R6.2
 - [x] Đ8-C4 `docs/evidence/privacy.md` cho giám khảo: từng ý của đề → đã làm gì → minh chứng nào; đưa lên một đường dẫn · R6.4
 - [ ] Đ8-C5 README (kể cả câu "mỗi sơ đồ có file .html"), `docs/database-design.md` mục thời hạn, đồng bộ `submission/` · R6.6
-- [ ] Đ8-C6 Gom nhật ký câu lệnh của các đợt (cuộc thi yêu cầu)
+- [x] Đ8-C6 Gom nhật ký câu lệnh của các đợt (cuộc thi yêu cầu)
 
 **[WEB]**
 - [x] Đ8-W1 `apps/web/messages/{vi,en}/legal.json`: sửa E1–E9 theo mã sau thay đổi (lane S) · R6.5
