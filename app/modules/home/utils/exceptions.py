@@ -32,6 +32,11 @@ class DetailRestrictedError(ForbiddenError):
     message = "The home's owner lets you see days only"
 
 
+class GuestCannotJoinError(ForbiddenError):
+    code = "guest_cannot_join"
+    message = "A demo guest account is temporary: sign in with your own to join a home"
+
+
 class InviteInvalidError(NotFoundError):
     code = "invite_invalid"
     message = "This code is wrong, used or out of date"

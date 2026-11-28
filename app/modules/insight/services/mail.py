@@ -232,7 +232,8 @@ async def mail_alerts(now: datetime) -> None:
                     ref = f"{a.home_id}:{a.dedup_key}:{now.astimezone(ICT).date()}"
                     owner = await _watch_owner(s, a)
                     for m in await _members(s, a.home_id):
-                        if owner is not None:  # a watch is one member's: only they are told
+                        # A watch is one member's: only they are told; a deleted one, nobody.
+                        if "watch_id" in a.payload:
                             wants = m.id == owner
                         else:
                             wants = m.tier if a.kind == "tier_near" else m.anomaly

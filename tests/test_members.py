@@ -1,8 +1,12 @@
 import json
+import uuid
 from datetime import UTC, datetime, timedelta
 
+import pytest
 from sqlalchemy import text
 
+from app.common.demo import GUEST_DOMAIN
+from app.config import settings
 from app.database import SessionLocal
 
 PERIOD = {
@@ -13,12 +17,16 @@ PERIOD = {
 
 async def person(client, make_token):
     """A signed-in account with no home."""
-    import uuid
-
     token = make_token(sub=str(uuid.uuid4()))
     headers = {"Authorization": f"Bearer {token}"}
     me = (await client.get("/api/v1/users/me", headers=headers)).json()
     return headers, me["id"]
+
+
+async def set_daily(client, owner, member):
+    one = f"/api/v1/homes/current/members/{member.user_id}"
+    r = await client.patch(one, json={"detail": "daily"}, headers=owner.headers)
+    assert r.status_code == 204, r.text
 
 
 async def invite(client, owner) -> str:
@@ -234,3 +242,177 @@ async def test_wappi_answers_a_daily_member_by_day(client, make_member):
         assert ai_detail(home, mine) == "hourly"
         mine.detail = "daily"
         assert ai_detail(home, mine) == "daily"
+
+
+async def test_a_demo_guest_cannot_join_a_household(client, make_member, make_token):
+    owner = await make_member("owner")
+    code = await invite(client, owner)
+    sub = str(uuid.uuid4())
+    token = make_token(sub=sub, email=f"guest-{sub[:12]}@{GUEST_DOMAIN}")
+    r = await accept(client, {"Authorization": f"Bearer {token}"}, code)
+    assert (r.status_code, r.json()["code"]) == (403, "guest_cannot_join"), r.text
+
+
+async def test_old_guests_are_purged_even_with_an_invite_on_them(make_member):
+    from app.modules.auth.services import demo
+
+    owner = await make_member("owner")
+    async with SessionLocal() as s, s.begin():
+        guest = await s.scalar(
+            text(
+                "INSERT INTO public.tb_users (id, email, created_at) VALUES "
+                "(uuidv7(), :e, now() - interval '3 days') RETURNING id"
+            ),
+            {"e": f"guest-{uuid.uuid4().hex[:12]}@{GUEST_DOMAIN}"},
+        )
+        await s.execute(
+            text(
+                "INSERT INTO public.tb_home_invite (id, home_id, code_hash, expires_at, used_by) "
+                "VALUES (uuidv7(), :h, :c, now(), :u)"
+            ),
+            {"h": owner.home_id, "c": uuid.uuid4().hex, "u": guest},
+        )
+    async with SessionLocal() as s:
+        await demo._purge(s, None)  # no Keycloak account to delete: sub is NULL
+    async with SessionLocal() as s:
+        sql = text("SELECT count(*) FROM public.tb_users WHERE id = :u")
+        assert await s.scalar(sql, {"u": guest}) == 0
+
+
+@pytest.mark.skipif(not settings.copilot_database_url, reason="COPILOT_DATABASE_URL is not set")
+async def test_a_daily_members_own_query_sees_no_clock_time(client, make_member):
+    owner = await make_member("owner", ai_detail="hourly")
+    member = await make_member("member", home_id=owner.home_id)
+    await set_daily(client, owner, member)
+    async with SessionLocal() as s, s.begin():
+        await s.execute(
+            text(
+                "INSERT INTO public.tb_alert (home_id, kind, severity, ts, dedup_key) "
+                "VALUES (:h, 'standby_high', 'info', '2026-11-20 13:13+07', 'q')"
+            ),
+            {"h": owner.home_id},
+        )
+    sql = (
+        "SELECT extract(hour FROM ts AT TIME ZONE 'Asia/Ho_Chi_Minh') "
+        "FROM copilot_ro.alert ORDER BY ts DESC LIMIT 1"
+    )
+    body = {"metric": "sql", "sql": sql, "op": "gt", "threshold": 99, "label": "x"}
+    r = await client.post("/api/v1/insights/watches", json=body, headers=member.headers)
+    if r.status_code != 201:  # the route may not take a custom query: ask the service
+        from app.modules.insight.services import create_watch
+
+        async with SessionLocal() as s, s.begin():
+            _, value = await create_watch(
+                s, member.user_id, owner.home_id, now=datetime.now(UTC), **body
+            )
+    else:
+        value = r.json()["value_now"]
+    assert float(value) == 0
+
+
+async def test_a_daily_member_sees_devices_without_what_they_do_now(client, make_member):
+    owner = await make_member("owner")
+    member = await make_member("member", home_id=owner.home_id)
+    async with SessionLocal() as s, s.begin():
+        device = await s.scalar(
+            text(
+                "INSERT INTO public.tb_device (home_id, device_type_code, name, origin) "
+                "VALUES (:h, 'kettle', 'K', 'nilm') RETURNING id"
+            ),
+            {"h": owner.home_id},
+        )
+        series = await s.scalar(
+            text(
+                "INSERT INTO public.tb_series (home_id, kind, device_id, metric, unit) "
+                "VALUES (:h, 'device', :d, 'power_w', 'W') RETURNING series_id"
+            ),
+            {"h": owner.home_id, "d": device},
+        )
+        await s.execute(
+            text(
+                "INSERT INTO public.tb_device_estimate (series_id, ts, value) "
+                "VALUES (:s, now() - interval '1 minute', 500)"
+            ),
+            {"s": series},
+        )
+    await set_daily(client, owner, member)
+
+    (listed,) = (await client.get("/api/v1/energy/devices", headers=member.headers)).json()
+    one = (await client.get(f"/api/v1/energy/devices/{device}", headers=member.headers)).json()
+
+    assert (listed["on"], listed["watts"], one["on"], one["watts"]) == (None,) * 4
+    assert (one["power"], one["cycles"]) == ([], [])
+
+
+async def test_an_open_stream_ends_when_the_member_is_cut_to_daily(
+    client, make_member, monkeypatch
+):
+    from app.modules.energy.routes import dashboard
+
+    owner = await make_member("owner")
+    member = await make_member("member", home_id=owner.home_id)
+    polls = []
+
+    async def readings(_session, _home, _last):
+        polls.append(1)
+        if len(polls) == 2:  # the first call after the stream's opening one
+            await set_daily(client, owner, member)
+        return []
+
+    monkeypatch.setattr(dashboard.services, "main_readings", readings)
+    monkeypatch.setattr(dashboard, "STREAM_POLL_S", 0)
+    monkeypatch.setattr(dashboard, "STREAM_MAX", timedelta(seconds=3))
+
+    await client.get("/api/v1/energy/stream", headers=member.headers)
+
+    assert len(polls) == 2
+
+
+async def test_a_removed_members_watch_alert_is_mailed_to_nobody(client, make_member, monkeypatch):
+    from app.modules.insight.services import mail
+
+    sent = []
+
+    async def fake_send(to, subject, body):
+        sent.append(to)
+
+    monkeypatch.setattr(mail, "send", fake_send)
+    owner = await make_member("owner")
+    async with SessionLocal() as s, s.begin():
+        await s.execute(
+            text(
+                "INSERT INTO public.tb_user_preference (user_id, notify_anomaly) VALUES (:u, true)"
+            ),
+            {"u": owner.user_id},
+        )
+        await s.execute(
+            text(
+                "INSERT INTO public.tb_consent (user_id, purpose, granted, version) "
+                "VALUES (:u, 'email', true, '2026-11-28')"
+            ),
+            {"u": owner.user_id},
+        )
+        await s.execute(
+            text(
+                "INSERT INTO public.tb_alert (home_id, kind, severity, ts, dedup_key, payload) "
+                "VALUES (:h, 'watch_hit', 'warning', now(), 'gone', CAST(:p AS jsonb))"
+            ),
+            {
+                "h": owner.home_id,
+                "p": json.dumps(
+                    {
+                        "watch_id": str(uuid.uuid4()),
+                        "label": "TV",
+                        "op": "gt",
+                        "threshold": 0,
+                        "unit": "",
+                        "value": 1,
+                        "repeat": False,
+                    }
+                ),
+            },
+        )
+
+    await mail.mail_alerts(datetime.now(UTC))
+
+    assert sent == []

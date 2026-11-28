@@ -92,21 +92,24 @@ async def _drop_token(token: uuid.UUID) -> None:
         await s.execute(text("DELETE FROM public.tb_scope_token WHERE token = :t"), {"t": token})
 
 
-async def run_sql(home_id: uuid.UUID, sql: str) -> Decimal | None:
+async def run_sql(home_id: uuid.UUID, sql: str, user_id: uuid.UUID | None = None) -> Decimal | None:
     """The first column of the single row `sql` returns over this home's copilot_ro views.
     None when that value is NULL (e.g. a sum over no rows)."""
     if not settings.copilot_database_url:
         raise WatchError("custom_sql_disabled", "custom queries are not configured")
     body = sql.strip().rstrip(";")
     async with SessionLocal() as s, s.begin():
-        token, detail = (  # the home's level, as when Wappi wrote the query
+        token, detail = (  # the home's level, never finer than the watch owner may see
             await s.execute(
                 text(
                     "INSERT INTO public.tb_scope_token (home_id, detail) "
-                    "SELECT id, coalesce(ai_detail, :d) FROM public.tb_home WHERE id = :h "
+                    "SELECT h.id, CASE WHEN EXISTS (SELECT 1 FROM public.tb_home_member m "
+                    "WHERE m.home_id = h.id AND m.user_id = CAST(:u AS uuid) "
+                    "AND m.detail = 'daily') THEN 'daily' ELSE coalesce(h.ai_detail, :d) END "
+                    "FROM public.tb_home h WHERE h.id = :h "
                     "RETURNING token, detail"
                 ),
-                {"h": home_id, "d": settings.copilot_ai_detail_default},
+                {"h": home_id, "d": settings.copilot_ai_detail_default, "u": user_id},
             )
         ).one()
     if detail != "hourly" and HOURLY_VIEW.search(body):
@@ -143,6 +146,7 @@ async def measure(
     now: datetime,
     device_id: uuid.UUID | None = None,
     sql: str | None = None,
+    user_id: uuid.UUID | None = None,
 ) -> Decimal | None:
     """The metric's value now; None while there is no figure (no reading yet, no forecast)."""
     match metric:
@@ -173,7 +177,7 @@ async def measure(
                     return Decimal(str(round(d.kwh, 3)))
             return Decimal(0)
         case "sql":
-            return await run_sql(home_id, sql or "")
+            return await run_sql(home_id, sql or "", user_id)
     raise WatchError("bad_metric", f"unknown metric {metric}")
 
 
@@ -251,7 +255,7 @@ async def create_watch(
     if metric in ("device_on", "device_off"):
         op, threshold = "gt", 0.0
     # A per-run alert has no figure to compare now; it judges each run as it comes.
-    value = None if runs else await measure(s, home_id, metric, now, device_id, sql)
+    value = None if runs else await measure(s, home_id, metric, now, device_id, sql, user_id)
     limit = Decimal(str(threshold))
     if value is not None and crossed(op, value, limit) and not repeat:
         raise WatchError("already_crossed", "the value is already past the threshold", value)
@@ -455,7 +459,9 @@ async def _check(s: AsyncSession, w: Watch, now: datetime) -> None:
             if w.metric in DEVICE_RUNS:
                 device, hits = await _device_runs(s, w, now)
             else:
-                value = await measure(s, w.home_id, w.metric, now, w.device_id, w.sql_text)
+                value = await measure(
+                    s, w.home_id, w.metric, now, w.device_id, w.sql_text, w.user_id
+                )
     except Exception:
         log.warning("watch %s check failed", w.id, exc_info=True)
         w.fails += 1

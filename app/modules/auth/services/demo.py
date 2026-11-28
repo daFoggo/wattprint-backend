@@ -7,15 +7,15 @@ from datetime import timedelta
 
 import httpx
 import jwt
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.concurrency import run_in_threadpool
 
 from app.common.base_model import utcnow
-from app.common.demo import demo_home_entries
+from app.common.demo import GUEST_DOMAIN, demo_home_entries
 from app.config import settings
-from app.modules.home.api import HomeMember, HomeRead, read_home
+from app.modules.home.api import HomeInvite, HomeMember, HomeRead, read_home
 
 from ..models import User
 from ..schemas.schema_demo import DemoDevice, DemoHome, DemoTokens
@@ -41,7 +41,6 @@ _transport: httpx.AsyncBaseTransport | None = None  # tests put a MockTransport 
 # at most GUESTS_PER_MINUTE a minute (GUESTS_PER_VISITOR per address the dashboard names).
 # shortcut: the per-minute windows count per API process (N workers allow N times as much); move
 # them to the database or Redis when the API runs several workers.
-GUEST_DOMAIN = "guest.wattprint.local"
 GUEST_TTL = timedelta(hours=24)
 GUESTS_MAX = 500
 GUESTS_PER_MINUTE = 20
@@ -217,6 +216,10 @@ async def _purge(db: AsyncSession, kc: _Keycloak) -> None:
     ).all()
     gone = [uid for uid, sub in old if sub is None or await kc.delete(sub)]
     if gone:
+        # An invite a guest used (none can now) stays as a record, with nobody on it.
+        await db.execute(
+            update(HomeInvite).where(HomeInvite.used_by.in_(gone)).values(used_by=None)
+        )
         await db.execute(delete(User).where(User.id.in_(gone)))
         await db.commit()
 

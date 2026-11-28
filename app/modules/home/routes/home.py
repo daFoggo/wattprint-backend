@@ -57,7 +57,7 @@ async def invite(member: Membership, db: DbSession) -> Invite:
 
 @router.post("/invites/accept", summary="Join a home with its code (seeing days only at first)")
 async def accept(body: InviteAccept, user: CurrentUser, db: DbSession) -> HomeRead:
-    return await services.read_home(db, await services.accept_invite(db, user.id, body.code))
+    return await services.read_home(db, await services.accept_invite(db, user, body.code))
 
 
 @router.get("/current/members", summary="The household; addresses to the owner only")

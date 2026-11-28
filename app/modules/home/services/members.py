@@ -9,6 +9,7 @@ from sqlalchemy import delete, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.common.demo import GUEST_DOMAIN
 from app.modules.auth.api import User
 
 from ..models import HomeInvite, HomeMember
@@ -16,6 +17,7 @@ from ..schemas import Invite, MemberRead
 from ..utils import (
     AlreadyHasHomeError,
     DemoHomeReadOnlyError,
+    GuestCannotJoinError,
     HomeOwnerRequiredError,
     HomeReadOnlyError,
     InviteInvalidError,
@@ -52,8 +54,11 @@ async def create_invite(db: AsyncSession, member: HomeMember) -> Invite:
     return Invite(code=code, expires_at=expires)
 
 
-async def accept_invite(db: AsyncSession, user_id: uuid.UUID, code: str) -> HomeMember:
+async def accept_invite(db: AsyncSession, user: User, code: str) -> HomeMember:
     """The account joins the code's home, seeing days only. A demo visit gives way to it."""
+    if user.email.endswith(f"@{GUEST_DOMAIN}"):
+        raise GuestCannotJoinError
+    user_id = user.id
     now = time.monotonic()
     tries = _tries[user_id]
     while tries and now - tries[0] > TRY_WINDOW_S:
