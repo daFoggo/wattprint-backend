@@ -1,0 +1,86 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 360" role="img" font-family="'Geist', system-ui, sans-serif">
+<title>Mức khớp với mốc tham chiếu theo độ mịn dữ liệu công tơ tổng</title>
+<rect width="960" height="360" fill="#f5f5f5"/>
+<text x="24" y="32" font-size="18" fill="#2d3142" text-anchor="start">Công tơ tổng để lộ nếp sinh hoạt đến đâu (REFIT)</text>
+<text x="24" y="52" font-size="11" fill="#4f5d75" text-anchor="start">Mức khớp với mốc suy từ mẫu ~8 giây. Không phải sự thật.</text>
+<text x="292" y="84" font-size="13" fill="#2d3142" text-anchor="middle">Từng phút</text>
+<text x="200" y="104" font-size="10" fill="#4f5d75" text-anchor="middle">Nhà 2</text>
+<text x="262" y="104" font-size="10" fill="#4f5d75" text-anchor="middle">Nhà 3</text>
+<text x="324" y="104" font-size="10" fill="#4f5d75" text-anchor="middle">Nhà 5</text>
+<text x="386" y="104" font-size="10" fill="#4f5d75" text-anchor="middle">Nhà 6</text>
+<text x="24" y="147" font-size="12" fill="#2d3142" text-anchor="start">Giờ thức dậy</text>
+<rect x="170" y="116" width="58" height="52" rx="6" fill="#4f5d75" stroke="#5a6580"/>
+<text x="199" y="147" font-size="12" fill="#ffffff" text-anchor="middle">vừa</text>
+<rect x="232" y="116" width="58" height="52" rx="6" fill="#ffffff" stroke="#5a6580"/>
+<text x="261" y="147" font-size="12" fill="#2d3142" text-anchor="middle">thấp</text>
+<rect x="294" y="116" width="58" height="52" rx="6" fill="#ffffff" stroke="#5a6580"/>
+<text x="323" y="147" font-size="12" fill="#2d3142" text-anchor="middle">thấp</text>
+<rect x="356" y="116" width="58" height="52" rx="6" fill="#4f5d75" stroke="#5a6580"/>
+<text x="385" y="147" font-size="12" fill="#ffffff" text-anchor="middle">vừa</text>
+<text x="24" y="211" font-size="12" fill="#2d3142" text-anchor="start">Giờ đi ngủ</text>
+<rect x="170" y="180" width="58" height="52" rx="6" fill="#ffffff" stroke="#5a6580"/>
+<text x="199" y="211" font-size="12" fill="#2d3142" text-anchor="middle">thấp</text>
+<rect x="232" y="180" width="58" height="52" rx="6" fill="#ffffff" stroke="#5a6580"/>
+<text x="261" y="211" font-size="12" fill="#2d3142" text-anchor="middle">thấp</text>
+<rect x="294" y="180" width="58" height="52" rx="6" fill="#ffffff" stroke="#5a6580"/>
+<text x="323" y="211" font-size="12" fill="#2d3142" text-anchor="middle">thấp</text>
+<rect x="356" y="180" width="58" height="52" rx="6" fill="#ffffff" stroke="#5a6580"/>
+<text x="385" y="211" font-size="12" fill="#2d3142" text-anchor="middle">thấp</text>
+<text x="24" y="275" font-size="12" fill="#2d3142" text-anchor="start">Ngày vắng nhà</text>
+<rect x="170" y="244" width="58" height="52" rx="6" fill="#bf4520" stroke="#5a6580"/>
+<text x="199" y="275" font-size="12" fill="#ffffff" text-anchor="middle">cao</text>
+<rect x="232" y="244" width="58" height="52" rx="6" fill="#ffffff" stroke="#5a6580"/>
+<text x="261" y="275" font-size="12" fill="#2d3142" text-anchor="middle">thấp</text>
+<rect x="294" y="244" width="58" height="52" rx="6" fill="#bf4520" stroke="#5a6580"/>
+<text x="323" y="275" font-size="12" fill="#ffffff" text-anchor="middle">cao</text>
+<rect x="356" y="244" width="58" height="52" rx="6" fill="#4f5d75" stroke="#5a6580"/>
+<text x="385" y="275" font-size="12" fill="#ffffff" text-anchor="middle">vừa</text>
+<text x="552" y="84" font-size="13" fill="#2d3142" text-anchor="middle">Từng giờ</text>
+<text x="460" y="104" font-size="10" fill="#4f5d75" text-anchor="middle">Nhà 2</text>
+<text x="522" y="104" font-size="10" fill="#4f5d75" text-anchor="middle">Nhà 3</text>
+<text x="584" y="104" font-size="10" fill="#4f5d75" text-anchor="middle">Nhà 5</text>
+<text x="646" y="104" font-size="10" fill="#4f5d75" text-anchor="middle">Nhà 6</text>
+<rect x="430" y="116" width="58" height="52" rx="6" fill="#4f5d75" stroke="#5a6580"/>
+<text x="459" y="147" font-size="12" fill="#ffffff" text-anchor="middle">vừa</text>
+<rect x="492" y="116" width="58" height="52" rx="6" fill="#4f5d75" stroke="#5a6580"/>
+<text x="521" y="147" font-size="12" fill="#ffffff" text-anchor="middle">vừa</text>
+<rect x="554" y="116" width="58" height="52" rx="6" fill="#4f5d75" stroke="#5a6580"/>
+<text x="583" y="147" font-size="12" fill="#ffffff" text-anchor="middle">vừa</text>
+<rect x="616" y="116" width="58" height="52" rx="6" fill="#ffffff" stroke="#5a6580"/>
+<text x="645" y="147" font-size="12" fill="#2d3142" text-anchor="middle">thấp</text>
+<rect x="430" y="180" width="58" height="52" rx="6" fill="#4f5d75" stroke="#5a6580"/>
+<text x="459" y="211" font-size="12" fill="#ffffff" text-anchor="middle">vừa</text>
+<rect x="492" y="180" width="58" height="52" rx="6" fill="#ffffff" stroke="#5a6580"/>
+<text x="521" y="211" font-size="12" fill="#2d3142" text-anchor="middle">thấp</text>
+<rect x="554" y="180" width="58" height="52" rx="6" fill="#ffffff" stroke="#5a6580"/>
+<text x="583" y="211" font-size="12" fill="#2d3142" text-anchor="middle">thấp</text>
+<rect x="616" y="180" width="58" height="52" rx="6" fill="#ffffff" stroke="#5a6580"/>
+<text x="645" y="211" font-size="12" fill="#2d3142" text-anchor="middle">thấp</text>
+<rect x="430" y="244" width="58" height="52" rx="6" fill="#bf4520" stroke="#5a6580"/>
+<text x="459" y="275" font-size="12" fill="#ffffff" text-anchor="middle">cao</text>
+<rect x="492" y="244" width="58" height="52" rx="6" fill="#4f5d75" stroke="#5a6580"/>
+<text x="521" y="275" font-size="12" fill="#ffffff" text-anchor="middle">vừa</text>
+<rect x="554" y="244" width="58" height="52" rx="6" fill="#4f5d75" stroke="#5a6580"/>
+<text x="583" y="275" font-size="12" fill="#ffffff" text-anchor="middle">vừa</text>
+<rect x="616" y="244" width="58" height="52" rx="6" fill="#4f5d75" stroke="#5a6580"/>
+<text x="645" y="275" font-size="12" fill="#ffffff" text-anchor="middle">vừa</text>
+<text x="812" y="84" font-size="13" fill="#2d3142" text-anchor="middle">Từng ngày</text>
+<text x="720" y="104" font-size="10" fill="#4f5d75" text-anchor="middle">Nhà 2</text>
+<text x="782" y="104" font-size="10" fill="#4f5d75" text-anchor="middle">Nhà 3</text>
+<text x="844" y="104" font-size="10" fill="#4f5d75" text-anchor="middle">Nhà 5</text>
+<text x="906" y="104" font-size="10" fill="#4f5d75" text-anchor="middle">Nhà 6</text>
+<rect x="690" y="116" width="244" height="52" rx="6" fill="none" stroke="#5a6580" stroke-dasharray="4 4"/>
+<text x="812" y="147" font-size="12" fill="#4f5d75" text-anchor="middle">Không có giờ trong ngày</text>
+<rect x="690" y="180" width="244" height="52" rx="6" fill="none" stroke="#5a6580" stroke-dasharray="4 4"/>
+<text x="812" y="211" font-size="12" fill="#4f5d75" text-anchor="middle">Không có giờ trong ngày</text>
+<rect x="690" y="244" width="58" height="52" rx="6" fill="#bf4520" stroke="#5a6580"/>
+<text x="719" y="275" font-size="12" fill="#ffffff" text-anchor="middle">cao</text>
+<rect x="752" y="244" width="58" height="52" rx="6" fill="#ffffff" stroke="#5a6580"/>
+<text x="781" y="275" font-size="12" fill="#2d3142" text-anchor="middle">thấp</text>
+<rect x="814" y="244" width="58" height="52" rx="6" fill="#bf4520" stroke="#5a6580"/>
+<text x="843" y="275" font-size="12" fill="#ffffff" text-anchor="middle">cao</text>
+<rect x="876" y="244" width="58" height="52" rx="6" fill="#4f5d75" stroke="#5a6580"/>
+<text x="905" y="275" font-size="12" fill="#ffffff" text-anchor="middle">vừa</text>
+<text x="24" y="330" font-size="11" fill="#2d3142" text-anchor="start">Giờ: lệch không quá 30 phút. Ngày vắng: trùng trên tổng ngày</text>
+<text x="24" y="346" font-size="11" fill="#2d3142" text-anchor="start">mà một trong hai bên đánh dấu. Số đếm: granularity-risk.csv.</text>
+</svg>

@@ -213,12 +213,12 @@ nhà demo từ chối), `DELETE /copilot/conversations`; xóa tài khoản dọn
 - [ ] Đ8-C6 Gom nhật ký câu lệnh của các đợt (cuộc thi yêu cầu)
 
 **[WEB]**
-- [ ] Đ8-W1 `apps/web/messages/{vi,en}/legal.json`: sửa E1–E9 theo mã sau thay đổi (lane S) · R6.5
+- [x] Đ8-W1 `apps/web/messages/{vi,en}/legal.json`: sửa E1–E9 theo mã sau thay đổi (lane S) · R6.5
 
 ## Đ9. Làm dày (P2, mỗi việc một thay đổi lane M)
 
 - [ ] Đ9-1 **[BE]** Kịch bản tấn công trong eval Wappi: dụ đọc nhà khác, dụ lấy số theo phút, dụ vượt mức xem
-- [ ] Đ9-2 **[BE]** `scripts/privacy_risk_by_granularity.py` trên REFIT: đoán giờ dậy, giờ ngủ, ngày vắng nhà ở mức phút, giờ, ngày; một biểu đồ
+- [x] Đ9-2 **[BE]** `scripts/privacy_risk_by_granularity.py` trên REFIT: đoán giờ dậy, giờ ngủ, ngày vắng nhà ở mức phút, giờ, ngày; một biểu đồ
 - [ ] Đ9-3 **[DOC]** Bảng mối đe dọa theo từng mũi tên của sơ đồ (LINDDUN)
 - [ ] Đ9-4 **[BE]** Email cảnh báo bỏ giờ giấc, chi tiết xem trong app
 - [ ] Đ9-5 **[BE]** Test quét log; log lỗi Keycloak không in nguyên phản hồi

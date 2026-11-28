@@ -1,0 +1,37 @@
+house,resolution,item,days_compared,reference_days,estimate_days,agree,out_of,level
+2,minute,wake,449,398,401,222,398,vừa
+2,minute,bed,449,283,387,102,283,thấp
+2,minute,away,449,34,45,33,46,cao
+2,hour,wake,449,398,396,244,398,vừa
+2,hour,bed,449,283,336,129,283,vừa
+2,hour,away,449,34,42,33,43,cao
+2,day,wake,449,,,,,không có giờ
+2,day,bed,449,,,,,không có giờ
+2,day,away,449,34,46,33,47,cao
+3,minute,wake,534,442,510,147,442,thấp
+3,minute,bed,534,257,472,36,257,thấp
+3,minute,away,534,27,27,15,39,thấp
+3,hour,wake,534,442,487,271,442,vừa
+3,hour,bed,534,257,437,79,257,thấp
+3,hour,away,534,27,29,19,37,vừa
+3,day,wake,534,,,,,không có giờ
+3,day,bed,534,,,,,không có giờ
+3,day,away,534,27,37,13,51,thấp
+5,minute,wake,572,552,553,212,552,thấp
+5,minute,bed,572,365,553,91,365,thấp
+5,minute,away,572,16,17,16,17,cao
+5,hour,wake,572,552,542,263,552,vừa
+5,hour,bed,572,365,495,123,365,thấp
+5,hour,away,572,16,25,16,25,vừa
+5,day,wake,572,,,,,không có giờ
+5,day,bed,572,,,,,không có giờ
+5,day,away,572,16,18,15,19,cao
+6,minute,wake,474,447,451,191,447,vừa
+6,minute,bed,474,439,461,106,439,thấp
+6,minute,away,474,16,20,12,24,vừa
+6,hour,wake,474,447,355,72,447,thấp
+6,hour,bed,474,439,427,77,439,thấp
+6,hour,away,474,16,19,13,22,vừa
+6,day,wake,474,,,,,không có giờ
+6,day,bed,474,,,,,không có giờ
+6,day,away,474,16,9,9,16,vừa
