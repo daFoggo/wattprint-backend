@@ -807,7 +807,7 @@ async def query_data(ctx: Ctx, question: str) -> Outcome:
         "scope_token": str(token.token),
     }
     status, answer, steps = "error", "", []
-    await outbound.record("text2sql", "wappi", ["question", "home numbers"], ctx.detail)
+    await outbound.record("openrouter", "wappi", ["question", "home numbers"], ctx.detail)
     try:
         async with (
             outbound.client("text2sql", timeout=120) as client,
@@ -968,7 +968,7 @@ async def _one_number_sql(ctx: Ctx, question: str) -> tuple[str | None, str | No
         "question": f"{question[:400]} (một con số duy nhất, một dòng)",
         "scope_token": str(token.token),
     }
-    await outbound.record("text2sql", "wappi", ["question", "home numbers"], ctx.detail)
+    await outbound.record("openrouter", "wappi", ["question", "home numbers"], ctx.detail)
     try:
         async with outbound.client("text2sql", timeout=120) as client:
             res = await client.post(T2S_CHAT, json=body, headers=headers)

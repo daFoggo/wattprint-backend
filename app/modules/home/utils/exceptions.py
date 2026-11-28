@@ -11,6 +11,11 @@ class HomeOwnerRequiredError(ForbiddenError):
     message = "Only the home's owner can change it"
 
 
+class DemoHomeReadOnlyError(ForbiddenError):
+    code = "demo_home_read_only"
+    message = "A demo home's data is public and cannot be erased"
+
+
 class HomeReadOnlyError(ForbiddenError):
     code = "home_read_only"
     message = "This demo home is read-only"

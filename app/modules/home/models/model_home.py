@@ -1,7 +1,9 @@
+from datetime import datetime
 from decimal import Decimal
 
 from sqlalchemy import (
     CheckConstraint,
+    DateTime,
     ForeignKey,
     Numeric,
     SmallInteger,
@@ -41,3 +43,5 @@ class Home(BaseModel):
     billing_cycle_day: Mapped[int] = mapped_column(SmallInteger, default=1, server_default="1")
     # How fine the numbers Wappi sends out may be; NULL follows settings.copilot_ai_detail_default.
     ai_detail: Mapped[str | None] = mapped_column(String(8))
+    # History before this moment was erased by the owner; a meter sending it again is refused.
+    history_erased_before: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

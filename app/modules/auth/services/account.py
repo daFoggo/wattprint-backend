@@ -1,7 +1,7 @@
 import logging
 
 import httpx
-from sqlalchemy import delete, func, select, update
+from sqlalchemy import delete, func, select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
@@ -39,8 +39,22 @@ async def delete_account(db: AsyncSession, user: User) -> None:
         if others:
             raise HomeHasMembersError()
         await erase_home_readings(db, member.home_id)
+        # Rows with no cascade: the AI dimensions (a copy of the home) and the ingest history.
+        for sql in (
+            "DELETE FROM ai.dim_device WHERE home_key IN "
+            "(SELECT home_key FROM ai.dim_home WHERE source_home_id = :h)",
+            "DELETE FROM ai.dim_home WHERE source_home_id = :h",
+            "DELETE FROM public.tb_ingest_batch WHERE home_id = :h",
+        ):
+            await db.execute(text(sql), {"h": member.home_id})
         # The hardware outlives the household: it goes back to nobody (the invites cascade).
-        await db.execute(update(Meter).where(Meter.home_id == member.home_id).values(home_id=None))
+        # shortcut: NILM bundles of this home stay on disk; today they are trained from public
+        # datasets only. Delete them here once a real home's readings train one.
+        await db.execute(
+            update(Meter)
+            .where(Meter.home_id == member.home_id)
+            .values(home_id=None, last_seen_at=None)
+        )
         await db.execute(delete(Home).where(Home.id == member.home_id))
     # An invite this account used stays as a record, with nobody on it.
     await db.execute(update(HomeInvite).where(HomeInvite.used_by == user.id).values(used_by=None))

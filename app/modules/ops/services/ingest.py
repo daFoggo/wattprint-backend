@@ -108,7 +108,12 @@ async def ingest_readings(
     """
     meter = (
         await session.execute(
-            text("SELECT id, home_id FROM public.tb_meter WHERE serial = :s"), {"s": meter_serial}
+            text(
+                "SELECT m.id, m.home_id, h.history_erased_before AS erased "
+                "FROM public.tb_meter m LEFT JOIN public.tb_home h ON h.id = m.home_id "
+                "WHERE m.serial = :s"
+            ),
+            {"s": meter_serial},
         )
     ).first()
     if meter is None:
@@ -145,6 +150,8 @@ async def ingest_readings(
                     sid is not None
                     and isinstance(r.ts, datetime)
                     and _aware(r.ts)
+                    # erased by the owner: a replay of it must not bring it back
+                    and not (meter.erased and r.ts < meter.erased)
                     and abs(value) <= REAL_MAX  # also rejects NaN, inf and REAL overflow
                     and isinstance(r.quality, int)
                     and not isinstance(r.quality, bool)

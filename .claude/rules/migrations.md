@@ -13,3 +13,4 @@ Source of truth: docs/database-design-guide.md 3.1-3.3. This card is the short v
 - Aggregate 1m `compress_after` (14 d) must stay larger than its refresh `start_offset` (7 d).
 - A new table or view needs its grants in the role matrix and in `tests/db/test_roles.py` (`expected_*`); copilot reads only `copilot_ro` views.
 - Money is `numeric`, power `real`, energy `double precision`; every timestamp is `timestamptz`.
+- The running api (dev and prod, uvicorn --reload on the bind-mounted code) picks up model edits at once: write and apply an additive migration BEFORE adding its column to a model (2026-11-28: a prod request got a 500 in the gap).

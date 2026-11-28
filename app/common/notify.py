@@ -12,7 +12,9 @@ _transport: httpx.AsyncBaseTransport | None = None  # tests put a MockTransport 
 MAX_CHARS = 3500  # Telegram refuses messages over 4096
 
 
-async def tell_maintainers(text: str, data: list[str] | None = None) -> None:
+async def tell_maintainers(
+    text: str, data: list[str] | None = None, *, user_id=None, home_id=None
+) -> None:
     """Posts to the maintainers' Telegram chat; does nothing unless both settings are set.
 
     Never raises: feedback must not fail because a chat is down. The error is logged by type only,
@@ -22,7 +24,9 @@ async def tell_maintainers(text: str, data: list[str] | None = None) -> None:
     if not (token and chat):
         return
     try:
-        await outbound.record("telegram", "feedback", data or ["rating"])
+        await outbound.record(
+            "telegram", "feedback", data or ["rating"], user_id=user_id, home_id=home_id
+        )
         async with outbound.client("telegram", transport=_transport, timeout=5) as client:
             r = await client.post(
                 f"/bot{token}/sendMessage",

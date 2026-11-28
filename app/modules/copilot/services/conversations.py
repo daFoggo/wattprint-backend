@@ -96,6 +96,14 @@ async def delete_conversation(s, user_id, home_id, conversation_id) -> None:
     await s.commit()
 
 
+async def delete_all_conversations(s, user_id, home_id) -> None:
+    """Every conversation of this user in this home; messages and read-aloud audio cascade."""
+    await s.execute(
+        delete(Conversation).where(Conversation.user_id == user_id, Conversation.home_id == home_id)
+    )
+    await s.commit()
+
+
 async def answer_text(s, user_id, home_id, message_id: uuid.UUID) -> str:
     """The text of one of Wappi's answers to this user in this home."""
     text = await s.scalar(

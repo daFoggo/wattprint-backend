@@ -535,7 +535,7 @@ async def test_each_answer_lists_what_it_sent_out(client, make_member, script, m
     me = await make_member("owner")
 
     async def asks_text2sql(ctx, question):
-        await outbound.record("text2sql", "wappi", ["question", "home numbers"], ctx.detail)
+        await outbound.record("openrouter", "wappi", ["question", "home numbers"], ctx.detail)
         return tools.Outcome({"rows": []}, "Truy vấn chỉ đọc")
 
     monkeypatch.setitem(tools.TOOLS, "query_data", (asks_text2sql, tools.TOOLS["query_data"][1]))
@@ -543,7 +543,7 @@ async def test_each_answer_lists_what_it_sent_out(client, make_member, script, m
     _, events = await ask(client, me, "Giờ nào dùng nhiều nhất?")
     sent = events[-1][1]["reply"]["sent"]
     assert sent == {
-        "parties": ["text2sql"],
+        "parties": ["openrouter"],
         "data": ["question", "home numbers"],
         "detail": "daily",
     }

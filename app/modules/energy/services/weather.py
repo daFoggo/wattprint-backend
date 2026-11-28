@@ -9,6 +9,7 @@ from typing import Any
 
 import httpx
 from sqlalchemy import select
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.common import outbound
@@ -95,15 +96,16 @@ async def _fetch(lat: Decimal, lon: Decimal, lang: str) -> Weather:
         "lang": lang,  # OpenWeather writes the sky's description ("mây rải rác") in it
         "appid": settings.openweather_api_key,
     }
-    await outbound.record("openweather", "weather", ["province location"])  # no home, no person
     try:
+        # no home, no person in the row
+        await outbound.record("openweather", "weather", ["province location"])
         async with outbound.client("openweather", timeout=TIMEOUT_S) as client:
             current, forecast = await asyncio.gather(
                 client.get("/weather", params=params), client.get("/forecast", params=params)
             )
             current.raise_for_status()
             forecast.raise_for_status()
-    except httpx.HTTPError as e:
+    except (httpx.HTTPError, SQLAlchemyError) as e:
         log.warning("OpenWeather failed: %r", e)
         raise WeatherUnavailableError from e
     return parse(current.json(), forecast.json())

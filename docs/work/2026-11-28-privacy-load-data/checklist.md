@@ -108,9 +108,9 @@ một vòng: sửa 2 Must (giờ trong cảnh báo `odd_hour`, nhắc tùy chỉ
 - [x] Đ3-B1 Test đỏ: chưa đồng ý thì chat và giọng nói trả 403 `consent_required` và không có lời gọi nào ra ngoài; đồng ý rồi rút thì bị chặn lại ngay; mỗi lần bật tắt thêm đúng một dòng
 - [x] Đ3-B2 `GET` và `PUT /users/me/consents/{purpose}` cho `wappi`, `voice`, `email`
 - [x] Đ3-B3 Hàm gọi ra ngoài chung (kiểm đồng ý → ghi nhật ký → gửi); chuyển `llm.py`, `guard.py`, `documents.py`, `voice.py`, `weather.py`, `notify.py` và `query_data` sang dùng · R3.5
-- [ ] Đ3-B4 Test quét mã nguồn: tên máy chủ bên ngoài chỉ xuất hiện ở cấu hình và hàm chung
+- [x] Đ3-B4 Test quét mã nguồn: tên máy chủ bên ngoài chỉ xuất hiện ở cấu hình và hàm chung
 - [x] Đ3-B5 `GET /users/me/outbound` trả 30 ngày gần nhất của người gọi
-- [ ] Đ3-B6 Mỗi câu trả lời kèm mục "đã gửi ra ngoài": bên nhận (lấy từ `usage.providers`), loại dữ liệu, mức chi tiết · R3.4
+- [x] Đ3-B6 Mỗi câu trả lời kèm mục "đã gửi ra ngoài": bên nhận (lấy từ `usage.providers`), loại dữ liệu, mức chi tiết · R3.4
 - [x] Đ3-B7 👎 mặc định không gửi nội dung; chỉ gửi khi có `share_content` · R3.6
 - [x] Đ3-B8 Worker gửi mail đọc đồng ý `email`
 
@@ -122,26 +122,28 @@ một vòng: sửa 2 Must (giờ trong cảnh báo `odd_hour`, nhắc tùy chỉ
 - [ ] Đ3-W5 Trạng thái Wappi khi chưa đồng ý: `EmptyState` Hairline kèm nút bật
 - [ ] Đ3-W6 Tự thử bằng tài khoản test và khách demo
 
-Ghi chú Đ3 (đang làm): kế hoạch [plan-d3.md](plan-d3.md). Backend xong phần lớn: `tb_consent`, `tb_outbound_log`
-(đã áp lên dev, `602f4f387869`), cổng `app/common/outbound.py`, API đồng ý và nhật ký, chặn chat và giọng nói, 👎
-không gửi nội dung nếu không tích, mail theo đồng ý `email`. Việc chặn theo đồng ý nằm sau `consent_enforced`
-(mặc định tắt) vì dev và prod dùng chung API mà dashboard prod cũ chưa có hộp đồng ý; bật khi triển khai web mới.
-Còn: Đ3-B4 test quét mã, Đ3-B6 mục "đã gửi ra ngoài" (đã có trong `reply.sent`, còn test), dòng bảng thử quyền cho 3
-route mới, toàn bộ phần web Đ3-W1…W6.
+Ghi chú Đ3 (2026-11-28): kế hoạch [plan-d3.md](plan-d3.md), review [review-d3.md](review-d3.md). Backend xong và đã
+review: revision `602f4f387869`, `8c1e47aa2d90` đã áp lên dev; bảng thử quyền 48 thao tác. Việc chặn theo đồng ý còn
+tắt (`CONSENT_ENFORCED`) cho tới khi dashboard mới triển khai. Còn: phần web Đ3-W1…W6 (đang làm).
 
 ## Đ4. Xóa lịch sử (P1)
 
 **[DB]**
-- [ ] Đ4-D1 Migration: `tb_home.history_erased_before` · R2.2
+- [x] Đ4-D1 Migration: `tb_home.history_erased_before` · R2.2
 
 **[BE]**
-- [ ] Đ4-B1 Test đỏ: hai nhà A, B; xóa A trước ngày D thì mọi tầng của A trước D về 0, số của B không đổi, kể cả quãng cũ hơn thời hạn số thô; thành viên và khách nhận 403; nhà demo bị từ chối · R2.1
-- [ ] Đ4-B2 `erase_home_readings(db, home_id, before=None)`; thêm lượt bật/tắt, cảnh báo, dự đoán theo giờ, dự báo, gợi ý
-- [ ] Đ4-B3 `DELETE /homes/current/history?before=`
-- [ ] Đ4-B4 Công tơ gửi lô cũ hơn mốc đã xóa thì bị từ chối · R2.2
-- [ ] Đ4-B5 Test hành vi hóa đơn sau khi xóa: kỳ nằm trọn trước mốc mất, kỳ bị cắt ngang ở trạng thái chưa đủ dữ liệu
-- [ ] Đ4-B6 `DELETE /copilot/conversations` xóa mọi trò chuyện của người gọi kèm âm thanh · R2.3
-- [ ] Đ4-B7 Xóa tài khoản dọn nốt `ai.dim_home` (xóa thật), `tb_ingest_batch`, `last_seen_at` của công tơ, file mô hình riêng của nhà · R2.4
+- [x] Đ4-B1 Test đỏ: hai nhà A, B; xóa A trước ngày D thì mọi tầng của A trước D về 0, số của B không đổi, kể cả quãng cũ hơn thời hạn số thô; thành viên và khách nhận 403; nhà demo bị từ chối · R2.1
+- [x] Đ4-B2 `erase_home_readings(db, home_id, before=None)`; thêm lượt bật/tắt, cảnh báo, dự đoán theo giờ, dự báo, gợi ý
+- [x] Đ4-B3 `DELETE /homes/current/history?before=`
+- [x] Đ4-B4 Công tơ gửi lô cũ hơn mốc đã xóa thì bị từ chối · R2.2
+- [x] Đ4-B5 Test hành vi hóa đơn sau khi xóa: kỳ nằm trọn trước mốc mất, kỳ bị cắt ngang ở trạng thái chưa đủ dữ liệu
+- [x] Đ4-B6 `DELETE /copilot/conversations` xóa mọi trò chuyện của người gọi kèm âm thanh · R2.3
+- [x] Đ4-B7 Xóa tài khoản dọn nốt `ai.dim_home` (xóa thật), `tb_ingest_batch`, `last_seen_at` của công tơ, file mô hình riêng của nhà · R2.4
+
+Ghi chú Đ4 (2026-11-28): revision `9d2b6f3a1c58` đã áp lên dev. `DELETE /homes/current/history?before=` (chỉ chủ nhà,
+nhà demo từ chối), `DELETE /copilot/conversations`; xóa tài khoản dọn thêm `ai.dim_home`, `tb_ingest_batch`,
+`last_seen_at`. File mô hình NILM chưa xóa vì hiện chỉ huấn luyện từ dữ liệu công khai (`shortcut:` trong
+`account.py`). Chưa có giao diện (Đ6). Đang review.
 
 ## Đ5. Thành viên và mức xem (P1)
 

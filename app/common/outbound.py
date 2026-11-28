@@ -135,14 +135,15 @@ async def record(
 
 
 async def recent(user_id: uuid.UUID, days: int = 30) -> list[dict]:
-    """What left WattPrint for this person, and for their home with no person named (weather)."""
+    """What left WattPrint for this person. Weather is not here: its call carries a province only
+    and is shared by every home there, so it names nobody."""
     async with SessionLocal() as s:
         rows = await s.execute(
             text(
-                "SELECT created_at, party, purpose, data, detail FROM public.tb_outbound_log l "
-                "WHERE l.created_at > now() - make_interval(days => :d) AND (l.user_id = :u OR "
-                "(l.user_id IS NULL AND l.home_id IN (SELECT home_id FROM public.tb_home_member "
-                "WHERE user_id = :u))) ORDER BY l.created_at DESC LIMIT 500"
+                "SELECT created_at, party, purpose, data, detail FROM public.tb_outbound_log "
+                "WHERE user_id = :u AND created_at > now() - make_interval(days => :d) "
+                # shortcut: newest 5000 rows, page it when someone asks more than that a month
+                "ORDER BY created_at DESC LIMIT 5000"
             ),
             {"u": user_id, "d": days},
         )

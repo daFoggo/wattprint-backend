@@ -24,6 +24,7 @@ from ..modules.insight.models import Alert, CohortStat, DeviceCycle, ForecastSna
 from ..modules.nilm.models import NilmModel
 from ..modules.ops.models import IngestBatch, IngestCheckpoint
 from .knowledge import Chunk, Document
+from .privacy import ConsentRecord, OutboundLog
 
 __all__ = [
     "Alert",
@@ -31,6 +32,7 @@ __all__ = [
     "BillItem",
     "Chunk",
     "CohortStat",
+    "ConsentRecord",
     "Conversation",
     "Device",
     "DeviceAlertRule",
@@ -48,6 +50,7 @@ __all__ = [
     "Meter",
     "Metric",
     "NilmModel",
+    "OutboundLog",
     "SavingsMeasure",
     "ScopeToken",
     "Series",

@@ -36,6 +36,7 @@ REQUESTS: dict[tuple[str, str], dict] = {
     ("POST", "/api/v1/demo/homes/{key}/view"): {},
     ("POST", "/api/v1/demo/homes/{key}/guest"): {},
     ("GET", "/api/v1/homes/current"): {},
+    ("DELETE", "/api/v1/homes/current/history"): {},
     ("PATCH", "/api/v1/homes/current"): {"json": {"name": "Nhà thử quyền"}},
     ("GET", "/api/v1/homes/provinces"): {},
     ("GET", "/api/v1/energy/overview"): {},
@@ -69,6 +70,7 @@ REQUESTS: dict[tuple[str, str], dict] = {
     ("DELETE", "/api/v1/insights/watches/{watch_id}"): {},
     ("POST", "/api/v1/copilot/chat"): {"json": {"question": "Xin chào"}},
     ("GET", "/api/v1/copilot/conversations"): {},
+    ("DELETE", "/api/v1/copilot/conversations"): {},
     ("GET", "/api/v1/copilot/conversations/{conversation_id}"): {},
     ("PATCH", "/api/v1/copilot/conversations/{conversation_id}"): {"json": {"title": "Đổi"}},
     ("DELETE", "/api/v1/copilot/conversations/{conversation_id}"): {},
@@ -132,6 +134,8 @@ EXPECTED: dict[tuple[str, str], tuple[int, ...]] = {
     ("GET", "/api/v1/users/me/consents"): (401, 200, 200, 200, 200, 200),
     ("PUT", "/api/v1/users/me/consents/{purpose}"): (401, 200, 200, 200, 200, 200),
     ("GET", "/api/v1/users/me/outbound"): (401, 200, 200, 200, 200, 200),
+    ("DELETE", "/api/v1/homes/current/history"): (401, 204, 403, 403, 204, 404),
+    ("DELETE", "/api/v1/copilot/conversations"): (401, 204, 204, 204, 204, 404),
 }
 
 

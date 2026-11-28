@@ -86,7 +86,7 @@ async def test_the_outbound_log_lists_my_last_30_days(client, make_member):
     me = await make_member("owner")
     other = await make_member("owner")
     await outbound.record("openrouter", "wappi", ["question"], "daily", user_id=me.user_id)
-    await outbound.record("openweather", "weather", ["province location"], home_id=me.home_id)
+    await outbound.record("openweather", "weather", ["province location"])  # names nobody
     await outbound.record("openrouter", "wappi", ["question"], user_id=other.user_id)
     async with SessionLocal() as s, s.begin():
         await s.execute(
@@ -99,7 +99,35 @@ async def test_the_outbound_log_lists_my_last_30_days(client, make_member):
     r = await client.get("/api/v1/users/me/outbound", headers=me.headers)
     assert r.status_code == 200
     got = [(x["party"], x["purpose"], x["data"], x["detail"]) for x in r.json()]
-    assert sorted(got) == [
-        ("openrouter", "wappi", ["question"], "daily"),
-        ("openweather", "weather", ["province location"], None),
-    ]
+    assert got == [("openrouter", "wappi", ["question"], "daily")]
+
+
+async def test_a_shared_thumbs_down_shows_in_my_log(client, make_member, monkeypatch):
+    from app.common import notify, outbound
+
+    me = await make_member("owner")
+    monkeypatch.setattr(settings, "feedback_telegram_token", "1:a")
+    monkeypatch.setattr(settings, "feedback_telegram_chat", "-1")
+    monkeypatch.setattr(notify, "_transport", httpx.MockTransport(lambda r: httpx.Response(200)))
+    await notify.tell_maintainers("x", ["rating", "question"], user_id=me.user_id)
+    got = [(r["party"], r["data"]) for r in await outbound.recent(me.user_id)]
+    assert got == [("telegram", ["rating", "question"])]
+
+
+async def test_alert_mail_needs_a_current_email_consent(make_member):
+    from app.modules.insight.services import mail
+
+    yes = await make_member("owner", consent=("email",))
+    withdrew = await make_member("member", home_id=yes.home_id, consent=("email",))
+    never = await make_member("member", home_id=yes.home_id, consent=())
+    async with SessionLocal() as s, s.begin():
+        await s.execute(
+            text(
+                "INSERT INTO public.tb_consent (user_id, purpose, granted, version, created_at) "
+                "VALUES (:u, 'email', false, 'x', now() + interval '1 second')"
+            ),
+            {"u": withdrew.user_id},
+        )
+    async with SessionLocal() as s:
+        got = {m.id for m in await mail._members(s, yes.home_id)}
+    assert got == {yes.user_id} and never.user_id not in got

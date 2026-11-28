@@ -1,4 +1,5 @@
 from .exceptions import (
+    DemoHomeReadOnlyError,
     HomeNotFoundError,
     HomeOwnerRequiredError,
     HomeReadOnlyError,
@@ -6,6 +7,7 @@ from .exceptions import (
 )
 
 __all__ = [
+    "DemoHomeReadOnlyError",
     "HomeNotFoundError",
     "HomeOwnerRequiredError",
     "HomeReadOnlyError",

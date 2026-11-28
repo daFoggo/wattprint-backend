@@ -1,12 +1,19 @@
+import tomllib
+import uuid
+from datetime import UTC, date, datetime, time, timedelta, timezone
+from pathlib import Path
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
+from app.modules.auth.api import User
 
 from ..models import Home, HomeMember, Province
 from ..schemas import HomeRead, HomeUpdate
-from ..utils import HomeOwnerRequiredError, UnknownProvinceError
+from ..utils import DemoHomeReadOnlyError, HomeOwnerRequiredError, UnknownProvinceError
 
+ICT = timezone(timedelta(hours=7))
 # Required columns: null in a patch means "not sent", never "clear".
 REQUIRED = {"name", "billing_cycle_day"}
 
@@ -50,3 +57,37 @@ async def update_home(db: AsyncSession, member: HomeMember, patch: HomeUpdate) -
 
 async def provinces(db: AsyncSession) -> list[Province]:
     return list(await db.scalars(select(Province).order_by(Province.name)))
+
+
+async def _is_demo_home(db: AsyncSession, home_id: uuid.UUID) -> bool:
+    homes = tomllib.loads(Path(settings.demo_homes_file).read_text())["home"]
+    owners = [h["owner"]["email"].lower() for h in homes]
+    found = await db.scalar(
+        select(HomeMember.home_id)
+        .join(User, User.id == HomeMember.user_id)
+        .where(HomeMember.home_id == home_id, User.email.in_(owners))
+    )
+    return found is not None
+
+
+async def erase_history(db: AsyncSession, member: HomeMember, before: date | None) -> None:
+    """Owner only: the home's measurements before `before` (all when None), and what was derived
+    from them. Bills follow the daily totals: a cycle wholly older goes, a cut one turns partial."""
+    if member.role != "owner":
+        raise HomeOwnerRequiredError
+    if await _is_demo_home(db, member.home_id):
+        raise DemoHomeReadOnlyError
+    # Lazy: energy and billing read homes through home.api, so a top-level import is a cycle.
+    from app.modules.billing.api import forget_device_forecasts, refresh_bills
+    from app.modules.energy.api import erase_home_history
+
+    now = datetime.now(UTC)
+    cut = now if before is None else datetime.combine(before, time(), ICT)
+    home = await db.get(Home, member.home_id)
+    await erase_home_history(db, member.home_id, min(cut, now))
+    mark = min(cut, now)
+    home.history_erased_before = max(mark, home.history_erased_before or mark)
+    await db.flush()
+    await refresh_bills(db, member.home_id, now)
+    await db.commit()
+    forget_device_forecasts(member.home_id)

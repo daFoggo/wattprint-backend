@@ -93,6 +93,11 @@ async def update_conversation(
     return ConversationSummary.model_validate(c)
 
 
+@router.delete("/conversations", status_code=204, summary="Delete all my conversations here")
+async def delete_all_conversations(member: Membership, db: DbSession):
+    await services.delete_all_conversations(db, member.user_id, member.home_id)
+
+
 @router.delete("/conversations/{conversation_id}", status_code=204)
 async def delete_conversation(conversation_id: uuid.UUID, member: Membership, db: DbSession):
     await services.delete_conversation(db, member.user_id, member.home_id, conversation_id)
@@ -114,7 +119,13 @@ async def feedback(
         if body.share_content:
             note += f"\nHỏi: {question[:600]}\nĐáp: {answer[:1500]}"
             data += ["question", "answer"]
-        background.add_task(tell_maintainers, f"{note}\nid: {message_id}", data)
+        background.add_task(
+            tell_maintainers,
+            f"{note}\nid: {message_id}",
+            data,
+            user_id=member.user_id,
+            home_id=member.home_id,
+        )
 
 
 MAX_AUDIO = 10 * 1024 * 1024  # about 10 minutes of Opus: far more than one question

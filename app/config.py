@@ -81,6 +81,7 @@ class Settings(BaseSettings):
     copilot_ai_detail_default: Literal["daily", "hourly"] = "daily"
     # Wappi, voice and alert mail need the user's consent (R3.3). Off until the dashboard that asks
     # for it is deployed: dev and prod share this API, and the old dashboard cannot ask.
+    # shortcut: nothing is refused while False; set CONSENT_ENFORCED=true when that dashboard ships.
     consent_enforced: bool = False
     text2sql_url: str = "http://host.docker.internal:11101"
     text2sql_connection_id: str = ""
