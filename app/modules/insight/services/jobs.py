@@ -171,7 +171,7 @@ async def nilm_lag(now: datetime) -> None:
         return
     message = "NILM is behind the meter: " + ", ".join(f"home {h} by {d} days" for h, d in late)
     log.warning(message)
-    await notify.tell_maintainers(message, ["home_id"])
+    await notify.tell_maintainers(message, ["home_id"], purpose="nilm_lag")
 
 
 async def upkeep(now: datetime) -> None:

@@ -11,6 +11,7 @@ import pandas as pd
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
+from app.config import settings
 from app.modules.energy.api import backfill_aggregates, weather_inputs
 from app.modules.ops.api import DemoScenario, heater_w, ingest_estimates, scenarios_between
 
@@ -95,7 +96,7 @@ async def lagging(session: AsyncSession, limit: timedelta) -> list[tuple[uuid.UU
     out = []
     for t in await targets(session):
         newest = await _newest(session, t.main_series)
-        done = await _start(session, t, timedelta(days=400))
+        done = await _start(session, t, timedelta(days=settings.nilm_history_days))
         if newest and done and newest - done > limit:
             out.append((t.home_id, (newest - done).days))
     return out

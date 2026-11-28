@@ -13,7 +13,7 @@ MAX_CHARS = 3500  # Telegram refuses messages over 4096
 
 
 async def tell_maintainers(
-    text: str, data: list[str] | None = None, *, user_id=None, home_id=None
+    text: str, data: list[str] | None = None, *, user_id=None, home_id=None, purpose="feedback"
 ) -> None:
     """Posts to the maintainers' Telegram chat; does nothing unless both settings are set.
 
@@ -25,7 +25,7 @@ async def tell_maintainers(
         return
     try:
         await outbound.record(
-            "telegram", "feedback", data or ["rating"], user_id=user_id, home_id=home_id
+            "telegram", purpose, data or ["rating"], user_id=user_id, home_id=home_id
         )
         async with outbound.client("telegram", transport=_transport, timeout=5) as client:
             r = await client.post(

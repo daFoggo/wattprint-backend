@@ -1,8 +1,10 @@
 """Tiered retention (spec R1.1-R1.6). Policies are applied to the test database only."""
 
+import asyncio
 from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import text
+from sqlalchemy.exc import DBAPIError
 
 from app.common import notify
 from app.config import settings
@@ -72,6 +74,17 @@ async def test_the_dry_run_counts_and_changes_nothing():
     assert await _jobs() == before
 
 
+async def _backfill(c, lo, hi) -> None:
+    for attempt in range(5):
+        try:
+            await backfill_aggregates(c, lo, hi)
+            return
+        except DBAPIError as e:
+            if "concurrent refresh" not in str(e) or attempt == 4:
+                raise
+            await asyncio.sleep(1)
+
+
 async def _old_rows(home_id) -> None:
     now = datetime.now(UTC)
     async with SessionLocal() as s, s.begin():
@@ -116,8 +129,8 @@ async def test_the_nightly_cleanup_is_off_until_asked(make_member, monkeypatch):
     home = (await make_member("owner")).home_id
     await _old_rows(home)
 
+    monkeypatch.setattr(settings, "retention_tiers", False)  # whatever the container's env says
     await jobs.cleanup(datetime.now(UTC))
-    assert settings.retention_tiers is False
     assert await _left(home) == [2, 2, 2]
 
     monkeypatch.setattr(settings, "retention_tiers", True)
@@ -181,7 +194,7 @@ async def test_a_window_older_than_the_minutes_kept_comes_back_hourly(client, ma
     async with engine.connect() as c:
         c = await c.execution_options(isolation_level="AUTOCOMMIT")
         for at in (old, recent):
-            await backfill_aggregates(c, at - timedelta(days=1), at + timedelta(days=1))
+            await _backfill(c, at - timedelta(days=1), at + timedelta(days=1))
 
     async def series(at):
         r = await client.get(
@@ -254,3 +267,35 @@ def test_rebuild_and_detectors_read_no_further_than_the_runs_are_kept():
     # the usual of the night standby and of the unexplained load, on one-minute buckets
     assert timedelta(days=detectors.BASE_DAYS + detectors.RECENT_DAYS + 1) <= kept
     assert timedelta(weeks=device_forecast.RUN_WEEKS) <= kept
+
+
+async def test_expected_hours_past_400_days_go(make_member, monkeypatch):
+    home = (await make_member("owner")).home_id
+    now = datetime.now(UTC)
+    async with SessionLocal() as s, s.begin():
+        for days in (450, 10):
+            await s.execute(
+                text(
+                    "INSERT INTO public.tb_expect_hourly (home_id, ts, p05, p10, p50, p90, p95, "
+                    "c_weather, c_calendar, c_occupancy, c_trend, c_base, model_version) "
+                    "VALUES (:h, :t, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 'v')"
+                ),
+                {"h": home, "t": now - timedelta(days=days)},
+            )
+    monkeypatch.setattr(settings, "retention_tiers", True)
+    await jobs.cleanup(now)
+    async with SessionLocal() as s:
+        sql = text("SELECT count(*) FROM public.tb_expect_hourly WHERE home_id = :h")
+        assert await s.scalar(sql, {"h": home}) == 1
+
+
+async def test_hours_past_400_days_come_back_daily(monkeypatch):
+    from app.modules.energy.services import meter
+
+    async def kept(_):
+        return {"reading_1m": 90, "reading_1h": 400}
+
+    monkeypatch.setattr(meter, "keep_days", kept)
+    now = datetime.now(UTC)
+    assert await meter._kept_step(None, "1h", now - timedelta(days=500)) == "1d"
+    assert await meter._kept_step(None, "1h", now - timedelta(days=10)) == "1h"
