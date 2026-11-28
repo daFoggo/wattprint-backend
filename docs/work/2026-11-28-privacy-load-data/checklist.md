@@ -157,8 +157,8 @@ nhà demo từ chối), `DELETE /copilot/conversations`; xóa tài khoản dọn
 - [x] Đ5-B4 Thêm chủ thể "thành viên theo ngày" vào bảng thử quyền
 
 **[WEB]**
-- [ ] Đ5-W1 Màn "Chưa có nhà" thêm ô nhập mã mời
-- [ ] Đ5-W2 Người "chỉ theo ngày": ẩn khối theo giờ và hoạt động thiết bị, ghi rõ vì sao · R4.3
+- [x] Đ5-W1 Màn "Chưa có nhà" thêm ô nhập mã mời
+- [x] Đ5-W2 Người "chỉ theo ngày": ẩn khối theo giờ và hoạt động thiết bị, ghi rõ vì sao · R4.3
 
 ## Đ6. Trang Quyền riêng tư (P1)
 
@@ -169,9 +169,9 @@ nhà demo từ chối), `DELETE /copilot/conversations`; xóa tài khoản dọn
 - [x] Đ6-W1 Dựng bố cục bằng Hallmark trước; viết chữ vào `messages/{vi,en}/privacy.json` (chưa xác nhận đã qua Hallmark)
 - [x] Đ6-W2 `features/privacy/` và route `/dashboard/settings/privacy`; đường vào từ Cài đặt và menu tài khoản
 - [x] Đ6-W3 Khối "Đang giữ gì": bốn bậc kèm ngày cũ nhất thật
-- [ ] Đ6-W4 Khối "Ai xem được": danh sách, mức xem, mời, gỡ
+- [x] Đ6-W4 Khối "Ai xem được": danh sách, mức xem, mời, gỡ
 - [x] Đ6-W5 Khối "Gửi ra ngoài": từng dịch vụ gửi gì, mức nào; công tắc Wappi, giọng nói, email; mức của Wappi; nhật ký 30 ngày
-- [ ] Đ6-W6 Khối "Xóa": lịch sử điện (trước ngày, tất cả), trò chuyện, tài khoản; hộp xác nhận nói rõ cái gì mất và cái gì không xóa được · R5.3 (đã dựng, chưa tự thử bằng chủ nhà)
+- [x] Đ6-W6 Khối "Xóa": lịch sử điện (trước ngày, tất cả), trò chuyện, tài khoản; hộp xác nhận nói rõ cái gì mất và cái gì không xóa được · R5.3 (đã thử xóa trên một nhà tạm)
 - [x] Đ6-W7 Khối "AI dùng dữ liệu của bạn thế nào"
 - [x] Đ6-W8 Chế độ chỉ xem cho người không phải chủ nhà · R5.2
 - [ ] Đ6-W9 Tự thử: chủ nhà, thành viên theo ngày, khách demo; chạy checklist laws-of-ux
@@ -190,7 +190,7 @@ nhà demo từ chối), `DELETE /copilot/conversations`; xóa tài khoản dọn
 - [x] Đ7-B4 Test: dựng lại lượt bật/tắt và bộ phát hiện bất thường không đọc lùi quá 90 ngày · R1.4
 
 **[WEB]**
-- [ ] Đ7-W1 Biểu đồ ghi "Chi tiết theo phút chỉ giữ 90 ngày" khi nhận cờ `coarsened`
+- [x] Đ7-W1 Biểu đồ ghi "Chi tiết theo phút chỉ giữ 90 ngày" khi nhận cờ `coarsened`
 
 **[OPS]**
 - [x] Đ7-O1 Áp trên dev; prod chờ chủ dự án yêu cầu; không áp trong 48 giờ trước giờ chấm (đã áp 28/11; database 3161 → 1165 MB, hóa đơn và số giờ/ngày không đổi)
@@ -218,7 +218,7 @@ Còn: W1; việc dọn bảng thường chưa bật; chưa review R1. `widgets` 
   - [x] Đ8-C1f DFD mức 0: các tiến trình chính (thu số đo, tổng hợp, NILM, tính tiền, insight, Wappi, quyền riêng tư) và các kho dữ liệu kèm thời hạn
   - [x] Đ8-C1g DFD mức 1: phân rã tiến trình Wappi (che dữ liệu, kiểm đồng ý, cửa ra chung, ghi nhật ký) và tiến trình quyền riêng tư (xóa lịch sử, dọn theo thời hạn)
 - [x] Đ8-C2 `docs/evidence/privacy/permission-matrix-after.md` · R6.3
-- [ ] Đ8-C3 Ảnh chụp: trang Quyền riêng tư (chủ nhà, thành viên theo ngày), hộp đồng ý, dòng báo trong chat, mục đã gửi, hộp xác nhận xóa · R6.2
+- [x] Đ8-C3 Ảnh chụp: trang Quyền riêng tư (chủ nhà, thành viên theo ngày), hộp đồng ý, dòng báo trong chat, mục đã gửi, hộp xác nhận xóa · R6.2
 - [x] Đ8-C4 `docs/evidence/privacy.md` cho giám khảo: từng ý của đề → đã làm gì → minh chứng nào; đưa lên một đường dẫn · R6.4
 - [ ] Đ8-C5 README (kể cả câu "mỗi sơ đồ có file .html"), `docs/database-design.md` mục thời hạn, đồng bộ `submission/` · R6.6
 - [x] Đ8-C6 Gom nhật ký câu lệnh của các đợt (cuộc thi yêu cầu)

@@ -92,8 +92,10 @@ R4.1 Chủ nhà mời người thân bằng mã (dùng bảng `tb_home_invite` �
      tự rời nhà. Người đang là chủ nhà hoặc thành viên của nhà khác không nhận được lời mời; người chỉ đang xem
      nhà demo thì nhận được (dòng xem demo bị thay). Người rời nhà thấy màn "Chưa có nhà" kèm ô nhập mã mời.
 R4.2 Mỗi thành viên có mức xem `đầy đủ` hoặc `chỉ theo ngày` (mặc định khi mời: chỉ theo ngày). Khách demo: đầy đủ.
-R4.3 Thành viên "chỉ theo ngày" nhận 403 `detail_restricted` ở mọi route trả số mịn hơn một ngày hoặc giờ chạy của
-     thiết bị; Wappi của họ chạy như R3.2 `theo ngày`. Giao diện ẩn các khối đó và nói vì sao.
+R4.3 Thành viên "chỉ theo ngày" không nhận số mịn hơn một ngày hay giờ chạy của thiết bị: route chỉ trả số mịn
+     (`/energy/activity`, `/energy/stream`, `/expected`) trả 403 `detail_restricted`; `/energy/series` trả theo ngày;
+     route trộn (tổng quan, thiết bị, cảnh báo) bỏ trường mịn. Wappi của họ chạy như R3.2 `theo ngày`. Giao diện ẩn
+     các khối đó và nói vì sao.
 R4.4 Chỉ chủ nhà: xóa lịch sử, đổi thời hạn giữ, đổi mức của Wappi, mời và gỡ thành viên. Thành viên vẫn tạo kế
      hoạch, đặt nhắc và trò chuyện của riêng mình như hiện nay.
 R4.5 Admin không có route nào đọc dữ liệu của một nhà (hiện đã vậy); bảng thử quyền giữ điều này.
