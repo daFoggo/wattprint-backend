@@ -125,6 +125,7 @@ Eval hai mức: [docs/eval/d2-ai-detail-2026-11-28.md](../../eval/d2-ai-detail-2
 Ghi chú Đ3 (2026-11-28): kế hoạch [plan-d3.md](plan-d3.md), review [review-d3.md](review-d3.md). Backend xong và đã
 review: revision `602f4f387869`, `8c1e47aa2d90` đã áp lên dev; bảng thử quyền 48 thao tác. Việc chặn theo đồng ý còn
 tắt (`CONSENT_ENFORCED`) cho tới khi dashboard mới triển khai. Còn: phần web Đ3-W1…W6 (đang làm).
+Sau đó (28/11): đã triển khai prod với `CONSENT_ENFORCED=true`, máy chủ từ chối khi chưa đồng ý (đã thử trên prod).
 
 ## Đ4. Xóa lịch sử (P1)
 
@@ -193,7 +194,7 @@ nhà demo từ chối), `DELETE /copilot/conversations`; xóa tài khoản dọn
 - [x] Đ7-W1 Biểu đồ ghi "Chi tiết theo phút chỉ giữ 90 ngày" khi nhận cờ `coarsened`
 
 **[OPS]**
-- [x] Đ7-O1 Áp trên dev; prod chờ chủ dự án yêu cầu; không áp trong 48 giờ trước giờ chấm (đã áp 28/11; database 3161 → 1165 MB, hóa đơn và số giờ/ngày không đổi)
+- [x] Đ7-O1 Áp trên dev; prod (chung database) theo yêu cầu chủ dự án; không áp trong 48 giờ trước giờ chấm (đã áp 28/11; database 3161 → 1165 MB, hóa đơn và số giờ/ngày không đổi)
 
 Ghi chú Đ7 (2026-11-28): D1/D2 là script, không phải migration, vì dev và prod chung một database, container api chạy
 `alembic upgrade head` mỗi lần khởi động, việc xóa không đảo ngược được và chủ dự án khi đó chưa duyệt áp. **Ngày 28/11/2026 chủ
@@ -203,7 +204,8 @@ insight worker phải khởi động lại để nhận mã và biến mới). L
 được giữ. `public.set_policies(false)` không gỡ policy `_1h`, `_1d`, `tb_device_cycle`: `--revert` trước khi nạp dữ liệu cũ.
 Dry run trước khi áp: số thô 8.733.669 dòng và ước tính thiết bị 59.607.320 dòng (trước 2026-10-29), `reading_1m`
 1.357.354 và `device_estimate_1m` 10.586.468 (trước 2026-08-25), các tầng khác 0.
-Còn: W1; việc dọn bảng thường chưa bật; chưa review R1. `widgets` trong `ai_message.reply` vẫn giữ mãi (R1.2 chỉ dọn
+Sau đó (28/11): `RETENTION_TIERS=true` đã bật trên prod (ngày bật chưa có dòng tới hạn).
+Còn: W1; chưa review R1. `widgets` trong `ai_message.reply` vẫn giữ mãi (R1.2 chỉ dọn
 `ai_tool_call`).
 
 ## Đ8. Minh chứng và tài liệu (P1)

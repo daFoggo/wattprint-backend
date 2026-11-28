@@ -1,15 +1,16 @@
 # Ảnh minh chứng quyền riêng tư (28/11/2026)
 
-Hiện trạng môi trường dev; việc chặn theo đồng ý đang **tắt** trên máy chủ; chưa triển khai lên prod.
-Ảnh `man-hinh` chụp từ dashboard dev bằng tài khoản và nhà thử; một số ảnh đã cắt hoặc che.
+Prod đang bật chặn theo đồng ý (`CONSENT_ENFORCED=true`) và dọn hằng đêm (`RETENTION_TIERS=true`).
+Ảnh `man-hinh` có hai nguồn: **chụp trên prod** (đánh dấu "(prod)", bằng khách demo của nhà mẫu REFIT) và các ảnh còn
+lại chụp từ dashboard dev bằng tài khoản và nhà thử; một số ảnh dev đã cắt hoặc che.
 
 ## Tổng quan: sơ đồ luồng dữ liệu và màn hình quyền riêng tư
 
 | Ảnh | Chứng minh điều gì |
 |---|---|
-| [0-man-hinh-01-quyen-rieng-tu-chu-nha](0-man-hinh-01-quyen-rieng-tu-chu-nha.png) | Trang Quyền riêng tư của chủ nhà: đang giữ gì, ai xem được, gửi gì ra ngoài, xóa. |
-| [0-man-hinh-02-quyen-rieng-tu-dien-thoai](0-man-hinh-02-quyen-rieng-tu-dien-thoai.png) | Trang đó trên điện thoại. |
-| [0-man-hinh-03-loi-vao-tu-cai-dat](0-man-hinh-03-loi-vao-tu-cai-dat.png) | Lối vào Quyền riêng tư ở đầu trang Cài đặt. |
+| [0-man-hinh-01-quyen-rieng-tu-chu-nha](0-man-hinh-01-quyen-rieng-tu-chu-nha.png) | Trang Quyền riêng tư (khách demo, chỉ xem): đang giữ gì, ai xem được, gửi gì ra ngoài, xóa. (prod) |
+| [0-man-hinh-02-quyen-rieng-tu-dien-thoai](0-man-hinh-02-quyen-rieng-tu-dien-thoai.png) | Trang đó trên điện thoại. (prod) |
+| [0-man-hinh-03-loi-vao-tu-cai-dat](0-man-hinh-03-loi-vao-tu-cai-dat.png) | Lối vào Quyền riêng tư ở đầu trang Cài đặt. (prod) |
 | [0-so-do-01-tong-quan-luong-du-lieu](0-so-do-01-tong-quan-luong-du-lieu.png) | Sơ đồ tổng quan luồng dữ liệu (nguồn docs/diagrams/privacy-data-flow.svg). |
 | [0-so-do-02-tac-nhan](0-so-do-02-tac-nhan.png) | Các tác nhân (nguồn docs/diagrams/privacy/actors.svg). |
 | [0-so-do-03-chuc-nang](0-so-do-03-chuc-nang.png) | Phân rã chức năng (nguồn docs/diagrams/privacy/bfd.svg). |
@@ -38,8 +39,8 @@ Hiện trạng môi trường dev; việc chặn theo đồng ý đang **tắt**
 | [1-giam-chi-tiet-02-ma-thoi-han](1-giam-chi-tiet-02-ma-thoi-han.png) | Thời hạn mới được đặt bằng chính sách của database, có chạy thử trước. |
 | [1-giam-chi-tiet-03-view-cho-ai](1-giam-chi-tiet-03-view-cho-ai.png) | Giới hạn độ chi tiết cho AI nằm ngay trong SQL của database. |
 | [1-giam-chi-tiet-04-rui-ro-theo-do-min](1-giam-chi-tiet-04-rui-ro-theo-do-min.png) | Dữ liệu theo ngày không cho ra giờ thức dậy, đi ngủ. |
-| [1-giam-chi-tiet-05-man-hinh-dang-giu-gi](1-giam-chi-tiet-05-man-hinh-dang-giu-gi.png) | Người dùng thấy từng mức chi tiết được giữ bao lâu. |
-| [1-giam-chi-tiet-06-man-hinh-chon-muc-wappi](1-giam-chi-tiet-06-man-hinh-chon-muc-wappi.png) | Chủ nhà chọn Wappi xem theo ngày hay theo giờ. |
+| [1-giam-chi-tiet-05-man-hinh-dang-giu-gi](1-giam-chi-tiet-05-man-hinh-dang-giu-gi.png) | Người dùng thấy từng mức chi tiết được giữ bao lâu. (prod) |
+| [1-giam-chi-tiet-06-man-hinh-chon-muc-wappi](1-giam-chi-tiet-06-man-hinh-chon-muc-wappi.png) | Mức Wappi được xem (khách demo chỉ xem; chỉ chủ nhà đổi được). (prod) |
 
 ## 2. Giới hạn quyền truy cập
 
@@ -75,8 +76,8 @@ Hiện trạng môi trường dev; việc chặn theo đồng ý đang **tắt**
 | [4-dich-vu-ngoai-01-ma-cua-ra-chung](4-dich-vu-ngoai-01-ma-cua-ra-chung.png) | Mọi lời gọi ra ngoài đi qua một chỗ có kiểm đồng ý và ghi nhật ký. |
 | [4-dich-vu-ngoai-02-ben-nhan](4-dich-vu-ngoai-02-ben-nhan.png) | Nêu rõ bên nhận và loại dữ liệu. |
 | [4-dich-vu-ngoai-03-chay-thu-dong-y](4-dich-vu-ngoai-03-chay-thu-dong-y.png) | Khi bật chặn, không đồng ý thì không gửi; mỗi lần gửi có nhật ký. |
-| [4-dich-vu-ngoai-04-man-hinh-dong-y-wappi](4-dich-vu-ngoai-04-man-hinh-dong-y-wappi.png) | Trước khi dùng Wappi: gửi gì, cho ai, ở đâu, tắt ở đâu. |
+| [4-dich-vu-ngoai-04-man-hinh-dong-y-wappi](4-dich-vu-ngoai-04-man-hinh-dong-y-wappi.png) | Trước khi dùng Wappi: gửi gì, cho ai, ở đâu, tắt ở đâu. (prod) |
 | [4-dich-vu-ngoai-05-man-hinh-dong-y-giong-noi](4-dich-vu-ngoai-05-man-hinh-dong-y-giong-noi.png) | Đồng ý riêng cho giọng nói, nói rõ âm thanh không che được. |
-| [4-dich-vu-ngoai-06-man-hinh-thong-bao-va-da-gui](4-dich-vu-ngoai-06-man-hinh-thong-bao-va-da-gui.png) | Dòng báo dưới ô chat và mục "Đã gửi ra ngoài" của từng câu trả lời. |
-| [4-dich-vu-ngoai-07-man-hinh-nhat-ky-gui](4-dich-vu-ngoai-07-man-hinh-nhat-ky-gui.png) | Nhật ký 30 ngày: bên nhận và loại dữ liệu, không ghi nội dung. |
+| [4-dich-vu-ngoai-06-man-hinh-thong-bao-va-da-gui](4-dich-vu-ngoai-06-man-hinh-thong-bao-va-da-gui.png) | Dòng báo dưới ô chat và mục "Đã gửi ra ngoài" của từng câu trả lời. (prod) |
+| [4-dich-vu-ngoai-07-man-hinh-nhat-ky-gui](4-dich-vu-ngoai-07-man-hinh-nhat-ky-gui.png) | Nhật ký 30 ngày: bên nhận và loại dữ liệu, không ghi nội dung. (prod) |
 | [4-dich-vu-ngoai-08-man-hinh-danh-gia-kem-noi-dung](4-dich-vu-ngoai-08-man-hinh-danh-gia-kem-noi-dung.png) | Nội dung chỉ gửi cho người bảo trì khi người dùng tự tích. |

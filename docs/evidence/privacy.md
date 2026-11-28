@@ -1,11 +1,12 @@
 # Minh chứng: bảo vệ dữ liệu nếp sinh hoạt
 
-Hiện trạng ngày 28/11/2026, trên môi trường dev. Trang này đối chiếu với mã nguồn; các test nêu dưới đây là test có
+Hiện trạng ngày 28/11/2026, đã triển khai lên prod (dev và prod chung API và database). Trang này đối chiếu với mã nguồn; các test nêu dưới đây là test có
 trong repo, **không được chạy lại khi viết trang này**. Yêu cầu gốc:
 [intent.md](../work/2026-11-28-privacy-load-data/intent.md).
 
-**Đọc trước:** việc chặn theo đồng ý đang **tắt** trên máy chủ (`consent_enforced = False`), và việc dọn hằng đêm cho
-bảng thường **chưa bật** (`RETENTION_TIERS=false`). Xem mục "Chưa làm".
+**Trên prod:** chặn theo đồng ý đang bật (`CONSENT_ENFORCED=true`, đã thử trên prod: chưa đồng ý thì máy chủ từ chối) và
+việc dọn hằng đêm cho bảng thường đang bật (`RETENTION_TIERS=true`; ngày bật chưa có dòng nào tới hạn). Mặc định trong mã
+vẫn là tắt: máy mới phải đặt hai biến này. Phần còn lại ở mục "Chưa làm".
 
 ## Ba minh chứng ban giám khảo yêu cầu
 
@@ -25,7 +26,7 @@ Chúng tôi rà toàn bộ nơi lưu, người đọc và nơi gửi đi trướ
 
 ### "Giảm độ chi tiết phải lưu/chia sẻ"
 
-**Chia sẻ: đã làm. Lưu: đã áp thời hạn theo bậc cho số đo; bảng thường chưa dọn theo bậc.**
+**Chia sẻ: đã làm. Lưu: thời hạn theo bậc cho số đo và việc dọn hằng đêm cho bảng thường.**
 
 | Đã làm | Minh chứng |
 |---|---|
@@ -40,7 +41,7 @@ Chúng tôi rà toàn bộ nơi lưu, người đọc và nơi gửi đi trướ
 Ở mức theo giờ, công cụ xem điện chờ vẫn đọc số theo phút trong hệ thống và gửi cho AI kết quả theo từng đêm.
 
 Thời gian lưu hôm nay: số thô 30 ngày; tổng theo phút 90; theo giờ 400; theo ngày 800; lượt bật/tắt 90; dự đoán theo
-giờ 400 (nhà có mô hình); cảnh báo, dự báo không có hạn; hóa đơn 25 kỳ; trò chuyện đến khi xóa; âm thanh đọc 30 ngày; nhật ký gửi ngoài 90 ngày.
+giờ 400 (nhà có mô hình); cảnh báo 400; chi tiết lần tra cứu của Wappi 30; nhật ký NILM và lô công tơ 90; dự báo không có hạn; hóa đơn 25 kỳ; trò chuyện đến khi xóa; âm thanh đọc 30 ngày; nhật ký gửi ngoài 90 ngày.
 
 ### "Giới hạn quyền truy cập"
 
@@ -75,7 +76,7 @@ cho dịch vụ ngoài không xóa được từ WattPrint.
 | Một cửa ra chung; địa chỉ bên ngoài chỉ nằm ở cấu hình và cửa này | `app/common/outbound.py`; `tests/test_outbound.py` |
 | Nhật ký mỗi lần gửi (bên nhận, mục đích, loại dữ liệu, mức; không ghi nội dung), xem 30 ngày, giữ 90 ngày | `tests/test_consent.py::test_the_outbound_log_lists_my_last_30_days` |
 | Mỗi câu trả lời của Wappi kèm danh sách đã gửi | `tests/test_copilot_api.py::test_each_answer_lists_what_it_sent_out` |
-| Đồng ý theo mục đích (Wappi, giọng nói, email), mỗi lần đổi thêm một dòng; **chặn đang tắt** | `tests/test_consent.py` (test tự bật việc chặn nếu cần) |
+| Đồng ý theo mục đích (Wappi, giọng nói, email), mỗi lần đổi thêm một dòng; chưa đồng ý thì máy chủ từ chối (bật trên prod) | `tests/test_consent.py` (test tự bật việc chặn nếu cần) |
 | Bấm 👎 chỉ gửi đánh giá; nội dung đi Telegram khi người dùng tích chọn | `tests/test_consent.py::test_a_shared_thumbs_down_shows_in_my_log` |
 | API tóm tắt "đang giữ gì, từ ngày nào" | `GET /homes/current/privacy`; `tests/test_privacy_overview.py` |
 
@@ -90,9 +91,9 @@ cho dịch vụ ngoài không xóa được từ WattPrint.
 
 ## Ảnh chụp
 
-Chụp trên dashboard dev ngày 28/11/2026. Danh sách đầy đủ: [privacy/anh/README.md](privacy/anh/README.md).
+Chụp ngày 28/11/2026: một phần trên prod, phần còn lại trên dashboard dev (ghi rõ trong danh sách). Danh sách đầy đủ: [privacy/anh/README.md](privacy/anh/README.md).
 
-- [x] `ANH-1` Trang Quyền riêng tư, chủ nhà: [ảnh](privacy/anh/0-man-hinh-01-quyen-rieng-tu-chu-nha.png)
+- [x] `ANH-1` Trang Quyền riêng tư (khách demo trên prod): [ảnh](privacy/anh/0-man-hinh-01-quyen-rieng-tu-chu-nha.png)
 - [x] `ANH-2` Trang Quyền riêng tư, thành viên chỉ theo ngày: [ảnh](privacy/anh/2-gioi-han-quyen-09-man-hinh-thanh-vien-theo-ngay.png)
 - [x] `ANH-3` Hộp đồng ý Wappi: [ảnh](privacy/anh/4-dich-vu-ngoai-04-man-hinh-dong-y-wappi.png)
 - [x] `ANH-4` Hộp đồng ý giọng nói: [ảnh](privacy/anh/4-dich-vu-ngoai-05-man-hinh-dong-y-giong-noi.png)
@@ -101,14 +102,12 @@ Chụp trên dashboard dev ngày 28/11/2026. Danh sách đầy đủ: [privacy/a
 
 ## Chưa làm
 
-1. **Dọn hằng đêm cho bảng thường** theo bậc chưa bật (`RETENTION_TIERS=false`): cảnh báo, kết quả công cụ, nhật ký
-   NILM, lô công tơ chưa bị dọn theo thời hạn mới.
-2. **Chặn theo đồng ý đang tắt** (`app/config.py`, `consent_enforced`): chờ giao diện hỏi đồng ý được triển khai.
-3. Giao diện đã có (trang Quyền riêng tư, mời bằng mã, chế độ theo ngày) nhưng chưa tự thử đủ ba loại người dùng và chưa
-   chạy checklist UX (Đ6-W9 trong [checklist](../work/2026-11-28-privacy-load-data/checklist.md)).
-4. Trang chính sách trên web công khai đã sửa theo mã mới trong repo web, chưa triển khai.
+1. Dự báo giữ không có hạn; `widgets` trong câu trả lời của Wappi giữ đến khi xóa trò chuyện.
+2. Người "theo ngày": số hôm nay của từng thiết bị và tiền điện hôm nay vẫn chạy liên tục ([attacks.md](privacy/attacks.md) "Còn mở").
+3. Chưa tự thử đủ ba loại người dùng và chưa chạy checklist UX (Đ6-W9 trong [checklist](../work/2026-11-28-privacy-load-data/checklist.md)).
+4. Câu chữ trang chính sách về chặn đồng ý và dọn dữ liệu đã sửa trong repo web; trang trên prod đổi ở lần triển khai web kế tiếp.
 5. AstralX: chưa biết nơi đặt máy chủ, thời gian giữ; chưa gửi kèm yêu cầu không lưu dữ liệu.
 6. Che dữ liệu cá nhân chỉ theo mẫu, chưa nhận ra tên người và địa chỉ.
 7. Tệp mô hình tách thiết bị riêng của nhà chưa xóa theo tài khoản (hiện chỉ huấn luyện từ dữ liệu công khai).
 8. Đã thử tấn công ([attacks.md](privacy/attacks.md)); chưa kiểm cấu hình bảo mật máy prod.
-9. Chưa triển khai lên prod; căn cứ pháp lý chưa đối chiếu bản Công báo.
+9. Căn cứ pháp lý chưa đối chiếu bản Công báo.

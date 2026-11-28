@@ -131,21 +131,23 @@ chỉ cho phép một câu SELECT, chặn `set_config`, `current_setting` của 
   | `reading_1h`, `device_estimate_1h` | 400 ngày | policy TimescaleDB |
   | `reading_1d`, `device_estimate_1d` | 800 ngày | policy TimescaleDB |
   | `tb_device_cycle` | 90 ngày | policy TimescaleDB |
-  | `tb_alert`; `tb_forecast_snapshot`; `tb_suggestion` | không hạn | chỉ khi xóa lịch sử hoặc tài khoản |
+  | `tb_alert` | 400 ngày | insight `cleanup` |
+  | `tb_forecast_snapshot`; `tb_suggestion` | không hạn | chỉ khi xóa lịch sử hoặc tài khoản |
   | `tb_expect_hourly` | 400 ngày | việc làm mới dự đoán (nhà có mô hình) |
   | Hóa đơn | 25 kỳ | `refresh_bills` |
-  | Trò chuyện, kết quả công cụ, SQL | đến khi người dùng xóa | |
+  | Trò chuyện (câu trả lời kèm số liệu, SQL cuối) | đến khi người dùng xóa | |
+  | `ai.ai_tool_call` (từng lần gọi công cụ) | 30 ngày | insight `cleanup` |
   | Âm thanh đọc | 30 ngày | insight `upkeep` |
   | Nhật ký gửi ra ngoài | 90 ngày | insight `upkeep` |
   | Nhắc (`tb_watch`) đã kết thúc | 90 ngày | insight `upkeep` |
   | `tb_consent` | đến khi xóa tài khoản | |
-  | `tb_inference_run`, `tb_ingest_batch` | không hạn (`tb_ingest_batch` xóa cùng tài khoản chủ nhà) | |
+  | `tb_inference_run`, `tb_ingest_batch` | 90 ngày (giữ lượt chạy tốt mới nhất của mỗi nhà) | insight `cleanup` |
 
   So trước và sau khi áp (trên chính database dùng chung): hóa đơn và tổng theo giờ, theo ngày không đổi; database từ
   3161 MB còn 1165 MB. Việc dọn hằng đêm cho bảng thường (spec
-  `docs/work/2026-11-28-privacy-load-data/spec.md` R1.1) **chưa bật** (`RETENTION_TIERS=false`): các thời hạn mới cho
-  `tb_expect_hourly`, `tb_alert`, `ai_tool_call`, `tb_inference_run`, `tb_ingest_batch` chưa có hiệu lực
-  (`app/modules/insight/services/jobs.py`). Database mới dựng chỉ có policy của migration cho đến khi chạy script.
+  `docs/work/2026-11-28-privacy-load-data/spec.md` R1.1, `app/modules/insight/services/jobs.py`) chạy khi
+  `RETENTION_TIERS=true`: đang bật trên prod từ 28/11/2026 (ngày bật chưa có dòng nào tới hạn), mặc định tắt.
+  Database mới dựng chỉ có policy của migration cho đến khi chạy script.
   Retention của hypertable luôn là `drop_chunks` qua policy, không bao giờ `DELETE` từng dòng.
 - **Refresh policy:** 1m mỗi phút (cửa sổ 7 ngày), 1h mỗi giờ (30 ngày), 1d mỗi giờ (60 ngày).
 - **`public.set_policies(true|false)`** bật/tắt toàn bộ policy một cách idempotent. Chú ý: `alembic upgrade

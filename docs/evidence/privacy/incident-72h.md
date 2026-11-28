@@ -74,10 +74,10 @@ theo bố cục của mẫu (chưa đọc mẫu). Còn bỏ ngỏ: dữ liệu �
 | Mục đích | Theo dõi điện, tách thiết bị, hóa đơn, dự báo, cảnh báo, trợ lý hỏi đáp |
 | Chủ thể | Chủ nhà, người thân được mời, khách demo |
 | Loại dữ liệu | Email, họ tên; thông tin nhà; số đo khoảng 10 giây và các tổng; ước tính thiết bị, lượt bật/tắt; trò chuyện, âm thanh đọc; đồng ý, nhật ký gửi ngoài |
-| Thời hạn lưu | Thô 30 ngày, phút 90, giờ 400, ngày 800, lượt bật/tắt 90 (áp 28/11/2026); bảng thường chưa dọn theo bậc. Chi tiết: [database-design.md](../../database-design.md) |
+| Thời hạn lưu | Thô 30 ngày, phút 90, giờ 400, ngày 800, lượt bật/tắt 90 (áp 28/11/2026); bảng thường dọn hằng đêm (cảnh báo 400 ngày, chi tiết tra cứu 30, nhật ký xử lý 90). Chi tiết: [database-design.md](../../database-design.md) |
 | Bên nhận và nước | OpenRouter (ngoài Việt Nam); AstralX `[ĐIỀN nơi đặt máy chủ]`; OpenWeather, Telegram, Google `[ĐIỀN]`; SMTP `[ĐIỀN nhà cung cấp prod]` (dev: Mailpit cục bộ) |
 | Thỏa thuận với bên xử lý | `[ĐIỀN]` |
-| Đồng ý | Theo mục đích `wappi`, `voice`, `email`; **chặn đang tắt**; chưa có đồng ý riêng cho việc thu số đo trong các mục đích này |
+| Đồng ý | Theo mục đích `wappi`, `voice`, `email`; chặn khi chưa đồng ý (bật trên prod); chưa có đồng ý riêng cho việc thu số đo trong các mục đích này |
 | Quyền của chủ thể | Xem, xóa lịch sử điện và trò chuyện, xóa tài khoản, rút đồng ý. Chưa có xuất dữ liệu |
 | Biện pháp, rủi ro còn lại | [threats.md](threats.md), [bằng chứng chung](../privacy.md) |
 | Mã hóa khi lưu, sao lưu, TLS prod | `[ĐIỀN sau khi kiểm máy prod]` |
