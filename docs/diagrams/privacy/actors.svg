@@ -1,143 +1,68 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1300" height="778" viewBox="0 0 1300 778" role="img" aria-labelledby="actors-title">
-<title id="actors-title">Tác nhân tham gia (theo mã ngày 28/11/2026)</title>
-<defs><marker id="actors-a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M1 1 L9 5 L1 9" fill="none" stroke="#506981" stroke-width="1.5"/></marker><marker id="actors-o" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M1 1 L9 5 L1 9" fill="none" stroke="#b2691b" stroke-width="1.5"/></marker></defs>
-<style>
-.process{fill:#e6f1fc;stroke:#2a67a4;stroke-width:2}.store{fill:#e8f5ec;stroke:#27804b;stroke-width:2}
-.actor{fill:#f0ebfa;stroke:#7653a2;stroke-width:2}.external{fill:#fff0df;stroke:#b2691b;stroke-width:2}
-.frame{fill:#f8fbfd;stroke:#b6c8d7;stroke-width:2}.planned{fill:#fff;stroke:#7a8793;stroke-width:2;stroke-dasharray:7 5}
-.wire{fill:none;stroke:#506981;stroke-width:1.8}.out{fill:none;stroke:#b2691b;stroke-width:2.4}
-text{font-family:system-ui,sans-serif;fill:#182a3a}.label{font-size:15px;font-weight:700}
-.sub{font-size:12px;fill:#40556a}.edge{font-size:12px;fill:#314b63}.h{font-size:13px;font-weight:700;letter-spacing:.04em;fill:#43576b}
-</style>
-<rect width="1300" height="778" fill="#fff"/>
-<text class="label" x="20" y="32" text-anchor="start">Tác nhân tham gia (theo mã ngày 28/11/2026)</text>
-<rect x="20" y="56" width="220" height="34" fill="#eaf1f7" stroke="#cbd7e1"/>
-<text x="29" y="78" font-size="13" font-weight="650">Tác nhân</text>
-<rect x="240" y="56" width="360" height="34" fill="#eaf1f7" stroke="#cbd7e1"/>
-<text x="249" y="78" font-size="13" font-weight="650">Làm gì / đưa vào</text>
-<rect x="600" y="56" width="440" height="34" fill="#eaf1f7" stroke="#cbd7e1"/>
-<text x="609" y="78" font-size="13" font-weight="650">Nhận được gì / giới hạn</text>
-<rect x="1040" y="56" width="240" height="34" fill="#eaf1f7" stroke="#cbd7e1"/>
-<text x="1049" y="78" font-size="13" font-weight="650">Chặn ở đâu</text>
-<rect x="20" y="90" width="220" height="52" fill="#fff" stroke="#cbd7e1"/>
-<text x="29" y="112" font-size="13" font-weight="650">Chủ nhà</text>
-<rect x="240" y="90" width="360" height="52" fill="#fff" stroke="#cbd7e1"/>
-<text x="249" y="112" font-size="13" font-weight="400">Đặt mức Wappi xem (ngày/giờ), mời, đổi mức, gỡ</text>
-<text x="249" y="130" font-size="13" font-weight="400">thành viên, xóa lịch sử, đồng ý/rút lại</text>
-<rect x="600" y="90" width="440" height="52" fill="#fff" stroke="#cbd7e1"/>
-<text x="609" y="112" font-size="13" font-weight="400">Mọi dữ liệu nhà mình; email thành viên; nhật ký gửi ngoài</text>
-<text x="609" y="130" font-size="13" font-weight="400">của riêng mình</text>
-<rect x="1040" y="90" width="240" height="52" fill="#fff" stroke="#cbd7e1"/>
-<text x="1049" y="112" font-size="13" font-weight="400">API theo tư cách trong nhà</text>
-<rect x="20" y="142" width="220" height="52" fill="#f8fbfd" stroke="#cbd7e1"/>
-<text x="29" y="164" font-size="13" font-weight="650">Thành viên đầy đủ</text>
-<rect x="240" y="142" width="360" height="52" fill="#f8fbfd" stroke="#cbd7e1"/>
-<text x="249" y="164" font-size="13" font-weight="400">Xem, hỏi Wappi, đặt nhắc, kế hoạch riêng; tự rời</text>
-<text x="249" y="182" font-size="13" font-weight="400">nhà</text>
-<rect x="600" y="142" width="440" height="52" fill="#f8fbfd" stroke="#cbd7e1"/>
-<text x="609" y="164" font-size="13" font-weight="400">Dữ liệu chi tiết của nhà; trò chuyện của riêng mình. Không</text>
-<text x="609" y="182" font-size="13" font-weight="400">mời, xóa lịch sử, sửa nhà</text>
-<rect x="1040" y="142" width="240" height="52" fill="#f8fbfd" stroke="#cbd7e1"/>
-<text x="1049" y="164" font-size="13" font-weight="400">API theo vai member</text>
-<rect x="20" y="194" width="220" height="70" fill="#fff" stroke="#cbd7e1"/>
-<text x="29" y="216" font-size="13" font-weight="650">Thành viên chỉ theo ngày</text>
-<text x="29" y="234" font-size="13" font-weight="650">(mặc định khi nhận mời)</text>
-<rect x="240" y="194" width="360" height="70" fill="#fff" stroke="#cbd7e1"/>
-<text x="249" y="216" font-size="13" font-weight="400">Như trên, ở mức ngày</text>
-<rect x="600" y="194" width="440" height="70" fill="#fff" stroke="#cbd7e1"/>
-<text x="609" y="216" font-size="13" font-weight="400">Số theo ngày, hóa đơn. 403 ở biểu đồ công suất, dòng trực</text>
-<text x="609" y="234" font-size="13" font-weight="400">tiếp, hoạt động thiết bị, dự đoán theo giờ; Wappi chạy mức</text>
-<text x="609" y="252" font-size="13" font-weight="400">ngày</text>
-<rect x="1040" y="194" width="240" height="70" fill="#fff" stroke="#cbd7e1"/>
-<text x="1049" y="216" font-size="13" font-weight="400">members.py, DetailedMembership</text>
-<rect x="20" y="264" width="220" height="52" fill="#f8fbfd" stroke="#cbd7e1"/>
-<text x="29" y="286" font-size="13" font-weight="650">Khách xem demo (viewer)</text>
-<rect x="240" y="264" width="360" height="52" fill="#f8fbfd" stroke="#cbd7e1"/>
-<text x="249" y="286" font-size="13" font-weight="400">Chọn nhà mẫu, hỏi Wappi, kế hoạch riêng</text>
-<rect x="600" y="264" width="440" height="52" fill="#f8fbfd" stroke="#cbd7e1"/>
-<text x="609" y="286" font-size="13" font-weight="400">Dữ liệu mẫu công khai, đầy đủ; không sửa dữ liệu chung,</text>
-<text x="609" y="304" font-size="13" font-weight="400">không xem danh sách thành viên</text>
-<rect x="1040" y="264" width="240" height="52" fill="#f8fbfd" stroke="#cbd7e1"/>
-<text x="1049" y="286" font-size="13" font-weight="400">vai viewer, chỉ đọc</text>
-<rect x="20" y="316" width="220" height="52" fill="#fff" stroke="#cbd7e1"/>
-<text x="29" y="338" font-size="13" font-weight="650">Admin (vai Keycloak)</text>
-<rect x="240" y="316" width="360" height="52" fill="#fff" stroke="#cbd7e1"/>
-<text x="249" y="338" font-size="13" font-weight="400">Gọi GET /users</text>
-<rect x="600" y="316" width="440" height="52" fill="#fff" stroke="#cbd7e1"/>
-<text x="609" y="338" font-size="13" font-weight="400">Danh sách tài khoản (tên, email). Không có API đọc dữ liệu</text>
-<text x="609" y="356" font-size="13" font-weight="400">của một nhà</text>
-<rect x="1040" y="316" width="240" height="52" fill="#fff" stroke="#cbd7e1"/>
-<text x="1049" y="338" font-size="13" font-weight="400">require_admin</text>
-<rect x="20" y="368" width="220" height="52" fill="#f8fbfd" stroke="#cbd7e1"/>
-<text x="29" y="390" font-size="13" font-weight="650">Người bảo trì máy chủ</text>
-<rect x="240" y="368" width="360" height="52" fill="#f8fbfd" stroke="#cbd7e1"/>
-<text x="249" y="390" font-size="13" font-weight="400">Vận hành; nhận đánh giá 👎 qua Telegram</text>
-<rect x="600" y="368" width="440" height="52" fill="#f8fbfd" stroke="#cbd7e1"/>
-<text x="609" y="390" font-size="13" font-weight="400">Có quyền máy chủ và database nên về kỹ thuật đọc được mọi</text>
-<text x="609" y="408" font-size="13" font-weight="400">dữ liệu; không có lớp chặn trong phần mềm</text>
-<rect x="1040" y="368" width="240" height="52" fill="#f8fbfd" stroke="#cbd7e1"/>
-<text x="1049" y="390" font-size="13" font-weight="400">Chỉ quy trình vận hành</text>
-<rect x="20" y="420" width="220" height="52" fill="#fff" stroke="#cbd7e1"/>
-<text x="29" y="442" font-size="13" font-weight="650">Công tơ / bộ phát lại</text>
-<text x="29" y="460" font-size="13" font-weight="650">demo</text>
-<rect x="240" y="420" width="360" height="52" fill="#fff" stroke="#cbd7e1"/>
-<text x="249" y="442" font-size="13" font-weight="400">Gửi lô số đo</text>
-<rect x="600" y="420" width="440" height="52" fill="#fff" stroke="#cbd7e1"/>
-<text x="609" y="442" font-size="13" font-weight="400">Lô cũ hơn mốc đã xóa bị từ chối. Công tơ thật chưa có API;</text>
-<text x="609" y="460" font-size="13" font-weight="400">demo dùng script phát lại REFIT</text>
-<rect x="1040" y="420" width="240" height="52" fill="#fff" stroke="#cbd7e1"/>
-<text x="1049" y="442" font-size="13" font-weight="400">ops ingest</text>
-<rect x="20" y="472" width="220" height="52" fill="#f8fbfd" stroke="#cbd7e1"/>
-<text x="29" y="494" font-size="13" font-weight="650">Worker nội bộ (nilm,</text>
-<text x="29" y="512" font-size="13" font-weight="650">insight)</text>
-<rect x="240" y="472" width="360" height="52" fill="#f8fbfd" stroke="#cbd7e1"/>
-<text x="249" y="494" font-size="13" font-weight="400">Tách thiết bị, hóa đơn, dự báo, cảnh báo, nhắc,</text>
-<text x="249" y="512" font-size="13" font-weight="400">email, dọn nhật ký</text>
-<rect x="600" y="472" width="440" height="52" fill="#f8fbfd" stroke="#cbd7e1"/>
-<text x="609" y="494" font-size="13" font-weight="400">Đọc kho điện cần cho tác vụ</text>
-<rect x="1040" y="472" width="240" height="52" fill="#f8fbfd" stroke="#cbd7e1"/>
-<text x="1049" y="494" font-size="13" font-weight="400">Vai database</text>
-<rect x="20" y="524" width="220" height="52" fill="#fff" stroke="#cbd7e1"/>
-<text x="29" y="546" font-size="13" font-weight="650">Wappi và text2sql (trong</text>
-<text x="29" y="564" font-size="13" font-weight="650">hệ thống)</text>
-<rect x="240" y="524" width="360" height="52" fill="#fff" stroke="#cbd7e1"/>
-<text x="249" y="546" font-size="13" font-weight="400">Trả lời; truy vấn view copilot_ro bằng token 5</text>
-<text x="249" y="564" font-size="13" font-weight="400">phút theo nhà</text>
-<rect x="600" y="524" width="440" height="52" fill="#fff" stroke="#cbd7e1"/>
-<text x="609" y="546" font-size="13" font-weight="400">Không có view phút, lượt bật/tắt, tên nhà, mã bưu chính, số</text>
-<text x="609" y="564" font-size="13" font-weight="400">người; view giờ chỉ khi token mức giờ</text>
-<rect x="1040" y="524" width="240" height="52" fill="#fff" stroke="#cbd7e1"/>
-<text x="1049" y="546" font-size="13" font-weight="400">Vai wattprint_copilot_ro</text>
-<rect x="20" y="576" width="220" height="52" fill="#f8fbfd" stroke="#cbd7e1"/>
-<text x="29" y="598" font-size="13" font-weight="650">OpenRouter, AstralX</text>
-<text x="29" y="616" font-size="13" font-weight="650">(ngoài)</text>
-<rect x="240" y="576" width="360" height="52" fill="#f8fbfd" stroke="#cbd7e1"/>
-<text x="249" y="598" font-size="13" font-weight="400">AI trả lời, kiểm duyệt, nhúng văn bản, giọng nói</text>
-<rect x="600" y="576" width="440" height="52" fill="#f8fbfd" stroke="#cbd7e1"/>
-<text x="609" y="598" font-size="13" font-weight="400">Câu hỏi đã che, kết quả công cụ; âm thanh gốc khi dùng</text>
-<text x="609" y="616" font-size="13" font-weight="400">giọng nói</text>
-<rect x="1040" y="576" width="240" height="52" fill="#f8fbfd" stroke="#cbd7e1"/>
-<text x="1049" y="598" font-size="13" font-weight="400">Cửa ra chung + nhật ký</text>
-<rect x="20" y="628" width="220" height="52" fill="#fff" stroke="#cbd7e1"/>
-<text x="29" y="650" font-size="13" font-weight="650">OpenWeather, Telegram,</text>
-<text x="29" y="668" font-size="13" font-weight="650">SMTP (ngoài)</text>
-<rect x="240" y="628" width="360" height="52" fill="#fff" stroke="#cbd7e1"/>
-<text x="249" y="650" font-size="13" font-weight="400">Thời tiết, báo người bảo trì, gửi mail cảnh báo</text>
-<rect x="600" y="628" width="440" height="52" fill="#fff" stroke="#cbd7e1"/>
-<text x="609" y="650" font-size="13" font-weight="400">Tọa độ tỉnh; đánh giá (kèm nội dung chỉ khi tích); email và</text>
-<text x="609" y="668" font-size="13" font-weight="400">nội dung cảnh báo</text>
-<rect x="1040" y="628" width="240" height="52" fill="#fff" stroke="#cbd7e1"/>
-<text x="1049" y="650" font-size="13" font-weight="400">Cửa ra chung + nhật ký</text>
-<rect x="20" y="680" width="220" height="52" fill="#f8fbfd" stroke="#cbd7e1"/>
-<text x="29" y="702" font-size="13" font-weight="650">Google, SMTP của</text>
-<text x="29" y="720" font-size="13" font-weight="650">Keycloak (ngoài)</text>
-<rect x="240" y="680" width="360" height="52" fill="#f8fbfd" stroke="#cbd7e1"/>
-<text x="249" y="702" font-size="13" font-weight="400">Đăng nhập Google; mail xác minh, đặt lại mật</text>
-<text x="249" y="720" font-size="13" font-weight="400">khẩu</text>
-<rect x="600" y="680" width="440" height="52" fill="#f8fbfd" stroke="#cbd7e1"/>
-<text x="609" y="702" font-size="13" font-weight="400">Định danh đăng nhập, địa chỉ email</text>
-<rect x="1040" y="680" width="240" height="52" fill="#f8fbfd" stroke="#cbd7e1"/>
-<text x="1049" y="702" font-size="13" font-weight="400">Không qua cửa ra chung, không</text>
-<text x="1049" y="720" font-size="13" font-weight="400">ghi nhật ký</text>
-<text class="sub" x="20" y="758" text-anchor="start">Việc chặn theo đồng ý đang TẮT trên máy chủ (consent_enforced = False, app/config.py): đã có API đồng ý và nhật ký, nhưng chưa từ chối lời gọi nào.</text>
-</svg>
+<?xml version="1.0" encoding="UTF-8"?>
+<svg viewBox="0 0 1088 672" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="actors-title actors-desc" id="actors-root">
+        <title id="actors-title">Tác nhân tham gia (theo mã ngày 28/11/2026)</title>
+        <desc id="actors-desc">Mỗi tác nhân làm gì, nhận được gì và bị chặn ở đâu.</desc>
+        <defs>
+      <style>@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&amp;family=Geist:wght@400;500;600&amp;family=Geist+Mono:wght@400;500;600&amp;family=Noto+Serif:ital@0;1&amp;family=Noto+Sans+KR:wght@400;500;600&amp;family=Noto+Serif+KR:wght@400&amp;family=Noto+Sans+TC:wght@400;500;600&amp;family=Noto+Serif+TC:wght@400&amp;display=swap');
+      #actors-root { --color-paper:#f5f5f5; --color-ink:#2d3142; --color-muted:#4f5d75; --color-accent:#bf4520;
+      --font-sans:'Geist', system-ui, sans-serif; --font-serif:'Noto Serif',serif; --font-mono:'Geist Mono', ui-monospace, monospace; }
+      #actors-root { font-family: var(--font-sans); color: var(--color-ink); }
+      #actors-root .diagram-container { width: 100%; overflow-x: auto; }
+      @media print {
+#actors-root .diagram-container { overflow-x: visible; }
+}</style><marker id="actors-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#4f5d75"/></marker><marker id="actors-arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#bf4520"/></marker><marker id="actors-arrow-link" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#2e5aa8"/></marker></defs>
+        <rect width="100%" height="100%" fill="#f5f5f5"/>
+<rect x="24" y="24" width="200" height="32" rx="0" fill="#2d3142" stroke="#2d3142"/>
+<text x="32" y="43" fill="#ffffff" font-size="11" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="start">Tác nhân</text><rect x="224" y="24" width="280" height="32" rx="0" fill="#2d3142" stroke="#2d3142"/>
+<text x="232" y="43" fill="#ffffff" font-size="11" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="start">Làm gì / đưa vào</text><rect x="504" y="24" width="360" height="32" rx="0" fill="#2d3142" stroke="#2d3142"/>
+<text x="512" y="43" fill="#ffffff" font-size="11" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="start">Nhận được gì / giới hạn</text><rect x="864" y="24" width="200" height="32" rx="0" fill="#2d3142" stroke="#2d3142"/>
+<text x="872" y="43" fill="#ffffff" font-size="11" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="start">Chặn ở đâu</text><rect x="24" y="56" width="200" height="60" rx="0" fill="#2d3142" stroke="#2d3142" fill-opacity="0.05" stroke-opacity="0.12"/>
+<text x="32" y="75" fill="#2d3142" font-size="11" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="start">Chủ nhà</text><rect x="224" y="56" width="280" height="60" rx="0" fill="#ffffff" stroke="#2d3142" stroke-opacity="0.12"/>
+<text x="232" y="75" fill="#2d3142" font-size="11" font-weight="400" font-family="'Geist', system-ui, sans-serif" text-anchor="start">Đặt mức Wappi xem (ngày/giờ), mời, đổi</text><text x="232" y="89" fill="#2d3142" font-size="11" font-weight="400" font-family="'Geist', system-ui, sans-serif" text-anchor="start">mức, gỡ thành viên, xóa lịch sử, đồng</text><text x="232" y="103" fill="#2d3142" font-size="11" font-weight="400" font-family="'Geist', system-ui, sans-serif" text-anchor="start">ý/rút lại</text><rect x="504" y="56" width="360" height="60" rx="0" fill="#ffffff" stroke="#2d3142" stroke-opacity="0.12"/>
+<text x="512" y="75" fill="#2d3142" font-size="11" font-weight="400" font-family="'Geist', system-ui, sans-serif" text-anchor="start">Mọi dữ liệu nhà mình; email thành viên; nhật ký gửi</text><text x="512" y="89" fill="#2d3142" font-size="11" font-weight="400" font-family="'Geist', system-ui, sans-serif" text-anchor="start">ngoài của riêng mình</text><rect x="864" y="56" width="200" height="60" rx="0" fill="#ffffff" stroke="#2d3142" stroke-opacity="0.12"/>
+<text x="872" y="75" fill="#2d3142" font-size="11" font-weight="400" font-family="'Geist', system-ui, sans-serif" text-anchor="start">API theo tư cách trong nhà</text><rect x="24" y="116" width="200" height="44" rx="0" fill="#2d3142" stroke="#2d3142" fill-opacity="0.05" stroke-opacity="0.12"/>
+<text x="32" y="135" fill="#2d3142" font-size="11" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="start">Thành viên đầy đủ</text><rect x="224" y="116" width="280" height="44" rx="0" fill="#ffffff" stroke="#2d3142" stroke-opacity="0.12"/>
+<text x="232" y="135" fill="#2d3142" font-size="11" font-weight="400" font-family="'Geist', system-ui, sans-serif" text-anchor="start">Xem, hỏi Wappi, đặt nhắc, kế hoạch</text><text x="232" y="149" fill="#2d3142" font-size="11" font-weight="400" font-family="'Geist', system-ui, sans-serif" text-anchor="start">riêng; tự rời nhà</text><rect x="504" y="116" width="360" height="44" rx="0" fill="#ffffff" stroke="#2d3142" stroke-opacity="0.12"/>
+<text x="512" y="135" fill="#2d3142" font-size="11" font-weight="400" font-family="'Geist', system-ui, sans-serif" text-anchor="start">Dữ liệu chi tiết của nhà; trò chuyện của riêng</text><text x="512" y="149" fill="#2d3142" font-size="11" font-weight="400" font-family="'Geist', system-ui, sans-serif" text-anchor="start">mình. Không mời, xóa lịch sử, sửa nhà</text><rect x="864" y="116" width="200" height="44" rx="0" fill="#ffffff" stroke="#2d3142" stroke-opacity="0.12"/>
+<text x="872" y="135" fill="#2d3142" font-size="11" font-weight="400" font-family="'Geist', system-ui, sans-serif" text-anchor="start">API theo vai member</text><rect x="24" y="160" width="200" height="60" rx="0" fill="#2d3142" stroke="#2d3142" fill-opacity="0.05" stroke-opacity="0.12"/>
+<text x="32" y="179" fill="#2d3142" font-size="11" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="start">Thành viên chỉ theo ngày</text><text x="32" y="193" fill="#2d3142" font-size="11" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="start">(mặc định khi nhận mời)</text><rect x="224" y="160" width="280" height="60" rx="0" fill="#ffffff" stroke="#2d3142" stroke-opacity="0.12"/>
+<text x="232" y="179" fill="#2d3142" font-size="11" font-weight="400" font-family="'Geist', system-ui, sans-serif" text-anchor="start">Như trên, ở mức ngày</text><rect x="504" y="160" width="360" height="60" rx="0" fill="#ffffff" stroke="#2d3142" stroke-opacity="0.12"/>
+<text x="512" y="179" fill="#2d3142" font-size="11" font-weight="400" font-family="'Geist', system-ui, sans-serif" text-anchor="start">Số theo ngày, hóa đơn. 403 ở biểu đồ công suất,</text><text x="512" y="193" fill="#2d3142" font-size="11" font-weight="400" font-family="'Geist', system-ui, sans-serif" text-anchor="start">dòng trực tiếp, hoạt động thiết bị, dự đoán theo</text><text x="512" y="207" fill="#2d3142" font-size="11" font-weight="400" font-family="'Geist', system-ui, sans-serif" text-anchor="start">giờ; Wappi chạy mức ngày</text><rect x="864" y="160" width="200" height="60" rx="0" fill="#ffffff" stroke="#2d3142" stroke-opacity="0.12"/>
+<text x="872" y="179" fill="#2d3142" font-size="11" font-weight="400" font-family="'Geist', system-ui, sans-serif" text-anchor="start">members.py,</text><text x="872" y="193" fill="#2d3142" font-size="11" font-weight="400" font-family="'Geist', system-ui, sans-serif" text-anchor="start">DetailedMembership</text><rect x="24" y="220" width="200" height="44" rx="0" fill="#2d3142" stroke="#2d3142" fill-opacity="0.05" stroke-opacity="0.12"/>
+<text x="32" y="239" fill="#2d3142" font-size="11" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="start">Khách xem demo (viewer)</text><rect x="224" y="220" width="280" height="44" rx="0" fill="#ffffff" stroke="#2d3142" stroke-opacity="0.12"/>
+<text x="232" y="239" fill="#2d3142" font-size="11" font-weight="400" font-family="'Geist', system-ui, sans-serif" text-anchor="start">Chọn nhà mẫu, hỏi Wappi, kế hoạch riêng</text><rect x="504" y="220" width="360" height="44" rx="0" fill="#ffffff" stroke="#2d3142" stroke-opacity="0.12"/>
+<text x="512" y="239" fill="#2d3142" font-size="11" font-weight="400" font-family="'Geist', system-ui, sans-serif" text-anchor="start">Dữ liệu mẫu công khai, đầy đủ; không sửa dữ liệu</text><text x="512" y="253" fill="#2d3142" font-size="11" font-weight="400" font-family="'Geist', system-ui, sans-serif" text-anchor="start">chung, không xem danh sách thành viên</text><rect x="864" y="220" width="200" height="44" rx="0" fill="#ffffff" stroke="#2d3142" stroke-opacity="0.12"/>
+<text x="872" y="239" fill="#2d3142" font-size="11" font-weight="400" font-family="'Geist', system-ui, sans-serif" text-anchor="start">vai viewer, chỉ đọc</text><rect x="24" y="264" width="200" height="44" rx="0" fill="#2d3142" stroke="#2d3142" fill-opacity="0.05" stroke-opacity="0.12"/>
+<text x="32" y="283" fill="#2d3142" font-size="11" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="start">Admin (vai Keycloak)</text><rect x="224" y="264" width="280" height="44" rx="0" fill="#ffffff" stroke="#2d3142" stroke-opacity="0.12"/>
+<text x="232" y="283" fill="#2d3142" font-size="11" font-weight="400" font-family="'Geist', system-ui, sans-serif" text-anchor="start">Gọi GET /users</text><rect x="504" y="264" width="360" height="44" rx="0" fill="#ffffff" stroke="#2d3142" stroke-opacity="0.12"/>
+<text x="512" y="283" fill="#2d3142" font-size="11" font-weight="400" font-family="'Geist', system-ui, sans-serif" text-anchor="start">Danh sách tài khoản (tên, email). Không có API đọc</text><text x="512" y="297" fill="#2d3142" font-size="11" font-weight="400" font-family="'Geist', system-ui, sans-serif" text-anchor="start">dữ liệu của một nhà</text><rect x="864" y="264" width="200" height="44" rx="0" fill="#ffffff" stroke="#2d3142" stroke-opacity="0.12"/>
+<text x="872" y="283" fill="#2d3142" font-size="11" font-weight="400" font-family="'Geist', system-ui, sans-serif" text-anchor="start">require_admin</text><rect x="24" y="308" width="200" height="44" rx="0" fill="#2d3142" stroke="#2d3142" fill-opacity="0.05" stroke-opacity="0.12"/>
+<text x="32" y="327" fill="#2d3142" font-size="11" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="start">Người bảo trì máy chủ</text><rect x="224" y="308" width="280" height="44" rx="0" fill="#ffffff" stroke="#2d3142" stroke-opacity="0.12"/>
+<text x="232" y="327" fill="#2d3142" font-size="11" font-weight="400" font-family="'Geist', system-ui, sans-serif" text-anchor="start">Vận hành; nhận đánh giá 👎 qua Telegram</text><rect x="504" y="308" width="360" height="44" rx="0" fill="#ffffff" stroke="#2d3142" stroke-opacity="0.12"/>
+<text x="512" y="327" fill="#2d3142" font-size="11" font-weight="400" font-family="'Geist', system-ui, sans-serif" text-anchor="start">Có quyền máy chủ và database nên về kỹ thuật đọc</text><text x="512" y="341" fill="#2d3142" font-size="11" font-weight="400" font-family="'Geist', system-ui, sans-serif" text-anchor="start">được mọi dữ liệu; không có lớp chặn trong phần mềm</text><rect x="864" y="308" width="200" height="44" rx="0" fill="#ffffff" stroke="#2d3142" stroke-opacity="0.12"/>
+<text x="872" y="327" fill="#2d3142" font-size="11" font-weight="400" font-family="'Geist', system-ui, sans-serif" text-anchor="start">Chỉ quy trình vận hành</text><rect x="24" y="352" width="200" height="44" rx="0" fill="#2d3142" stroke="#2d3142" fill-opacity="0.05" stroke-opacity="0.12"/>
+<text x="32" y="371" fill="#2d3142" font-size="11" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="start">Công tơ / bộ phát lại demo</text><rect x="224" y="352" width="280" height="44" rx="0" fill="#ffffff" stroke="#2d3142" stroke-opacity="0.12"/>
+<text x="232" y="371" fill="#2d3142" font-size="11" font-weight="400" font-family="'Geist', system-ui, sans-serif" text-anchor="start">Gửi lô số đo</text><rect x="504" y="352" width="360" height="44" rx="0" fill="#ffffff" stroke="#2d3142" stroke-opacity="0.12"/>
+<text x="512" y="371" fill="#2d3142" font-size="11" font-weight="400" font-family="'Geist', system-ui, sans-serif" text-anchor="start">Lô cũ hơn mốc đã xóa bị từ chối. Công tơ thật chưa</text><text x="512" y="385" fill="#2d3142" font-size="11" font-weight="400" font-family="'Geist', system-ui, sans-serif" text-anchor="start">có API; demo dùng script phát lại REFIT</text><rect x="864" y="352" width="200" height="44" rx="0" fill="#ffffff" stroke="#2d3142" stroke-opacity="0.12"/>
+<text x="872" y="371" fill="#2d3142" font-size="11" font-weight="400" font-family="'Geist', system-ui, sans-serif" text-anchor="start">ops ingest</text><rect x="24" y="396" width="200" height="44" rx="0" fill="#2d3142" stroke="#2d3142" fill-opacity="0.05" stroke-opacity="0.12"/>
+<text x="32" y="415" fill="#2d3142" font-size="11" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="start">Worker nội bộ (nilm,</text><text x="32" y="429" fill="#2d3142" font-size="11" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="start">insight)</text><rect x="224" y="396" width="280" height="44" rx="0" fill="#ffffff" stroke="#2d3142" stroke-opacity="0.12"/>
+<text x="232" y="415" fill="#2d3142" font-size="11" font-weight="400" font-family="'Geist', system-ui, sans-serif" text-anchor="start">Tách thiết bị, hóa đơn, dự báo, cảnh</text><text x="232" y="429" fill="#2d3142" font-size="11" font-weight="400" font-family="'Geist', system-ui, sans-serif" text-anchor="start">báo, nhắc, email, dọn nhật ký</text><rect x="504" y="396" width="360" height="44" rx="0" fill="#ffffff" stroke="#2d3142" stroke-opacity="0.12"/>
+<text x="512" y="415" fill="#2d3142" font-size="11" font-weight="400" font-family="'Geist', system-ui, sans-serif" text-anchor="start">Đọc kho điện cần cho tác vụ</text><rect x="864" y="396" width="200" height="44" rx="0" fill="#ffffff" stroke="#2d3142" stroke-opacity="0.12"/>
+<text x="872" y="415" fill="#2d3142" font-size="11" font-weight="400" font-family="'Geist', system-ui, sans-serif" text-anchor="start">Vai database</text><rect x="24" y="440" width="200" height="44" rx="0" fill="#2d3142" stroke="#2d3142" fill-opacity="0.05" stroke-opacity="0.12"/>
+<text x="32" y="459" fill="#2d3142" font-size="11" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="start">Wappi và text2sql (trong hệ</text><text x="32" y="473" fill="#2d3142" font-size="11" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="start">thống)</text><rect x="224" y="440" width="280" height="44" rx="0" fill="#ffffff" stroke="#2d3142" stroke-opacity="0.12"/>
+<text x="232" y="459" fill="#2d3142" font-size="11" font-weight="400" font-family="'Geist', system-ui, sans-serif" text-anchor="start">Trả lời; truy vấn view copilot_ro bằng</text><text x="232" y="473" fill="#2d3142" font-size="11" font-weight="400" font-family="'Geist', system-ui, sans-serif" text-anchor="start">token 5 phút theo nhà</text><rect x="504" y="440" width="360" height="44" rx="0" fill="#ffffff" stroke="#2d3142" stroke-opacity="0.12"/>
+<text x="512" y="459" fill="#2d3142" font-size="11" font-weight="400" font-family="'Geist', system-ui, sans-serif" text-anchor="start">Không có view phút, lượt bật/tắt, tên nhà, mã bưu</text><text x="512" y="473" fill="#2d3142" font-size="11" font-weight="400" font-family="'Geist', system-ui, sans-serif" text-anchor="start">chính, số người; view giờ chỉ khi token mức giờ</text><rect x="864" y="440" width="200" height="44" rx="0" fill="#ffffff" stroke="#2d3142" stroke-opacity="0.12"/>
+<text x="872" y="459" fill="#2d3142" font-size="11" font-weight="400" font-family="'Geist', system-ui, sans-serif" text-anchor="start">Vai wattprint_copilot_ro</text><rect x="24" y="484" width="200" height="44" rx="0" fill="#2d3142" stroke="#2d3142" fill-opacity="0.05" stroke-opacity="0.12"/>
+<text x="32" y="503" fill="#2d3142" font-size="11" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="start">OpenRouter, AstralX (ngoài)</text><rect x="224" y="484" width="280" height="44" rx="0" fill="#ffffff" stroke="#2d3142" stroke-opacity="0.12"/>
+<text x="232" y="503" fill="#2d3142" font-size="11" font-weight="400" font-family="'Geist', system-ui, sans-serif" text-anchor="start">AI trả lời, kiểm duyệt, nhúng văn bản,</text><text x="232" y="517" fill="#2d3142" font-size="11" font-weight="400" font-family="'Geist', system-ui, sans-serif" text-anchor="start">giọng nói</text><rect x="504" y="484" width="360" height="44" rx="0" fill="#ffffff" stroke="#2d3142" stroke-opacity="0.12"/>
+<text x="512" y="503" fill="#2d3142" font-size="11" font-weight="400" font-family="'Geist', system-ui, sans-serif" text-anchor="start">Câu hỏi đã che, kết quả công cụ; âm thanh gốc khi</text><text x="512" y="517" fill="#2d3142" font-size="11" font-weight="400" font-family="'Geist', system-ui, sans-serif" text-anchor="start">dùng giọng nói</text><rect x="864" y="484" width="200" height="44" rx="0" fill="#ffffff" stroke="#2d3142" stroke-opacity="0.12"/>
+<text x="872" y="503" fill="#2d3142" font-size="11" font-weight="400" font-family="'Geist', system-ui, sans-serif" text-anchor="start">Cửa ra chung + nhật ký</text><rect x="24" y="528" width="200" height="44" rx="0" fill="#2d3142" stroke="#2d3142" fill-opacity="0.05" stroke-opacity="0.12"/>
+<text x="32" y="547" fill="#2d3142" font-size="11" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="start">OpenWeather, Telegram, SMTP</text><text x="32" y="561" fill="#2d3142" font-size="11" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="start">(ngoài)</text><rect x="224" y="528" width="280" height="44" rx="0" fill="#ffffff" stroke="#2d3142" stroke-opacity="0.12"/>
+<text x="232" y="547" fill="#2d3142" font-size="11" font-weight="400" font-family="'Geist', system-ui, sans-serif" text-anchor="start">Thời tiết, báo người bảo trì, gửi mail</text><text x="232" y="561" fill="#2d3142" font-size="11" font-weight="400" font-family="'Geist', system-ui, sans-serif" text-anchor="start">cảnh báo</text><rect x="504" y="528" width="360" height="44" rx="0" fill="#ffffff" stroke="#2d3142" stroke-opacity="0.12"/>
+<text x="512" y="547" fill="#2d3142" font-size="11" font-weight="400" font-family="'Geist', system-ui, sans-serif" text-anchor="start">Tọa độ tỉnh; đánh giá (kèm nội dung chỉ khi tích);</text><text x="512" y="561" fill="#2d3142" font-size="11" font-weight="400" font-family="'Geist', system-ui, sans-serif" text-anchor="start">email và nội dung cảnh báo</text><rect x="864" y="528" width="200" height="44" rx="0" fill="#ffffff" stroke="#2d3142" stroke-opacity="0.12"/>
+<text x="872" y="547" fill="#2d3142" font-size="11" font-weight="400" font-family="'Geist', system-ui, sans-serif" text-anchor="start">Cửa ra chung + nhật ký</text><rect x="24" y="572" width="200" height="44" rx="0" fill="#2d3142" stroke="#2d3142" fill-opacity="0.05" stroke-opacity="0.12"/>
+<text x="32" y="591" fill="#2d3142" font-size="11" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="start">Google, SMTP của Keycloak</text><text x="32" y="605" fill="#2d3142" font-size="11" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="start">(ngoài)</text><rect x="224" y="572" width="280" height="44" rx="0" fill="#ffffff" stroke="#2d3142" stroke-opacity="0.12"/>
+<text x="232" y="591" fill="#2d3142" font-size="11" font-weight="400" font-family="'Geist', system-ui, sans-serif" text-anchor="start">Đăng nhập Google; mail xác minh, đặt</text><text x="232" y="605" fill="#2d3142" font-size="11" font-weight="400" font-family="'Geist', system-ui, sans-serif" text-anchor="start">lại mật khẩu</text><rect x="504" y="572" width="360" height="44" rx="0" fill="#ffffff" stroke="#2d3142" stroke-opacity="0.12"/>
+<text x="512" y="591" fill="#2d3142" font-size="11" font-weight="400" font-family="'Geist', system-ui, sans-serif" text-anchor="start">Định danh đăng nhập, địa chỉ email</text><rect x="864" y="572" width="200" height="44" rx="0" fill="#ffffff" stroke="#2d3142" stroke-opacity="0.12"/>
+<text x="872" y="591" fill="#2d3142" font-size="11" font-weight="400" font-family="'Geist', system-ui, sans-serif" text-anchor="start">Không qua cửa ra chung,</text><text x="872" y="605" fill="#2d3142" font-size="11" font-weight="400" font-family="'Geist', system-ui, sans-serif" text-anchor="start">không ghi nhật ký</text><text x="24" y="648" fill="#4f5d75" font-size="11" font-weight="400" font-family="'Geist', system-ui, sans-serif" text-anchor="start">Việc chặn theo đồng ý đang TẮT trên máy chủ (consent_enforced = False, app/config.py): đã có API đồng ý và nhật ký, nhưng chưa từ chối lời gọi nào.</text>
+      </svg>

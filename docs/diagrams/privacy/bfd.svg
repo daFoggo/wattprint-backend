@@ -1,56 +1,45 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1260" height="630" viewBox="0 0 1260 630" role="img" aria-labelledby="bfd-title">
-<title id="bfd-title">BFD WattPrint</title>
-<defs><marker id="bfd-a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M1 1 L9 5 L1 9" fill="none" stroke="#506981" stroke-width="1.5"/></marker><marker id="bfd-o" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M1 1 L9 5 L1 9" fill="none" stroke="#b2691b" stroke-width="1.5"/></marker></defs>
-<style>
-.process{fill:#e6f1fc;stroke:#2a67a4;stroke-width:2}.store{fill:#e8f5ec;stroke:#27804b;stroke-width:2}
-.actor{fill:#f0ebfa;stroke:#7653a2;stroke-width:2}.external{fill:#fff0df;stroke:#b2691b;stroke-width:2}
-.frame{fill:#f8fbfd;stroke:#b6c8d7;stroke-width:2}.planned{fill:#fff;stroke:#7a8793;stroke-width:2;stroke-dasharray:7 5}
-.wire{fill:none;stroke:#506981;stroke-width:1.8}.out{fill:none;stroke:#b2691b;stroke-width:2.4}
-text{font-family:system-ui,sans-serif;fill:#182a3a}.label{font-size:15px;font-weight:700}
-.sub{font-size:12px;fill:#40556a}.edge{font-size:12px;fill:#314b63}.h{font-size:13px;font-weight:700;letter-spacing:.04em;fill:#43576b}
-</style>
-<rect width="1260" height="630" fill="#fff"/>
-<text class="label" x="20" y="28" text-anchor="start">BFD · phân rã chức năng</text>
-<rect class="process" x="480" y="45" width="300" height="50" rx="9"/><text class="label" x="630.0" y="75.0" text-anchor="middle">0 · WattPrint</text>
-<path class="wire" d="M630 95 V120 H165 V145"/>
-<rect class="process" x="20" y="145" width="290" height="50" rx="9"/><text class="label" x="165.0" y="175.0" text-anchor="middle">1 · Thu nhận</text>
-<rect class="store" x="40" y="215" width="270" height="40" rx="9"/><text class="label" x="175.0" y="240.0" text-anchor="middle">1.1 Nhận lô số đo</text>
-<path class="wire" d="M28 195 V235 H40"/>
-<rect class="store" x="40" y="267" width="270" height="40" rx="9"/><text class="label" x="175.0" y="292.0" text-anchor="middle">1.2 Chặn lô trước mốc xóa</text>
-<path class="wire" d="M28 235 V287 H40"/>
-<path class="wire" d="M630 95 V120 H475 V145"/>
-<rect class="process" x="330" y="145" width="290" height="50" rx="9"/><text class="label" x="475.0" y="175.0" text-anchor="middle">2 · Xử lý điện</text>
-<rect class="store" x="350" y="215" width="270" height="40" rx="9"/><text class="label" x="485.0" y="240.0" text-anchor="middle">2.1 Tổng hợp phút/giờ/ngày</text>
-<path class="wire" d="M338 195 V235 H350"/>
-<rect class="store" x="350" y="267" width="270" height="40" rx="9"/><text class="label" x="485.0" y="292.0" text-anchor="middle">2.2 Tách thiết bị</text>
-<path class="wire" d="M338 235 V287 H350"/>
-<rect class="store" x="350" y="319" width="270" height="40" rx="9"/><text class="label" x="485.0" y="344.0" text-anchor="middle">2.3 Xóa số cũ quá 400 ngày</text>
-<path class="wire" d="M338 287 V339 H350"/>
-<path class="wire" d="M630 95 V120 H785 V145"/>
-<rect class="process" x="640" y="145" width="290" height="50" rx="9"/><text class="label" x="785.0" y="175.0" text-anchor="middle">3 · Phục vụ nhà</text>
-<rect class="store" x="660" y="215" width="270" height="40" rx="9"/><text class="label" x="795.0" y="240.0" text-anchor="middle">3.1 Biểu đồ, hóa đơn</text>
-<path class="wire" d="M648 195 V235 H660"/>
-<rect class="store" x="660" y="267" width="270" height="40" rx="9"/><text class="label" x="795.0" y="292.0" text-anchor="middle">3.2 Dự báo, cảnh báo, nhắc</text>
-<path class="wire" d="M648 235 V287 H660"/>
-<rect class="store" x="660" y="319" width="270" height="40" rx="9"/><text class="label" x="795.0" y="344.0" text-anchor="middle">3.3 Wappi / text2sql</text>
-<path class="wire" d="M648 287 V339 H660"/>
-<rect class="store" x="660" y="371" width="270" height="40" rx="9"/><text class="label" x="795.0" y="396.0" text-anchor="middle">3.4 Email thông báo</text>
-<path class="wire" d="M648 339 V391 H660"/>
-<path class="wire" d="M630 95 V120 H1095 V145"/>
-<rect class="process" x="950" y="145" width="290" height="50" rx="9"/><text class="label" x="1095.0" y="175.0" text-anchor="middle">4 · Quyền riêng tư</text>
-<rect class="store" x="970" y="215" width="270" height="40" rx="9"/><text class="label" x="1105.0" y="240.0" text-anchor="middle">4.1 Thành viên, mức xem</text>
-<path class="wire" d="M958 195 V235 H970"/>
-<rect class="store" x="970" y="267" width="270" height="40" rx="9"/><text class="label" x="1105.0" y="292.0" text-anchor="middle">4.2 Đồng ý (chặn đang tắt)</text>
-<path class="wire" d="M958 235 V287 H970"/>
-<rect class="store" x="970" y="319" width="270" height="40" rx="9"/><text class="label" x="1105.0" y="344.0" text-anchor="middle">4.3 Cửa ra chung, nhật ký</text>
-<path class="wire" d="M958 287 V339 H970"/>
-<rect class="store" x="970" y="371" width="270" height="40" rx="9"/><text class="label" x="1105.0" y="396.0" text-anchor="middle">4.4 Che dữ liệu cá nhân</text>
-<path class="wire" d="M958 339 V391 H970"/>
-<rect class="store" x="970" y="423" width="270" height="40" rx="9"/><text class="label" x="1105.0" y="448.0" text-anchor="middle">4.5 Mức AI: ngày / giờ</text>
-<path class="wire" d="M958 391 V443 H970"/>
-<rect class="store" x="970" y="475" width="270" height="40" rx="9"/><text class="label" x="1105.0" y="500.0" text-anchor="middle">4.6 Xóa lịch sử, trò chuyện</text>
-<path class="wire" d="M958 443 V495 H970"/>
-<rect class="planned" x="970" y="527" width="270" height="40" rx="9"/><text class="label" x="1105.0" y="552.0" text-anchor="middle">4.7 Hạn lưu theo bậc: CHƯA</text>
-<path class="wire" d="M958 495 V547 H970"/>
-<text class="sub" x="20" y="610" text-anchor="start">Biểu đồ chức năng, không phải luồng dữ liệu. Khung nét đứt: chưa áp dụng.</text>
-</svg>
+<?xml version="1.0" encoding="UTF-8"?>
+<svg viewBox="0 0 1088 560" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="bfd-title bfd-desc" id="bfd-root">
+        <title id="bfd-title">BFD WattPrint · phân rã chức năng</title>
+        <desc id="bfd-desc">WattPrint gồm bốn nhóm chức năng: thu nhận, xử lý điện, phục vụ nhà, quyền riêng tư.</desc>
+        <defs>
+      <style>@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&amp;family=Geist:wght@400;500;600&amp;family=Geist+Mono:wght@400;500;600&amp;family=Noto+Serif:ital@0;1&amp;family=Noto+Sans+KR:wght@400;500;600&amp;family=Noto+Serif+KR:wght@400&amp;family=Noto+Sans+TC:wght@400;500;600&amp;family=Noto+Serif+TC:wght@400&amp;display=swap');
+      #bfd-root { --color-paper:#f5f5f5; --color-ink:#2d3142; --color-muted:#4f5d75; --color-accent:#bf4520;
+      --font-sans:'Geist', system-ui, sans-serif; --font-serif:'Noto Serif',serif; --font-mono:'Geist Mono', ui-monospace, monospace; }
+      #bfd-root { font-family: var(--font-sans); color: var(--color-ink); }
+      #bfd-root .diagram-container { width: 100%; overflow-x: auto; }
+      @media print {
+#bfd-root .diagram-container { overflow-x: visible; }
+}</style><marker id="bfd-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#4f5d75"/></marker><marker id="bfd-arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#bf4520"/></marker><marker id="bfd-arrow-link" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#2e5aa8"/></marker></defs>
+        <rect width="100%" height="100%" fill="#f5f5f5"/>
+<path d="M544,80 L544,104" fill="none" stroke="#4f5d75"/>
+<path d="M144,128 L144,112 Q144,104 152,104 L936,104 Q944,104 944,112 L944,128" fill="none" stroke="#4f5d75"/>
+<path d="M408,104 L408,128" fill="none" stroke="#4f5d75"/>
+<path d="M680,104 L680,128" fill="none" stroke="#4f5d75"/>
+<rect x="444" y="24" width="200" height="56" rx="6" fill="#f5f5f5" stroke="none"/>
+<rect x="444" y="24" width="200" height="56" rx="6" fill="#bf4520" stroke="#bf4520" stroke-width="1" fill-opacity="0.08"/>
+<rect x="452" y="30" width="28" height="12" rx="2" fill="none" stroke="#bf4520" stroke-opacity="0.4" stroke-width="0.8"/>
+<text x="466.0" y="39" fill="#bf4520" font-size="7" font-weight="400" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.08em">GỐC</text><text x="544.0" y="66" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">0 · WattPrint</text><rect x="24" y="128" width="240" height="48" rx="6" fill="#ffffff" stroke="#2d3142"/>
+<text x="144" y="157" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">1 · Thu nhận</text><rect x="24" y="188" width="240" height="32" rx="4" fill="#2d3142" stroke="rgba(45,49,66,0.30)" fill-opacity="0.03"/>
+<text x="36" y="208" fill="#2d3142" font-size="11" font-weight="400" font-family="'Geist', system-ui, sans-serif" text-anchor="start">1.1 Nhận lô số đo</text><rect x="24" y="228" width="240" height="32" rx="4" fill="#2d3142" stroke="rgba(45,49,66,0.30)" fill-opacity="0.03"/>
+<text x="36" y="248" fill="#2d3142" font-size="11" font-weight="400" font-family="'Geist', system-ui, sans-serif" text-anchor="start">1.2 Chặn lô trước mốc xóa</text><rect x="288" y="128" width="240" height="48" rx="6" fill="#ffffff" stroke="#2d3142"/>
+<text x="408" y="157" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">2 · Xử lý điện</text><rect x="288" y="188" width="240" height="32" rx="4" fill="#2d3142" stroke="rgba(45,49,66,0.30)" fill-opacity="0.03"/>
+<text x="300" y="208" fill="#2d3142" font-size="11" font-weight="400" font-family="'Geist', system-ui, sans-serif" text-anchor="start">2.1 Tổng hợp phút/giờ/ngày</text><rect x="288" y="228" width="240" height="32" rx="4" fill="#2d3142" stroke="rgba(45,49,66,0.30)" fill-opacity="0.03"/>
+<text x="300" y="248" fill="#2d3142" font-size="11" font-weight="400" font-family="'Geist', system-ui, sans-serif" text-anchor="start">2.2 Tách thiết bị</text><rect x="288" y="268" width="240" height="32" rx="4" fill="#2d3142" stroke="rgba(45,49,66,0.30)" fill-opacity="0.03"/>
+<text x="300" y="288" fill="#2d3142" font-size="11" font-weight="400" font-family="'Geist', system-ui, sans-serif" text-anchor="start">2.3 Xóa số cũ quá 400 ngày</text><rect x="560" y="128" width="240" height="48" rx="6" fill="#ffffff" stroke="#2d3142"/>
+<text x="680" y="157" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">3 · Phục vụ nhà</text><rect x="560" y="188" width="240" height="32" rx="4" fill="#2d3142" stroke="rgba(45,49,66,0.30)" fill-opacity="0.03"/>
+<text x="572" y="208" fill="#2d3142" font-size="11" font-weight="400" font-family="'Geist', system-ui, sans-serif" text-anchor="start">3.1 Biểu đồ, hóa đơn</text><rect x="560" y="228" width="240" height="32" rx="4" fill="#2d3142" stroke="rgba(45,49,66,0.30)" fill-opacity="0.03"/>
+<text x="572" y="248" fill="#2d3142" font-size="11" font-weight="400" font-family="'Geist', system-ui, sans-serif" text-anchor="start">3.2 Dự báo, cảnh báo, nhắc</text><rect x="560" y="268" width="240" height="32" rx="4" fill="#2d3142" stroke="rgba(45,49,66,0.30)" fill-opacity="0.03"/>
+<text x="572" y="288" fill="#2d3142" font-size="11" font-weight="400" font-family="'Geist', system-ui, sans-serif" text-anchor="start">3.3 Wappi / text2sql</text><rect x="560" y="308" width="240" height="32" rx="4" fill="#2d3142" stroke="rgba(45,49,66,0.30)" fill-opacity="0.03"/>
+<text x="572" y="328" fill="#2d3142" font-size="11" font-weight="400" font-family="'Geist', system-ui, sans-serif" text-anchor="start">3.4 Email thông báo</text><rect x="824" y="128" width="240" height="48" rx="6" fill="#ffffff" stroke="#2d3142"/>
+<text x="944" y="157" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">4 · Quyền riêng tư</text><rect x="824" y="188" width="240" height="32" rx="4" fill="#2d3142" stroke="rgba(45,49,66,0.30)" fill-opacity="0.03"/>
+<text x="836" y="208" fill="#2d3142" font-size="11" font-weight="400" font-family="'Geist', system-ui, sans-serif" text-anchor="start">4.1 Thành viên, mức xem</text><rect x="824" y="228" width="240" height="32" rx="4" fill="#2d3142" stroke="rgba(45,49,66,0.30)" fill-opacity="0.03"/>
+<text x="836" y="248" fill="#2d3142" font-size="11" font-weight="400" font-family="'Geist', system-ui, sans-serif" text-anchor="start">4.2 Đồng ý (chặn đang tắt)</text><rect x="824" y="268" width="240" height="32" rx="4" fill="#2d3142" stroke="rgba(45,49,66,0.30)" fill-opacity="0.03"/>
+<text x="836" y="288" fill="#2d3142" font-size="11" font-weight="400" font-family="'Geist', system-ui, sans-serif" text-anchor="start">4.3 Cửa ra chung, nhật ký</text><rect x="824" y="308" width="240" height="32" rx="4" fill="#2d3142" stroke="rgba(45,49,66,0.30)" fill-opacity="0.03"/>
+<text x="836" y="328" fill="#2d3142" font-size="11" font-weight="400" font-family="'Geist', system-ui, sans-serif" text-anchor="start">4.4 Che dữ liệu cá nhân</text><rect x="824" y="348" width="240" height="32" rx="4" fill="#2d3142" stroke="rgba(45,49,66,0.30)" fill-opacity="0.03"/>
+<text x="836" y="368" fill="#2d3142" font-size="11" font-weight="400" font-family="'Geist', system-ui, sans-serif" text-anchor="start">4.5 Mức AI: ngày / giờ</text><rect x="824" y="388" width="240" height="32" rx="4" fill="#2d3142" stroke="rgba(45,49,66,0.30)" fill-opacity="0.03"/>
+<text x="836" y="408" fill="#2d3142" font-size="11" font-weight="400" font-family="'Geist', system-ui, sans-serif" text-anchor="start">4.6 Xóa lịch sử, trò chuyện</text><rect x="824" y="428" width="240" height="32" rx="4" fill="#f5f5f5" stroke="#4f5d75" stroke-dasharray="4,3"/>
+<text x="836" y="448" fill="#2d3142" font-size="11" font-weight="400" font-family="'Geist', system-ui, sans-serif" text-anchor="start">4.7 Hạn lưu theo bậc: CHƯA</text><text x="24" y="500" fill="#4f5d75" font-size="11" font-weight="400" font-family="'Geist', system-ui, sans-serif" text-anchor="start">Biểu đồ chức năng, không phải luồng dữ liệu. Khung nét đứt: chưa áp dụng.</text><line x1="24" y1="520" x2="1064" y2="520" stroke="rgba(45,49,66,0.10)" stroke-width="0.8"/>
+<text x="24" y="538" fill="#5a6580" font-size="8" font-weight="400" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="start" letter-spacing="0.14em">CHÚ GIẢI</text><rect x="100" y="529" width="22" height="12" rx="3" fill="#bf4520" stroke="#bf4520" fill-opacity="0.08"/>
+<text x="128" y="538" fill="#5a6580" font-size="9" font-weight="400" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="start">điểm chính</text>
+      </svg>

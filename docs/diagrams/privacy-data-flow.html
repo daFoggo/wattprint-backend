@@ -1,84 +1,85 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="vi">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>WattPrint · Luồng dữ liệu riêng tư</title>
-<style>:root{font:15px/1.55 system-ui,sans-serif;color:#162332;background:#f4f6f8}body{max-width:1500px;margin:auto;padding:32px 24px 80px}
-h2{margin:48px 0 12px;font-size:1.3rem}a{color:#1455a2}.panel{background:#fff;border:1px solid #dce3ea;border-radius:14px;padding:16px;overflow-x:auto}
-.panel svg{display:block;max-width:100%;height:auto;min-width:900px}.notice{border-left:4px solid #ac6b1c;background:#fff6e8;padding:12px 18px}</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Luồng dữ liệu riêng tư của WattPrint</title>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500;600&family=Noto+Serif:ital@0;1&family=Noto+Sans+KR:wght@400;500;600&family=Noto+Serif+KR:wght@400&family=Noto+Sans+TC:wght@400;500;600&family=Noto+Serif+TC:wght@400&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root { --color-paper:#f5f5f5; --color-ink:#2d3142; --color-muted:#4f5d75; --color-accent:#bf4520;
+      --font-sans:'Geist', system-ui, sans-serif; --font-serif:'Noto Serif',serif; --font-mono:'Geist Mono', ui-monospace, monospace; }
+    body { font-family: var(--font-sans); background: var(--color-paper); color: var(--color-ink); min-height: 100vh; display:flex; align-items:center; justify-content:center; padding:3rem 2rem; }
+    .frame { max-width: 1176px; width: 100%; }
+    .diagram-container { width: 100%; overflow-x: auto; }
+    .eyebrow { font-family: var(--font-mono); font-size:0.66rem; font-weight:500; letter-spacing:0.18em; text-transform:uppercase; color: var(--color-muted); margin-bottom:0.5rem; }
+    h1 { font-family: var(--font-serif); font-size: clamp(1.5rem, 2.4vw + 0.75rem, 2rem); font-weight:400; letter-spacing:-0.02em; line-height:1.15; color: var(--color-ink); margin-bottom:1.5rem; }
+    svg { width: 100%; min-width: 1176px; display:block; }
+    @media print { .diagram-container { overflow-x: visible; } svg { min-width: 0; } }
+  </style>
 </head>
 <body>
-<h1>Luồng dữ liệu riêng tư</h1>
-<p class="notice">Hiện trạng theo mã ngày 28/11/2026. Hai điều chưa có hiệu lực: <strong>chặn theo đồng ý đang tắt</strong> trên máy chủ (<code>consent_enforced = False</code>) và <strong>thời hạn lưu theo bậc</strong> (spec R1.1) chưa áp dụng.</p>
-<div class="panel">
-<svg xmlns="http://www.w3.org/2000/svg" width="1500" height="1165" viewBox="0 0 1500 1165" role="img" aria-labelledby="flow-title">
-<title id="flow-title">Luồng dữ liệu riêng tư của WattPrint</title>
-<defs><marker id="flow-a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M1 1 L9 5 L1 9" fill="none" stroke="#506981" stroke-width="1.5"/></marker><marker id="flow-o" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M1 1 L9 5 L1 9" fill="none" stroke="#b2691b" stroke-width="1.5"/></marker></defs>
-<style>
-.process{fill:#e6f1fc;stroke:#2a67a4;stroke-width:2}.store{fill:#e8f5ec;stroke:#27804b;stroke-width:2}
-.actor{fill:#f0ebfa;stroke:#7653a2;stroke-width:2}.external{fill:#fff0df;stroke:#b2691b;stroke-width:2}
-.frame{fill:#f8fbfd;stroke:#b6c8d7;stroke-width:2}.planned{fill:#fff;stroke:#7a8793;stroke-width:2;stroke-dasharray:7 5}
-.wire{fill:none;stroke:#506981;stroke-width:1.8}.out{fill:none;stroke:#b2691b;stroke-width:2.4}
-text{font-family:system-ui,sans-serif;fill:#182a3a}.label{font-size:15px;font-weight:700}
-.sub{font-size:12px;fill:#40556a}.edge{font-size:12px;fill:#314b63}.h{font-size:13px;font-weight:700;letter-spacing:.04em;fill:#43576b}
-</style>
-<rect width="1500" height="1165" fill="#fff"/>
-<text class="label" x="20" y="30" text-anchor="start">WattPrint · Dữ liệu đi đâu (hiện trạng 28/11/2026)</text>
-<text class="h" x="20" y="62" text-anchor="start">1 NGUỒN</text>
-<text class="h" x="260" y="62" text-anchor="start">2 LƯU TRONG WATTPRINT · thời hạn</text>
-<text class="h" x="640" y="62" text-anchor="start">3 AI ĐỌC ĐƯỢC</text>
-<text class="h" x="1250" y="62" text-anchor="start">4 DỊCH VỤ NGOÀI</text>
-<rect class="actor" x="20" y="80" width="190" height="70" rx="9"/><text class="label" x="115.0" y="112.0" text-anchor="middle">Công tơ</text><text class="sub" x="115.0" y="130.0" text-anchor="middle">số đo ~10 giây</text>
-<path class="wire" d="M210 115 H260" marker-end="url(#flow-a)"/>
-<rect class="actor" x="20" y="170" width="190" height="70" rx="9"/><text class="label" x="115.0" y="202.0" text-anchor="middle">Người dùng</text><text class="sub" x="115.0" y="220.0" text-anchor="middle">câu hỏi, giọng nói</text>
-<path class="wire" d="M115 240 V520 H260" marker-end="url(#flow-a)"/>
-<rect class="store" x="260" y="80" width="300" height="56" rx="9"/><text class="label" x="410.0" y="105.0" text-anchor="middle">Số đo thô</text><text class="sub" x="410.0" y="123.0" text-anchor="middle">400 ngày</text>
-<rect class="store" x="260" y="146" width="300" height="56" rx="9"/><text class="label" x="410.0" y="171.0" text-anchor="middle">Tổng theo phút</text><text class="sub" x="410.0" y="189.0" text-anchor="middle">400 ngày</text>
-<rect class="store" x="260" y="212" width="300" height="56" rx="9"/><text class="label" x="410.0" y="237.0" text-anchor="middle">Tổng theo giờ</text><text class="sub" x="410.0" y="255.0" text-anchor="middle">không hạn</text>
-<rect class="store" x="260" y="278" width="300" height="56" rx="9"/><text class="label" x="410.0" y="303.0" text-anchor="middle">Tổng theo ngày</text><text class="sub" x="410.0" y="321.0" text-anchor="middle">không hạn</text>
-<rect class="store" x="260" y="344" width="300" height="56" rx="9"/><text class="label" x="410.0" y="369.0" text-anchor="middle">Hóa đơn</text><text class="sub" x="410.0" y="387.0" text-anchor="middle">25 kỳ</text>
-<rect class="store" x="260" y="410" width="300" height="56" rx="9"/><text class="label" x="410.0" y="435.0" text-anchor="middle">Lượt bật/tắt, cảnh báo, dự báo</text><text class="sub" x="410.0" y="453.0" text-anchor="middle">không hạn</text>
-<rect class="store" x="260" y="476" width="300" height="56" rx="9"/><text class="label" x="410.0" y="501.0" text-anchor="middle">Trò chuyện (kèm số liệu, SQL)</text><text class="sub" x="410.0" y="519.0" text-anchor="middle">đến khi xóa; âm thanh 30 ngày</text>
-<rect class="store" x="260" y="542" width="300" height="56" rx="9"/><text class="label" x="410.0" y="567.0" text-anchor="middle">Đồng ý · nhật ký gửi ngoài</text><text class="sub" x="410.0" y="585.0" text-anchor="middle">theo tài khoản · 90 ngày</text>
-<rect class="planned" x="260" y="615" width="300" height="92" rx="9"/><text class="label" x="410.0" y="650.0" text-anchor="middle">CHƯA ÁP DỤNG</text><text class="sub" x="410.0" y="668.0" text-anchor="middle">thô 30 · phút 90 · giờ 400 · ngày 800</text><text class="sub" x="410.0" y="684.0" text-anchor="middle">(spec R1.1, đợt Đ7)</text>
-<rect x="248" y="72" width="324" height="534" rx="12" fill="none" stroke="#27804b"/>
-<path class="wire" d="M572 116 H640" marker-end="url(#flow-a)"/>
-<path class="wire" d="M572 200 H640" marker-end="url(#flow-a)"/>
-<path class="wire" d="M572 286 H640" marker-end="url(#flow-a)"/>
-<path class="wire" d="M572 372 H640" marker-end="url(#flow-a)"/>
-<path class="wire" d="M572 460 H640" marker-end="url(#flow-a)"/>
-<rect class="actor" x="640" y="80" width="280" height="72" rx="9"/><text class="label" x="780.0" y="105.0" text-anchor="middle">Chủ nhà, TV đầy đủ</text><text class="sub" x="780.0" y="123.0" text-anchor="middle">mọi mức của nhà mình;</text><text class="sub" x="780.0" y="139.0" text-anchor="middle">chủ nhà xóa được lịch sử</text>
-<rect class="actor" x="640" y="166" width="280" height="72" rx="9"/><text class="label" x="780.0" y="199.0" text-anchor="middle">TV chỉ theo ngày</text><text class="sub" x="780.0" y="217.0" text-anchor="middle">số ngày, hóa đơn</text>
-<rect class="actor" x="640" y="252" width="280" height="72" rx="9"/><text class="label" x="780.0" y="285.0" text-anchor="middle">Khách demo</text><text class="sub" x="780.0" y="303.0" text-anchor="middle">nhà mẫu công khai, chỉ đọc</text>
-<rect class="process" x="640" y="338" width="280" height="72" rx="9"/><text class="label" x="780.0" y="371.0" text-anchor="middle">Worker (NILM, insight)</text><text class="sub" x="780.0" y="389.0" text-anchor="middle">tính toán trong máy chủ</text>
-<rect class="actor" x="640" y="424" width="280" height="72" rx="9"/><text class="label" x="780.0" y="449.0" text-anchor="middle">Admin · bảo trì</text><text class="sub" x="780.0" y="467.0" text-anchor="middle">admin: danh sách tài khoản;</text><text class="sub" x="780.0" y="483.0" text-anchor="middle">bảo trì máy chủ: mọi thứ</text>
-<path class="wire" d="M572 580 H640" marker-end="url(#flow-a)"/>
-<rect class="process" x="640" y="530" width="280" height="240" rx="9"/><text class="label" x="780.0" y="615.0" text-anchor="middle">Wappi + text2sql</text><text class="sub" x="780.0" y="633.0" text-anchor="middle">chỉ đọc view theo token nhà</text><text class="sub" x="780.0" y="649.0" text-anchor="middle">mức ngày (mặc định): view giờ rỗng</text><text class="sub" x="780.0" y="665.0" text-anchor="middle">mức giờ: chủ nhà bật</text><text class="sub" x="780.0" y="681.0" text-anchor="middle">che email, số điện thoại, giấy tờ</text><text class="sub" x="780.0" y="697.0" text-anchor="middle">không có view phút, lượt bật/tắt</text>
-<rect class="external" x="1250" y="520" width="230" height="64" rx="9"/><text class="label" x="1365.0" y="549.0" text-anchor="middle">OpenRouter</text><text class="sub" x="1365.0" y="567.0" text-anchor="middle">AI · ngoài Việt Nam</text>
-<path class="out" d="M920 560 H1250" marker-end="url(#flow-o)"/><text class="edge" x="1085.0" y="538" text-anchor="middle">câu hỏi đã che, hội thoại, số theo ngày</text><text class="edge" x="1085.0" y="553" text-anchor="middle">(theo giờ nếu chủ nhà bật)</text>
-<rect class="external" x="1250" y="600" width="230" height="64" rx="9"/><text class="label" x="1365.0" y="629.0" text-anchor="middle">AstralX</text><text class="sub" x="1365.0" y="647.0" text-anchor="middle">AI dự phòng</text>
-<path class="out" d="M920 640 H1250" marker-end="url(#flow-o)"/><text class="edge" x="1085.0" y="633" text-anchor="middle">như OpenRouter</text>
-<rect class="external" x="1250" y="680" width="230" height="64" rx="9"/><text class="label" x="1365.0" y="709.0" text-anchor="middle">AstralX giọng nói</text><text class="sub" x="1365.0" y="727.0" text-anchor="middle">vị trí chưa rõ</text>
-<path class="out" d="M920 720 H1250" marker-end="url(#flow-o)"/><text class="edge" x="1085.0" y="713" text-anchor="middle">âm thanh GỐC; câu trả lời để đọc</text>
-<rect class="process" x="640" y="800" width="280" height="300" rx="9"/><text class="label" x="780.0" y="947.0" text-anchor="middle">API và worker</text><text class="sub" x="780.0" y="965.0" text-anchor="middle">ghi nhật ký trước khi gửi</text>
-<rect class="external" x="1250" y="805" width="230" height="64" rx="9"/><text class="label" x="1365.0" y="834.0" text-anchor="middle">OpenWeather</text><text class="sub" x="1365.0" y="852.0" text-anchor="middle">thời tiết</text>
-<path class="out" d="M920 845 H1250" marker-end="url(#flow-o)"/><text class="edge" x="1085.0" y="838" text-anchor="middle">tọa độ tỉnh (không kèm người)</text>
-<rect class="external" x="1250" y="885" width="230" height="64" rx="9"/><text class="label" x="1365.0" y="914.0" text-anchor="middle">Telegram</text><text class="sub" x="1365.0" y="932.0" text-anchor="middle">người bảo trì</text>
-<path class="out" d="M920 925 H1250" marker-end="url(#flow-o)"/><text class="edge" x="1085.0" y="918" text-anchor="middle">👎; nội dung chỉ khi người dùng tích</text>
-<rect class="external" x="1250" y="965" width="230" height="64" rx="9"/><text class="label" x="1365.0" y="994.0" text-anchor="middle">SMTP</text><text class="sub" x="1365.0" y="1012.0" text-anchor="middle">mail</text>
-<path class="out" d="M920 1005 H1250" marker-end="url(#flow-o)"/><text class="edge" x="1085.0" y="983" text-anchor="middle">email + cảnh báo / tóm tắt tuần</text><text class="edge" x="1085.0" y="998" text-anchor="middle">(TV theo ngày: không giờ, thiết bị)</text>
-<rect class="external" x="1250" y="1045" width="230" height="64" rx="9"/><text class="label" x="1365.0" y="1074.0" text-anchor="middle">Google · mail Keycloak</text><text class="sub" x="1365.0" y="1092.0" text-anchor="middle">không ghi nhật ký</text>
-<path class="out" d="M920 1085 H1250" marker-end="url(#flow-o)"/><text class="edge" x="1085.0" y="1078" text-anchor="middle">đăng nhập, mail tài khoản</text>
-<path d="M1232 75 V1120" stroke="#b2691b" stroke-width="3" stroke-dasharray="8 6" fill="none"/>
-<text class="h" x="1232" y="1142" text-anchor="middle">RANH GIỚI RA NGOÀI</text>
-<text class="edge" x="260" y="800" text-anchor="start">Đồng ý theo mục đích (wappi, giọng nói,</text>
-<text class="edge" x="260" y="820" text-anchor="start">email) đã có, nhưng việc CHẶN đang TẮT</text>
-<text class="edge" x="260" y="840" text-anchor="start">trên máy chủ (consent_enforced = False).</text>
-<text class="edge" x="260" y="860" text-anchor="start">OpenRouter: yêu cầu không lưu dữ liệu</text>
-<text class="edge" x="260" y="880" text-anchor="start">(ZDR). AstralX: chưa có yêu cầu tương tự.</text>
-</svg>
-</div>
-<p><a href="privacy/index.html">Bộ sơ đồ chi tiết</a> · <a href="../evidence/privacy.md">Trang minh chứng</a></p>
+  <div class="frame">
+    <p class="eyebrow">Data flow · Diagram Design</p>
+    <h1>Luồng dữ liệu riêng tư của WattPrint</h1>
+    <div class="diagram-container">
+      <svg viewBox="0 0 1176 616" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="privacy-data-flow-title privacy-data-flow-desc">
+        <title id="privacy-data-flow-title">Luồng dữ liệu riêng tư của WattPrint</title>
+        <desc id="privacy-data-flow-desc">Số đo và câu hỏi vào kho của WattPrint kèm thời hạn, người, Wappi và API đọc, rồi một phần đi ra dịch vụ ngoài; hiện trạng 28/11/2026.</desc>
+        <defs><marker id="arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#4f5d75"/></marker><marker id="arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#bf4520"/></marker><marker id="arrow-link" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#2e5aa8"/></marker></defs>
+        <rect width="100%" height="100%" fill="#f5f5f5"/>
+<text x="24" y="24" fill="#5a6580" font-size="8" font-weight="400" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="start" letter-spacing="0.14em">1 · NGUỒN</text><text x="272" y="24" fill="#5a6580" font-size="8" font-weight="400" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="start" letter-spacing="0.14em">2 · LƯU TRONG WATTPRINT · THỜI HẠN</text><text x="616" y="24" fill="#5a6580" font-size="8" font-weight="400" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="start" letter-spacing="0.14em">3 · AI ĐỌC ĐƯỢC</text><text x="968" y="24" fill="#5a6580" font-size="8" font-weight="400" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="start" letter-spacing="0.14em">4 · DỊCH VỤ NGOÀI</text><rect x="260" y="40" width="264" height="424" rx="8" fill="rgba(45,49,66,0.02)" stroke="rgba(45,49,66,0.10)" stroke-width="0.8"/>
+<rect x="272" y="44" width="132" height="12" rx="2" fill="#f5f5f5" stroke="none"/>
+<text x="338.0" y="53" fill="#5a6580" font-size="7" font-weight="400" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.14em">KHO TRONG WATTPRINT</text><line x1="920" y1="40" x2="920" y2="464" stroke="#bf4520" stroke-width="1" stroke-dasharray="4,3"/>
+<text x="920" y="480" fill="#bf4520" font-size="8" font-weight="400" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.14em">RANH GIỚI RA NGOÀI</text><path d="M192,168 L272,168" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#arrow)"/>
+<path d="M192,320 L272,320" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#arrow)"/>
+<path d="M524,112 L616,112" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#arrow)"/>
+<path d="M524,248 L616,248" fill="none" stroke="#bf4520" stroke-width="1.2" marker-end="url(#arrow-accent)"/>
+<path d="M524,408 L616,408" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#arrow)"/>
+<path d="M872,248 L968,248" fill="none" stroke="#2e5aa8" stroke-width="1.2" marker-end="url(#arrow-link)"/>
+<path d="M872,408 L968,408" fill="none" stroke="#2e5aa8" stroke-width="1.2" marker-end="url(#arrow-link)"/>
+<rect x="272" y="64" width="240" height="200" rx="6" fill="#f5f5f5" stroke="none"/>
+<rect x="272" y="64" width="240" height="200" rx="6" fill="rgba(45,49,66,0.05)" stroke="#4f5d75" stroke-width="1"/>
+<rect x="280" y="70" width="28" height="12" rx="2" fill="none" stroke="#4f5d75" stroke-opacity="0.4" stroke-width="0.8"/>
+<text x="294.0" y="79" fill="#4f5d75" font-size="7" font-weight="400" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.08em">KHO</text><text x="392.0" y="132" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Kho điện</text><text x="392.0" y="146" fill="#4f5d75" font-size="10" font-weight="400" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Số đo thô: 400 ngày</text><text x="392.0" y="159" fill="#4f5d75" font-size="10" font-weight="400" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Tổng theo phút: 400 ngày</text><text x="392.0" y="172" fill="#4f5d75" font-size="10" font-weight="400" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Tổng theo giờ: không hạn</text><text x="392.0" y="185" fill="#4f5d75" font-size="10" font-weight="400" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Tổng theo ngày: không hạn</text><text x="392.0" y="198" fill="#4f5d75" font-size="10" font-weight="400" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Hóa đơn: 25 kỳ</text><text x="392.0" y="211" fill="#4f5d75" font-size="10" font-weight="400" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Lượt bật/tắt, cảnh báo, dự báo: không</text><text x="392.0" y="224" fill="#4f5d75" font-size="10" font-weight="400" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">hạn</text><rect x="272" y="280" width="240" height="80" rx="6" fill="#f5f5f5" stroke="none"/>
+<rect x="272" y="280" width="240" height="80" rx="6" fill="rgba(45,49,66,0.05)" stroke="#4f5d75" stroke-width="1"/>
+<rect x="280" y="286" width="28" height="12" rx="2" fill="none" stroke="#4f5d75" stroke-opacity="0.4" stroke-width="0.8"/>
+<text x="294.0" y="295" fill="#4f5d75" font-size="7" font-weight="400" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.08em">KHO</text><text x="392.0" y="321" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Trò chuyện</text><text x="392.0" y="335" fill="#4f5d75" font-size="10" font-weight="400" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">kèm số liệu, SQL</text><text x="392.0" y="348" fill="#4f5d75" font-size="10" font-weight="400" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">đến khi xóa; âm thanh 30 ngày</text><rect x="272" y="376" width="240" height="72" rx="6" fill="#f5f5f5" stroke="none"/>
+<rect x="272" y="376" width="240" height="72" rx="6" fill="rgba(45,49,66,0.05)" stroke="#4f5d75" stroke-width="1"/>
+<rect x="280" y="382" width="28" height="12" rx="2" fill="none" stroke="#4f5d75" stroke-opacity="0.4" stroke-width="0.8"/>
+<text x="294.0" y="391" fill="#4f5d75" font-size="7" font-weight="400" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.08em">KHO</text><text x="392.0" y="419" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Đồng ý · nhật ký gửi ngoài</text><text x="392.0" y="433" fill="#4f5d75" font-size="10" font-weight="400" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">theo tài khoản · 90 ngày</text><rect x="24" y="136" width="168" height="64" rx="6" fill="#f5f5f5" stroke="none"/>
+<rect x="24" y="136" width="168" height="64" rx="6" fill="rgba(79,93,117,0.10)" stroke="#5a6580" stroke-width="1"/>
+<rect x="32" y="142" width="36" height="12" rx="2" fill="none" stroke="#4f5d75" stroke-opacity="0.4" stroke-width="0.8"/>
+<text x="50.0" y="151" fill="#4f5d75" font-size="7" font-weight="400" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.08em">NGUỒN</text><text x="108.0" y="175" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Công tơ</text><text x="108.0" y="189" fill="#4f5d75" font-size="10" font-weight="400" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">số đo ~10 giây</text><rect x="24" y="288" width="168" height="64" rx="6" fill="#f5f5f5" stroke="none"/>
+<rect x="24" y="288" width="168" height="64" rx="6" fill="rgba(79,93,117,0.10)" stroke="#5a6580" stroke-width="1"/>
+<rect x="32" y="294" width="36" height="12" rx="2" fill="none" stroke="#4f5d75" stroke-opacity="0.4" stroke-width="0.8"/>
+<text x="50.0" y="303" fill="#4f5d75" font-size="7" font-weight="400" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.08em">NGUỒN</text><text x="108.0" y="327" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Người dùng</text><text x="108.0" y="341" fill="#4f5d75" font-size="10" font-weight="400" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">câu hỏi, giọng nói</text><rect x="616" y="56" width="256" height="112" rx="6" fill="#f5f5f5" stroke="none"/>
+<rect x="616" y="56" width="256" height="112" rx="6" fill="rgba(79,93,117,0.10)" stroke="#5a6580" stroke-width="1"/>
+<rect x="624" y="62" width="28" height="12" rx="2" fill="none" stroke="#4f5d75" stroke-opacity="0.4" stroke-width="0.8"/>
+<text x="638.0" y="71" fill="#4f5d75" font-size="7" font-weight="400" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.08em">ĐỌC</text><text x="744.0" y="106" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Người và worker đọc</text><text x="744.0" y="120" fill="#4f5d75" font-size="10" font-weight="400" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Chủ nhà, TV đầy đủ, TV chỉ theo ngày,</text><text x="744.0" y="133" fill="#4f5d75" font-size="10" font-weight="400" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">khách demo, worker (NILM, insight), admin,</text><text x="744.0" y="146" fill="#4f5d75" font-size="10" font-weight="400" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">người bảo trì</text><rect x="616" y="200" width="256" height="96" rx="6" fill="#f5f5f5" stroke="none"/>
+<rect x="616" y="200" width="256" height="96" rx="6" fill="rgba(191,69,32,0.08)" stroke="#bf4520" stroke-width="1"/>
+<rect x="624" y="206" width="36" height="12" rx="2" fill="none" stroke="#bf4520" stroke-opacity="0.4" stroke-width="0.8"/>
+<text x="642.0" y="215" fill="#bf4520" font-size="7" font-weight="400" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.08em">XỬ LÝ</text><text x="744.0" y="249" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Wappi + text2sql</text><text x="744.0" y="263" fill="#4f5d75" font-size="10" font-weight="400" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">chỉ đọc view theo token nhà</text><text x="744.0" y="276" fill="#4f5d75" font-size="10" font-weight="400" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">mức ngày (mặc định) hoặc giờ</text><rect x="616" y="360" width="256" height="96" rx="6" fill="#f5f5f5" stroke="none"/>
+<rect x="616" y="360" width="256" height="96" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+<rect x="624" y="366" width="36" height="12" rx="2" fill="none" stroke="#4f5d75" stroke-opacity="0.4" stroke-width="0.8"/>
+<text x="642.0" y="375" fill="#4f5d75" font-size="7" font-weight="400" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.08em">XỬ LÝ</text><text x="744.0" y="415" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">API và worker</text><text x="744.0" y="429" fill="#4f5d75" font-size="10" font-weight="400" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">ghi nhật ký trước khi gửi</text><rect x="968" y="200" width="184" height="96" rx="6" fill="#f5f5f5" stroke="none"/>
+<rect x="968" y="200" width="184" height="96" rx="6" fill="rgba(45,49,66,0.03)" stroke="rgba(45,49,66,0.30)" stroke-width="1"/>
+<rect x="976" y="206" width="36" height="12" rx="2" fill="none" stroke="#5a6580" stroke-opacity="0.4" stroke-width="0.8"/>
+<text x="994.0" y="215" fill="#5a6580" font-size="7" font-weight="400" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.08em">NGOÀI</text><text x="1060.0" y="242" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Dịch vụ AI</text><text x="1060.0" y="256" fill="#4f5d75" font-size="10" font-weight="400" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">OpenRouter · ngoài Việt Nam</text><text x="1060.0" y="269" fill="#4f5d75" font-size="10" font-weight="400" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">AstralX: AI dự phòng, giọng</text><text x="1060.0" y="282" fill="#4f5d75" font-size="10" font-weight="400" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">nói</text><rect x="968" y="360" width="184" height="96" rx="6" fill="#f5f5f5" stroke="none"/>
+<rect x="968" y="360" width="184" height="96" rx="6" fill="rgba(45,49,66,0.03)" stroke="rgba(45,49,66,0.30)" stroke-width="1"/>
+<rect x="976" y="366" width="36" height="12" rx="2" fill="none" stroke="#5a6580" stroke-opacity="0.4" stroke-width="0.8"/>
+<text x="994.0" y="375" fill="#5a6580" font-size="7" font-weight="400" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.08em">NGOÀI</text><text x="1060.0" y="409" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Dịch vụ khác</text><text x="1060.0" y="423" fill="#4f5d75" font-size="10" font-weight="400" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">OpenWeather, Telegram, SMTP,</text><text x="1060.0" y="436" fill="#4f5d75" font-size="10" font-weight="400" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Google · mail Keycloak</text><text x="24" y="516" fill="#4f5d75" font-size="11" font-weight="400" font-family="'Geist', system-ui, sans-serif" text-anchor="start">CHƯA ÁP DỤNG (spec R1.1, đợt Đ7): thời hạn theo bậc thô 30 · phút 90 · giờ 400 · ngày 800.</text><text x="24" y="536" fill="#4f5d75" font-size="11" font-weight="400" font-family="'Geist', system-ui, sans-serif" text-anchor="start">Đồng ý theo mục đích (wappi, giọng nói, email) đã có, nhưng việc CHẶN đang TẮT trên máy chủ (consent_enforced = False).</text><text x="24" y="556" fill="#4f5d75" font-size="11" font-weight="400" font-family="'Geist', system-ui, sans-serif" text-anchor="start">Chi tiết: ai đọc ở privacy/readers; gửi gì ra ngoài ở privacy/outbound.</text><line x1="24" y1="576" x2="1152" y2="576" stroke="rgba(45,49,66,0.10)" stroke-width="0.8"/>
+<text x="24" y="594" fill="#5a6580" font-size="8" font-weight="400" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="start" letter-spacing="0.14em">CHÚ GIẢI</text><rect x="100" y="585" width="22" height="12" rx="3" fill="rgba(45,49,66,0.05)" stroke="#4f5d75"/>
+<text x="128" y="594" fill="#5a6580" font-size="9" font-weight="400" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="start">kho dữ liệu</text><rect x="213" y="585" width="22" height="12" rx="3" fill="rgba(79,93,117,0.10)" stroke="#5a6580"/>
+<text x="241" y="594" fill="#5a6580" font-size="9" font-weight="400" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="start">tác nhân</text><rect x="309" y="585" width="22" height="12" rx="3" fill="rgba(191,69,32,0.08)" stroke="#bf4520"/>
+<text x="337" y="594" fill="#5a6580" font-size="9" font-weight="400" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="start">điểm chính</text><rect x="417" y="585" width="22" height="12" rx="3" fill="#ffffff" stroke="#2d3142"/>
+<text x="445" y="594" fill="#5a6580" font-size="9" font-weight="400" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="start">tiến trình</text><rect x="525" y="585" width="22" height="12" rx="3" fill="rgba(45,49,66,0.03)" stroke="rgba(45,49,66,0.30)"/>
+<text x="553" y="594" fill="#5a6580" font-size="9" font-weight="400" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="start">bên ngoài hệ thống</text><line x1="677" y1="591" x2="701" y2="591" stroke="#4f5d75" stroke-width="1.2"/>
+<text x="707" y="594" fill="#5a6580" font-size="9" font-weight="400" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="start">luồng trong hệ thống</text><line x1="843" y1="591" x2="867" y2="591" stroke="#bf4520" stroke-width="1.2"/>
+<text x="873" y="594" fill="#5a6580" font-size="9" font-weight="400" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="start">luồng chính</text><line x1="958" y1="591" x2="982" y2="591" stroke="#2e5aa8" stroke-width="1.2"/>
+<text x="988" y="594" fill="#5a6580" font-size="9" font-weight="400" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="start">ra / vào hệ thống ngoài</text>
+      </svg>
+    </div>
+  </div>
 </body>
 </html>

@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DFD mức ngữ cảnh WattPrint</title>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500;600&family=Noto+Serif:ital@0;1&family=Noto+Sans+KR:wght@400;500;600&family=Noto+Serif+KR:wght@400&family=Noto+Sans+TC:wght@400;500;600&family=Noto+Serif+TC:wght@400&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root { --color-paper:#f5f5f5; --color-ink:#2d3142; --color-muted:#4f5d75; --color-accent:#bf4520;
+      --font-sans:'Geist', system-ui, sans-serif; --font-serif:'Noto Serif',serif; --font-mono:'Geist Mono', ui-monospace, monospace; }
+    body { font-family: var(--font-sans); background: var(--color-paper); color: var(--color-ink); min-height: 100vh; display:flex; align-items:center; justify-content:center; padding:3rem 2rem; }
+    .frame { max-width: 960px; width: 100%; }
+    .diagram-container { width: 100%; overflow-x: auto; }
+    .eyebrow { font-family: var(--font-mono); font-size:0.66rem; font-weight:500; letter-spacing:0.18em; text-transform:uppercase; color: var(--color-muted); margin-bottom:0.5rem; }
+    h1 { font-family: var(--font-serif); font-size: clamp(1.5rem, 2.4vw + 0.75rem, 2rem); font-weight:400; letter-spacing:-0.02em; line-height:1.15; color: var(--color-ink); margin-bottom:1.5rem; }
+    svg { width: 100%; min-width: 944px; display:block; }
+    @media print { .diagram-container { overflow-x: visible; } svg { min-width: 0; } }
+  </style>
+</head>
+<body>
+  <div class="frame">
+    <p class="eyebrow">DFD context · Diagram Design</p>
+    <h1>DFD mức ngữ cảnh WattPrint</h1>
+    <div class="diagram-container">
+      <svg viewBox="0 0 944 524" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="context-title context-desc">
+        <title id="context-title">DFD mức ngữ cảnh WattPrint</title>
+        <desc id="context-desc">Người trong nhà, công tơ, admin và người bảo trì trao đổi dữ liệu với WattPrint; các dịch vụ ngoài gom thành một khối.</desc>
+        <defs><marker id="arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#4f5d75"/></marker><marker id="arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#bf4520"/></marker><marker id="arrow-link" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#2e5aa8"/></marker></defs>
+        <rect width="100%" height="100%" fill="#f5f5f5"/>
+<path d="M232,64 L616,64" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#arrow)"/>
+<rect x="296.0" y="44" width="256" height="12" rx="2" fill="#f5f5f5" stroke="none"/>
+<text x="424.0" y="53" fill="#5a6580" font-size="9" font-weight="400" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">câu hỏi, giọng nói, đồng ý, mức xem, lệnh xóa</text><path d="M616,100 L232,100" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#arrow)"/>
+<rect x="326.0" y="80" width="196" height="12" rx="2" fill="#f5f5f5" stroke="none"/>
+<text x="424.0" y="89" fill="#5a6580" font-size="9" font-weight="400" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">biểu đồ, hóa đơn, trả lời, nhật ký</text><path d="M232,188 L616,188" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#arrow)"/>
+<rect x="370.0" y="168" width="108" height="12" rx="2" fill="#f5f5f5" stroke="none"/>
+<text x="424.0" y="177" fill="#5a6580" font-size="9" font-weight="400" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">số đo + mã công tơ</text><path d="M616,292 L232,292" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#arrow)"/>
+<rect x="366.0" y="272" width="116" height="12" rx="2" fill="#f5f5f5" stroke="none"/>
+<text x="424.0" y="281" fill="#5a6580" font-size="9" font-weight="400" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">danh sách tài khoản</text><path d="M616,396 L232,396" fill="none" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#arrow)"/>
+<rect x="334.0" y="376" width="180" height="12" rx="2" fill="#f5f5f5" stroke="none"/>
+<text x="424.0" y="385" fill="#5a6580" font-size="9" font-weight="400" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">👎; nội dung nếu người dùng tích</text><path d="M776,228 L800,228" fill="none" stroke="#2e5aa8" stroke-width="1.2" marker-end="url(#arrow-link)"/>
+<rect x="24" y="24" width="208" height="96" rx="6" fill="#f5f5f5" stroke="none"/>
+<rect x="24" y="24" width="208" height="96" rx="6" fill="rgba(79,93,117,0.10)" stroke="#5a6580" stroke-width="1"/>
+<rect x="32" y="30" width="52" height="12" rx="2" fill="none" stroke="#4f5d75" stroke-opacity="0.4" stroke-width="0.8"/>
+<text x="58.0" y="39" fill="#4f5d75" font-size="7" font-weight="400" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.08em">TÁC NHÂN</text><text x="128.0" y="79" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Người trong nhà</text><text x="128.0" y="93" fill="#4f5d75" font-size="10" font-weight="400" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">chủ nhà, thành viên, khách demo</text><rect x="24" y="152" width="208" height="72" rx="6" fill="#f5f5f5" stroke="none"/>
+<rect x="24" y="152" width="208" height="72" rx="6" fill="rgba(79,93,117,0.10)" stroke="#5a6580" stroke-width="1"/>
+<rect x="32" y="158" width="52" height="12" rx="2" fill="none" stroke="#4f5d75" stroke-opacity="0.4" stroke-width="0.8"/>
+<text x="58.0" y="167" fill="#4f5d75" font-size="7" font-weight="400" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.08em">TÁC NHÂN</text><text x="128.0" y="195" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Công tơ / phát lại</text><text x="128.0" y="209" fill="#4f5d75" font-size="10" font-weight="400" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">REFIT, demo</text><rect x="24" y="256" width="208" height="72" rx="6" fill="#f5f5f5" stroke="none"/>
+<rect x="24" y="256" width="208" height="72" rx="6" fill="rgba(79,93,117,0.10)" stroke="#5a6580" stroke-width="1"/>
+<rect x="32" y="262" width="52" height="12" rx="2" fill="none" stroke="#4f5d75" stroke-opacity="0.4" stroke-width="0.8"/>
+<text x="58.0" y="271" fill="#4f5d75" font-size="7" font-weight="400" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.08em">TÁC NHÂN</text><text x="128.0" y="299" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Admin</text><text x="128.0" y="313" fill="#4f5d75" font-size="10" font-weight="400" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">vai Keycloak</text><rect x="24" y="360" width="208" height="72" rx="6" fill="#f5f5f5" stroke="none"/>
+<rect x="24" y="360" width="208" height="72" rx="6" fill="rgba(79,93,117,0.10)" stroke="#5a6580" stroke-width="1"/>
+<rect x="32" y="366" width="52" height="12" rx="2" fill="none" stroke="#4f5d75" stroke-opacity="0.4" stroke-width="0.8"/>
+<text x="58.0" y="375" fill="#4f5d75" font-size="7" font-weight="400" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.08em">TÁC NHÂN</text><text x="128.0" y="403" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Người bảo trì</text><text x="128.0" y="417" fill="#4f5d75" font-size="10" font-weight="400" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">vận hành máy chủ</text><rect x="616" y="24" width="160" height="408" rx="6" fill="#f5f5f5" stroke="none"/>
+<rect x="616" y="24" width="160" height="408" rx="6" fill="rgba(191,69,32,0.08)" stroke="#bf4520" stroke-width="1"/>
+<rect x="624" y="30" width="52" height="12" rx="2" fill="none" stroke="#bf4520" stroke-opacity="0.4" stroke-width="0.8"/>
+<text x="650.0" y="39" fill="#bf4520" font-size="7" font-weight="400" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.08em">HỆ THỐNG</text><text x="696.0" y="229" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">0 · WattPrint</text><text x="696.0" y="243" fill="#4f5d75" font-size="10" font-weight="400" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">API, worker, database,</text><text x="696.0" y="256" fill="#4f5d75" font-size="10" font-weight="400" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Wappi, text2sql</text><rect x="800" y="24" width="120" height="408" rx="6" fill="#f5f5f5" stroke="none"/>
+<rect x="800" y="24" width="120" height="408" rx="6" fill="rgba(45,49,66,0.03)" stroke="rgba(45,49,66,0.30)" stroke-width="1"/>
+<rect x="808" y="30" width="36" height="12" rx="2" fill="none" stroke="#5a6580" stroke-opacity="0.4" stroke-width="0.8"/>
+<text x="826.0" y="39" fill="#5a6580" font-size="7" font-weight="400" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.08em">NGOÀI</text><text x="860.0" y="229" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Dịch vụ ngoài</text><text x="860.0" y="243" fill="#4f5d75" font-size="10" font-weight="400" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">6 bên, xem sơ đồ</text><text x="860.0" y="256" fill="#4f5d75" font-size="10" font-weight="400" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">context-external</text><text x="24" y="464" fill="#4f5d75" font-size="11" font-weight="400" font-family="'Geist', system-ui, sans-serif" text-anchor="start">Ở Telegram, người bảo trì đọc tin do hệ thống gửi. Chặn theo đồng ý đang tắt trên máy chủ.</text><line x1="24" y1="484" x2="920" y2="484" stroke="rgba(45,49,66,0.10)" stroke-width="0.8"/>
+<text x="24" y="502" fill="#5a6580" font-size="8" font-weight="400" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="start" letter-spacing="0.14em">CHÚ GIẢI</text><rect x="100" y="493" width="22" height="12" rx="3" fill="rgba(79,93,117,0.10)" stroke="#5a6580"/>
+<text x="128" y="502" fill="#5a6580" font-size="9" font-weight="400" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="start">tác nhân</text><rect x="196" y="493" width="22" height="12" rx="3" fill="rgba(191,69,32,0.08)" stroke="#bf4520"/>
+<text x="224" y="502" fill="#5a6580" font-size="9" font-weight="400" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="start">điểm chính</text><rect x="304" y="493" width="22" height="12" rx="3" fill="rgba(45,49,66,0.03)" stroke="rgba(45,49,66,0.30)"/>
+<text x="332" y="502" fill="#5a6580" font-size="9" font-weight="400" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="start">bên ngoài hệ thống</text><line x1="456" y1="499" x2="480" y2="499" stroke="#4f5d75" stroke-width="1.2"/>
+<text x="486" y="502" fill="#5a6580" font-size="9" font-weight="400" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="start">luồng trong hệ thống</text><line x1="622" y1="499" x2="646" y2="499" stroke="#2e5aa8" stroke-width="1.2"/>
+<text x="652" y="502" fill="#5a6580" font-size="9" font-weight="400" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="start">ra / vào hệ thống ngoài</text>
+      </svg>
+    </div>
+  </div>
+</body>
+</html>
